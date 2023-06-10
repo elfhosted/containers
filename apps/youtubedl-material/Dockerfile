@@ -2,7 +2,7 @@ ARG VERSION
 
 # Create our Ubuntu 22.04 with node 16.14.2 (that specific version is required as per: https://stackoverflow.com/a/72855258/8088021)
 # Go to 20.04
-FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:6b760ba53426015f3f89404f728332d54ea3f135d8884eccc65ee9f13e0ed763 AS base
+FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:dadd2618e807a478ba519b9ed48707955ea2f1dd7ed41dd236a73d3eb968a95e AS base
 ARG DEBIAN_FRONTEND=noninteractive
 ENV NO_UPDATE_NOTIFIER=true
 ENV PM2_HOME=/app/pm2
