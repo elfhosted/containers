@@ -6,7 +6,7 @@ on:
 
 jobs:
   stale:
-    runs-on: [ self-hosted, actions-runner ]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@v8
         with:
