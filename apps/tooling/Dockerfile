@@ -25,8 +25,6 @@ RUN apt-get update && apt-get install -y \
 	sqlite3 \
 	--no-install-recommends \
 	&& rm -rf /var/lib/apt/lists/* && \
-	cd /opt && \
-	git clone https://github.com/magnific0/wondershaper.git && \
 	cd /tmp && \
 	wget https://github.com/peak/s5cmd/releases/download/v2.1.0-beta.1/s5cmd_2.1.0-beta.1_Linux-64bit.tar.gz && \
 	tar zxfvp s5cmd_2.1.0-beta.1_Linux-64bit.tar.gz && \
