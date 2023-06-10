@@ -1,4 +1,4 @@
-FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:dce9a402b9fde42298f7b5079c5bb37a865118b81f3996cac117b90db203c1b4
+FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:dadd2618e807a478ba519b9ed48707955ea2f1dd7ed41dd236a73d3eb968a95e 
 
 # set version label
 ARG BUILD_DATE
