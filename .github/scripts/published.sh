@@ -12,7 +12,7 @@ tags=$( \
     curl -fsSL \
         -H "Accept: application/vnd.github.v3+json" \
         -H "Authorization: Bearer ${TOKEN}" \
-        "https://api.github.com/users/geek-cookbook/packages/container/${APP}/versions" \
+        "https://api.github.com/orgs/geek-cookbook/packages/container/${APP}/versions" \
         2>/dev/null
 )
 

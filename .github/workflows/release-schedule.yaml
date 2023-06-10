@@ -30,9 +30,7 @@ jobs:
 
       - name: Fetch new app versions
         id: fetch
-        run: ./.github/scripts/fetch.sh    
-        env:
-          TOKEN: ${{ secrets.GH_PAT }} # not sure why we need the GH_PAT for this bit
+        run: ./.github/scripts/fetch.sh
 
   images-build:
     uses: geek-cookbook/containers/.github/workflows/action-image-build.yaml@main
