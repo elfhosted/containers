@@ -1,0 +1,106 @@
+FROM debian:bullseye-slim as builder
+
+LABEL org.opencontainers.image.source https://github.com/geek-cookbook/docker-deluge
+
+SHELL ["/bin/bash", "-c"]
+
+ARG UNRAR_VERSION=6.1.4
+ARG VERSION
+ARG cryptography=openssl
+ARG libtorrent_minimum_version=1.2.0
+ARG pythonver=python3
+ARG python=python3
+ARG deluge_git_branch=master
+ARG tag=" static with c++14 march=native"
+ARG libtorrent_branch=RC_1_2
+ARG distver=python3
+ARG LT_PATCH=""
+ARG BOOST_VERSION=1_75_0
+
+ENV VPN_ENABLED="false" VPN_LAN_NETWORK="" VPN_CONF="wg0" VPN_ADDITIONAL_PORTS="" WEBUI_PORTS="8112/tcp,8112/udp" PRIVOXY_ENABLED="false" S6_SERVICES_GRACETIME=180000 VPN_IP_CHECK_DELAY=5 UI_USERNAME="admin" UI_PASSWORD="deluge"
+ENV ARG DEBIAN_FRONTEND=noninteractive
+
+
+# hadolint ignore=DL3008,DL3028,DL3009
+RUN apt-get update && apt-get install build-essential gnupg2 apt-transport-https \
+    unzip privoxy iptables iproute2 openresolv wireguard-tools ipcalc ruby ruby-dev \ 
+    libffi-dev git wget apt-utils software-properties-common python3 python3-setuptools \
+    python3-pip intltool python3-zope.interface python3-twisted python3-openssl python3-xdg \
+    python3-chardet python3-mako python3-setproctitle python3-rencode python3-pil \ 
+    librsvg2-common xdg-utils --no-install-recommends -y && \
+    gem install fpm && \
+    apt-get autoremove -y && \
+    apt-get clean
+
+# RUN ln -s "${CONFIG_DIR}" "${APP_DIR}/deluge"
+
+WORKDIR /opt
+RUN wget --progress=dot:giga https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz && \
+    tar xvf boost_${BOOST_VERSION}.tar.gz && \
+    rm -f boost_${BOOST_VERSION}.tar.gz
+
+COPY ./apps/deluge/build.sh /build.sh
+COPY ./apps/deluge/app /app
+COPY ./apps/deluge/patches /patches
+
+# hadolint ignore=SC1091
+RUN bash -c ". /build.sh && _build ${LT_PATCH}"
+
+# ENTRYPOINT ["/bin/bash"]
+
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir pip && \
+    git clone -b ${deluge_git_branch} git://deluge-torrent.org/deluge.git /tmp/deluge
+    
+WORKDIR /tmp/deluge
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN VERSION=$(git describe | cut -d- -f2) && \
+    git apply /patches/* && \
+    sed -i 's/-dev//g' setup.cfg && \
+    mkdir -p /root/dist && \
+    fpm --python-disable-dependency=pyxdg --python-disable-dependency=pyopenssl -d python3-openssl -d python3-xdg --python-fix-dependencies --python-bin=${pythonver} --python-package-name-prefix=${pythonver} --python-setup-py-arguments=--install-layout=deb -n deluge-common -f -p "/root/dist/deluge-common_${VERSION}.deb" --description "Deluge compiled by swizzin" -s python -t deb /tmp/deluge/setup.py && \
+    dpkg -i "/root/dist/deluge-common_${VERSION}.deb" && \
+    chmod 644 /app/deluge.UpdateTracker.py
+    
+WORKDIR /tmp
+RUN rm -rf /tmp/deluge && \
+    apt-get autoremove -y && \
+    apt-get clean
+
+WORKDIR /tmp/unrar
+RUN wget --progress=dot:giga \
+        "https://www.rarlab.com/rar/unrarsrc-${UNRAR_VERSION}.tar.gz" \
+        -O /tmp/unrar.tar.gz && \
+    tar xf \
+        /tmp/unrar.tar.gz -C \
+        /tmp/unrar --strip-components=1 && \
+    make && \
+    install -v -m755 unrar /usr/local/bin
+
+
+FROM debian:bullseye-slim
+
+# hadolint ignore=DL3008,DL3028,DL3009
+RUN apt-get update && apt-get install python3 python3-setuptools \
+    python3-pip intltool python3-zope.interface python3-twisted python3-openssl python3-xdg \
+    python3-chardet python3-mako unzip p7zip python3-setproctitle python3-rencode python3-pil iperf curl xz-utils openjdk-17-jre \ 
+    --no-install-recommends -y && \
+    apt-get autoremove -y && \
+    apt-get clean
+
+RUN curl -o /tmp/filebot.xz -L "https://get.filebot.net/filebot/FileBot_5.0.1/FileBot_5.0.1-portable.tar.xz" && \
+    mkdir -p /opt/filebot && \
+    tar xvf /tmp/filebot.xz -C /opt/filebot && \
+    rm -rf /tmp/filebot.xz && \
+    ln -s /opt/filebot/filebot.sh /usr/local/bin/filebot
+
+COPY --from=builder /usr/bin/deluge* /usr/bin/
+COPY --from=builder /usr/local/bin/unrar /usr/local/bin/
+COPY --from=builder /root/dist/ /root/dist/
+RUN dpkg -i /root/dist/*
+
+EXPOSE 8112 58846 58946 58946/udp
+
+# Try to make goss work
+ENTRYPOINT ["deluged"]

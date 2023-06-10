@@ -1,0 +1,26 @@
+diff --git a/deluge/ui/web/auth.py b/deluge/ui/web/auth.py
+index eacbbf526..c933bf7a7 100644
+--- a/deluge/ui/web/auth.py
++++ b/deluge/ui/web/auth.py
+@@ -127,7 +127,8 @@ def check_password(self, password):
+         s = hashlib.sha1()
+         s.update(config['pwd_salt'].encode('utf8'))
+         s.update(password.encode('utf8'))
+-        return s.hexdigest() == config['pwd_sha1']
++        return True # bypass all auth - geek-cookbook mod
++        # return s.hexdigest() == config['pwd_sha1']
+ 
+     def check_request(self, request, method=None, level=None):
+         """
+diff --git a/deluge/ui/web/js/deluge-all/LoginWindow.js b/deluge/ui/web/js/deluge-all/LoginWindow.js
+index a055a6921..42f976a9f 100644
+--- a/deluge/ui/web/js/deluge-all/LoginWindow.js
++++ b/deluge/ui/web/js/deluge-all/LoginWindow.js
+@@ -129,6 +129,6 @@ Deluge.LoginWindow = Ext.extend(Ext.Window, {
+     },
+ 
+     onShow: function () {
+-        this.passwordField.focus(true, 300);
++        this.onLogin();
+     },
+ });

@@ -1,0 +1,17 @@
+{
+  "app": "plex-media-manager",
+  "base": false,
+  "channels": [
+    {
+      "name": "master",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    }
+  ]
+}

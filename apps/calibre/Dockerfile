@@ -1,0 +1,37 @@
+FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:dce9a402b9fde42298f7b5079c5bb37a865118b81f3996cac117b90db203c1b4
+
+ARG VERSION
+
+RUN apt-get update && apt-get install -y \
+    libfontconfig \
+    libegl1 \
+    xz-utils \
+    libx11-6 \
+    libxkbcommon0 \
+    libglx0 \
+    libopengl0 \
+    libnss3 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libxtst6 \
+    libxkbfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -o /tmp/calibre-tarball.txz -L "https://download.calibre-ebook.com/${VERSION}/calibre-${VERSION}-x86_64.txz" && \
+    mkdir -p /opt/calibre && \
+    tar xvf /tmp/calibre-tarball.txz -C /opt/calibre && \
+    rm -rf /tmp/*
+
+RUN /opt/calibre/calibre_postinstall && \
+    mkdir -p /media/books && \
+    touch /media/books/metadata.db && \
+    chown 568 /media/books/metadata.db
+
+COPY ./apps/calibre/entrypoint.sh /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
+
+USER 568
+VOLUME /media
+EXPOSE 8080

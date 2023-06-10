@@ -1,0 +1,17 @@
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/iptables-legacy-save
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/ip6tables-legacy-save
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/iptables-nft-save
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/ip6tables-nft-save
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/iptables -F OUTPUT
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/ip6tables -F OUTPUT
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/iptables -A OUTPUT *
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/ip6tables -A OUTPUT *
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/ip -4 route add *
+seedy ALL= EXEC: NOPASSWD: /usr/sbin/ip -6 route add *
+seedy ALL= EXEC: NOPASSWD: /usr/bin/wg show *
+seedy ALL= EXEC: NOPASSWD: /usr/bin/wg-quick up *
+seedy ALL= EXEC: NOPASSWD: /usr/bin/wg-quick down *
+seedy ALL= EXEC: NOPASSWD: /usr/bin/find /etc/wireguard -type f *
+seedy ALL= EXEC: NOPASSWD: /usr/bin/update-alternatives --set iptables *
+seedy ALL= EXEC: NOPASSWD: /usr/bin/update-alternatives --set ip6tables *
+Defaults env_keep +="TZ"

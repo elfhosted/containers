@@ -1,0 +1,17 @@
+{
+  "app": "kavita",
+  "base": false,
+  "channels": [
+    {
+      "name": "nightly",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+---
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+process:
+  ServerWorker9: # right? weird binary, but so says `ps`
+    running: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+http:
+  http://localhost:8080:
+    status: 200
+
+port:
+  tcp:8080:
+    listening: true

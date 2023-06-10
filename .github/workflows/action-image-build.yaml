@@ -1,0 +1,233 @@
+---
+name: "Action: Image Build"
+
+on:
+  workflow_call:
+    inputs:
+      imagesToBuild:
+        description: |-
+          Pass a json string with the images and channels to build. e.g.:
+            [
+              {
+                "app": "sonarr",
+                "channel": "main"
+              },
+              {
+                "app": "sonarr",
+                "channel": "develop"
+              }
+            ]
+        required: false
+        type: string
+        default: ''
+
+      pushImages:
+        required: false
+        default: 'true'
+        type: string
+
+      updateMetadata:
+        required: false
+        default: 'false'
+        type: string
+
+      sendNotification:
+        required: false
+        default: 'false'
+        type: string
+
+env:
+  TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: [ self-hosted, build-runner ]
+    if: inputs.imagesToBuild != '' && inputs.imagesToBuild != '[]'
+    strategy:
+      matrix:
+        image: ["${{ fromJson(inputs.imagesToBuild) }}"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Setup workflow Variables
+        id: vars
+        shell: bash
+        run: |-
+          container_base=$(jq '.base' ./apps/${{ matrix.image.app }}/metadata.json)
+          echo "::set-output name=chan_build_date::$(date --rfc-3339=seconds --utc)"
+
+          chan_config=$(jq --arg chan "${{ matrix.image.channel }}" '(.channels | .[] | select(.name == $chan))' ./apps/${{ matrix.image.app }}/metadata.json)
+          chan_stable=$(jq --raw-output '.stable' <<< "${chan_config}")
+
+          chan_platforms=$(jq --raw-output '.platforms | join(",")' <<< "${chan_config}") && \
+              echo "::set-output name=chan_platforms::${chan_platforms}"
+          chan_tests_enabled=$(jq --raw-output '.tests.enabled' <<< "${chan_config}") && \
+              echo "::set-output name=chan_tests_enabled::${chan_tests_enabled}"
+          chan_tests_type=$(jq --raw-output '.tests.type' <<< "${chan_config}") && \
+              echo "::set-output name=chan_tests_type::${chan_tests_type}"
+
+          chan_upstream_version=$(bash ./.github/scripts/upstream.sh "${{ matrix.image.app }}" "${{ matrix.image.channel }}") && \
+              echo "::set-output name=chan_upstream_version::${chan_upstream_version}"
+
+          if [[ "${chan_tests_enabled}" == true && "${chan_tests_type}" == "cli" ]]; then
+              echo "::set-output name=chan_goss_args::tail -f /dev/null"
+          fi
+
+          if [[ "${container_base}" == true ]]; then
+              echo "::set-output name=chan_label_type::org.opencontainers.image.base"
+          else
+              echo "::set-output name=chan_label_type::org.opencontainers.image"
+          fi
+
+          if test -f "./apps/${{ matrix.image.app }}/${{ matrix.image.channel }}/Dockerfile"; then
+              echo "::set-output name=chan_dockerfile::./apps/${{ matrix.image.app }}/${{ matrix.image.channel }}/Dockerfile"
+              echo "::set-output name=chan_goss_config::./apps/${{ matrix.image.app }}/${{ matrix.image.channel }}/goss.yaml"
+          else
+              echo "::set-output name=chan_dockerfile::./apps/${{ matrix.image.app }}/Dockerfile"
+              echo "::set-output name=chan_goss_config::./apps/${{ matrix.image.app }}/ci/goss.yaml"
+          fi
+
+          if [[ "${chan_stable}" == true ]]; then
+              echo "::set-output name=chan_tag_testing::${{ matrix.image.app }}:testingz"
+              echo "::set-output name=chan_tag_rolling::${{ matrix.image.app }}:rolling"
+              echo "::set-output name=chan_tag_version::${{ matrix.image.app }}:${chan_upstream_version}"
+          else
+              echo "::set-output name=chan_tag_testing::${{ matrix.image.app }}-${{ matrix.image.channel }}:testingz"
+              echo "::set-output name=chan_tag_rolling::${{ matrix.image.app }}-${{ matrix.image.channel }}:rolling"
+              echo "::set-output name=chan_tag_version::${{ matrix.image.app }}-${{ matrix.image.channel }}:${chan_upstream_version}"
+          fi
+
+      - name: Setup cli tools
+        shell: bash
+        run: |
+          sudo apt-get update 
+          sudo apt-get -y install moreutils jo
+
+      - name: Setup CUE
+        uses: cue-lang/setup-cue@v1.0.0-alpha.2
+
+      - name: Setup Goss
+        if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' }}
+        uses: e1himself/goss-installation-action@v1.1.0
+        with:
+          # renovate: datasource=github-releases depName=aelsabbahy/goss
+          version: v0.3.18
+
+      # - name: Setup QEMU
+      #   uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2.5.0
+        with:
+          driver: kubernetes
+          driver-opts: limits.cpu=4,"tolerations=key=customer-capacity-in-reserve,value=true,effect=NoExecute",qemu.install=true # don't DOS myself!
+
+      - name: Setup GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate image metadata
+        shell: bash
+        run: |-
+          cue vet --schema '#Spec' ./apps/${{ matrix.image.app }}/metadata.json ./metadata.rules.cue
+
+      - name: Build container image for testing
+        uses: docker/build-push-action@v4
+        with:
+          build-args: |-
+            VERSION=${{ steps.vars.outputs.chan_upstream_version }}
+            CHANNEL=${{ matrix.image.channel }}
+          context: .
+          platforms: linux/amd64 # load does not support muti-arch https://github.com/docker/buildx/issues/290
+          file: ${{ steps.vars.outputs.chan_dockerfile }}
+          load: true
+          tags: |-
+            ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Goss tests
+        id: dgoss
+        if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' }}
+        shell: bash
+        env:
+          DEBUG: true
+          CONTAINER_RUNTIME: docker
+          GOSS_FILE: ${{ steps.vars.outputs.chan_goss_config }}
+          GOSS_OPTS: |-
+            --retry-timeout 60s --sleep 2s --color --format documentation
+          GOSS_FILES_STRATEGY: cp
+        run: |
+          dgoss run ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }} ${{ steps.vars.outputs.chan_goss_args }}
+
+      - name: Build all platforms
+        id: release
+        uses: docker/build-push-action@v4
+        with:
+          build-args: |-
+            VERSION=${{ steps.vars.outputs.chan_upstream_version }}
+            CHANNEL=${{ matrix.image.channel }}
+          labels: |-
+            ${{ steps.vars.outputs.chan_label_type }}.created="${{ steps.vars.outputs.chan_build_date }}"
+            ${{ steps.vars.outputs.chan_label_type }}.title="${{ matrix.image.app }} (${{ matrix.image.channel }})"
+            ${{ steps.vars.outputs.chan_label_type }}.version="${{ steps.vars.outputs.chan_upstream_version }}"
+            ${{ steps.vars.outputs.chan_label_type }}.authors="Devin Buhl <devin.kray@gmail.com>, Bernd Schorgers <me@bjw-s.dev>"
+            ${{ steps.vars.outputs.chan_label_type }}.url="https://github.com/geek-cookbook/containers/apps/${{ matrix.image.app }}"
+            ${{ steps.vars.outputs.chan_label_type }}.build.url="https://github.com/geek-cookbook/containers/actions/runs/${{ github.run_id }}"
+            ${{ steps.vars.outputs.chan_label_type }}.documentation="https://github.com/geek-cookbook/containers/apps/${{ matrix.image.app }}/README.md"
+            ${{ steps.vars.outputs.chan_label_type }}.revision="${{ github.sha }}"
+
+          context: .
+          platforms: ${{ steps.vars.outputs.chan_platforms }}
+          file: ${{ steps.vars.outputs.chan_dockerfile }}
+          push: ${{ inputs.pushImages == 'true' }}
+          tags: |-
+            ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_rolling }}
+            ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build successful
+        id: build-success
+        if: ${{ always() && steps.release.outcome == 'success' }}
+        run: |-
+          echo "::set-output name=message::🎉 ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
+          echo "::set-output name=color::0x00FF00"
+
+      - name: Build failed
+        id: build-failed
+        if: ${{ always() && (steps.release.outcome == 'failure' || steps.dgoss.outcome == 'failure') }}
+        run: |-
+          echo "::set-output name=message::💥 ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
+          echo "::set-output name=color::0xFF0000"
+
+      - name: Send Discord Webhook
+        uses: sarisia/actions-status-discord@v1
+        if: ${{ always() && inputs.sendNotification == 'true' }}
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: ${{ steps.build-failed.outputs.message || steps.build-success.outputs.message }}
+          # description: "Build and deploy to GitHub Pages"
+          # image: ${{ secrets.EMBED_IMAGE }}
+          color: ${{ steps.build-failed.outputs.color }}
+          username: GitHub Actions
+          # avatar_url: ${{ secrets.AVATAR_URL }}
+
+  # Summarize matrix https://github.community/t/status-check-for-a-matrix-jobs/127354/7
+  build_success:
+    name: Build matrix success
+    runs-on: [ self-hosted ]
+    needs:
+      - build-and-test
+    if: ${{ always() }}
+    steps:
+      - name: Check build matrix status
+        if: ${{ (inputs.imagesToBuild != '' && inputs.imagesToBuild != '[]') && (needs.build-and-test.result != 'success') }}
+        run: exit 1
