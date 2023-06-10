@@ -11,7 +11,7 @@ fi
 tags=$( \
     curl -fsSL \
         -H "Accept: application/vnd.github.v3+json" \
-        -H "Authorization: Bearer ${GH_PAT}" \
+        -H "Authorization: Bearer ${TOKEN}" \
         "https://api.github.com/users/geek-cookbook/packages/container/${APP}/versions" \
         2>/dev/null
 )
