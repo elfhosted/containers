@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8e54dd1d7110ac14214472eec6f683bc42f61642bd41ce1847d6d3ef74bf782a
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:b612a392da0d0934ce4136552afadf0c33f00a0306dfa53758b5724f26212cb2
 
 # set environment variables
 ENV HOME="/config"
