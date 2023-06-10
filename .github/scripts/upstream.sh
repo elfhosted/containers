@@ -2,7 +2,7 @@
 
 APP="${1}"
 CHANNEL="${2}"
-export TOKEN="${TOKEN}"
+export TOKEN="${GH_PAT}"
 
 if test -f "./apps/${APP}/ci/latest.sh"; then
     bash ./apps/"${APP}"/ci/latest.sh "${CHANNEL}"
