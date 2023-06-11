@@ -24,10 +24,10 @@ RUN apt-get update && apt-get install -y \
         python3-magic \
     && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup seedy --gid 568 && \
-    adduser seedy \
+RUN addgroup elfie --gid 568 && \
+    adduser elfie \
         --uid 568 \
-        --ingroup seedy \
+        --ingroup elfie \
         --system \
         --disabled-password
 
@@ -39,11 +39,11 @@ ENV NEXTPVR_DATADIR_USERDATA=/config/
 
 RUN chmod 755 /nextpvr/DeviceHost/x64/DeviceHostLinux && \
    mkdir /config && \
-   chown seedy /config && \
+   chown elfie /config && \
    mkdir /recordings && \
-   chown seedy /recordings && \
+   chown elfie /recordings && \
    mkdir /buffer && \
-   chown seedy /buffer 
+   chown elfie /buffer 
 
 EXPOSE 8866
 

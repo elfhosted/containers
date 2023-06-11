@@ -23,7 +23,7 @@ RUN \
   && make -C src -j"$(nproc)" \
   && make -C src install \
   && sed -i "s:sysctl -q net.ipv4.conf.all.src_valid_mark=1:# skipping setting net.ipv4.conf.all.src_valid_mark:" /usr/bin/wg-quick \
-  && mv /build/sudoers_seedy /etc/sudoers.d/seedy \
+  && mv /build/sudoers_elfie /etc/sudoers.d/elfie \
   && chown root:root /etc/sudoers.d/* \
   && chmod 644 /etc/sudoers.d/* \
   && \

@@ -42,7 +42,7 @@ ENV \
 USER root
 
 RUN \
-    adduser seedy \
+    adduser elfie \
         --uid 568 \
         --group \
         --system \
@@ -50,7 +50,7 @@ RUN \
         --no-create-home \
     && \
     mkdir -p /config \
-    && chown -R seedy:seedy /config \
+    && chown -R elfie:elfie /config \
     && chmod -R 775 /config
 
 WORKDIR /app
@@ -88,7 +88,7 @@ RUN \
     && ln -s /usr/bin/vim.tiny /usr/local/bin/vim \
     && ln -s /usr/bin/vim.tiny /usr/local/bin/nano \
     && ln -s /usr/bin/vim.tiny /usr/local/bin/emacs \
-    && chown -R seedy:seedy /app \
+    && chown -R elfie:elfie /app \
     && \
     printf "/bin/bash /scripts/greeting.sh\n" >> /etc/bash.bashrc \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \

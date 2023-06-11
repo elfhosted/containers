@@ -2,7 +2,7 @@ ARG VERSION
 FROM rednoah/filebot:node as upstream
 
 RUN \
-    adduser seedy \
+    adduser elfie \
         --uid 568 \
         --group \
         --system \

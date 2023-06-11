@@ -18,11 +18,11 @@ RUN apk update && \
     curl \
     tzdata \
     ffmpeg && \
-    addgroup -S seedy --gid 568 \
-    && adduser -S seedy -G seedy --uid 568 \
+    addgroup -S elfie --gid 568 \
+    && adduser -S elfie -G elfie --uid 568 \
     && \
     mkdir -p /config \
-    && chown -R seedy:seedy /config \
+    && chown -R elfie:elfie /config \
     && chmod -R 775 /config
 
 

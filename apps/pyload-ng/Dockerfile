@@ -55,7 +55,7 @@ VOLUME /config
 
 COPY ./apps/pyload-ng/entrypoint.sh /entrypoint.sh
 
-# drop to seedy user
+# drop to elfie user
 USER 568
 
 CMD ["/entrypoint.sh"]

@@ -17,7 +17,7 @@ ENV TZ=UTC
 
 # Notifiarr specific.
 # ENV PATH=$PATH:/
-ENV USER=seedy
+ENV USER=elfie
 
 EXPOSE 5454
 ENTRYPOINT [ "/notifiarr" ]
