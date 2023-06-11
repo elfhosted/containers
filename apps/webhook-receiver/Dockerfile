@@ -4,7 +4,7 @@ FROM        golang:alpine AS build
 WORKDIR     /go/src/github.com/adnanh/webhook
 ENV         WEBHOOK_VERSION 2.8.1
 RUN         apk add --update -t build-deps curl libc-dev gcc libgcc
-RUN         curl -L --silent -o webhook.tar.gz https://github.com/adnanh/webhook/archive/${VERSION}.tar.gz && \
+RUN         curl -L --silent -o webhook.tar.gz https://github.com/adnanh/webhook/archive/v${VERSION}.tar.gz && \
             tar -xzf webhook.tar.gz --strip 1 &&  \
             go get -d && \
             go build -o /usr/local/bin/webhook && \
