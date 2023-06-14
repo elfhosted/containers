@@ -9,7 +9,7 @@ RUN \
         --disabled-password
 
 # needed for goss tests
-RUN mkdir /data/node
+RUN mkdir -p /data/node
 
 ENTRYPOINT ["/opt/filebot-node/start"]
 USER 568
