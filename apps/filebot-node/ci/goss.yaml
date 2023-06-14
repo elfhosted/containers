@@ -7,11 +7,11 @@ process:
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 port:
   # https://github.com/aelsabbahy/goss/issues/149
-  tcp6:17442:
+  tcp6:5452:
     listening: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:17442:
+  http://localhost:5452:
     status: 200
     timeout: 5000
