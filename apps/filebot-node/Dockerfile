@@ -6,10 +6,8 @@ RUN \
         --uid 568 \
         --group \
         --system \
-        --disabled-password
-
-# needed for goss tests
-RUN mkdir -p /data/node
+        --disabled-password \
+        --home /data/node
 
 ENTRYPOINT ["/opt/filebot-node/start"]
 USER 568
