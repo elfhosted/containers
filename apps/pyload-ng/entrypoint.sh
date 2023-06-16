@@ -7,5 +7,4 @@ test -f "/scripts/umask.sh" && source "/scripts/umask.sh"
 exec \
      pyload \
         --userdir /config \
-        --storagedir /media/downloads \
         "$@"
