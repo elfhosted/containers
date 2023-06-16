@@ -36,6 +36,7 @@ RUN \
     pip install --upgrade \
         gevent-websocket \
         webrtcvad-wheels \
+        pillow \
     && apk del --purge .build-deps \
     && rm -rf \
         /root/.cache \
