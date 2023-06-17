@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 	ca-certificates \
 	s3cmd \
   	iptables \
-	inotify \
+	inotify-tools \
 	tcpdump \
 	dumb-init \
 	net-tools \
