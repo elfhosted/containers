@@ -23,7 +23,7 @@ function setPref {
   fi
 }
 
-prefFile="/config/plex/Library/Application Support/Plex Media Server/Preferences.xml"
+prefFile="/storage/config/plex/Library/Application Support/Plex Media Server/Preferences.xml"
 
 PLEX_CLAIM="$1"
 

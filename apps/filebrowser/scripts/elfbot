@@ -11,7 +11,7 @@ if [[ $# -lt 2 ]]; then
     echo "claim <token>: claims a plex server"
 fi
 
-if [[ ! -d "$2" ]]; then
+if [[ ! -d "/storage/config/$2" ]]; then
     echo "/config/$2 does not exist. Cannot continue"
     exit 1
 fi
@@ -20,17 +20,17 @@ case $1 in
 
     "restart")
         echo "restarting $2..."
-        echo elfbot-restart > /config/$2
+        echo elfbot-restart > /storage/config/$2/
         ;;
 
     "reset")
         echo "resetting $2..."
-        echo elfbot-reset > /config/$2
+        echo elfbot-reset > /storage/config/$2/
         ;;
 
     "backup")
         echo "resetting $2..."
-        echo elfbot-backup > /config/$2
+        echo elfbot-backup > /storage/config/$2/
         ;;       
 
     "claim")
