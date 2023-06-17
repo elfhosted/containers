@@ -6,7 +6,8 @@ FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:b612a392da0d0934ce4136552afadf0
 LABEL org.opencontainers.image.source = "https://github.com/filebrowser/filebrowser"
 
 COPY --from=upstream /filebrowser /filebrowser
-COPY apps/filebrowser/cd.sh /bin/cd
+COPY apps/filebrowser/scripts/* /usr/local/bin/
+COPY apps/filebrowser/branding /branding/
 
 # So that we can allow use of the cd command, which doesn't actually exist in /bin/
 USER root
@@ -17,7 +18,7 @@ RUN apk add --no-cache mlocate ncdu tree
 # This is our fake bash for command execution
 RUN cp -p /bin/bash /bin/vstat
 
-USER 568
+# USER 568
 
 # Use this so that dgoss works
 ENV FB_DATABASE=/tmp/filebrowser.db

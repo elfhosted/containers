@@ -1,0 +1,47 @@
+#!/bin/bash
+
+if [[ $# -lt 2 ]]; then 
+    echo "usage: elfbot <command> <app> <optional>"
+    echo
+    echo app name must match an app found in /config
+    echo "command options:"
+    echo "restart : restarts an app"
+    echo "reset : resets an app to defaults"
+    echo "backup <path>: creates a dated backup in <path>"
+    echo "claim <token>: claims a plex server"
+fi
+
+if [[ ! -d "$2" ]]; then
+    echo "/storage/config/$2 does not exist. Cannot continue"
+    exit 1
+fi
+
+case $1 in
+
+    "restart")
+        echo "restarting $2..."
+        echo elfbot-restart > /storage/config/$2
+        ;;
+
+    "reset")
+        echo "resetting $2..."
+        echo elfbot-reset > /storage/config/$2
+        ;;
+
+    "backup")
+        echo "resetting $2..."
+        echo elfbot-backup > /storage/config/$2
+        ;;       
+
+    "claim")
+        if [[ "$2" == "plex" ]]; then
+            echo "attempting plex claim with token [$3]..."
+            /usr/local/bin/claim-plex-server.sh $3
+        else
+            echo "this command is only for claiming plex"
+        fi
+        ;;         
+
+esac
+
+
