@@ -6,7 +6,7 @@ if [[ $# -lt 2 ]]; then
     echo app name must match an app found in /config
     echo "command options:"
     echo "restart : restarts an app"
-    echo "reset : resets an app to defaults"
+    echo "reset <yesiamsure>: resets an app to defaults"
     echo "backup <path>: creates a dated backup in <path>"
     echo "claim <token>: claims a plex server"
 fi
@@ -20,17 +20,23 @@ case $1 in
 
     "restart")
         echo "restarting $2..."
-        echo elfbot-restart > /storage/config/$2/
+        touch /storage/config/$2/elfbot-restart
         ;;
 
     "reset")
+        if [[ ! "$3" -eq "yesiamsure" ]]; then
+            echo potentially dangerous! add 'yesiamsure' after your reset command to force
+            exit 1
+        fi      
         echo "resetting $2..."
-        echo elfbot-reset > /storage/config/$2/
+        touch /storage/config/$2/elfbot-reset
         ;;
 
     "backup")
-        echo "resetting $2..."
-        echo elfbot-backup > /storage/config/$2/
+        echo "backing up $2 to $3..."
+        TIMESTAMP=$(printf '%(%Y-%m-%d--%H-%M-%S)T\n' -1)
+        echo $3/$2 > /storage/config/$2/elfbot-backup && \
+        echo "restarting, backup will be saved as $3/$2-$TIMESTAMP ...
         ;;       
 
     "claim")

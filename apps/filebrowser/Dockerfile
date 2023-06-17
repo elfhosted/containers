@@ -18,7 +18,7 @@ RUN apk add --no-cache mlocate ncdu tree
 # This is our fake bash for command execution
 RUN cp -p /bin/bash /bin/vstat
 
-# USER 568
+USER 568
 
 # Use this so that dgoss works
 ENV FB_DATABASE=/tmp/filebrowser.db
