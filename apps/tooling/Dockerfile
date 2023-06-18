@@ -30,7 +30,10 @@ RUN apt-get update && apt-get install -y \
 	wget https://github.com/peak/s5cmd/releases/download/v2.1.0-beta.1/s5cmd_2.1.0-beta.1_Linux-64bit.tar.gz && \
 	tar zxfvp s5cmd_2.1.0-beta.1_Linux-64bit.tar.gz && \
 	mv s5cmd /usr/local/bin/ && \
-	chmod 755 /usr/local/bin/s5cmd
+	chmod 755 /usr/local/bin/s5cmd && \
+	curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+   	install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+	rm kubectl
 
 # Setup s3cmd config
 # hadolint ignore=SC2016
