@@ -13,8 +13,13 @@ COPY apps/filebrowser/branding /branding/
 USER root
 
 # Possibly useful binaries
-RUN apk add --no-cache mlocate ncdu tree
+RUN apk add --no-cache mlocate ncdu tree curl
 
+# Add kubectl command (weird, I know, but we use it for some console actions)
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+   	install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+	rm kubectl
+    
 # This is our fake bash for command execution
 RUN cp -p /bin/bash /bin/vstat
 
