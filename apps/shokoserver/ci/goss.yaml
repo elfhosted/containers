@@ -14,4 +14,4 @@ process:
 http:
   http://localhost:8111:
     status: 200
-    timeout: 5000
+    timeout: 30000
