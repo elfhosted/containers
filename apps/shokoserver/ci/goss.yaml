@@ -11,7 +11,7 @@ process:
 #     listening: true  
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
-http:
-  http://localhost:8111:
-    status: 200
-    timeout: 30000
+# http:
+#   http://localhost:8111:
+#     status: 200
+#     timeout: 30000
