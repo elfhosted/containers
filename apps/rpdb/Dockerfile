@@ -10,11 +10,12 @@ RUN apk update && \
 
 WORKDIR /app
 
-RUN git clone -b main https://www.github.com/jaruba/rpdb-folders.git && \
+RUN git clone -b main https://www.github.com/RatingPosterDB/rpdb-folders.git && \
     mkdir -p /rpdb/config && \
     mkdir -p /rpdb/mounts && \
     cd rpdb-folders && \
     echo bW9kdWxlLmV4cG9ydHMgPSB7IGtleTogJzA1OTAxY2RlYzVmYWFkNGRjODFjYWI1NTY5ZTg1MzhjJyB9 | base64 -d > tmdbKey.js && \
+    rm -rf package-lock.json node_modules && \
     npm install --production
 
 WORKDIR /app/rpdb-folders
