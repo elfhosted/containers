@@ -36,7 +36,7 @@ RUN \
     VERSION=$(curl -sL "http://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/APKINDEX.tar.gz" | tar -xz -C /tmp \
     && awk '/^P:deluge$/,/V:/' /tmp/APKINDEX | sed -n 2p | sed 's/^V://'); \
   fi && \
-  apk add -U --upgrade --no-cache \
+  echo apk add -U --upgrade --no-cache \
     deluge==${VERSION} && \  
   echo "**** install python packages ****" && \
   python3 -m ensurepip && \
