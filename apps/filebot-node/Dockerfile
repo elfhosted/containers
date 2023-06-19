@@ -9,5 +9,7 @@ RUN \
         --disabled-password \
         --home /data/node
 
+ENV PUID=568 PGID=568
+
 ENTRYPOINT ["/opt/filebot-node/start"]
 USER 568
