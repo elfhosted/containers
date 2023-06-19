@@ -8,8 +8,7 @@ process:
 port:
   # https://github.com/aelsabbahy/goss/issues/149
   tcp6:8111:
-    listening: true
-    timeout: 5000    
+    listening: true  
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
