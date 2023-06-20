@@ -24,20 +24,23 @@ FROM tzahi12345/youtubedl-material:${VERSION} as upstream
 FROM base
 RUN npm install -g pm2 && \
     apt update && \
-    apt install -y --no-install-recommends gosu python3-minimal python-is-python3 python3-pip atomicparsley && \
+    apt install -y --no-install-recommends gosu python3-minimal python-is-python3 python3-pip atomicparsley build-essential && \
+    pip install pycryptodomex && \
+    apt remove -y --purge build-essential && \
+    apt autoremove -y --purge && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
-RUN pip install tcd
+# RUN pip install tcd
 WORKDIR /app
 # User 1000 already exist from base image
 COPY --chown=$UID:$GID --from=upstream [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]
 COPY --chown=$UID:$GID --from=upstream [ "/usr/local/bin/ffprobe", "/usr/local/bin/ffprobe" ]
 COPY --chown=$UID:$GID --from=upstream ["/app/","/app/"]
-
+COPY --chown=$UID:$GID --from=upstream [ "/usr/local/bin/TwitchDownloaderCLI", "/usr/local/bin/TwitchDownloaderCLI"]
 RUN chmod +x /app/fix-scripts/*.sh
 # Add some persistence data
 #VOLUME ["/app/appdata"]
 
 EXPOSE 17442
-ENTRYPOINT [ "/app/entrypoint.sh" ]
+# ENTRYPOINT [ "/app/entrypoint.sh" ]
 CMD [ "npm","start" ]
