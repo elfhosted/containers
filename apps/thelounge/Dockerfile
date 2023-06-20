@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:b612a392da0d0934ce4136552afadf0c33f00a0306dfa53758b5724f26212cb2 
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:772358ed7f35cfbc28d07ef76d5261d53ec4296e6198398a37c9af15fcc9ba46 
 
 ENV NODE_ENV production
 
