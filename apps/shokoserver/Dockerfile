@@ -7,7 +7,10 @@ RUN apt-get update && apt-get install -y mono-runtime libmono-system-xml-linq4.0
         --uid 568 \
         --ingroup shokogroup \
         --system \
-        --disabled-password
+        --disabled-password \
+        --home /home/shoko && \
+    mkdir -p /home/shoko/.shoko && \
+    chown shoko /home/shoko/.shoko
         
 USER 568
 

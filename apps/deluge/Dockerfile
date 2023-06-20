@@ -1,4 +1,4 @@
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:b612a392da0d0934ce4136552afadf0c33f00a0306dfa53758b5724f26212cb2 
+FROM ghcr.io/geek-cookbook/alpine:edge@sha256:b612a392da0d0934ce4136552afadf0c33f00a0306dfa53758b5724f26212cb2 
 
 ARG UNRAR_VERSION=6.1.7
 # set version label
@@ -15,6 +15,7 @@ RUN \
     make \
     g++ \
     gcc \
+    curl \
     python3-dev && \
   echo "**** install packages ****" && \
   apk add --no-cache --upgrade --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
@@ -36,8 +37,8 @@ RUN \
     VERSION=$(curl -sL "http://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/APKINDEX.tar.gz" | tar -xz -C /tmp \
     && awk '/^P:deluge$/,/V:/' /tmp/APKINDEX | sed -n 2p | sed 's/^V://'); \
   fi && \
-  echo apk add -U --upgrade --no-cache \
-    deluge==${VERSION} && \  
+  apk add -U --upgrade --no-cache \
+    deluge~=${VERSION} && \  
   echo "**** install python packages ****" && \
   python3 -m ensurepip && \
   pip3 install -U --no-cache-dir \
