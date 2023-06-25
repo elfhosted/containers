@@ -33,7 +33,14 @@ RUN apt-get update && apt-get install -y \
 	chmod 755 /usr/local/bin/s5cmd && \
 	curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
    	install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
-	rm kubectl
+	rm kubectl && \
+	curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
+	unzip rclone-current-linux-amd64.zip && \
+	mv rclone-*-linux-amd64/rclone /usr/local/bin && \
+	rm -rf mv rclone-*-linux-amd64 && \
+	chown root:root /usr/local/bin/rclone && \
+	chmod 755 /usr/local/bin/rclone
+
 
 # Setup s3cmd config
 # hadolint ignore=SC2016
