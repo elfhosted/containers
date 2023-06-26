@@ -45,13 +45,12 @@ RUN apk --no-cache add \
     ls -l /tmp/build && \
     cp /tmp/build/build/rclone-browser /usr/bin  && \
 
+    # get webui
+    git clone https://github.com/retifrav/rclone-rc-web-gui.git /var/lib/rclonefm && \
+
     # cleanup
      apk del --purge build-dependencies && \
-    rm -rf /tmp/* && \
-
-    # get webui
-    git clone https://github.com/retifrav/rclone-rc-web-gui.git /var/lib/rclonefm
-
+    rm -rf /tmp/* 
 # Maximize only the main/initial window.
 RUN \
     sed-patch 's/<application type="normal">/<application type="normal" title="Rclone Browser | ElfHosted 🧝">/' \
