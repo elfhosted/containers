@@ -53,7 +53,7 @@ RUN apk --no-cache add \
     rm -rf /tmp/* 
 # Maximize only the main/initial window.
 RUN \
-    sed-patch 's/<application type="normal">/<application type="normal" title="Rclone Browser | ElfHosted 🧝">/' \
+    sed-patch 's/<application type="normal">/<application type="normal" title="Rclone Browser">/' \
         /etc/xdg/openbox/rc.xml
 
 # Generate and install favicons.
