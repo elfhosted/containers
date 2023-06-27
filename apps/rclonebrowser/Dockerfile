@@ -44,19 +44,18 @@ RUN apk --no-cache add \
     ls -l /tmp/build && \
     cp /tmp/build/build/rclone-browser /usr/bin && \
 
-    # get alternate ui
-    wget -q https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
-    && unzip /tmp/rclone-rc-web-gui.zip \
-    && mv /tmp/build /var/lib/rcloners \
-    && rm -r /tmp/rclone-rc-web-gui.zip && \
-
     # cleanup
     apk del --purge build-dependencies && \
     rm -rf /tmp/* 
 
+RUN wget -q https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
+    && unzip /tmp/rclone-rc-web-gui.zip \
+    && mv /tmp/build /var/lib/rclonefm \
+    && rm -r /tmp/rclone-rc-web-gui.zip
+
 # Maximize only the main/initial window.
 RUN \
-    sed-patch 's/<application type="normal">/<application type="normal" title="RcloneBrowser">/' \
+    sed-patch 's/<application type="normal">/<application type="normal" title="Rclone Browser">/' \
         /etc/xdg/openbox/rc.xml
 
 # Generate and install favicons.
@@ -70,7 +69,8 @@ COPY apps/rclonebrowser/rootfs/ /
 
 # Set environment variables.
 ENV APP_NAME="RcloneBrowser" \
-    S6_KILL_GRACETIME=8000
+    S6_KILL_GRACETIME=8000 \
+    DARK_MODE=1
 
 # Define mountable directories.
 VOLUME ["/config"]
