@@ -1,4 +1,4 @@
-FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:066d21400d7dfbefdaad89f94ebe3ed8768f21825cd4b34fdb9c5f58ade4f95d
+FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:83295fc8e3abf3d61503b7b694a88f838ab14143e7fe173cde0496a5a3084bc5
 
 ARG VERSION
 USER root
