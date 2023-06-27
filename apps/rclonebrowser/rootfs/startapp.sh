@@ -15,12 +15,12 @@ getpid_rclonebrowser() {
         PID="$(cat /config/rclonebrowser.pid)"
         # Make sure the saved PID is still running and is associated to
         # RcloneBrowser.
-        if [ ! -f /proc/$PID/cmdline ] || ! cat /proc/$PID/cmdline | grep -qw "rclone"; then
+        if [ ! -f /proc/$PID/cmdline ] || ! cat /proc/$PID/cmdline | grep -qw "rclone-browser"; then
             PID=UNSET
         fi
     fi
     if [ "$PID" = "UNSET" ]; then
-        PID="$(ps -o pid,args | grep -w "rclone" | grep -vw grep | tr -s ' ' | cut -d' ' -f2)"
+        PID="$(ps -o pid,args | grep -w "rclone-browser" | grep -vw grep | tr -s ' ' | cut -d' ' -f2)"
     fi
     echo "${PID:-UNSET}"
 }

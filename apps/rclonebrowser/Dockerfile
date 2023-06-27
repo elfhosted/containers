@@ -14,7 +14,6 @@ WORKDIR /tmp
 
 RUN apk --no-cache add \
       ca-certificates \
-      fuse \
       wget \
       qt5-qtbase \
       qt5-qtbase-x11 \
@@ -43,17 +42,21 @@ RUN apk --no-cache add \
     cmake .. && \
     cmake --build . && \
     ls -l /tmp/build && \
-    cp /tmp/build/build/rclone-browser /usr/bin  && \
+    cp /tmp/build/build/rclone-browser /usr/bin && \
 
-    # get webui
-    git clone https://github.com/retifrav/rclone-rc-web-gui.git /var/lib/rclonefm && \
+    # get alternate ui
+    wget -q https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
+    && unzip /tmp/rclone-rc-web-gui.zip \
+    && mv /tmp/build /var/lib/rcloners \
+    && rm -r /tmp/rclone-rc-web-gui.zip && \
 
     # cleanup
-     apk del --purge build-dependencies && \
+    apk del --purge build-dependencies && \
     rm -rf /tmp/* 
+
 # Maximize only the main/initial window.
 RUN \
-    sed-patch 's/<application type="normal">/<application type="normal" title="Rclone Browser">/' \
+    sed-patch 's/<application type="normal">/<application type="normal" title="RcloneBrowser">/' \
         /etc/xdg/openbox/rc.xml
 
 # Generate and install favicons.
