@@ -22,6 +22,6 @@ ln -sf /proc/self/fd/1 "$qbtLogFile"
 if [[ ! -z "$PORT_FILE" ]]; then
     sed -i  "s/Connection\\\PortRangeMin=.*/Connection\\\PortRangeMin=$(cat $PORT_FILE)/" /config/qBittorrent/qBittorrent.conf
     sed -i  "s/Session\\\Port=.*/Session\\\Port=$(cat $PORT_FILE)/" /config/qBittorrent/qBittorrent.conf
-fi
+fi 
 
 exec /usr/local/bin/qbittorrent-nox
