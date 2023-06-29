@@ -86,4 +86,4 @@ COPY ./apps/qbittorrent/entrypoint.sh /entrypoint.sh
 ENV HOME="/config/qBittorrent/" \
 XDG_CONFIG_HOME="/config/qBittorrent/" \
 XDG_DATA_HOME="/config/qBittorrent/"
-ENTRYPOINT ["/usr/bin/dumb-init","/entrypoint.sh"]
+CMD ["/entrypoint.sh"]
