@@ -3,8 +3,8 @@
 set -e
 
 #shellcheck disable=SC1091
-source "/shim/umask.sh"
-source "/shim/vpn.sh"
+source "/scripts/umask.sh"
+source "/scripts/vpn.sh"
 
 
 # Make logs go to stdout for Kubernetes
