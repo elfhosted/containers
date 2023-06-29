@@ -64,16 +64,16 @@ FROM debian:stable-slim
 ARG VERSION
 
 # hadolint ignore=DL3008,DL3028,DL3009
-RUN apt-get update && apt-get install python3 libqt5network5 libqt5sql5 libqt5xml5 \ 
-    dumb-init curl ca-certificates --no-install-recommends xz-utils openjdk-17-jre -y && \
-    apt-get autoremove -y && \
-    apt-get clean 
+# RUN apt-get update && apt-get install python3 libqt5network5 libqt5sql5 libqt5xml5 \ 
+#     dumb-init curl ca-certificates --no-install-recommends xz-utils openjdk-17-jre -y && \
+#     apt-get autoremove -y && \
+#     apt-get clean 
 
-RUN curl -o /tmp/filebot.xz -L "https://get.filebot.net/filebot/FileBot_5.0.1/FileBot_5.0.1-portable.tar.xz" && \
-    mkdir -p /opt/filebot && \
-    tar xvf /tmp/filebot.xz -C /opt/filebot && \
-    rm -rf /tmp/filebot.xz && \
-    ln -s /opt/filebot/filebot.sh /usr/local/bin/filebot
+# RUN curl -o /tmp/filebot.xz -L "https://get.filebot.net/filebot/FileBot_5.0.1/FileBot_5.0.1-portable.tar.xz" && \
+#     mkdir -p /opt/filebot && \
+#     tar xvf /tmp/filebot.xz -C /opt/filebot && \
+#     rm -rf /tmp/filebot.xz && \
+#     ln -s /opt/filebot/filebot.sh /usr/local/bin/filebot
 
 COPY --from=builder /usr/local/bin/* /usr/local/bin/
 COPY --from=builder /usr/local/lib/libtorrent-rasterbar.so.10 /usr/local/lib/libtorrent-rasterbar.so.10
