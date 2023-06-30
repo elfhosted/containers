@@ -13,7 +13,7 @@ if [ -f "$qbtLogFile" ]
 then
     rm $qbtLogFile
 fi
-mkdir -p /config/qBittorrent/qBittorrent/logs/
+mkdir -p /config/qBittorrent/logs/
 ln -sf /proc/self/fd/1 "$qbtLogFile"
 
 
