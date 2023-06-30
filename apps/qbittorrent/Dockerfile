@@ -1,5 +1,4 @@
-#FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:772358ed7f35cfbc28d07ef76d5261d53ec4296e6198398a37c9af15fcc9ba46 
-FROM funkypenguin/test:alpine
+FROM ghcr.io/geek-cookbook/alpine:edge@sha256:0945d1d9281e886e862caaa6694e84ba955d3ef69f5046884d88e1764b80bb4d
 
 # environment settings
 ARG UNRAR_VERSION=6.2.8
@@ -32,14 +31,8 @@ RUN \
     /tmp/unrar --strip-components=1 && \
   cd /tmp/unrar && \
   make && \
-  install -v -m755 unrar /usr/bin
-  
-  
-  
-#    && \
-
-RUN set -x && \
-    if [ -z ${VERSION+x} ]; then \
+  install -v -m755 unrar /usr/bin && \
+  if [ -z ${VERSION+x} ]; then \
     VERSION=$(curl -sL "http://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/APKINDEX.tar.gz" | tar -xz -C /tmp \
     && awk '/^P:qbittorrent-nox$/,/V:/' /tmp/APKINDEX | sed -n 2p | sed 's/^V://'); \
   fi && \
