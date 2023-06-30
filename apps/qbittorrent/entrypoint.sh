@@ -24,4 +24,4 @@ if [[ ! -z "$PORT_FILE" ]]; then
     sed -i  "s/Session\\\Port=.*/Session\\\Port=$(cat $PORT_FILE)/" /config/qBittorrent/qBittorrent.conf
 fi 
 
-exec /usr/local/bin/qbittorrent-nox
+exec /usr/bin/qbittorrent-nox
