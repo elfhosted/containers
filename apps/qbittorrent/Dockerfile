@@ -54,3 +54,5 @@ RUN wget --progress=dot:giga \
         mv /tmp/vuetorrent /vuetorrent
 
 COPY ./apps/qbittorrent/entrypoint.sh /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
