@@ -27,3 +27,4 @@ RUN echo "**** install system packages ****" \
  && rm -rf /app/requirements.txt /tmp/* /var/tmp/* /var/lib/apt/lists/*
 VOLUME /config
 ENTRYPOINT ["/tini", "-s", "python3", "/app/plex_meta_manager.py", "--"]
+
