@@ -57,3 +57,7 @@ RUN \
   rm -rf \
     /root/.cache \
     /tmp/*
+
+COPY ./apps/deluge/entrypoint.sh /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
