@@ -22,7 +22,7 @@ RUN \
 RUN ls -FCla /appclient/root
 
 # Stage 2 - Build the backend
-FROM mcr.microsoft.com/dotnet/sdk:6.0-bullseye-slim-amd64 AS dotnet-build-env
+FROM mcr.microsoft.com/dotnet/sdk:7.0-bullseye-slim-amd64 AS dotnet-build-env
 ARG TARGETPLATFORM
 ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
 ARG BUILDPLATFORM

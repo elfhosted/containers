@@ -6,7 +6,7 @@ RUN mkdir nextpvr && \
     curl -fL -o nextpvr.zip https://nextpvr.com/stable/linux/NPVR.zip && \
     unzip nextpvr.zip -d nextpvr
     
-FROM mcr.microsoft.com/dotnet/aspnet:6.0.16
+FROM mcr.microsoft.com/dotnet/aspnet:7.0.9
 
 RUN apt-get update && apt-get install -y \
         dtv-scan-tables \
