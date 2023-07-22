@@ -49,7 +49,7 @@ RUN \
 
 # Stage 3 - Build runtime image
 # FROM ghcr.io/linuxserver/baseimage-alpine:3.17
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:772358ed7f35cfbc28d07ef76d5261d53ec4296e6198398a37c9af15fcc9ba46 
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:487b892722a9e3c8e46eeddd890eb0ab039aa71c2339220164628094863bf5ad 
 
 # set environment variables
 ARG DEBIAN_FRONTEND="noninteractive"
