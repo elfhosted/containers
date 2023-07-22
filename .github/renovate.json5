@@ -26,13 +26,12 @@
       "matchPackagePatterns": ["renovatebot/github-action"]
     },
     {
-      "description": "Auto-merge digets",
+      "matchUpdateTypes": ["digest"],
       "automerge": true,
       "automergeType": "branch",
-      "requiredStatusChecks": null,
-      "matchUpdateTypes": ["digest"],
-      "matchPackagePatterns": ["renovatebot/github-action"]
-    },    
+      "platformAutomerge": true,
+      "ignoreTests": true
+    }, 
     {
       "matchDatasources": ["docker"],
       "commitMessagePrefix": "📣 "
