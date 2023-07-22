@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
   	iptables \
 	inotify-tools \
 	tcpdump \
+	mysql-client \
 	dumb-init \
 	net-tools \
 	vnstat \
