@@ -1,4 +1,4 @@
-FROM ghcr.io/geek-cookbook/alpine:edge@sha256:a88437eb7d5bd8e3ddb91cfb557dca10a27292748b3230e0cf52149eb41f7397
+FROM ghcr.io/geek-cookbook/alpine:edge@sha256:a9600fb8aa9b585e90d32ceed7a6f6c5348442e58d863fe36148bc54aaf31357
 
 # environment settings
 ARG UNRAR_VERSION=6.2.8
