@@ -1,7 +1,7 @@
 ARG VERSION
 FROM filebrowser/filebrowser:v${VERSION} as upstream
 
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:715f0af30346a5bac23f02cba864484d9ad5ce9432dd742a6e9aa284afc76c54 
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:86565e3194a5e20728057da77482b2388b9b088f1921ac1a4986038730a48f01 
 
 LABEL org.opencontainers.image.source = "https://github.com/filebrowser/filebrowser"
 
