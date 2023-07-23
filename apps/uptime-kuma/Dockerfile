@@ -2,7 +2,7 @@ ARG VERSION
 
 FROM louislam/uptime-kuma:${VERSION}-alpine as upstream
 
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:4dfe788cfba535bfab66a317f10e49c5e0e54d607f711bf2dd31937a6efccdca 
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8b9b1e93ecdafa84bc25bc2b5e34ffb1bc628b2550b70dd0350d078b23da69fc 
 
 # for initial install
 USER root
