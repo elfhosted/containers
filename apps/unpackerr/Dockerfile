@@ -7,7 +7,7 @@ RUN apk add --update --no-cache build-base git bash && \
     git checkout v${VERSION} && \
     CGO_ENABLED=0 make unpackerr.amd64.linux
 
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8b9b1e93ecdafa84bc25bc2b5e34ffb1bc628b2550b70dd0350d078b23da69fc 
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:22c9c87f4e72199aeb63d30175dfed98d97e03797775dd6f9167adf0da3326ed 
 
 VOLUME /config
 
