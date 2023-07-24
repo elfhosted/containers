@@ -30,7 +30,8 @@
       "automerge": true,
       "automergeType": "branch",
       "platformAutomerge": true,
-      "ignoreTests": true
+      "ignoreTests": true,
+      "excludePackagePatterns": ["alpine", "ubuntu"]
     }, 
     {
       "matchDatasources": ["docker"],
