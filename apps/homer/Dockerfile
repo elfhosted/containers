@@ -3,7 +3,7 @@ ARG VERSION
 
 FROM b4bz/homer:v${VERSION} as upstream
 
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:3fcc29419d17d03d087bfb4f9d994b3ff2ea808e4679564821fd441f59964565 
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:90392adc7a86641ddeebd29bcbbfd21b625e84cf7446a33f1628db5fff06918c 
 
 ENV GID 568
 ENV UID 568
