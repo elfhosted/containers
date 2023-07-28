@@ -9,4 +9,4 @@ XDG_RUNTIME_DIR=/tmp/runtime-root /usr/bin/calibre-server \
     --enable-local-write \
     --trusted-ips="10.0.0.0/8" \
     "$@" \
-    "/media/books"
+    "/storage/elfstorage/books"
