@@ -1,6 +1,6 @@
 ARG VERSION
 FROM ghcr.io/evan-buss/openbooks:${VERSION} as upstream
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8a0e46c40c2d2a57ba83cf20409d6a40522358eac14a1b10d55e47b43af28f18 
+FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:4de1d348d364db1fee3581591cea174c677f68852c7dfd1009583fa1317851dc 
 
 WORKDIR /app
 COPY --from=upstream /app/openbooks /app/openbooks
