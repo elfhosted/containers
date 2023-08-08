@@ -16,6 +16,17 @@ fi
 mkdir -p /config/qBittorrent/logs/
 ln -sf /proc/self/fd/1 "$qbtLogFile"
 
+# If we have a tun0 or a wg0 interface, then configure qbit to use that exclusively
+if [[ -f /dev/tun0 ]]; then
+    # Insist on tun0
+    sed -i  "s/Session\\\Interface=.*/Session\\\Interface=tun0/" /config/qBittorrent/qBittorrent.conf
+    sed -i  "s/Session\\\InterfaceName=.*/Session\\\InterfaceName=tun0/" /config/qBittorrent/qBittorrent.conf
+elif [[ -f /dev/wg0 ]]; then
+    # Insist on wg0
+    sed -i  "s/Session\\\Interface=.*/Session\\\Interface=wg0/" /config/qBittorrent/qBittorrent.conf
+    sed -i  "s/Session\\\InterfaceName=.*/Session\\\InterfaceName=wg0/" /config/qBittorrent/qBittorrent.conf
+fi
+
 # If we have been given a port by pia/gluetun, insert it into the config before starting
 # Apply the port
 if [[ ! -z "$PORT_FILE" ]]; then
