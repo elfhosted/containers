@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
+set -x # debug port fix (which is not fixed)
 
 #shellcheck disable=SC1091
 source "/scripts/umask.sh"
