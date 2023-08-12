@@ -2,7 +2,7 @@
 
 echo "[$(basename "$(pwd)")] starting..."
 
-/usr/bin/rclone serve \
+/usr/bin/rclone serve webdav \
     --addr :5574 \
     --user ${WEBDAV_USERNAME} \
     --pass ${WEBDAV_PASSWORD} \
