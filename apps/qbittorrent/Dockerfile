@@ -20,6 +20,7 @@ RUN \
     openssl1.1-compat \
     p7zip \
     python3 \
+    tini \
     qt6-qtbase-sqlite && \
   echo "**** install unrar from source ****" && \
   mkdir /tmp/unrar && \
