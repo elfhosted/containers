@@ -55,4 +55,6 @@ RUN wget --progress=dot:giga \
 
 COPY ./apps/qbittorrent/entrypoint.sh /entrypoint.sh
 
+# Properly handle shutdown signal
+ENTRYPOINT [ "/usr/bin/tini", "--" ]
 CMD ["/entrypoint.sh"]
