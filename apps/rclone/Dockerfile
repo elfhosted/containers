@@ -1,6 +1,9 @@
 ARG VERSION
 FROM ghcr.io/geek-cookbook/alpine:edge@sha256:e3c6418b5a0b2b9f2dae2265e98fd6416dc5ce551dc63ff382bff52de7893e37
 
+ENV PUID=568
+ENV PGID=568
+
 # Install S6
 RUN set -xe \
     && apk add --no-cache --purge -uU curl \
@@ -35,8 +38,13 @@ RUN apk add --no-cache rclone
 RUN curl -o /tmp/rclone-rc-web-gui.zip -jkSL https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
     && unzip /tmp/rclone-rc-web-gui.zip \
     && mv /tmp/build /var/lib/rclonefm \
-    && rm -r /tmp/rclone-rc-web-gui.zip \
-    && apk del --purge curl
+    && rm -r /tmp/rclone-rc-web-gui.zip
+
+RUN curl -o /tmp/rclone-webui-angular.zip -jkSL https://github.com/yuudi/rclone-webui-angular/releases/download/v0.7.0/embed.zip \
+    && unzip /tmp/rclone-webui-angular.zip \
+    && mv /tmp/build /var/lib/rclonewebui \
+    && rm -r /tmp/rclone-webui-angular.zip \
+    && apk del --purge curl    
 
 # Add files.
 COPY apps/rclone/rootfs/ /
