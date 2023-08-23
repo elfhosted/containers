@@ -24,5 +24,5 @@ http:
     status: 200
     timeout: 5000   
   http://localhost:5574:
-    status: 200
+    status: 401
     timeout: 5000        
