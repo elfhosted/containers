@@ -1,5 +1,5 @@
 ARG VERSION
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8a0e46c40c2d2a57ba83cf20409d6a40522358eac14a1b10d55e47b43af28f18 
+FROM ghcr.io/geek-cookbook/alpine:edge@sha256:e3c6418b5a0b2b9f2dae2265e98fd6416dc5ce551dc63ff382bff52de7893e37
 
 # Install S6
 RUN set -xe \
@@ -21,14 +21,16 @@ ENV ARCH=amd64
 # Define working directory.
 WORKDIR /tmp
 
-# Install rclone via alpine
-RUN if [ -z ${VERSION+x} ]; then \
-    VERSION=$(curl -sL "http://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/APKINDEX.tar.gz" | tar -xz -C /tmp \
-    && awk '/^P:rclone$/,/V:/' /tmp/APKINDEX | sed -n 2p | sed 's/^V://'); \
-    fi && \
-    echo installing rclone ${VERSION}... \
-    apk add -U --upgrade --no-cache \
-    rclone~=${VERSION} 
+# # Install rclone via alpine
+# RUN if [ -z ${VERSION+x} ]; then \
+#     VERSION=$(curl -sL "http://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/APKINDEX.tar.gz" | tar -xz -C /tmp \
+#     && awk '/^P:rclone$/,/V:/' /tmp/APKINDEX | sed -n 2p | sed 's/^V://'); \
+#     fi && \
+#     echo installing rclone ${VERSION}... \
+#     apk add -U --upgrade --no-cache \
+#     rclone~=${VERSION} 
+
+RUN apk add --no-cache rclone
 
 RUN curl -o /tmp/rclone-rc-web-gui.zip -jkSL https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
     && unzip /tmp/rclone-rc-web-gui.zip \

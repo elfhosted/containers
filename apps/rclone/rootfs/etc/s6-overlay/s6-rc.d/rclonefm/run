@@ -1,6 +1,4 @@
-#!/usr/bin/with-contenv sh
-
-echo "[$(basename "$(pwd)")] starting..."
+#!/command/execlineb -P
 
 /usr/bin/rclone rcd \
     --rc-web-gui \
