@@ -1,0 +1,12 @@
+#!/usr/bin/with-contenv sh
+
+echo "[$(basename "$(pwd)")] starting..."
+
+/usr/bin/rclone serve webdav \
+    --addr :5574 \
+    --user ${WEBDAV_USERNAME} \
+    --pass ${WEBDAV_PASSWORD} \
+    --transfers=1 \
+    --bwlimit=10M \
+    --multi-thread-streams=1 \
+    /storage

@@ -16,12 +16,12 @@ COPY ./${ARCH}/*.jar /opt/JDownloader/libs/
 # which is compiled against libstdc++
 RUN mkdir -p /opt/JDownloader/app && \
     apk add --update libstdc++ ffmpeg wget && \
-    wget -O /opt/JDownloader/JDownloader.jar "http://installer.jdownloader.org/JDownloader.jar" && \
+    wget -O /opt/JDownloader/app/JDownloader.jar "http://installer.jdownloader.org/JDownloader.jar" && \
     chmod 777 /opt/JDownloader/ -R && \
-    apk del wget --purge && \
-    rm /usr/bin/qemu-*-static
+    apk del wget --purge
 
 COPY apps/jdownloader/daemon.sh /opt/JDownloader/
+COPY apps/jdownloader/*.jar /opt/JDownloader/app/libs/
 COPY apps/jdownloader/default-config.json.dist /opt/JDownloader/org.jdownloader.api.myjdownloader.MyJDownloaderSettings.json.dist
 COPY apps/jdownloader/configure.sh /usr/bin/configure
 
