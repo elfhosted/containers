@@ -1,7 +1,9 @@
 #!/command/execlineb -P
 
-exec s6-setuidgid ${PUID}:${PGID} /usr/bin/rclone serve webdav \
-    --config=/config \
+with-contenv \
+s6-setuidgid 568:568 \
+/usr/bin/rclone serve webdav \
+    --config=/config/rclone.conf \
     --addr :5574 \
     --user ${WEBDAV_USERNAME} \
     --pass ${WEBDAV_PASSWORD} \
