@@ -12,7 +12,7 @@ port:
     listening: true
   tcp6:5573:
     listening: true  
-  tcp6:5573:
+  tcp6:5574:
     listening: true      
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
