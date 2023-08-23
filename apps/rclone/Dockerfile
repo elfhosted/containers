@@ -30,7 +30,7 @@ RUN if [ -z ${VERSION+x} ]; then \
     apk add -U --upgrade --no-cache \
     rclone~=${VERSION} 
 
-RUN curl -o /tmp/rclone-rc-web-gui.zip  https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
+RUN curl -o /tmp/rclone-rc-web-gui.zip -jkSL https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
     && unzip /tmp/rclone-rc-web-gui.zip \
     && mv /tmp/build /var/lib/rclonefm \
     && rm -r /tmp/rclone-rc-web-gui.zip \
