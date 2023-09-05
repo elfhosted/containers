@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
 	dumb-init \
 	net-tools \
 	vnstat \
+	gpg \
 	git \
 	iproute2 \
 	tree \
