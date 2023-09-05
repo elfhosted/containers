@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
 	inotify-tools \
 	tcpdump \
 	mysql-client \
+	postgresql-client \
 	dumb-init \
 	net-tools \
 	vnstat \
