@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /usr/share/keyrings/postgresql.gpg > /dev/null && \
 	echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main | tee -a /etc/apt/sources.list.d/postgresql.list && \
 	apt-get update && \
-	apt install postgresql-client-15
+	apt -y install postgresql-client-15
 
 # Setup s3cmd config
 # hadolint ignore=SC2016
