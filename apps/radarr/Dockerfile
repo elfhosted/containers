@@ -1,4 +1,4 @@
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8a0e46c40c2d2a57ba83cf20409d6a40522358eac14a1b10d55e47b43af28f18 
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:ebbe2ee76f1f4545d674a9f97c3b7e142155ec82baa5d5ae9f7c79235e9533d9
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
