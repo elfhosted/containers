@@ -44,7 +44,7 @@ RUN apt-get update && apt-get install -y \
 
 
 # Setup psql 15 client, which is not in ubuntu:focal/jammy yet:
-RUN echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main | sudo tee -a /etc/apt/sources.list.d/postgresql.list && \
+RUN echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main | tee -a /etc/apt/sources.list.d/postgresql.list && \
 	apt-get update && \
 	apt install postgresql-client-15
 
