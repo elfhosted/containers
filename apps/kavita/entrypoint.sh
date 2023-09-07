@@ -18,7 +18,7 @@
 if [ ! -f "/kavita/config/appsettings.json" ]; then
     echo "Kavita configuration file does not exist, creating..."
     echo '{
-  "TokenKey": "nthoeu983pnoetuhoneis@N@tueonxeoe",
+  "TokenKey": "XffUsu?_J!M$2RMZ_MGBBJP_*j-z22eE",
   "Port": 5000,
   "IpAddresses": ""
 }' >> /kavita/config/appsettings.json
