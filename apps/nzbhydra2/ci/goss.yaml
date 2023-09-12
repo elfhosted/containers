@@ -9,7 +9,6 @@ port:
   # https://github.com/aelsabbahy/goss/issues/149
   tcp:5076:
     listening: true
-    timeout: 30000
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
