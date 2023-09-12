@@ -17,7 +17,9 @@ RUN corepack enable
 RUN git clone --depth 1 --branch $VERSION https://github.com/laurent22/joplin.git /source
 WORKDIR /build
 
-RUN cp -r /source/.yarn/plugins ./.yarn/plugins && \
+RUN mkdir .yarn && \
+    mkdir .packages && \
+    cp -r /source/.yarn/plugins ./.yarn/plugins && \
     cp -r /source/.yarn/releases ./.yarn/releases && \
     cp -r /source/.yarn/patches ./.yarn/patches && \
     cp -r /source/package.json . && \
