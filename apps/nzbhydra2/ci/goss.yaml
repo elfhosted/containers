@@ -15,4 +15,3 @@ port:
 http:
   http://localhost:5076:
     status: 200
-    timeout: 30000
