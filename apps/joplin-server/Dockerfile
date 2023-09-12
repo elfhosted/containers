@@ -59,9 +59,9 @@ RUN BUILD_SEQUENCIAL=1 yarn install --inline-builds \
 
 FROM node:18-bullseye-slim
 
-RUN adduser -S elfie -G elfie --uid 568
+ARG user=elfie
+RUN useradd --create-home --uid 568 --gid 568 --shell /bin/bash $user
 
-ARG user=568
 
 USER $user
 
