@@ -1,16 +1,16 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 process:
-  nzbget:
+  node:
     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 port:
   # https://github.com/aelsabbahy/goss/issues/149
-  tcp:6789:
+  tcp:22300:
     listening: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:6789:
+  http://localhost:22300:
     status: 200
