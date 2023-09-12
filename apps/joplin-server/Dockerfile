@@ -37,7 +37,7 @@ RUN mkdir .yarn && \
     cp -rf /source/packages/renderer ./packages/ && \
     cp -rf /source/packages/tools ./packages/ && \
     cp -rf /source/packages/utils ./packages/ && \
-    cp -rf /source/packages/lib ./packages/ && \
+    cp -rf /source/packages/lib ./packages/ 
 
 
 # # For some reason there's both a .yarn/cache and .yarn/berry/cache that are
