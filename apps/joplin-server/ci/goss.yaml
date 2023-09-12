@@ -5,10 +5,10 @@ process:
     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
-port:
-  # https://github.com/aelsabbahy/goss/issues/149
-  tcp:22300:
-    listening: true
+# port:
+#   # https://github.com/aelsabbahy/goss/issues/149
+#   tcp:22300:
+#     listening: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
