@@ -30,7 +30,7 @@ RUN mkdir .yarn && \
     cp -rf /source/packages/turndown ./packages/ && \
     cp -rf /source/packages/turndown-plugin-gfm ./packages/ && \
     cp -rf /source/packages/fork-htmlparser2 ./packages/ && \
-    cp -rf /source/packages/server ./packages/server && \
+    cp -rf /source/packages/server ./packages/ && \
     cp -rf /source/packages/fork-sax ./packages/ && \
     cp -rf /source/packages/fork-uslug ./packages/ && \
     cp -rf /source/packages/htmlpack ./packages/ && \
