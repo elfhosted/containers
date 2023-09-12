@@ -1,25 +1,61 @@
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8a0e46c40c2d2a57ba83cf20409d6a40522358eac14a1b10d55e47b43af28f18 
+FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:4de1d348d364db1fee3581591cea174c677f68852c7dfd1009583fa1317851dc
 
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
+
+# set version label
+ARG BUILD_DATE
 ARG VERSION
-ARG CHANNEL
+ARG NZBHYDRA2_RELEASE=$VERSION
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# environment settings
+ARG DEBIAN_FRONTEND="noninteractive"
+ENV NZBHYDRA2_RELEASE_TYPE="Release"
 
-#hadolint ignore=DL3018
-RUN apk add --no-cache ca-certificates openjdk11-jre-headless python3
-#hadolint ignore=DL3018,DL3059
 RUN \
-    curl -fsSL -o /tmp/nzbhydra2.zip \
-        "https://github.com/theotherp/nzbhydra2/releases/download/v${VERSION}/nzbhydra2-${VERSION}-amd64-linux.zip" \
-    && unzip -q /tmp/nzbhydra2.zip -d /app \
-    && chown -R root:root /app \
-    && chmod -R 755 /app \
-    && rm -rf /tmp/*
+  echo "**** install packages ****" && \
+  apt-get update && \
+  apt-get install --no-install-recommends -y \
+    libfreetype6 \
+    openjdk-17-jre-headless \
+    python3 \
+    unzip && \
+  echo "**** install nzbhydra2 ****" && \
+  if [ -z ${NZBHYDRA2_RELEASE+x} ]; then \
+    NZBHYDRA2_RELEASE=$(curl -sX GET "https://api.github.com/repos/theotherp/nzbhydra2/releases/latest" \
+    | jq -r .tag_name); \
+  fi && \
+  NZBHYDRA2_VER=${NZBHYDRA2_RELEASE#v} && \
+  curl -o \
+    /tmp/nzbhydra2.zip -L \
+    "https://github.com/theotherp/nzbhydra2/releases/download/v${NZBHYDRA2_VER}/nzbhydra2-${NZBHYDRA2_VER}-amd64-linux.zip" && \
+  mkdir -p /app/nzbhydra2 && \
+  unzip /tmp/nzbhydra2.zip -d /app/nzbhydra2 && \
+  chmod +x /app/nzbhydra2/nzbhydra2wrapperPy3.py && \
+  if [ -f /app/nzbhydra2/core ]; then chmod +x /app/nzbhydra2/core; fi && \
+  echo "ReleaseType=${NZBHYDRA2_RELEASE_TYPE}\nPackageVersion=${VERSION}\nPackageAuthor=linuxserver.io" > /app/nzbhydra2/package_info && \
+  mkdir -p /defaults && \
+  curl -o \
+    /defaults/nzbhydra.yml -L \
+    "https://raw.githubusercontent.com/theotherp/nzbhydra2/v${NZBHYDRA2_VER}/core/src/main/resources/config/baseConfig.yml" && \
+  sed -i 's/mapIpToHost: true/mapIpToHost: false/' /defaults/nzbhydra.yml && \
+  echo "**** cleanup ****" && \
+  rm -rf \
+    /tmp/* \
+    /var/lib/apt/lists/* \
+    /var/tmp/* \
+    /var/log/* \
+    /app/nzbhydra2/upstart \
+    /app/nzbhydra2/rc.d \
+    /app/nzbhydra2/sysv \
+    /app/nzbhydra2/systemd
+
+# copy local files
+# COPY root/ /
+
+# ports and volumes
+EXPOSE 5076
+
+VOLUME /config
 
 USER 568
 COPY ./apps/nzbhydra2/entrypoint.sh /entrypoint.sh
 CMD ["/entrypoint.sh"]
-
-LABEL org.opencontainers.image.source="https://github.com/theotherp/nzbhydra2"
