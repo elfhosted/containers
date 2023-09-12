@@ -18,27 +18,27 @@ RUN git clone --depth 1 --branch $VERSION https://github.com/laurent22/joplin.gi
 WORKDIR /build
 
 RUN mkdir .yarn && \
-    mkdir .packages && \
-    cp -r /source/.yarn/plugins ./.yarn/plugins && \
-    cp -r /source/.yarn/releases ./.yarn/releases && \
-    cp -r /source/.yarn/patches ./.yarn/patches && \
-    cp -r /source/package.json . && \
-    cp -r /source/.yarnrc.yml . && \
-    cp -r /source/yarn.lock . && \
-    cp -r /source/gulpfile.js . && \
-    cp -r /source/tsconfig.json . && \
-    cp -r /source/packages/turndown ./packages/turndown && \
-    cp -r /source/packages/turndown-plugin-gfm ./packages/turndown-plugin-gfm && \
-    cp -r /source/packages/fork-htmlparser2 ./packages/fork-htmlparser2 && \
-    cp -r /source/packages/server/package*.json ./packages/server/ && \
-    cp -r /source/packages/fork-sax ./packages/fork-sax && \
-    cp -r /source/packages/fork-uslug ./packages/fork-uslug && \
-    cp -r /source/packages/htmlpack ./packages/htmlpack && \
-    cp -r /source/packages/renderer ./packages/renderer && \
-    cp -r /source/packages/tools ./packages/tools && \
-    cp -r /source/packages/utils ./packages/utils && \
-    cp -r /source/packages/lib ./packages/lib && \
-    cp -r /source/packages/server ./packages/server
+    mkdir -p .packages/server && \
+    cp -rf /source/.yarn/plugins ./.yarn/plugins && \
+    cp -rf /source/.yarn/releases ./.yarn/releases && \
+    cp -rf /source/.yarn/patches ./.yarn/patches && \
+    cp -rf /source/package.json . && \
+    cp -rf /source/.yarnrc.yml . && \
+    cp -rf /source/yarn.lock . && \
+    cp -rf /source/gulpfile.js . && \
+    cp -rf /source/tsconfig.json . && \
+    cp -rf /source/packages/turndown ./packages/ && \
+    cp -rf /source/packages/turndown-plugin-gfm ./packages/ && \
+    cp -rf /source/packages/fork-htmlparser2 ./packages/ && \
+    cp -rf /source/packages/server ./packages/server && \
+    cp -rf /source/packages/fork-sax ./packages/ && \
+    cp -rf /source/packages/fork-uslug ./packages/ && \
+    cp -rf /source/packages/htmlpack ./packages/ && \
+    cp -rf /source/packages/renderer ./packages/ && \
+    cp -rf /source/packages/tools ./packages/ && \
+    cp -rf /source/packages/utils ./packages/ && \
+    cp -rf /source/packages/lib ./packages/ && \
+
 
 # # For some reason there's both a .yarn/cache and .yarn/berry/cache that are
 # # being generated, and both have the same content. Not clear why it does this
