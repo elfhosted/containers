@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-version=$(curl -sX GET "https://api.github.com/repos/laurent22/joplin/releases/latest" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.tag_name')
+version=$(git -c 'versionsort.suffix=-' ls-remote --exit-code --refs --sort='version:refname' --tags https://github.com/laurent22/joplin.git 'server-*.*.*' | tail --lines=1 | cut -d\- -f2)
 printf "%s" "${version}"
