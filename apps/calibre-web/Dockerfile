@@ -67,6 +67,20 @@ RUN \
     /root/.cache && \
   ln -sf /config/calibre-web.log /app/calibre-web/calibre-web.log
 
+RUN echo "**** Fetch calibre bin ****" && \
+ CALIBRE_RELEASE=$(curl -sX GET "https://api.github.com/repos/kovidgoyal/calibre/releases/latest" \
+	| awk '/tag_name/{print $4;exit}' FS='[""]' | sed 's/^v//g' ) && \ 
+ mkdir -p \
+    /app/calibre && \
+ curl -o \
+	/tmp/calibre.txz -L \
+	"https://github.com/kovidgoyal/calibre/releases/download/v${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-x86_64.txz" && \
+ tar xf \
+	/tmp/calibre.txz \
+	-C /app/calibre && \
+  mv /app/calibre/ebook-convert /usr/bin/ && \
+  rm -rf /app/calibre
+
 USER 568
 COPY ./apps/calibre-web/entrypoint.sh /entrypoint.sh
 CMD ["/entrypoint.sh"]
