@@ -78,7 +78,7 @@ RUN echo "**** Fetch calibre bin ****" && \
  tar xf \
 	/tmp/calibre.txz \
 	-C /app/calibre && \
-  mv /app/calibre/ebook-convert /usr/bin/ && \
+  mv /app/calibre/* /usr/bin/ && \
   rm -rf /app/calibre
 
 USER 568
