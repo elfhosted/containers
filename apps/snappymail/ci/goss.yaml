@@ -1,0 +1,19 @@
+---
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+process:
+  php-fpm_00:
+    running: true
+  nginx_00:
+    running: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+port:
+  # https://github.com/aelsabbahy/goss/issues/149
+  tcp6:80:
+    listening: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+http:
+  http://localhost:80:
+    status: 200
+    timeout: 5000
