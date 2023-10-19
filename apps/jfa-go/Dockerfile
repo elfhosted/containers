@@ -1,5 +1,5 @@
 ARG VERSION
-FROM hrfee/jfa-go:${VERSION} as upstream
+FROM hrfee/jfa-go as upstream
 FROM golang:latest
 
 COPY --from=upstream /opt/jfa-go /opt/jfa-go
