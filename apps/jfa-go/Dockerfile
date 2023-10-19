@@ -1,3 +1,4 @@
+ARG VERSION
 FROM hrfee/jfa-go:${VERSION} as upstream
 FROM golang:latest
 
