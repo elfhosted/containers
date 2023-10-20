@@ -3,7 +3,7 @@ FROM ghcr.io/advplyr/audiobookshelf:${VERSION} as upstream
 
 LABEL org.opencontainers.image.source = "https://github.com/advplyr/audiobookshelf"
 
-FROM node:16-alpine
+FROM node:21-alpine
 
 ENV NODE_ENV=production
 ENV UID=568

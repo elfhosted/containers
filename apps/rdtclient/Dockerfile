@@ -1,5 +1,5 @@
 # Stage 1 - Build the frontend
-FROM node:16-alpine3.17 AS node-build-env
+FROM node:21-alpine3.17 AS node-build-env
 ARG VERSION
 ARG TARGETPLATFORM
 ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
