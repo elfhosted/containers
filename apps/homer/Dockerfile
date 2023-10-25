@@ -10,6 +10,7 @@ ENV UID 568
 ENV PORT 8080
 ENV SUBFOLDER "/_"
 ENV INIT_ASSETS 1
+ENV IPV6_DISABLE 0
 
 USER root 
 
@@ -18,6 +19,7 @@ RUN apk add -U --no-cache lighttpd
 WORKDIR /www
 
 COPY --from=upstream /lighttpd.conf /lighttpd.conf
+COPY --from=upstream /etc/lighttpd/ipv6.sh /etc/lighttpd/ipv6.sh
 COPY --from=upstream /entrypoint.sh /entrypoint.sh
 COPY --from=upstream --chown=${UID}:${GID} /www/ /www/
 
