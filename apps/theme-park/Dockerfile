@@ -1,4 +1,4 @@
-FROM nginxinc/nginx-unprivileged:1.25.1
+FROM nginxinc/nginx-unprivileged:1.25.3
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
