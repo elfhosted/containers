@@ -1,5 +1,5 @@
 # Inspired by the original Rainloop dockerfile from youtous on GitLab
-FROM php:8.1-fpm-bullseye
+FROM php:8.3-fpm-bullseye
 
 ARG VERSION
 LABEL org.label-schema.description="SnappyMail webmail client image using nginx, php-fpm based on Debian Buster"
