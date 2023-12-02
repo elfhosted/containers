@@ -1,3 +1,5 @@
+FROM mikefarah/yq:4.33.3 as yq
+
 FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:4de1d348d364db1fee3581591cea174c677f68852c7dfd1009583fa1317851dc
 
 ARG TARGETPLATFORM
@@ -59,6 +61,9 @@ RUN { \
 	} > ~/.s3cfg
 
 COPY ./apps/tooling/scripts /scripts
+
+# We need yq to merge yamls
+COPY --from=yq /usr/bin/yq /usr/bin/yq  
 
 USER 568
 
