@@ -5,6 +5,10 @@ RUN cd /var/www/rutorrent && \
     apk add --no-cache git openjdk17-jre-headless xz 7zip && \
     git clone https://github.com/xombiemp/rutorrentMobile.git mobile && \
     git clone https://github.com/nelu/rutorrent-filemanager.git plugins/filemanager && \
+    cd /tmp && \
+    git clone https://github.com/Novik/ruTorrent.git && \
+    mv /tmp/ruTorrent/plugins/httprpc /var/www/rutorrent/plugins/ && \
+    rm -rf /tmp/ruTorrent && \
     apk del --force-broken-world git && \
     curl -o /tmp/filebot.xz -L "https://get.filebot.net/filebot/FileBot_5.0.1/FileBot_5.0.1-portable.tar.xz" && \
     mkdir -p /opt/filebot && \
