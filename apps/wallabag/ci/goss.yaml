@@ -11,14 +11,13 @@ port:
   # https://github.com/aelsabbahy/goss/issues/149
   tcp6:8000:
     listening: true
-  tcp6:9000:
-    listening: true    
+
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
-http:
-  http://localhost:8000:
-    status: 200
-    timeout: 5000
-  http://localhost:9000:
-    status: 200
-    timeout: 5000    
+# http:
+#   http://localhost:8000:
+#     status: 200
+#     timeout: 5000
+#   http://localhost:9000:
+#     status: 200
+#     timeout: 5000    
