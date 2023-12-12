@@ -1,4 +1,4 @@
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:7026c2a516b0bdd2f3fa2ccb88b366660b98f84ef476c055e1ffefecd7f66459
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598
 
 ARG UNRAR_VERSION=6.1.7
 # set version label
