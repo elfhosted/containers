@@ -1,7 +1,6 @@
 FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8a0e46c40c2d2a57ba83cf20409d6a40522358eac14a1b10d55e47b43af28f18 
 
 # Args
-ARG OVERLAY_VERSION="3.1.6.2"
 ARG VERSION
 
 # Environment variables
@@ -20,18 +19,18 @@ RUN \
   [ "${ARCH}" = "armv7l" ] && OVERLAY_ARCH="armhf" || true && \
   # S6 scripts
   curl -fsS -O --output-dir /tmp/ -L \
-    "https://github.com/just-containers/s6-overlay/releases/download/v${OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" && \
+    "https://github.com/just-containers/s6-overlay/releases/download/v${VERSION}/s6-overlay-noarch.tar.xz" && \
   tar -C / -Jxpf "/tmp/s6-overlay-noarch.tar.xz" && \
   # S6 binary
   curl -fsS -O --output-dir /tmp/ -L \
-    "https://github.com/just-containers/s6-overlay/releases/download/v${OVERLAY_VERSION}/s6-overlay-${OVERLAY_ARCH}.tar.xz" && \
+    "https://github.com/just-containers/s6-overlay/releases/download/v${VERSION}/s6-overlay-${OVERLAY_ARCH}.tar.xz" && \
   tar -C / -Jxpf "/tmp/s6-overlay-${OVERLAY_ARCH}.tar.xz" && \
   # S6 symlinks
   curl -fsS -O --output-dir /tmp/ -L \
-    "https://github.com/just-containers/s6-overlay/releases/download/v${OVERLAY_VERSION}/s6-overlay-symlinks-noarch.tar.xz" && \
+    "https://github.com/just-containers/s6-overlay/releases/download/v${VERSION}/s6-overlay-symlinks-noarch.tar.xz" && \
   tar -C / -Jxpf "/tmp/s6-overlay-symlinks-noarch.tar.xz" && \
   curl -fsS -O --output-dir /tmp/ -L \
-    "https://github.com/just-containers/s6-overlay/releases/download/v${OVERLAY_VERSION}/s6-overlay-symlinks-arch.tar.xz" && \
+    "https://github.com/just-containers/s6-overlay/releases/download/v${VERSION}/s6-overlay-symlinks-arch.tar.xz" && \
   tar -C / -Jxpf "/tmp/s6-overlay-symlinks-arch.tar.xz" && \
   echo "**** Cleanup ****" && \
   rm -rf \
