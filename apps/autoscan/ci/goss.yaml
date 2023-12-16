@@ -1,0 +1,17 @@
+---
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+process:
+  autoscan:
+    running: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+port:
+  # https://github.com/aelsabbahy/goss/issues/149
+  tcp6:3030:
+    listening: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+http:
+  http://localhost:3030:
+    status: 200
+    timeout: 5000
