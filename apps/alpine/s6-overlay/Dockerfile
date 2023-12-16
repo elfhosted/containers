@@ -32,6 +32,6 @@ RUN \
   curl -fsS -O --output-dir /tmp/ -L \
     "https://github.com/just-containers/s6-overlay/releases/download/v${OVERLAY_VERSION}/s6-overlay-symlinks-arch.tar.xz" && \
   tar -C / -Jxpf "/tmp/s6-overlay-symlinks-arch.tar.xz" && \
-  echo "**** Cleanup ****" && 
+  echo "**** Cleanup ****" && \
   rm -rf \
     /tmp/*
