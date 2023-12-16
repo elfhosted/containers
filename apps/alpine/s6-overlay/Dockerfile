@@ -37,8 +37,3 @@ RUN \
     build-dependencies && \
   rm -rf \
     /tmp/*
-
-# Add extra files
-COPY root/ /
-
-ENTRYPOINT ["/init"]
