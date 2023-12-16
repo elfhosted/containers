@@ -23,6 +23,17 @@
         "enabled": true,
         "type": "cli"
       }
-    }
+    },
+    {
+      "name": "s6-overlay",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "cli"
+      }
+    }    
   ]
 }
