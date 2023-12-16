@@ -7,7 +7,7 @@ ENV \
   AUTOSCAN_CONFIG="/config/config.yml" \
   AUTOSCAN_DATABASE="/config/autoscan.db" \
   AUTOSCAN_LOG="/config/activity.log" \
-  AUTOSCAN_VERBOSITY="0"
+  AUTOSCAN_VERBOSITY="0" \
   HOME="/config" \
   XDG_CONFIG_HOME="/config" \
   XDG_DATA_HOME="/config"
