@@ -2,6 +2,7 @@ FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:8a0e46c40c2d2a57ba83cf20409d6a4
 
 # Args
 ARG OVERLAY_VERSION="3.1.6.2"
+ARG VERSION
 
 # Environment variables
 ENV \
