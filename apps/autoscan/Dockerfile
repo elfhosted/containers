@@ -19,5 +19,5 @@ COPY --from=upstream /app/autoscan/autoscan /app/autoscan/autoscan
 
 EXPOSE 3030
 
-ENTRYPOINT ["/app/autoscan/autoscan"]
-
+COPY ./apps/autoscan/entrypoint.sh /entrypoint.sh
+CMD ["/entrypoint.sh"]
