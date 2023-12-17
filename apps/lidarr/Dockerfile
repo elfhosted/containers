@@ -1,7 +1,6 @@
 FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598 
 
 ARG TARGETPLATFORM
-ARG BUILDPLATFORM
 ARG VERSION
 ARG CHANNEL
 
@@ -25,12 +24,14 @@ RUN \
         'linux/arm64') export ARCH='arm64' ;; \
     esac \
     && \
+    mkdir -p /app/bin \
+    && \
     curl -fsSL "https://lidarr.servarr.com/v1/update/${LIDARR__BRANCH}/updatefile?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
-        | tar xzf - -C /app --strip-components=1 \
+        | tar xzf - -C /app/bin --strip-components=1 \
     && \
     rm -rf \
-        /app/Lidarr.Update \
-        /app/fpcalc \
+        /app/bin/Lidarr.Update \
+        /app/bin/fpcalc \
     && \
     printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[geek-cookbook](https://github.com/geek-cookbook)" "${LIDARR__BRANCH}" "${VERSION}" > /app/package_info \
     && chown -R root:root /app \
