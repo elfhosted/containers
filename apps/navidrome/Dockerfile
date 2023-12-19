@@ -16,7 +16,7 @@ RUN \
         'linux/arm64') export ARCH='arm64' ;; \
     esac \
     && \
-    curl -fsSL "https://github.com/navidrome/navidrome/releases/download/v${VERSION}/navidrome_${VERSION}_Linux_${ARCH}.tar.gz" \
+    curl -fsSL "https://github.com/navidrome/navidrome/releases/download/v${VERSION}/navidrome_${VERSION}_linux_${ARCH}.tar.gz" \
         | tar xzf - -C /app \
     && rm /app/LICENSE /app/README.md \
     && chown -R root:root /app \
