@@ -3,6 +3,7 @@
 process:
   rtorrent:
     running: true
+    timeout: 30000
   nginx:
     running: true    
 
