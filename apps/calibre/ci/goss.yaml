@@ -9,6 +9,6 @@ http:
   http://localhost:8080:
     status: 200
 
-port:
-  tcp:8080:
-    listening: true
+# port:
+#   tcp:8080:
+#     listening: true
