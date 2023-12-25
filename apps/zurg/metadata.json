@@ -10,7 +10,7 @@
       "stable": true,
       "tests": {
         "enabled": true,
-        "type": "cli"
+        "type": "web"
       }
     }
   ]
