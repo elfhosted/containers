@@ -6,8 +6,6 @@ WORKDIR /app
 
 VOLUME /config
 
-RUN mkdir /config/logs
-
 COPY --from=upstream /app/zurg /app/
 COPY --from=upstream /app/config.yml /config/
 
