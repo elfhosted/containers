@@ -4,8 +4,6 @@ FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185f
 
 WORKDIR /config
 
-RUN mkdir /app
-
 COPY --from=upstream /app/zurg /app/
 COPY --from=upstream /app/config.yml /config/
 
