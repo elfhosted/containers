@@ -9,4 +9,10 @@ s6-setuidgid ${PUID}:${PGID} \
     --transfers=1 \
     --bwlimit=10M \
     --multi-thread-streams=1 \
+    --no-modtime \
+    --vfs-read-chunk-size=10M \
+    --vfs-read-chunk-size-limit=10M \
+    --max-header-bytes=8192 \
+    --stats 60s \
+    -v \
     /storage
