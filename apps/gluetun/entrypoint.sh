@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/ash
 
 # If the VPN_ENDPOINT_IP is not an IP address, then convert it to one
 
