@@ -1,3 +1,5 @@
 ARG VERSION
-FROM qdm12/gluetun:${VERSION} as upstream
+FROM qdm12/gluetun:v${VERSION} as upstream
 
+COPY apps/gluetun/entrypoint.sh /
+ENTRYPOINT ["/entrypoint.sh"]
