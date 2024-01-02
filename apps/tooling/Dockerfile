@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
 	gpg \
 	git \
 	iproute2 \
+	curl \
 	tree \
 	time \
 	rsync \
