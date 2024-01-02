@@ -15,7 +15,7 @@ RUN set -xe \
 	&& rm -rf /var/cache/apk/* /tmp/*
 
 # Install arr-scripts
-COPY apps/sonarr/arr-scripts/prepare-scripts.sh /
+COPY apps/sonarr/scripts/prepare-scripts.sh /
 RUN chmod 755 /prepare-scripts.sh && /prepare-scripts.sh
 
 # USER 568
