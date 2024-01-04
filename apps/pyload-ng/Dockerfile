@@ -5,6 +5,8 @@ ARG BUILDPLATFORM
 ARG VERSION
 ARG CHANNEL
 
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # We need to be root for the build
