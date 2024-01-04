@@ -58,9 +58,9 @@ RUN \
     SPLASH_CLI_VERSION=$(curl -sX GET "https://api.github.com/repos/rawnly/splash-cli/releases/latest" \
     | jq -r .tag_name); \
   curl -o \
-    /tmp/splash-cli.zip -L \
+    /tmp/splash-cli.tar.gz -L \
     "https://github.com/rawnly/splash-cli/releases/download/${SPLASH_CLI_VERSION}/splash_${SPLASH_CLI_VERSION}_linux_amd64.tar.gz" && \
-  unzip /tmp/splash-cli.zip && \
+  tar zxvpf /tmp/splash-cli.tar.gz && \
   mv /tmp/splash /usr/local/bin
 
 RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /usr/share/keyrings/postgresql.gpg > /dev/null && \
