@@ -7,6 +7,8 @@ FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185f
 # for initial install
 USER root
 
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
 # Install apprise, iputils for non-root ping, setpriv
 RUN apk add --no-cache iputils setpriv dumb-init python3 py3-cryptography py3-pip py3-six py3-yaml py3-click py3-markdown py3-requests py3-requests-oauthlib nodejs npm && \
     pip3 --no-cache-dir install apprise==1.0.0 && \
