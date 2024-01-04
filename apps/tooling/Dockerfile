@@ -53,6 +53,21 @@ RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmo
 	apt-get update && \
 	apt -y install postgresql-client-15
 
+# splash-cli unsplash client
+RUN \
+    SPLASH_CLI_VERSION=$(curl -sX GET "https://api.github.com/repos/rawnly/splash-cli/releases/latest" \
+    | jq -r .tag_name); \
+  curl -o \
+    /tmp/splash-cli.zip -L \
+    "https://github.com/rawnly/splash-cli/releases/download/${SPLASH_CLI_VERSION}/splash_${SPLASH_CLI_VERSION}_linux_amd64.tar.gz" && \
+  unzip /tmp/splash-cli.zip && \
+  mv /tmp/splash /usr/local/bin
+
+RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /usr/share/keyrings/postgresql.gpg > /dev/null && \
+	echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main | tee -a /etc/apt/sources.list.d/postgresql.list && \
+	apt-get update && \
+	apt -y install postgresql-client-15	
+
 # Setup s3cmd config
 # hadolint ignore=SC2016
 RUN { \
