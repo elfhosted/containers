@@ -5,4 +5,4 @@ RUN apk add --update --no-cache python3 git && \
     git clone https://github.com/itsToggle/plex_debrid && \
     pip3 install -r ./plex_debrid/requirements.txt
 
-COPY apps/plex_debrid/root /
+COPY apps/plex-debrid/root /
