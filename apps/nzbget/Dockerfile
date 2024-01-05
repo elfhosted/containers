@@ -17,7 +17,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN \
     curl -fsSL -o /tmp/nzbget.run \
-      "https://github.com/nzbget/nzbget/releases/download/v${VERSION}/nzbget-${VERSION}-bin-linux.run" \
+      "https://github.com/nzbgetcom/nzbget/releases/download/v${VERSION}/nzbget-${VERSION}-bin-linux.run" \
     && \
     sh /tmp/nzbget.run --destdir /app \
     && \
@@ -55,4 +55,4 @@ USER 568
 COPY ./apps/nzbget/entrypoint.sh /entrypoint.sh
 CMD ["/entrypoint.sh"]
 
-LABEL org.opencontainers.image.source="https://github.com/nzbget/nzbget"
+LABEL org.opencontainers.image.source="https://github.com/nzbgetcom/nzbget"
