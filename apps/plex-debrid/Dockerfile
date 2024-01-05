@@ -7,7 +7,7 @@ RUN apk add --update --no-cache python3 git && \
 
 
 RUN addgroup -S elfie --gid 568 \
-        && adduser -S elfie -G elfie --uid 568 \
+        && adduser -S elfie -G elfie --uid 568
 
 ENV PUID=568 PGID=568
 
