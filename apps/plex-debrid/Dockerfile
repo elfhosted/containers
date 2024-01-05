@@ -5,4 +5,10 @@ RUN apk add --update --no-cache python3 git && \
     git clone https://github.com/itsToggle/plex_debrid && \
     pip3 install -r ./plex_debrid/requirements.txt
 
+
+RUN addgroup -S elfie --gid 568 \
+        && adduser -S elfie -G elfie --uid 568 \
+
+ENV PUID=568 PGID=568
+
 COPY apps/plex-debrid/root /
