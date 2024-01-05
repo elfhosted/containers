@@ -1,5 +1,5 @@
 FROM ghcr.io/linuxserver/baseimage-kasmvnc:alpine318
-RUN apk add --update --no-cache python3 git && \
+RUN apk add --update --no-cache python3 git xfce4-terminal && \
     python3 -m ensurepip && \
     pip3 install --no-cache --upgrade pip setuptools && \
     git clone https://github.com/itsToggle/plex_debrid && \
