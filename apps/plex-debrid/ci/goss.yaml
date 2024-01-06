@@ -3,7 +3,7 @@
 process:
   python:
     running: true
-  xterm:
+  xfce4-terminal:
     running: true    
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
