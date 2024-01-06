@@ -6,8 +6,7 @@ RUN apk add --update --no-cache python3 git xfce4-terminal && \
     pip3 install -r ./plex_debrid/requirements.txt
 
 RUN addgroup -S elfie --gid 568 \
-        && adduser -S elfie -G elfie --uid 568 && \
-        mkdir /elfhosted-config
+        && adduser -S elfie -G elfie --uid 568
 
 ENV PUID=568 PGID=568 \
   HOME="/tmp" \

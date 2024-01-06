@@ -1,1 +1,1 @@
-xfce4-terminal --fullscreen --show-menubar --title "Real Debrid | ElfHosted" -e "python /plex_debrid/main.py --config-dir /elfhosted-config"
+xfce4-terminal --fullscreen --show-menubar --title "Real Debrid | ElfHosted" -e "python /plex_debrid/main.py"
