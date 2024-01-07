@@ -1,0 +1,14 @@
+XTerm*Background: black
+XTerm*Foreground: green
+XTerm*SaveLines: 2000
+XTerm*faceName: Ubuntu mono
+XTerm*faceSize: 12
+XTerm*rightScrollBar: true
+XTerm*ScrollBar: true
+XTerm*scrollTtyOutput: false
+XTerm*VT100.Translations: #override \
+      Shift Ctrl<Key>V: insert-selection(CLIPBOARD) \n\ 
+      Shift Ctrl<Key>V: insert-selection(PRIMARY) \n\ 
+      Shift<Btn1Down>: select-start() \n\ 
+      Shift<Btn1Motion>: select-extend() \n\ 
+      Shift<Btn1Up>: select-end(CLIPBOARD) \n\
