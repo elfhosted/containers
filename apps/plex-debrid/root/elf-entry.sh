@@ -1,4 +1,5 @@
 #!/bin/bash
 
 cp /XTerm /config
-uxterm -e "python /plex_debrid/main.py"
+cd /config/elfhosted
+uxterm -e "python /plex_debrid/main.py --c"
