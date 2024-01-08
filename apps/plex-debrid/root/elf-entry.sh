@@ -2,4 +2,4 @@
 
 cp /XTerm /config
 cd /config/elfhosted
-uxterm -e "python /plex_debrid/main.py --c"
+xterm -maximized -e "python /plex_debrid/main.py --c"
