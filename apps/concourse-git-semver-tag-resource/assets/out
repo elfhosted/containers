@@ -1,0 +1,73 @@
+#!/bin/bash
+# vim: set ft=sh
+
+set -e
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+source $(dirname $0)/common.sh
+source $(dirname $0)/utils.sh
+
+source=$1
+
+if [ -z "$source" ]; then
+  echo "usage: $0 <path/to/source>"
+  exit 1
+fi
+
+# for jq
+PATH=/usr/local/bin:$PATH
+
+payload=$(mktemp $TMPDIR/git-semver-tag-resource-request.XXXXXX)
+destination=$(mktemp -d $TMPDIR/git-semver-tag-resource.XXXXXX)
+
+cat > $payload <&0
+
+prepare_repository "$destination" "$payload"
+
+version_file=$(jq -r '.params.file // ""' < "$payload")
+
+if [ -n "$version_file" ]; then
+
+  # verify version file is readable
+  if [ ! -r "$source/$version_file" ]; then
+    log "Version file '$version_file' is not readable"
+    exit 1
+  fi
+
+  version=$(cat "$source/$version_file")
+else
+  # return latest tag on this branch
+  branch=$(jq -r '.source.branch // ""' < "$payload")
+  latest_tag=$(semver "" $(git tag --merged "$branch" -l 2>/dev/null) | tail -1)
+  log "Latest tag is $latest_tag"
+
+  # use initial version if there aren't any tags yet
+  if [ -z "$latest_tag" ]; then
+    latest_tag=$(jq -r '.source.initial_version // "0.0.0"' < "$payload")
+  fi
+
+  # bump version according to provided strategy (no strategy will simply return input version)
+  version=$(bump_version "$latest_tag" "$payload")
+fi
+
+# set the tag for the new version on the HEAD commit
+git tag "v${version}" # prefix the actual tag with a v
+git push --tags --force # overwrite the tag if it already exists remotely
+
+jq -n "{
+  version: {
+    number: \"$version\"
+  },
+  metadata: [
+    {
+      name: \"number\",
+      value: \"$version\"
+    }
+  ]
+}" >&3
+
+# cleanup
+rm -f "$payload"
+rm -rf "$destination"

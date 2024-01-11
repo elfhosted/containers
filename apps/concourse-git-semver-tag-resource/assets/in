@@ -1,0 +1,42 @@
+#!/bin/bash
+# vim: set ft=sh
+
+set -e
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+source $(dirname $0)/common.sh
+source $(dirname $0)/utils.sh
+
+destination=$1
+
+if [ -z "$destination" ]; then
+  echo "usage: $0 <path/to/destination>" >&2
+  exit 1
+fi
+
+# for jq
+PATH=/usr/local/bin:$PATH
+
+payload=$(mktemp $TMPDIR/git-semver-tag-resource-request.XXXXXX)
+
+cat > $payload <&0
+
+input_version=$(jq -r '.version.number' < "$payload")
+
+prepare_repository "$destination" "$payload"
+
+# bump version according to provided strategy (no strategy will simply return input version)
+bump_version "$input_version" "$payload" > "$destination/number"
+log "Version $(cat "$destination/number") written to file: <resource>/number"
+
+metadata=""
+if [ -n "$input_version" ]; then
+  metadata="{ name: \"number\", value: \"$input_version\" }"
+fi
+
+jq -n "{
+  version: $(jq '.version' < "$payload"),
+  metadata: [ $metadata ]
+}" >&3

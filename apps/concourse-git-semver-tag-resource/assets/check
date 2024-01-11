@@ -1,0 +1,37 @@
+#!/bin/bash
+# vim: set ft=sh
+
+set -e
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+source $(dirname $0)/common.sh
+source $(dirname $0)/utils.sh
+
+# for jq
+PATH=/usr/local/bin:$PATH
+
+payload=$TMPDIR/pipeline-discovery-resource-request
+
+cat > $payload <&0
+
+destination=$TMPDIR/git-semver-tag-resource
+
+prepare_repository "$destination" "$payload"
+
+# return latest tag on this branch
+branch=$(jq -r '.source.branch // ""' < "$payload")
+tags=$(semver "" $(git tag --merged "$branch" -l 2>/dev/null) || true)
+
+if [ -z "$tags" ]; then
+  initial_version=$(jq -r '.source.initial_version // "0.0.0"' < "$payload")
+  jq -n "[{ number: \"$initial_version\" }]" >&3
+else
+  result="[]"
+  while read tag; do
+    result+=" | . + [{ number: \"$tag\" }]"
+  done <<< "$tags"
+
+  jq -n "$result" >&3
+fi
