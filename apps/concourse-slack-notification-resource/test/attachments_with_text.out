@@ -1,0 +1,17 @@
+{
+  "params": {
+    "text": "Inline static text",
+    "username": "concourse",
+    "always_notify": "true",
+    "debug": "true",
+    "attachments": [
+      {
+        "color": "danger",
+        "text": "Build `$BUILD_NAME` failed!"
+      }
+    ]
+  },
+  "source": {
+    "url": "https://some.url"
+  }
+}

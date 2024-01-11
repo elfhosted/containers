@@ -1,0 +1,10 @@
+{
+  "params": {
+    "text_file": "sample-empty.txt",
+    "username": "concourse",
+    "debug": "true"
+  },
+  "source": {
+    "url": "https://some.url"
+  }
+}
