@@ -1,0 +1,72 @@
+################
+# YAML anchors #
+################
+opendoor_yaml_definitions:
+  od_advanced: &od_advanced
+    min_remaining_threshold_before_using_access_token_additional : 20000
+    datadog_api_key: ((datadog-api-key))
+    datadog_app_key: ((datadog-app-key))
+    vault_addr: ((default_vault_addr))
+    vault_approle_role_id: ((github-vault-approle.vault-app-role-id))
+    vault_approle_secret_id: ((github-vault-approle.vault-app-role-secret))
+    debug: true
+  image_resource: &dev-tools
+    name: ""
+    source:
+      password: ((dockerhub-password))
+      repository: opendoor/dev-tools
+      username: ((dockerhub-username))
+    type: docker-image
+
+####################
+## Resource Types ##
+####################
+resource_types:
+  - name: od-pull-request
+    type: docker-image
+    source:     
+      repository: opendoor/telia-oss-github-pr-resource
+      # stored in vault concourse/shared
+      # most likely 'dev' if you are doing a code review ;)
+      tag: dev
+
+###############
+## Resources ##
+###############
+resources:
+  - name: pr-branch
+    type: od-pull-request
+    source:
+      access_token: ((github-token))
+      repository: opendoor-labs/code
+      od_advanced: *od_advanced
+
+##########
+## Jobs ##
+##########
+jobs:
+  - name: sample-opendoor-github-pr-resource
+    # run multiple jobs in parallel
+    serial: false
+    plan:
+      - get: pr-branch
+        trigger: true
+        # I changed the code for version: latest
+        # this feature isn't commented very well
+        version: every
+      - config:
+          image_resource: *dev-tools
+          inputs:
+          - name: pr-branch
+          platform: linux
+          run:
+            args:
+            - -c
+            - |-
+              echo "Hello World"
+              pwd
+              ls -l
+              ls -l pr-branch
+            path: bash
+        task: list-files  
+  

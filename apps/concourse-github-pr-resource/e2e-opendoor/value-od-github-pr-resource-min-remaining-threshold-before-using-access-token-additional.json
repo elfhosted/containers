@@ -1,0 +1,7 @@
+{
+ "value":20000,
+ "comment" : "Use a @value-od-github-pr-resource-min-remaining-threshold-before-using-access-token-additional.json where to save the value as an int",
+ "comment2" : "If you see a value of large number like 20000, this means to never use the access_token supplied and always use the access_token_additional",
+ "comment3" : "To test the output of vault : vault kv get -format=json concourse/shared/od-github-pr-resource-min-remaining-threshold-before-using-access-token-additional",
+ "example" : "vault kv put -format=json concourse/shared/od-github-pr-resource-min-remaining-threshold-before-using-access-token-additional @value-od-github-pr-resource-min-remaining-threshold-before-using-access-token-additional.json"
+}

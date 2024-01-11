@@ -1,0 +1,6 @@
+{
+ "value":true,
+ "comment" : "Use a @value-od-git-resource-debug.json where to save the value as a bool",
+ "comment2": "To test the output of vault : vault kv get -format=json concourse/shared/od-github-pr-resource-debug",
+ "example" : "vault kv put -format=json concourse/shared/od-git-resource-debug @value-od-git-resource-debug.json"
+}

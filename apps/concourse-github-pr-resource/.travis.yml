@@ -1,0 +1,13 @@
+language: go
+sudo: false
+matrix:
+  include:
+  - os: osx
+    go: 1.16.x
+  - os: linux
+    go: 1.16.x
+notifications:
+  email: false
+script:
+- curl -sL https://taskfile.dev/install.sh | sh
+- ./bin/task ci
