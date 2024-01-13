@@ -1,0 +1,19 @@
+---
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+# process:
+#   rtorrent:
+#     running: true
+#   nginx:
+#     running: true    
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+port:
+  # https://github.com/aelsabbahy/goss/issues/149
+  tcp6:6500:
+    listening: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+http:
+  http://localhost:6500:
+    status: 200
+    timeout: 5000
