@@ -11,17 +11,18 @@
       "tests": {
         "enabled": true,
         "type": "web"
-      },
-      {
-        "name": "laster13",
-        "platforms": [
-          "linux/amd64"
-        ],
-        "stable": true,
-        "tests": {
-          "enabled": true,
-          "type": "web"
-        }      
-    } 
+      }
+    },
+    {
+      "name": "laster13",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    }     
   ]
 }
