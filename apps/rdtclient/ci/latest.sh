@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+channel=$1
+
 if [[ "${channel}" == "laster13" ]]; then
     version=$(curl -sX GET "https://api.github.com/repos/laster13/rdt-client/commits/main" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
 else
