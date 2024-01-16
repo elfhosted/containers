@@ -4,11 +4,12 @@ process:
   zurg:
     running: true
 
-# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
-port:
-  # https://github.com/aelsabbahy/goss/issues/149
-  tcp6:9999:
-    listening: true
+# can't monitor this because zurg will crash with no api key
+# # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+# port:
+#   # https://github.com/aelsabbahy/goss/issues/149
+#   tcp6:9999:
+#     listening: true
 
 # # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 # http:
