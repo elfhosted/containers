@@ -6,13 +6,14 @@ s6-setuidgid ${PUID}:${PGID} \
     --addr :5574 \
     --user ${WEBDAV_USERNAME} \
     --pass ${WEBDAV_PASSWORD} \
-    --transfers=1 \
-    --bwlimit=10M \
-    --multi-thread-streams=1 \
-    --no-modtime \
-    --vfs-read-chunk-size=10M \
-    --vfs-read-chunk-size-limit=10M \
     --max-header-bytes=8192 \
     --stats 60s \
     -v \
     /storage
+
+    # --transfers=1 \
+    # --bwlimit=10M \
+    # --multi-thread-streams=1 \
+    # --no-modtime \
+    # --vfs-read-chunk-size=10M \
+    # --vfs-read-chunk-size-limit=10M \
