@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 #shellcheck disable=SC1091
+source "/scripts/vpn.sh"
 test -f "/scripts/umask.sh" && source "/scripts/umask.sh"
 test -f "/scripts/plex-preferences.sh" && source "/scripts/plex-preferences.sh"
 
