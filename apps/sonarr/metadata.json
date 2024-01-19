@@ -32,7 +32,8 @@
         "tests": {
           "enabled": false,
           "type": "cli"
-        }      
+        }    
+      }  
     }
   ]
 }
