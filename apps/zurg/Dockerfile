@@ -7,4 +7,5 @@ WORKDIR /config
 COPY --from=upstream /app/zurg /app/
 COPY --from=upstream /app/config.yml /config/
 
-ENTRYPOINT ["/app/zurg"]
+COPY ./apps/zurg/entrypoint.sh /entrypoint.sh
+CMD ["/entrypoint.sh"]

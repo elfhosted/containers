@@ -96,4 +96,5 @@ COPY --from=node-build-env /appclient/root/ /
 # ports and volumes
 EXPOSE 6500
 
-ENTRYPOINT ["/bin/bash", "-c", "dotnet RdtClient.Web.dll"]
+COPY ./apps/rdtclient/entrypoint.sh /entrypoint.sh
+CMD ["/entrypoint.sh"]
