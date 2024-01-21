@@ -5,6 +5,7 @@ FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185f
 WORKDIR /config
 
 COPY --from=upstream /app/zurg /app/
+COPY --from=upstream /app/plex-update.sh /app/
 COPY --from=upstream /app/config.yml /config/
 
 COPY ./apps/zurg/entrypoint.sh /entrypoint.sh
