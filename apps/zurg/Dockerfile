@@ -6,10 +6,9 @@ WORKDIR /config
 
 # Needed for the plex-update script
 RUN apk add --no-cache python3
-ADD https://raw.githubusercontent.com/debridmediamanager/zurg-testing/main/plex_update.sh /app/
 
 COPY --from=upstream /app/zurg /app/
 COPY --from=upstream /app/config.yml /config/
-
 COPY ./apps/zurg/entrypoint.sh /entrypoint.sh
+
 CMD ["/entrypoint.sh"]
