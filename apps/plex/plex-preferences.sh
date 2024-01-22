@@ -28,15 +28,14 @@ function setPref {
 
 prefFile="${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR}/Plex Media Server/Preferences.xml"
 
-# Create empty shell pref file if it doesn't exist already
-if [ ! -e "${prefFile}" ]; then
-  exit 0 # don't create null files, this can cause truoble when storage is iffy
-#   echo "Creating pref shell"
-#   mkdir -p "$(dirname "${prefFile}")"
-#   cat > "${prefFile}" <<-EOF
-# <?xml version="1.0" encoding="utf-8"?>
-# <Preferences/>
-# EOF
+# Create empty shell pref file if it doesn't exist already, or is empty (indicating corruption)
+if [ ! -e "${prefFile}" && ! -s "${prefFile}" ]; then
+  echo "Creating pref shell"
+  mkdir -p "$(dirname "${prefFile}")"
+  cat > "${prefFile}" <<-EOF
+<?xml version="1.0" encoding="utf-8"?>
+<Preferences/>
+EOF
 fi
 
 # Setup Server's client identifier
