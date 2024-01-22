@@ -1,6 +1,6 @@
 ARG VERSION
 FROM ghcr.io/debridmediamanager/zurg-testing:${VERSION} as upstream
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598 
+FROM ghcr.io/geek-cookbook/alpine:3.17.6@sha256:8f7b9f66375192ab91b1315eab93469e14c4e7724196e9bf31267ac164c00b87 
 
 WORKDIR /config
 
