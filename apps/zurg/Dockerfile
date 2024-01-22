@@ -5,7 +5,7 @@ FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185f
 WORKDIR /config
 
 # Needed for the plex-update script
-RUN apk add --no-cache python3
+RUN apk add --no-cache python3 libxml2-utils 
 
 COPY --from=upstream /app/zurg /app/
 COPY --from=upstream /app/config.yml /config/
