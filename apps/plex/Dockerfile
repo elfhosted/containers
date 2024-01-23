@@ -1,4 +1,4 @@
-FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:4de1d348d364db1fee3581591cea174c677f68852c7dfd1009583fa1317851dc
+FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:8b5f5ba5664d71a8cb85d063f03c65a24c24295f25c1da6ead6397c0a63e325a
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
