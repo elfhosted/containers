@@ -1,6 +1,5 @@
 ARG VERSION
-ARG NODE_VERSION=20
-FROM node:${NODE_VERSION}-alpine AS node
+FROM node:${VERSION}-alpine AS node
 FROM public.ecr.aws/docker/library/golang:1.20.4-alpine3.18 as builder
 ARG TARGETOS
 ARG TARGETARCH
@@ -24,7 +23,7 @@ RUN \
         ;; \
     esac
 
-FROM public.ecr.aws/docker/library/alpine:${VERSION}
+FROM public.ecr.aws/docker/library/alpine
 ARG VERSION
 ARG CHANNEL
 ARG TARGETPLATFORM

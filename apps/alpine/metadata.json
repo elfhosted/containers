@@ -25,7 +25,7 @@
       }
     },
     {
-      "name": "node-20",
+      "name": "node",
       "platforms": [
         "linux/amd64"
       ],
