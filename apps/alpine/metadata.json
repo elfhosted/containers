@@ -23,6 +23,17 @@
         "enabled": true,
         "type": "cli"
       }
-    }    
+    },
+    {
+      "name": "node-20",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "cli"
+      }
+    }        
   ]
 }
