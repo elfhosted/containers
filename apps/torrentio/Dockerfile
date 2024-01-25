@@ -11,7 +11,7 @@ WORKDIR /home/node/app
 RUN git clone https://github.com/Pukabyte/torrentio-scraper-sh.git /tmp/source && \
     cp /tmp/source/${CHANNEL}/package*.json ./ && \
     npm ci --only-production && \
-    cp /tmp/source/${CHANNEL} . && \
+    cp -rf /tmp/source/${CHANNEL}/* . && \
     rm -rf /tmp/source
 
 CMD [ "node", "--insecure-http-parser", "index.js" ]
