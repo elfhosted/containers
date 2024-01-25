@@ -2,7 +2,7 @@ FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:4de1d348d364db1fee3581591cea174
 
 ARG VERSION
 
-ARG dl_url="https://web-builds.airdcpp.net/stable/airdcpp_${VERSION}_webui$-{VERSION}_64-bit_portable.tar.gz"
+ARG dl_url="https://web-builds.airdcpp.net/stable/airdcpp_${VERSION}_webui-${VERSION}_64-bit_portable.tar.gz"
 
 RUN installDeps=' \
         curl \
