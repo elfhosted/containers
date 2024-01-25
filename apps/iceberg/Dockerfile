@@ -25,7 +25,7 @@ RUN python3 -m venv /venv
 COPY  --from=upstream /iceberg/requirements.txt /iceberg/requirements.txt
 RUN source /venv/bin/activate && pip install -r /iceberg/requirements.txt
 
-COPY  --from=upstream /iceberg/entrypoint.sh ./entrypoint.sh
+COPY apps/iceberg/entrypoint.sh ./entrypoint.sh
 # COPY apps/iceberg/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
