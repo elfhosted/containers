@@ -1,5 +1,6 @@
-arg VERSION
 FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:4de1d348d364db1fee3581591cea174c677f68852c7dfd1009583fa1317851dc 
+
+ARG VERSION
 
 ARG dl_url="https://web-builds.airdcpp.net/stable/airdcpp_${VERSION}_webui${VERSION}_64-bit_portable.tar.gz"
 
