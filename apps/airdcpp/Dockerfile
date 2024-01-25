@@ -46,6 +46,8 @@ RUN mkdir -p /.airdcpp /Downloads /Share \
     && cd /airdcpp-webclient/web-resources \
     && ln -sf images/favicon.*.ico favicon.ico
 
+RUN ln -sf /airdcpp-webclient/config/ /airdcpp
+
 COPY apps/airdcpp/.airdcpp/ /.default-config
 COPY apps/airdcpp/entrypoint.sh /entrypoint.sh
 EXPOSE 5600 5601 21248 21249
