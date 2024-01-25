@@ -15,9 +15,9 @@ ARG ORIGIN=http://localhost:3000
 EXPOSE 3000 8080
 
 # Frontend
-COPY --from=upstream --chown=node:node /app/build /iceberg/frontend/build
-COPY --from=upstream --chown=node:node /app/node_modules /iceberg/frontend/node_modules
-COPY --from=upstream --chown=node:node /app/package.json /iceberg/frontend/package.json
+COPY --from=upstream --chown=node:node /iceberg/frontend/build /iceberg/frontend/build
+COPY --from=upstream --chown=node:node /iceberg/frontend/node_modules /iceberg/frontend/node_modules
+COPY --from=upstream --chown=node:node /iceberg/frontend/package.json /iceberg/frontend/package.json
 
 # Backend
 COPY  --from=upstream /iceberg/backend/ /iceberg/backend
