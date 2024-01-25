@@ -87,4 +87,7 @@ COPY --from=node-build-env /appclient/root/ /
 # ports and volumes
 EXPOSE 6500
 
-ENTRYPOINT ["/bin/bash", "-c", "dotnet RdtClient.Web.dll"]
+# We need to use /tmp so that temp files go here
+WORKDIR /tmp 
+
+ENTRYPOINT ["/bin/bash", "-c", "dotnet /app/RdtClient.Web.dll"]
