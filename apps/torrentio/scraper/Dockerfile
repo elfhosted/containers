@@ -8,10 +8,10 @@ RUN apk update && apk upgrade && \
 
 WORKDIR /home/node/app
 
-RUN git clone https://github.com/Pukabyte/torrentio-scraper-sh.git /tmp/source && \
+RUN git clone https://github.com/geek-cookbook/torrentio.elfhosted.com.git /tmp/source && \
     cp /tmp/source/${CHANNEL}/package*.json ./ && \
     npm ci --only-production && \
     cp -rf /tmp/source/${CHANNEL}/* . && \
     rm -rf /tmp/source
 
-CMD [ "node", "--insecure-http-parser", "index.js" ]
+ENTRYPOINT [ "./entrypoint.sh" ]
