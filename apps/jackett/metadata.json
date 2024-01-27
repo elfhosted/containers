@@ -1,9 +1,9 @@
 {
-  "app": "thelounge",
+  "app": "jackett",
   "base": false,
   "channels": [
     {
-      "name": "master",
+      "name": "main",
       "platforms": [
         "linux/amd64"
       ],
