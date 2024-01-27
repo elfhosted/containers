@@ -3,6 +3,7 @@ FROM node:16-alpine
 ARG CHANNEL
 ARG VERSION
 
+ENV PORT 7001
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 

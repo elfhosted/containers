@@ -8,6 +8,8 @@ RUN apk update && apk upgrade && \
 
 WORKDIR /home/node/app
 
+ENV PORT 7001
+
 RUN git clone https://github.com/geek-cookbook/torrentio.elfhosted.com.git /tmp/source && \
     cp /tmp/source/${CHANNEL}/package*.json ./ && \
     npm ci --only-production && \
