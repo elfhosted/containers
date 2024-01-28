@@ -15,9 +15,9 @@ RUN git clone -b dev https://github.com/aymene69/stremio-jackett.git /tmp/source
 
 # Get ElfHosted branding
 RUN git clone https://github.com/geek-cookbook/stremio-jackett.git /tmp/elfhosted && \
-    cp /tmp/elfhosted/src/routes.js src/ &&
-    cp /tmp/elfhosted/src/index.html src/ &&
-    cp /tmp/elfhosted/dist/index.html dist/ &&
+    cp /tmp/elfhosted/src/routes.js src/ && \
+    cp /tmp/elfhosted/src/index.html src/ && \
+    cp /tmp/elfhosted/dist/index.html dist/ && \
     rm -rf /tmp/source
 
 
