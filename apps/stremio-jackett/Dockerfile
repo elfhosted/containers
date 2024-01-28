@@ -8,17 +8,15 @@ WORKDIR /app
 
 # Get latest dev
 RUN git clone -b dev https://github.com/aymene69/stremio-jackett.git /tmp/source && \
-    cp /tmp/source/${CHANNEL}/package*.json ./ && \
+    cp /tmp/source/package*.json ./ && \
     npm install && \
-    cp -rf /tmp/source/${CHANNEL}/* . && \
+    cp -rf /tmp/source/* . && \
     rm -rf /tmp/source
 
 # Get ElfHosted branding
 RUN git clone https://github.com/geek-cookbook/stremio-jackett.git /tmp/elfhosted && \
     cp /tmp/elfhosted/src/routes.js src/ && \
     cp /tmp/elfhosted/src/index.html src/ && \
-    cp /tmp/elfhosted/dist/index.html dist/ && \
     rm -rf /tmp/source
-
 
 CMD [ "npm", "start" ]
