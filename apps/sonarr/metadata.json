@@ -24,17 +24,16 @@
         "type": "web"
       }
     },
-      {
-        "name": "scripts",
-        "platforms": [
-          "linux/amd64"
-        ],
-        "stable": false,
-        "tests": {
-          "enabled": false,
-          "type": "cli"
-        }    
-      }  
-    }
+    {
+      "name": "scripts",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": false,
+        "type": "cli"
+      }    
+    }        
   ]
 }
