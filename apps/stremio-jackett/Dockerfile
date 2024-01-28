@@ -2,7 +2,7 @@ FROM ghcr.io/geek-cookbook/alpine-node:20@sha256:34e579ce8fd045ec28105d0ee720e6d
 
 ENV PORT 7001
 RUN apk update && apk upgrade && \
-    apk add --no-cache git
+    apk add --no-cache git patch
 
 WORKDIR /app
 
@@ -20,6 +20,10 @@ RUN git clone https://github.com/geek-cookbook/stremio-jackett.git /tmp/elfhoste
     cp /tmp/elfhosted/src/index.html src/ && \
     cp /tmp/elfhosted/dist/index.html dist/ && \
     rm -rf /tmp/source
+
+# Patch RD timeout bug
+RUN wget https://github.com/aymene69/stremio-jackett/commit/80109635d1a9cb1596b60b529355986a7d5e50ed.patch && \
+    patch -p1 < 80109635d1a9cb1596b60b529355986a7d5e50ed.patch
 
 
 CMD [ "npm", "start" ]
