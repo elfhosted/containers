@@ -1,14 +1,14 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 process:
-  npm:
+  node:
     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 # unsure why this isn't working
 port:
   # https://github.com/aelsabbahy/goss/issues/149
-  tcp6:70001:
+  tcp6:7001:
     listening: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
