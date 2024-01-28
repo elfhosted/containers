@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 
 WORKDIR /app
 
-RUN git clone https://github.com/aymene69/stremio-jackett.git /tmp/source && \
+RUN git clone https://github.com/geek-cookbook/stremio-jackett.git /tmp/source && \
     cp /tmp/source/${CHANNEL}/package*.json ./ && \
     npm install && \
     cp -rf /tmp/source/${CHANNEL}/* . && \

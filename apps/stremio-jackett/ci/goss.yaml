@@ -1,18 +1,18 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 process:
-  node:
+  npm:
     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 # unsure why this isn't working
-# port:
-#   # https://github.com/aelsabbahy/goss/issues/149
-#   tcp6:3000:
-#     listening: true
+port:
+  # https://github.com/aelsabbahy/goss/issues/149
+  tcp6:70001:
+    listening: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
-# http:
-#   http://localhost:3000:
-#     status: 200
-#     timeout: 5000
+http:
+  http://localhost:7001:
+    status: 200
+    timeout: 5000
