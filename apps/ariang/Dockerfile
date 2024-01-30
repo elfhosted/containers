@@ -15,4 +15,4 @@ RUN apk update && \
 
 ADD apps/ariang/files/nginx.conf /etc/nginx/nginx.conf
 
-CMD nginx -g "daemon off;
+CMD [ "nginx", "-g", "daemon", "off" ]
