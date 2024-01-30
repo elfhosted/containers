@@ -1,5 +1,5 @@
 # Frontend Builder
-FROM ghcr.io/dreulavelle/iceberg:dev@sha256:05f6ad2183e250e051c89f3c7edb01fe7ba205fd79cc6d0803ad47fbd822e22c as upstream
+FROM ghcr.io/dreulavelle/iceberg:dev@sha256:4a7de1bffff55ddeb87bcbd2107a2460e74542ca254fc96d13233965a6d870de as upstream
 FROM ghcr.io/geek-cookbook/alpine-node:20@sha256:34e579ce8fd045ec28105d0ee720e6d4b8fd332ebeb8d4890784b8b991d51e29
 
 LABEL name="Iceberg" \
