@@ -14,5 +14,6 @@ RUN apk update && \
     rm -rf /var/cache/apk/*
 
 ADD apps/ariang/files/nginx.conf /etc/nginx/nginx.conf
+ADD apps/ariang/entrypoint.sh /
 
-CMD [ "nginx", "-g", "daemon", "off" ]
+ENTRYPOINT [ "/entrypoint.sh" ]
