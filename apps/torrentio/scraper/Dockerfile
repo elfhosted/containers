@@ -16,5 +16,4 @@ RUN git clone https://github.com/geek-cookbook/torrentio.elfhosted.com.git /tmp/
     cp -rf /tmp/source/${CHANNEL}/* . && \
     rm -rf /tmp/source
 
-
 ENTRYPOINT [ "./entrypoint.sh" ]
