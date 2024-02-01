@@ -1,0 +1,17 @@
+{
+  "app": "torrentio-consumer",
+  "base": false,
+  "channels": [
+    {
+      "name": "new-scraper",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    }
+  ]
+}
