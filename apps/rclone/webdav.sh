@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd /storage
 /usr/bin/rclone serve webdav \
     --addr :5574 \
     --user ${WEBDAV_USERNAME} \
@@ -8,6 +9,5 @@
     --no-modtime \
     --vfs-read-chunk-size=10M \
     --vfs-read-chunk-size-limit=10M \    
-    --stats 60s \
-    -v /storage
+    --stats 60s 
 
