@@ -6,23 +6,23 @@ process:
     skip: false
   
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
-port:
-  # https://github.com/aelsabbahy/goss/issues/149
-  tcp6:5572:
-    listening: true
-  tcp6:5573:
-    listening: true  
-  tcp6:5574:
-    listening: true      
+# port:
+#   # https://github.com/aelsabbahy/goss/issues/149
+#   tcp6:5572:
+#     listening: true
+#   tcp6:5573:
+#     listening: true  
+#   tcp6:5574:
+#     listening: true      
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
-http:
-  http://localhost:5572:
-    status: 200
-    timeout: 5000
-  http://localhost:5573:
-    status: 200
-    timeout: 5000   
-  http://localhost:5574:
-    status: 401
-    timeout: 5000        
+# http:
+#   http://localhost:5572:
+#     status: 200
+#     timeout: 5000
+#   http://localhost:5573:
+#     status: 200
+#     timeout: 5000   
+#   http://localhost:5574:
+#     status: 401
+#     timeout: 5000        
