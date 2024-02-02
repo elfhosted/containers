@@ -9,6 +9,15 @@ ARG CHANNEL
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Add GitHub repo so we can get the gh cli
+# Per https://github.com/cli/cli/blob/trunk/docs/install_linux.md
+RUN type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+	curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+	&& chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+	&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+	&& apt update \
+	&& apt install gh -y
+
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
 	ca-certificates \
