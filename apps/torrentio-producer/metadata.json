@@ -3,7 +3,7 @@
   "base": false,
   "channels": [
     {
-      "name": "new-scraper",
+      "name": "master",
       "platforms": [
         "linux/amd64"
       ],
