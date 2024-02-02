@@ -44,6 +44,7 @@ RUN \
         uuid-runtime \
         xmlstarlet \
         ca-certificates \
+        pulseaudio \
         ${EXTRA_INSTALL_ARG} \
     && \
     echo "Using curl or wget to download the plex debian package result in a qemu failure, why? I dunno" \
