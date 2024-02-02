@@ -38,7 +38,6 @@ RUN apt-get update && apt-get install -y \
 	rsync \
 	wget \
 	sqlite3 \
-	github-cli \
 	--no-install-recommends \
 	&& rm -rf /var/lib/apt/lists/* && \
 	cd /tmp && \
