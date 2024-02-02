@@ -47,7 +47,6 @@ RUN apt-get update && apt-get install -y \
 	chown root:root /usr/local/bin/rclone && \
 	chmod 755 /usr/local/bin/rclone
 
-
 # Setup psql 15 client, which is not in ubuntu:focal/jammy yet:
 RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /usr/share/keyrings/postgresql.gpg > /dev/null && \
 	echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main | tee -a /etc/apt/sources.list.d/postgresql.list && \
