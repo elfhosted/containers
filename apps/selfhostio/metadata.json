@@ -12,6 +12,28 @@
         "enabled": true,
         "type": "web"
       }
-    }    
+    },
+    {
+      "name": "consumer",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    },
+    {
+      "name": "producer",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    }        
   ]
 }
