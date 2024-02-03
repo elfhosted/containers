@@ -14,6 +14,7 @@ ENV CLONE_PATH=/source/src/node/addon
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
+
 WORKDIR /app
 
 COPY --from=cloner $CLONE_PATH/package*.json .
