@@ -5,7 +5,7 @@ ARG CHANNEL
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $CHANNEL https://github.com/geek-cookbook/torrentio.elfhosted.com.git /source
+RUN git clone --depth 1 https://github.com/geek-cookbook/torrentio.elfhosted.com.git /source
 
 # Build per the original dockerfile
 FROM node:lts-alpine AS builder
