@@ -4,17 +4,12 @@ ARG CHANNEL
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/geek-cookbook/torrentio.elfhosted.com.git /tmp/source
+RUN git clone https://github.com/geek-cookbook/torrentio.elfhosted.com.git /source
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+ENV CLONE_PATH=/source/src/producer
 WORKDIR /App
-
-WORKDIR /App
-COPY --from=cloner /tmp/source/src/producer /App
-
-
-ENV PORT 7001
-
+COPY --from=cloner $CLONE_PATH/. .
 RUN dotnet restore
 RUN dotnet publish -c Release -o out
 

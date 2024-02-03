@@ -1,32 +1,42 @@
+# Get the elfhosted code
 FROM alpine:latest as cloner
 ARG CHANNEL
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/geek-cookbook/torrentio.elfhosted.com.git /tmp/source
+RUN git clone --depth 1 https://github.com/geek-cookbook/torrentio.elfhosted.com.git /source
 
-FROM node:lts-buster-slim
-
-# RUN apk update && apk upgrade && \
-#     apk add --no-cache git curl
+FROM node:lts-buster-slim as builder
+ENV CLONE_PATH=/source/src/node/consumer
 
 RUN apt-get update && \
-    apt-get install -y curl git && \
-    apt-get clean && \
+    apt-get install -y git && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /home/node/app
+WORKDIR /app
 
-COPY --from=cloner /tmp/source/src/node/consumer/package*.json ./
-RUN npm ci --only-production
-COPY --from=cloner /tmp/source/src/node/consumer .
-RUN chmod a+x ./check-ip.sh
+COPY --from=cloner $CLONE_PATH/package*.json ./
+RUN npm install
+COPY --from=cloner $CLONE_PATH/. .
+RUN npm run build
 
-CMD [ "node", "--no-warnings=ExperimentalWarning", "index.js" ]
+# --- Runtime Stage ---
+FROM node:lts-buster-slim
 
+# Install pm2
+RUN npm install pm2 -g
 
+WORKDIR /app
 
+ENV NODE_ENV production
+
+COPY --from=builder /app ./
+RUN npm prune --omit=dev
+
+EXPOSE 7001
+
+ENTRYPOINT [ "pm2-runtime", "start", "ecosystem.config.cjs"]
 
 
 
