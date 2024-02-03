@@ -8,7 +8,8 @@ cd /storage
     --max-header-bytes=8192 \
     --no-modtime \
     --vfs-read-chunk-size=10M \
-    --vfs-read-chunk-size-limit=10M \    
+    --vfs-read-chunk-size-limit=10M \
     --stats 60s \
+    -v \
     /storage
 
