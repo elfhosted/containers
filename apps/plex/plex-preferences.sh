@@ -39,7 +39,7 @@ EOF
 fi
 
 # If preferences file is non-empty, then create a backup
-if [ $(grep xml "${prefFile})" ]; then
+if [ $(grep xml "${prefFile}") ]; then
   cp "${prefFile}" "${prefFile}-backup"
 fi
 
