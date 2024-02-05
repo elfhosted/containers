@@ -24,9 +24,6 @@ RUN npm run build
 # --- Runtime Stage ---
 FROM node:lts-buster-slim
 
-# Install pm2
-RUN npm install pm2 -g
-
 WORKDIR /app
 
 ENV NODE_ENV production
@@ -36,8 +33,7 @@ RUN npm prune --omit=dev
 
 EXPOSE 7001
 
-ENTRYPOINT [ "pm2-runtime", "start", "ecosystem.config.cjs"]
-
+ENTRYPOINT [ "node", "dist/index.cjs" ]
 
 
 
