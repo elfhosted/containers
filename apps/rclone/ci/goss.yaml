@@ -8,7 +8,7 @@ process:
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 port:
   # https://github.com/aelsabbahy/goss/issues/149
-  tcp6:5574:
+  tcp6:5573:
     listening: true
 #   tcp6:5573:
 #     listening: true  
@@ -17,7 +17,7 @@ port:
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:5574:
+  http://localhost:5573:
     status: 200
     timeout: 5000
 #   http://localhost:5573:
