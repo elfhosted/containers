@@ -30,4 +30,4 @@ RUN curl -o /tmp/rclone-webui-angular.zip -jkSL https://github.com/yuudi/rclone-
 # Add files.
 COPY apps/rclone/rootfs/ /
 
-ENTRYPOINT ["/rclone-ui.sh"] # set on test or in child images
+ENTRYPOINT ["/webdav.sh"] # set on test or in child images
