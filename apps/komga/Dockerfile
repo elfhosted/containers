@@ -8,6 +8,7 @@ FROM gotson/komga:${VERSION}
 USER 568
 ENV KOMGA_CONFIGDIR="/config"
 ENV LC_ALL=en_US.UTF-8
-ENTRYPOINT ["java", "org.springframework.boot.loader.JarLauncher", "--spring.config.additional-location=file:/config/"]
-EXPOSE 8080
+ENTRYPOINT ["java", "--enable-preview", "--enable-native-access=ALL-UNNAMED", "org.springframework.boot.loader.launch.JarLauncher", "--spring.config.additional-location=file:/config/"]
+EXPOSE 25600
+
 LABEL org.opencontainers.image.source="https://github.com/gotson/komga"
