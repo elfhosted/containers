@@ -1,6 +1,5 @@
-#!/command/with-contenv sh
+#!/bin/ash
 
-s6-setuidgid ${PUID}:${PGID} \
 /usr/bin/rclone rcd \
     --config=/config/rclone.conf \
     --rc-web-gui \
@@ -8,5 +7,5 @@ s6-setuidgid ${PUID}:${PGID} \
     --rc-web-gui-no-open-browser \
     --rc-no-auth \
     --transfers=1 \
-    --multi-thread-streams=1 \
-    /var/lib/rcloneui
+    --multi-thread-streams=1 \    
+    /var/lib/rclonefm

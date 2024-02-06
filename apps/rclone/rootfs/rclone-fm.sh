@@ -1,6 +1,5 @@
-#!/command/with-contenv sh
+#!/bin/ash
 
-s6-setuidgid ${PUID}:${PGID} \
 /usr/bin/rclone rcd \
     --config=/config/rclone.conf \
     --rc-web-gui \
