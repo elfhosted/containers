@@ -29,5 +29,8 @@ COPY apps/iceberg/entrypoint.sh ./entrypoint.sh
 # COPY apps/iceberg/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
+# In case it doesn't exist
+RUN touch /iceberg/VERSION
+
 ENTRYPOINT ["/iceberg/entrypoint.sh"]
 
