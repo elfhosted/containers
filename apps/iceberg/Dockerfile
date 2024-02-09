@@ -32,5 +32,6 @@ RUN chmod +x ./entrypoint.sh
 # In case it doesn't exist
 RUN touch /iceberg/VERSION
 
+
 ENTRYPOINT ["/iceberg/entrypoint.sh"]
 
