@@ -15,7 +15,7 @@ COPY --from=cloner /source/*.csproj .
 RUN dotnet restore
 
 # copy and publish app and libraries
-COPY --from=clone/source/. .
+COPY --from=cloner /source/. .
 RUN dotnet publish -c release -o /app --no-restore
 
 # final stage/image
