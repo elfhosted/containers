@@ -10,7 +10,7 @@ RUN git clone --depth 1 https://github.com/geek-cookbook/debrid-media-manager.gi
 FROM node:18-alpine AS dependencies
 
 WORKDIR /app
-COPY --from=cloner /source/package.json package-lock.json ./
+COPY --from=cloner /source/package*.json ./
 RUN npm ci
 
 FROM node:18-alpine AS build
