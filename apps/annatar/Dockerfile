@@ -64,7 +64,10 @@ RUN pip install *.whl && rm *.whl
 # Copy static website files
 COPY --from=cloner /source/static /app/static
 COPY --from=cloner /source/templates /app/templates
-
 COPY --from=cloner /source/run.py /app/run.py
+
+# ElfHosted branding
+COPY apps/annatar/branding/configure.html.j2 /app/templates/
+
 # Your application's default command, adjust as needed
 CMD ["python", "run.py"]
