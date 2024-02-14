@@ -62,9 +62,9 @@ COPY --from=builder /app/dist/*.whl /app/
 RUN pip install *.whl && rm *.whl
 
 # Copy static website files
-COPY ./static /app/static
-COPY ./templates /app/templates
+COPY --from=cloner /source/static /app/static
+COPY --from=cloner /source/templates /app/templates
 
-COPY run.py /app/run.py
+COPY --from=cloner /source/run.py /app/run.py
 # Your application's default command, adjust as needed
 CMD ["python", "run.py"]
