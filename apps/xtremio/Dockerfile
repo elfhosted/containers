@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://gitlab.com/stremio-add-ons/annatar.git /source
+RUN git clone -b $VERSION --depth 1 https://github.com/mik25/m3u-test.git /source
 
 FROM node:18.16.0-alpine as base
 
