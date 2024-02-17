@@ -1,0 +1,17 @@
+{
+  "app": "xtremio",
+  "base": false,
+  "channels": [
+    {
+      "name": "dev",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    }
+  ]
+}

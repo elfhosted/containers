@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+version=$(curl -sX GET "https://api.github.com/repos/mik25/m3u-test/commits/dev" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
+printf "%s" "${version}"
