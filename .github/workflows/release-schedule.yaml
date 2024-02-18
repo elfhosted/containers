@@ -4,9 +4,8 @@ name: "Release: Schedule"
 on:
   workflow_dispatch:
   schedule:
-    # NOTE: The longest build for an app is ~1h30m
-    # Keep this to run every 2 or more hours to prevent gremlins from spawning
-    - cron: "0 */3 * * *"
+    # Run on the half-hour
+    - cron: "30 * * * *"
 
 env:
   TOKEN: ${{ secrets.GITHUB_TOKEN }}
