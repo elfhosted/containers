@@ -18,6 +18,9 @@ RUN npm install
 
 COPY --from=cloner /source .
 
+# ElfHosted branding
+COPY apps/xtremio/branding/* .
+
 ENV NODE_ENV production
 
 EXPOSE 3649
