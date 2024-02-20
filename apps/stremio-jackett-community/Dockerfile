@@ -2,7 +2,6 @@
 FROM alpine:latest as cloner
 ARG CHANNEL
 ARG VERSION
-ENV LOG_LEVEL critical
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git
@@ -21,4 +20,4 @@ COPY --from=cloner /source .
 
 EXPOSE 3000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--log-level", "${LOG_LEVEL}","--port", "3000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--log-level", "critical", "--port", "3000"]
