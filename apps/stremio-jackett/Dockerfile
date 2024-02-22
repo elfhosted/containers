@@ -1,5 +1,24 @@
+# Get the elfhosted code
+FROM alpine:latest as cloner
+ARG CHANNEL
 ARG VERSION
-FROM belmeg/stremio-addon-jackett
 
-# Add ElfHosted branding
-COPY apps/stremio-jackett/branding/* /app/dist/addon/frontend/configure/
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone --depth 1 https://github.com/aymene69/stremio-jackett-cacher.git /source
+
+
+FROM python:3.11
+
+WORKDIR /app
+
+COPY --from=cloner /source/requirements.txt .
+
+RUN pip install -r requirements.txt
+
+COPY --from=cloner /source .
+
+EXPOSE 3000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000"]
