@@ -1,8 +1,8 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
-process:
-  python:
-    running: true
+# process:
+#   python:
+#     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 # unsure why this isn't working
