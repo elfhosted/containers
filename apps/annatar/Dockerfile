@@ -44,6 +44,7 @@ RUN poetry build
 
 # --- Final Stage ---
 FROM python:3.11-slim as final
+ARG VERSION
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -51,7 +52,7 @@ ENV PYTHONUNBUFFERED 1
 ENV DB_PATH /app/data/annatar.db
 
 ARG BUILD_VERSION=UNKNOWN
-ENV BUILD_VERSION=${BUILD_VERSION}
+ENV BUILD_VERSION=${VERSION}
 
 VOLUME /app/data
 # Set the working directory in the container
