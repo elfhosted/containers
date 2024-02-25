@@ -1,99 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Annatar - Lord of Gifts</title>
-	<script type="text/javascript">var __context = {{ ctx|tojson }};</script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.2/js/bootstrap.min.js" integrity="sha512-WW8/jxkELe2CAiE4LvQfwm1rajOS8PHasCCx+knHG0gBHt8EXxS6T6tJRTGuDQVnluuAvMxWF4j8SNFDKceLFg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.2/css/bootstrap.min.css" integrity="sha512-b2QcS5SsA8tZodcDtGRELiGv5SaKSk1vDHDaQRda0htPYWZ6046lr3kJ5bAAQdpV2mmA/4v0wQF9MyU6/pDIAg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-	<script src="/static/js/index.js"></script>
-
-</head>
-<body>
-	  
-
-<div class="container py-5">
-	<div class="form-floating mb-3">
-		<a class="navbar-brand" href="#">
-			<img src="https://gitlab.com/uploads/-/system/project/avatar/54800933/annatar-3-slim.png?width=96	"
-				 height="50"
-				 alt="Annatar Logo"
-				 loading="lazy" />
-		</a>
-		<a class="navbar-brand" href="#">
-			<img src="https://elfhosted.com/images/logo.svg"
-				 height="50"
-				 alt="ElfHosted Logo"
-				 loading="lazy" />
-		</a>
-		<a class="navbar-brand" href="#">
-			<img src="https://styles.redditmedia.com/t5_uxae6/styles/communityIcon_prkamhy0knnb1.png?width=256&s=3c4b9b5f020ce8c2cd96a0559fad118ffc3641e9"
-				 height="50"
-				 alt="ElfHosted Logo"
-				 loading="lazy" />
-		</a>
-		
-	</div>	
-	<div class="form-floating mb-3">
-		This is a free, public <A HREF="https://elfhosted.com">ElfHosted</A> instance of <A HREF="https://gitlab.com/stremio-add-ons/annatar">Annatar</A>, for the <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> community. See the <A HREF="https://grafana.elfhosted.com/public-dashboards/5e9480a76da840bb9b81802a1d0b84fc?orgId=1&refresh=30s">geeky "GrafAnnatar" metrics here</A> / <A HREF="https://status.elfhosted.com/history/public-annatar-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fpublic-annatar-stremio-addon%2Fuptime.json"></A>
-	</div>
-	<div class="form-floating mb-3">
-		<A HREF="https://gitlab.com/stremio-add-ons/annatar">Annatar</A> is a self-hosted, fast, just-in-time torrent/debrid search add-on for Stremio providing results in under 3s. Got issues or feature requests? Support your developer on <A HREF="https://ko-fi.com/annatar">Ko-fi</A> ❤️, and create issues <A HREF="https://gitlab.com/stremio-add-ons/annatar/-/issues">here</A>.
-	</div>	
-	<div class="form-floating mb-3">
-		<A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily. Individual, hosted <A HREF="https://store.elfhosted.com/product/annatar-jackett-bundle">Annatar+Jackett instances are available</A> (<I>say, if you need extra indexers</I>) from $0.15/day, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> for <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.
-	</div>	
-
-	<form id="theform">
-		<!-- Floating Form Group for Provider -->
-		<div class="form-floating mb-3">
-			<select class="form-select" id="debrid_service" name="debrid_service" aria-label="Debrid Provider">
-				{% for provider in ctx.available_debrid_providers %}
-				<option required value="{{ provider.id }}">{{ provider.name }}</option>
-				{% endfor %}
-			</select>
-			<label for="provider">Debrid Provider</label>
-		</div>
-
-		<div class="form-floating mb-3">
-			<input required type="password" class="form-control" id="debrid_api_key" name="debrid_api_key" placeholder="API Key">
-			<label for="debrid_api_key">Debrid API Key</label>
-		</div>
-
-		<!-- Floating Form Group for Max Results -->
-		<div class="form-floating mb-3">
-			<select required class="form-select" id="max_results" name="max_results" aria-label="Max Results">
-				<option value="3">3</option>
-				<option selected value="5">5</option>
-				<option value="10">10</option>
-			</select>
-			<label for="max_results">Max Results</label>
-		</div>
-
-		<!-- Checkboxes for Multi-Select Example -->
-		<fieldset class="mb-3">
-			<legend>Indexers</legend>
-			{% for indexer in ctx.available_indexers %}
-			<div class="form-check">
-				<input checked class="form-check-input" type="checkbox" id="{{ indexer.id }}" name="indexers[]" value="{{ indexer.id }}">
-				<label class="form-check-label" for="{{ indexer.id }}">{{ indexer.name }}</label>
-			</div>
-			{% endfor %}
-		</fieldset>
-
-
-		<div class="d-grid gap-2">
-		<button type="submit" class="btn btn-primary btn-lg">Install</button>
-		</div>
-	</form>
-</div>
-
-</body>
-
-</html>
-
-
 <div class="banner mb-3 p-3 text-center">
     <h1>Annatar - Lord of Gifts | ElfHosted</h1>
     <p>{{ ctx.version }}</p>
@@ -107,12 +11,10 @@
 	<P>
 		<A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily. Individual, hosted <A HREF="https://store.elfhosted.com/product/annatar-jackett-bundle">Annatar+Jackett instances are available</A> (<I>say, if you need extra indexers</I>) from $0.15/day, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> for <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.
 	</P>
-           <h3>Why use ElfHosted addons?</h3>
-             <div>
-                <ul>
-                   <li>Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/public-annatar-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fpublic-annatar-stremio-addon%2Fuptime.json"></A></li>
-                   <li>Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A></li>
-                   <li>Geek out over <A HREF="https://fnky.nz/grafana-annatar">public performance metrics</A></li>
-                </ul>
-             </div>		
+           <h3>Why use <A HREF="https://elfhosted.com">ElfHosted</A> addons?</h3>
+             <p>
+                   ✅ Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/public-annatar-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fpublic-annatar-stremio-addon%2Fuptime.json"></A><br/>
+                   ✅ Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A><br/>
+                   ✅ Geek out over <A HREF="https://fnky.nz/grafana-annatar">public performance metrics</A><br/>
+             </p>		
 </div>
