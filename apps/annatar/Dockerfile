@@ -69,7 +69,7 @@ COPY --from=cloner /source/templates /app/templates
 COPY --from=cloner /source/run.py /app/run.py
 
 # ElfHosted branding
-COPY apps/annatar/branding/configure.html.j2 /app/templates/
+COPY apps/annatar/branding/branding.html.j2 /app/templates/
 
 # Your application's default command, adjust as needed
 CMD ["python", "run.py"]
