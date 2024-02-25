@@ -261,7 +261,7 @@ function landingTemplate(manifest, config = {}) {
 			<h1 class="name">${manifest.name}</h1>
 
 			<div class="form-floating mb-3">
-			This is a free, public, <A HREF="https://elfhosted.com">ElfHosted</A> instance of the Shluflix addon (<I><A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-hosted-stremio-addon.yaml">rate-limits</A> apply</I>).
+			This is a free, public, <A HREF="https://elfhosted.com">ElfHosted</A> instance of the Shluflix addon (<I>reasonable <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-hosted-stremio-addon.yaml">rate-limits</A> apply</I>).
 			</div>
 
 			<h2 class="version">v${manifest.version || '0.0.0'}</h2>
