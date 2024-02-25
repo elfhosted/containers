@@ -261,17 +261,8 @@ function landingTemplate(manifest, config = {}) {
 			<h1 class="name">${manifest.name}</h1>
 
 			<div class="form-floating mb-3">
-			This is a free, public, <A HREF="https://elfhosted.com">ElfHosted</A> instance of the Shluflix addon, for the <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> community (<I><A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-hosted-stremio-addon.yaml">rate-limits</A> apply</I>).
-			<P><A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily. Individual, hosted <A HREF="https://store.elfhosted.com/product/shluflix">Shluflix instances are available</A> (<I>with more relaxed rate-limits</I>) from $0.05/day, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> for <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.</P>
-             </div>	
-             <h3>Why use ElfHosted addons?</h3>
-             <div>
-                <ul>
-                   <li>Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/public-shuflix-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fpublic-shuflix-stremio-addon%2Fuptime.json"></A></li>
-                   <li>Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A></li>
-                   <li>Geek out over <A HREF="https://fnky.nz/grafana-shluflix">public performance metrics</A></li>
-                </ul>
-             </div>	
+			This is a free, public, <A HREF="https://elfhosted.com">ElfHosted</A> instance of the Shluflix addon (<I><A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-hosted-stremio-addon.yaml">rate-limits</A> apply</I>).
+			</div>
 
 			<h2 class="version">v${manifest.version || '0.0.0'}</h2>
 			<h2 class="description">${manifest.description || ''}</h2>
@@ -300,6 +291,17 @@ function landingTemplate(manifest, config = {}) {
 			else
 			installLink.href = 'stremio://' + window.location.host + '/manifest.json'
 		</script>
+		<div class="form-floating mb-3">
+		<P><A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily. Individual, hosted <A HREF="https://store.elfhosted.com/product/shluflix">Shluflix instances are available</A> (<I>with more relaxed rate-limits</I>) from $0.05/day, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> for <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.</P>
+		 </div>	
+		 <h3>Why use ElfHosted addons?</h3>
+		 <div>
+			<ul>
+			   <li>Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/public-shluflix-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fpublic-shluflix-stremio-addon%2Fuptime.json"></A></li>
+			   <li>Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A></li>
+			   <li>Geek out over <A HREF="https://fnky.nz/grafana-shluflix">public performance metrics</A></li>
+			</ul>
+		 </div>			
 	</body>
 
 	</html>`
