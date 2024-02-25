@@ -266,7 +266,7 @@ function landingTemplate(manifest, config = {}) {
 			<h2 class="version">v${manifest.version || '0.0.0'}</h2>
 			<h2 class="description">${manifest.description || ''}</h2>
 
-			This is a free, community <A HREF="https://elfhosted.com">ElfHosted</A> instance of the Shluflix addon (<I>reasonable <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">rate-limits</A> apply</I>)
+			This is a free, community <A HREF="https://elfhosted.com">ElfHosted</A> instance of the Shluflix addon (<I>reasonable <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">rate-limits</A> apply</I>) Donate to support hosting <A HREF="https://store.elfhosted.com/product/elf-love">here</A> ❤️
 
 			<div class="separator"></div>
 
