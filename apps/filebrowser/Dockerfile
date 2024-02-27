@@ -21,7 +21,7 @@ USER root
 
 # Possibly useful binaries
 # RUN apk add --no-cache mlocate ncdu tree curl bash
-RUN apt-get install ncdu tree mlocate curl
+RUN apt-get install curl
 
 # Add kubectl command (weird, I know, but we use it for some console actions)
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
