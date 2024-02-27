@@ -3,4 +3,4 @@
 # version="${version#*v}"
 # version="${version#*release-}"
 # printf "%s" "${version}"
-printf "2.23.0"
+printf "v2.23.0"
