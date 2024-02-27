@@ -1,7 +1,14 @@
 ARG VERSION
-FROM filebrowser/filebrowser:v${VERSION} as upstream
+# FROM filebrowser/filebrowser:v${VERSION} as upstream
 
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598 
+# Until the TFA bug is fixed
+FROM filebrowser/filebrowser:2.23.0 as upstream
+
+
+
+# FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598 
+FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:4de1d348d364db1fee3581591cea174c677f68852c7dfd1009583fa1317851dc 
+
 
 LABEL org.opencontainers.image.source = "https://github.com/filebrowser/filebrowser"
 
@@ -13,7 +20,8 @@ COPY apps/filebrowser/branding /branding/
 USER root
 
 # Possibly useful binaries
-RUN apk add --no-cache mlocate ncdu tree curl bash
+# RUN apk add --no-cache mlocate ncdu tree curl bash
+RUN apt-get install ncdu tree mlocate curl
 
 # Add kubectl command (weird, I know, but we use it for some console actions)
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
