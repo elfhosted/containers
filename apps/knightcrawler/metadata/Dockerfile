@@ -9,7 +9,7 @@ RUN git clone https://github.com/geek-cookbook/torrentio.elfhosted.com.git /sour
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 ENV CLONE_PATH=/source/src/metadata
-ENV TARGETARCH=linux/amd64
+ENV TARGETARCH=amd64
 
 WORKDIR /App
 COPY --from=cloner $CLONE_PATH/. ./
