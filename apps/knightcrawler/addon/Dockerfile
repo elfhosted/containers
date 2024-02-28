@@ -16,9 +16,9 @@ RUN apk update && apk upgrade && \
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY --from=cloner $CLONE_PATH/package*.json ./
 RUN npm install
-COPY . .
+COPY --from=cloner $CLONE_PATH/. .
 RUN npm run build
 
 # --- Runtime Stage ---
