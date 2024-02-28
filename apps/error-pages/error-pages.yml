@@ -73,8 +73,12 @@ pages:
 
   404:
     message: Not Found
-    description: The server can not find the requested page
-
+    description: |
+      The server can not find the requested page
+      <P>This may be the result of an expired / failed subscription, planned work (<I>we run a daily 1h maintenance window from 10PM-11PM NZDT/NZST</I>), or a service outage.<P>
+      <P>See <A HREF="https://status.elfhosted.com">https://status.elfhosted.com</A> for global service status, or https://[your username]-health.elfhosted.com for your hosted services.
+      <P>Stremio users: note that a full system shutdown is scheduled for <A HREF="https://status.elfhosted.com/incident/28">29 Feb 6AM-8AM CET</A>, as maintenance is performed on our core network infrastructure (<A HREF="https://www.reddit.com/r/StremioAddons/comments/1b0g18l/elfhosted_addons_scheduled_downtime_from_6am8am/">Reddit thread</A>)
+      <BR/>During this time, most of our <A HREF="https://elfhosted.com/stremio-addons/"">hosted Stremio addons</A> will be unavailable, with the exception of <A HREF="https://shluflix.elfhosted.com">https://shluflix.elfhosted.com</A>, which doesn't require persistent storage.</P>
   405:
     message: Method Not Allowed
     description: The method specified in the request is not allowed
@@ -119,7 +123,7 @@ pages:
     message: Too Many Requests
     description: | 
       Too many requests in a given amount of time. 
-      <P>If you're looking for one of our <A HREF="https://elfhosted.com/stremio-addons/">public Stremio Addons</A>, it's possible that you've hit the public, <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">per-IP rate-limit</A>.<BR/>
+      <P>If you're looking for one of our <A HREF="https://elfhosted.com/stremio-addons/">public Stremio Addons</A>, it's possible that you've hit the public, <A HREF="https://github.com/funkypenguin/elf-infra/blob/ci/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">per-IP rate-limit</A>.<BR/>
       Refresh to retry another randomly-balanced node, or try again after 5 minutes.</P>
       <P>Hosted instances <A HREF="https://store.elfhosted.com/product-category/stremio-addons">are available</A> with 10 x higher ratelimits, from $$0.05/day, with $$10 free credit for new accounts</P>
 
@@ -133,7 +137,13 @@ pages:
 
   503:
     message: Service Unavailable
-    description: Doing magic, come back soon... <P>(<I>usually indicates your apps are being provisioned / updated</I>)</P>
+    description: |
+      Doing magic, come back soon...
+      <P>This usually indicates your apps are being provisioned / updated, but may also be the result of an expired / failed subscription, <BR/>planned work (<I>we run a daily 1h maintenance window from 10PM-11PM NZDT/NZST</I>), or a service outage.<P>
+      <P>See <A HREF="https://status.elfhosted.com">https://status.elfhosted.com</A> for global service status, or https://[your username]-health.elfhosted.com for your hosted services.
+      <P>Stremio users: note that a full system shutdown is scheduled for <A HREF="https://status.elfhosted.com/incident/28">29 Feb 6AM-8AM CET</A>, as maintenance is performed on our core network infrastructure (<A HREF="https://www.reddit.com/r/StremioAddons/comments/1b0g18l/elfhosted_addons_scheduled_downtime_from_6am8am/">Reddit thread</A>)
+      <BR/>During this time, most of our <A HREF="https://elfhosted.com/stremio-addons/"">hosted Stremio addons</A> will be unavailable, with the exception of <A HREF="https://shluflix.elfhosted.com">https://shluflix.elfhosted.com</A>, which doesn't require persistent storage.</P>
+
 
   504:
     message: Gateway Timeout
