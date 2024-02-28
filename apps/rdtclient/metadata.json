@@ -23,17 +23,6 @@
         "enabled": true,
         "type": "web"
       }
-    },
-    {
-      "name": "pukabyte",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "stable": false,
-      "tests": {
-        "enabled": true,
-        "type": "web"
-      }
-    }    
+    } 
   ]
 }
