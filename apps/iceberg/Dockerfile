@@ -1,6 +1,6 @@
 # Frontend Builder
 FROM ghcr.io/dreulavelle/iceberg:dev@sha256:731f1a5010dc971f19bd007971ba146753b972debcd552d89b10a45b26d792e8 as upstream
-FROM ghcr.io/geek-cookbook/alpine-node:20@sha256:34e579ce8fd045ec28105d0ee720e6d4b8fd332ebeb8d4890784b8b991d51e29
+FROM ghcr.io/geek-cookbook/alpine-node:20@sha256:8ab170d0ecfd6d044e0e1984e1923d906a7320c855bbc9629d40f0f059bbad9b
 
 LABEL name="Iceberg" \
       description="Iceberg Debrid Downloader" \
