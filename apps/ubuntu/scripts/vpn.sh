@@ -4,7 +4,7 @@ if [[ "${WAIT_FOR_VPN:-"false"}" == "true" ]]; then
     echo "Waiting for VPN to be connected..."
     while ! grep -s -q "connected" /shared/vpnstatus; do
         # Also account for gluetun-style http controller
-        if (timeout 2s curl -s http://localhost:8000/v1/openvpn/status | grep -q running); then
+        if (timeout 2s curl -s http://localhost:8042/v1/openvpn/status | grep -q running); then
             break
         fi
         echo "VPN not connected"
