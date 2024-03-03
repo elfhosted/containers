@@ -71,4 +71,7 @@ ENV BUILD_VERSION=${BUILD_VERSION}
 
 COPY entrypoint.sh /app/entrypoint.sh
 
+# ElfHosted branding
+COPY apps/annatar/branding/branding.html.j2 /app/templates/
+
 CMD ["sh", "/app/entrypoint.sh"]
