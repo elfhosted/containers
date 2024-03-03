@@ -43,6 +43,9 @@ RUN poetry build
 # --- Final Stage ---
 FROM python:3.11-slim as final
 
+# Need this to set the build version - ElfHosted
+ARG VERSION
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
