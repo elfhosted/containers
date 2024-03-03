@@ -61,15 +61,15 @@ COPY --from=builder /tmp/wheels/*.whl /tmp/wheels/
 RUN pip install /tmp/wheels/*.whl && rm -rf /tmp/wheels
 
 # # Copy static and template files
-COPY ./static /app/static
-COPY ./templates /app/templates
+COPY --from=cloner source/static /app/static
+COPY --from=cloner source/templates /app/templates
 
-COPY run.py /app/run.py
+COPY --from=cloner source/run.py /app/run.py
 
 ARG BUILD_VERSION=UNKNOWN
 ENV BUILD_VERSION=${BUILD_VERSION}
 
-COPY entrypoint.sh /app/entrypoint.sh
+COPY --from=cloner source/entrypoint.sh /app/entrypoint.sh
 
 # ElfHosted branding
 COPY apps/annatar/branding/branding.html.j2 /app/templates/
