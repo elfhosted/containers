@@ -67,7 +67,7 @@ COPY --from=cloner source/templates /app/templates
 COPY --from=cloner source/run.py /app/run.py
 
 ARG BUILD_VERSION=UNKNOWN
-ENV BUILD_VERSION=${BUILD_VERSION}
+ENV BUILD_VERSION=${VERSION}
 
 COPY --from=cloner source/entrypoint.sh /app/entrypoint.sh
 
