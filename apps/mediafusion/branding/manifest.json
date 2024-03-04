@@ -1,7 +1,7 @@
 {
   "id": "mhdzumair.addons.mediafusion",
-  "version": "3.7.1",
-  "name": "Media Fusion",
+  "version": "3.7.2",
+  "name": "Media Fusion | ElfHosted",
   "contactEmail": "mhdzumair@gmail",
   "description": "Universal Stremio Add-on for Movies, Series & Live TV. Source: https://github.com/mhdzumair/MediaFusion",
   "logo": "https://mediafusion.elfhosted.com/static/images/mediafusion-elfhosted-logo.png",
@@ -436,6 +436,17 @@
 		{
 		  "name": "search",
 		  "isRequired": true
+		}
+	  ]
+	},
+	{
+	  "id": "formula_racing",
+	  "type": "series",
+	  "name": "Formula Racing",
+	  "extra": [
+		{
+		  "name": "skip",
+		  "isRequired": false
 		}
 	  ]
 	}
