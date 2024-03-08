@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM kizaing/kavita as upstream
+FROM jvmilazz0/kavita:${VERSION} as upstream
 FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:4de1d348d364db1fee3581591cea174c677f68852c7dfd1009583fa1317851dc  
 
 # for initial install
@@ -19,6 +19,9 @@ EXPOSE 5000
 
 # To make it work with a readonly filesystem, see https://github.com/dotnet/docs/issues/10217
 ENV COMPlus_EnableDiagnostics=0
+
+# Not sure what this does but it looks relevant
+ENV DOTNET_RUNNING_IN_CONTAINER=true
 
 WORKDIR /kavita
 
