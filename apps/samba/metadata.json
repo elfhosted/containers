@@ -1,17 +1,17 @@
 {
-  "app": "kavita",
+  "app": "samba",
   "base": false,
   "channels": [
     {
-      "name": "main",
+      "name": "master",
       "platforms": [
         "linux/amd64"
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
-    }
+    } 
   ]
 }
