@@ -7,5 +7,6 @@
     --rc-web-gui-no-open-browser \
     --rc-no-auth \
     --transfers=1 \
+    --links \
     --multi-thread-streams=1 \    
     /var/lib/rclonefm
