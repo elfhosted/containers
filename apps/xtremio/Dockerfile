@@ -21,6 +21,9 @@ COPY --from=cloner /source .
 # ElfHosted branding
 COPY apps/xtremio/branding/* .
 
+# Copy tweaked addon.js (20s timeout, branding
+COPY apps/xtremio/addon.js .
+
 ENV NODE_ENV production
 
 EXPOSE 3649
