@@ -3,4 +3,4 @@ version=$(curl -sX GET "https://repology.org/api/v1/projects/?search=rclone&inre
 version="${version%%_*}"
 version="${version%%-*}"
 # printf "%s" "${version}"
-print "1.65.1"
+printf "%s" "1.65.1"
