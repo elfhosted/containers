@@ -54,7 +54,7 @@ COPY apps/plex-debrid/plex-debrid.sh /
 COPY apps/plex-debrid/launch-tmux.sh /
 COPY apps/plex-debrid/restricted.tmux.conf /usr/src/app
 
-CMD [ "pnpm", "start","--command","/launch-tmux.sh" ]
+CMD [ "pnpm", "start","--command","/launch-tmux.sh","--base","/" ]
 
 
 
