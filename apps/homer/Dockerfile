@@ -1,7 +1,24 @@
 
+FROM alpine:latest as cloner
+ARG CHANNEL
 ARG VERSION
 
-FROM b4bz/homer:v${VERSION} as upstream
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone -b $VERSION --depth 1 https://github.com/bastienwirtz/homer.git /source
+
+# build stage
+FROM node:lts-alpine3.19 as build-stage
+
+WORKDIR /app
+
+COPY package.json ./
+RUN yarn install --verbose --frozen-lockfile --non-interactive
+
+COPY . .
+RUN yarn build
+
 
 FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598 
 
@@ -18,10 +35,13 @@ RUN apk add -U --no-cache lighttpd
 
 WORKDIR /www
 
-COPY --from=upstream /lighttpd.conf /lighttpd.conf
-COPY --from=upstream /etc/lighttpd/ipv6.sh /etc/lighttpd/ipv6.sh
-COPY --from=upstream /entrypoint.sh /entrypoint.sh
-COPY --from=upstream --chown=${UID}:${GID} /www/ /www/
+COPY --from=cloner /source/lighttpd.conf /lighttpd.conf
+COPY --from=cloner /source/lighttpd-ipv6.sh /etc/lighttpd/ipv6.sh
+COPY --from=cloner /source/entrypoint.sh /entrypoint.sh
+
+COPY --from=build-stage --chown=${UID}:${GID} /app/dist /www/
+COPY --from=build-stage --chown=${UID}:${GID} /app/dist/assets /www/default-assets
+
 
 # Copy extra theme icons
 WORKDIR /www/assets
