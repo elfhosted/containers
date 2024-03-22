@@ -13,10 +13,10 @@ FROM node:lts-alpine3.19 as build-stage
 
 WORKDIR /app
 
-COPY package.json ./
+COPY --from=cloner /source/package.json ./
 RUN yarn install --verbose --frozen-lockfile --non-interactive
 
-COPY . .
+COPY --from=cloner /source/. .
 RUN yarn build
 
 
