@@ -9,4 +9,4 @@
     --transfers=1 \
     --links \
     --multi-thread-streams=1 \    
-    /var/lib/rclonefm
+    /var/lib/rcloneui
