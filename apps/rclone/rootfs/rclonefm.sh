@@ -8,5 +8,5 @@
     --rc-no-auth \
     --transfers=1 \
     --links \
-    --multi-thread-streams=1 \    
+    --multi-thread-streams=1 \
     /var/lib/rclonefm
