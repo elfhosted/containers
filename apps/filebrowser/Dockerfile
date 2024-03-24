@@ -1,8 +1,8 @@
 ARG VERSION
-# FROM filebrowser/filebrowser:v${VERSION} as upstream
+FROM filebrowser/filebrowser:v${VERSION} as upstream
 
-# Until the TFA bug is fixed
-FROM filebrowser/filebrowser:v2.23.0 as upstream
+# # Until the TFA bug is fixed
+# FROM filebrowser/filebrowser:v2.23.0 as upstream
 
 
 
