@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone --depth 1 https://github.com/geek-cookbook/debrid-media-manager.git /source
+RUN git clone --depth 1 https://github.com/debridmediamanager/debrid-media-manager.git /source
 
 FROM node:18-alpine AS dependencies
 
