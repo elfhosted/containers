@@ -1,4 +1,3 @@
-# Get the elfhosted code
 FROM alpine:latest as cloner
 ARG CHANNEL
 ARG VERSION
@@ -9,10 +8,8 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION --depth 1 https://github.com/Stremio/stremio-web.git /source
 
 # Copied from https://github.com/Stremio/stremio-web/blob/development/Dockerfile and modified for cloner source
-# Stremio Node 14.x
-# the node version for running Stremio Web
-ARG NODE_VERSION=20-alpine
-FROM node:$NODE_VERSION AS base
+# Stremio Node 14.x# the node version for running Stremio Web
+FROM node:20-alpine AS base
 
 # Meta
 LABEL Description="Stremio Web" Vendor="Smart Code OOD" Version="1.0.0"
