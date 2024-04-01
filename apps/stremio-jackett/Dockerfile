@@ -8,18 +8,21 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION --depth 1 https://github.com/aymene69/stremio-jackett.git /source
 
-FROM python:3.11
+FROM python:3.12.2
 
 WORKDIR /app
 
-COPY --from=cloner /source/requirements.txt .
+COPY --from=cloner /source/source/requirements.txt .
 
 RUN pip install -r requirements.txt
 
-COPY --from=cloner /source/. .
+COPY --from=cloner /source/source/. .
 
 # Add ElfHosted branding
 COPY apps/stremio-jackett/branding/index.html .
+COPY apps/stremio-jackett/branding/index-community.html .
+COPY apps/stremio-jackett/branding/manifest.patch .
+RUN patch main.py < manifest.patch
 
 EXPOSE 3000
 

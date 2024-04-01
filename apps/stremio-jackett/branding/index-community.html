@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <script src="https://cdn.tailwindcss.com"></script>
-    <title>Stremio-Jackett | ElfHosted</title>
+    <title>Stremio-Jackett Community | ElfHosted</title>
     <style>
         /*On va ajouter la photo de fond */
         body {
@@ -82,37 +82,6 @@
                     <br/>✅ Geek out over <A CLASS="underline" HREF="https://fnky.nz/grafana-stremio-jackett">public performance metrics</A>                    
                 </p>
                  </div>
-            <div class="border-b border-gray-900/10 dark:border-white/50 pb-12">
-                <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">Jackett Information</h2>
-                <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">You will enter information about your
-                    Jackett
-                    server here</p>
-
-                <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-                    <div class="sm:col-span-3">
-                        <label for="jackett-host" class="block text-sm font-medium mb-2 dark:text-white">Jackett
-                            Host</label>
-                        <div class="mt-2">
-                            <input oninput="" type="text" name="jackett-host" id="jackett-host"
-                                   disabled="disabled"
-                                   value="http://jackett:9117"
-                                   class="py-3 px-4 block w-full border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:border-gray-700 dark:text-gray-400 dark:focus:ring-gray-600"
-                                   placeholder="I.e: http(s)://jackett.com without / at end">
-                        </div>
-                    </div>
-
-                    <div class="sm:col-span-3">
-                        <label for="jackett-api" class="block text-sm font-medium mb-2 dark:text-white">Jackett API
-                            key</label>
-                        <div class="mt-2">
-                            <input oninput="" type="text" name="jackett-api" id="jackett-api" autocomplete="jackett-api"
-                                   class="py-3 px-4 block w-full border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:border-gray-700 dark:text-gray-400 dark:focus:ring-gray-600"
-                                   placeholder="Your Jackett API key">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
 
             <div class="border-b border-gray-900/10 dark:border-white/50 pb-12">
                 <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">Debrid Information</h2>
@@ -146,27 +115,6 @@
             </div>
 
             <div class="border-b border-gray-900/10 dark:border-white/50 pb-12">
-                <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">Direct Torrenting</h2>
-                <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">You will enter information about the
-                    torrenting
-                    settings</p>
-                <br>
-                <div class="relative flex gap-x-3">
-                    <div class="flex items-center h-5">
-                        <input oninput="" id="torrenting" name="torrenting" value="torrenting" disabled="disabled" type="checkbox"
-                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                    </div>
-                    <div class="ms-2 text-sm">
-                        <label for="torrenting" class="font-medium text-gray-900 dark:text-gray-300">Enable
-                            torrenting</label>
-                        <p class="text-xs font-normal text-gray-500 dark:text-gray-400">Enable direct torrenting <span
-                                class="font-bold text-red-600 dark:text-red-500">(ATTENTION: this is illegal in some
-                            countries, and disabled on ElfHosted without BYO VPN)</span></p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="border-b border-gray-900/10 dark:border-white/50 pb-12">
                 <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">TMDB Informations</h2>
                 <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">You will enter here informations
                     about TMDB. You can
@@ -182,23 +130,6 @@
                                    class="py-3 px-4 block w-full border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:border-gray-700 dark:text-gray-400 dark:focus:ring-gray-600"
                                    placeholder="Your TMDB API key">
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="border-b border-gray-900/10 dark:border-white/50 pb-12">
-                <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">Caching</h2>
-                <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">You will enter here informations
-                    about the cache</p>
-                <br>
-                <div class="relative flex gap-x-3">
-                    <div class="flex h-6 items-center">
-                        <input oninput="" id="cache" name="cache" value="cache" type="checkbox"
-                               class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" checked>
-                    </div>
-                    <div class="text-sm leading-6">
-                        <label for="cache" class="block text-sm font-medium mb-2 dark:text-white">Enable cache</label>
-                        <p class="text-gray-500 dark:text-gray-300">Enable caching for faster results</p>
                     </div>
                 </div>
             </div>
@@ -466,8 +397,6 @@
         if (data) {
             data = atob(data[1]);
             data = JSON.parse(data);
-            document.getElementById('jackett-host').value = data.jackettHost;
-            document.getElementById('jackett-api').value = data.jackettApiKey;
             document.getElementById('debrid-api').value = data.debridKey;
             document.getElementById('tmdb-api').value = data.tmdbApi;
             document.getElementById('service').value = data.service;
@@ -475,8 +404,6 @@
             document.getElementById('maxSize').value = data.maxSize;
             document.getElementById('resultsPerQuality').value = data.resultsPerQuality;
             document.getElementById('maxResults').value = data.maxResults;
-            document.getElementById('cache').checked = data.cache;
-            document.getElementById('torrenting').checked = data.torrenting;
             if (data.sort === 'quality') {
                 document.getElementById('quality').checked = true;
             }
@@ -559,8 +486,6 @@
 
     function getLink(method) {
         const addonHost = new URL(window.location.href).protocol.replace(':', '') + "://" + new URL(window.location.href).host
-        const jackettHost = document.getElementById('jackett-host').value;
-        const jackettApi = document.getElementById('jackett-api').value;
         const debridApi = document.getElementById('debrid-api').value;
         const tmdbApi = document.getElementById('tmdb-api').value;
         const service = document.getElementById('service').value;
@@ -568,8 +493,6 @@
         let maxSize = document.getElementById('maxSize').value;
         let resultsPerQuality = document.getElementById('resultsPerQuality').value;
         let maxResults = document.getElementById('maxResults').value;
-        const cache = document.getElementById('cache').checked;
-        const torrenting = document.getElementById('torrenting').checked;
         const qualityExclusion = [];
         if (document.getElementById('4k').checked) {
             qualityExclusion.push('4k');
@@ -649,8 +572,6 @@
         }
         let data = {
             addonHost,
-            jackettHost,
-            'jackettApiKey': jackettApi,
             service,
             'debridKey': debridApi,
             maxSize,
@@ -660,11 +581,9 @@
             resultsPerQuality,
             maxResults,
             'exclusion': qualityExclusion,
-            tmdbApi,
-            cache,
-            torrenting
+            tmdbApi
         };
-        if (jackettHost === '' || jackettApi === '' || debridApi === '' || tmdbApi === '' || languages.length === 0) {
+        if (debridApi === '' || tmdbApi === '' || languages.length === 0) {
             alert('Please fill all the fields');
             return false;
         }
