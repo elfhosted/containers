@@ -115,6 +115,27 @@
             </div>
 
             <div class="border-b border-gray-900/10 dark:border-white/50 pb-12">
+                <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">Direct Torrenting</h2>
+                <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">You will enter information about the
+                    torrenting
+                    settings</p>
+                <br>
+                <div class="relative flex gap-x-3">
+                    <div class="flex items-center h-5">
+                        <input oninput="" id="torrenting" name="torrenting" value="torrenting" disabled="disabled" type="checkbox"
+                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div class="ms-2 text-sm">
+                        <label for="torrenting" class="font-medium text-gray-900 dark:text-gray-300">Enable
+                            torrenting</label>
+                        <p class="text-xs font-normal text-gray-500 dark:text-gray-400">Enable direct torrenting <span
+                                class="font-bold text-red-600 dark:text-red-500">(ATTENTION: this is illegal in some
+                            countries, and disabled on ElfHosted Community instances)</span></p>
+                    </div>
+                </div>
+            </div>         
+
+            <div class="border-b border-gray-900/10 dark:border-white/50 pb-12">
                 <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">TMDB Informations</h2>
                 <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">You will enter here informations
                     about TMDB. You can
@@ -404,6 +425,7 @@
             document.getElementById('maxSize').value = data.maxSize;
             document.getElementById('resultsPerQuality').value = data.resultsPerQuality;
             document.getElementById('maxResults').value = data.maxResults;
+            document.getElementById('torrenting').checked = data.torrenting;
             if (data.sort === 'quality') {
                 document.getElementById('quality').checked = true;
             }
@@ -493,6 +515,7 @@
         let maxSize = document.getElementById('maxSize').value;
         let resultsPerQuality = document.getElementById('resultsPerQuality').value;
         let maxResults = document.getElementById('maxResults').value;
+        const torrenting = document.getElementById('torrenting').checked;
         const qualityExclusion = [];
         if (document.getElementById('4k').checked) {
             qualityExclusion.push('4k');
@@ -581,7 +604,8 @@
             resultsPerQuality,
             maxResults,
             'exclusion': qualityExclusion,
-            tmdbApi
+            tmdbApi,
+            torrenting
         };
         if (debridApi === '' || tmdbApi === '' || languages.length === 0) {
             alert('Please fill all the fields');
