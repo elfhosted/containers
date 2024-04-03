@@ -1,3 +1,4 @@
+# Get the elfhosted code
 FROM alpine:latest as cloner
 ARG CHANNEL
 
@@ -6,17 +7,15 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION --depth 1 https://github.com/knightcrawler-stremio/knightcrawler.git /source
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-
-ENV CLONE_PATH=/source/src/
-ENV TARGETARCH=amd64
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /src
-COPY --from=cloner $CLONE_PATH/shared/ shared/
-COPY --from=cloner $CLONE_PATH/producer/ producer/
-WORKDIR /src/producer/src
+COPY --from=cloner /source/shared/ shared/
+COPY --from=cloner /source/qbit-collector/ qbit-collector/
+WORKDIR /src/qbit-collector/
 RUN dotnet restore -a $TARGETARCH
 RUN dotnet publish -c Release --no-restore -o /src/out -a $TARGETARCH
+
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine3.19
 
@@ -32,13 +31,9 @@ RUN rm -rf /app/python && mkdir -p /app/python
 
 RUN pip3 install -r /app/requirements.txt -t /app/python
 
-RUN addgroup -S producer && adduser -S -G producer producer
-
-USER producer
-
+RUN addgroup -S qbit && adduser -S -G qbit qbit
+USER qbit
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD pgrep -f dotnet || exit 1
-
 ENV PYTHONNET_PYDLL=/usr/lib/libpython3.11.so.1.0
-
-ENTRYPOINT ["dotnet", "Producer.dll"]
+ENTRYPOINT ["dotnet", "QBitCollector.dll"]

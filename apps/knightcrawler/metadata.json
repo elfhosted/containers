@@ -9,7 +9,7 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
     },
@@ -20,7 +20,7 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
     },
@@ -31,7 +31,18 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
+        "type": "web"
+      }
+    },
+    {
+      "name": "migrator",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": false,
         "type": "web"
       }
     },
@@ -42,9 +53,31 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
-    }            
+    },
+    {
+      "name": "debrid-collector",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    },
+    {
+      "name": "qbit-collector",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    }                   
   ]
 }

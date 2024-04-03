@@ -5,20 +5,19 @@ ARG CHANNEL
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone --depth 1 https://github.com/geek-cookbook/torrentio.elfhosted.com.git /source
+RUN git clone -b $VERSION --depth 1 https://github.com/knightcrawler-stremio/knightcrawler.git /source
 
 # --- Build Stage ---
 FROM node:lts-alpine AS builder
-ENV CLONE_PATH=/source/src/node/addon
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
 WORKDIR /app
 
-COPY --from=cloner $CLONE_PATH/package*.json ./
+COPY --from=cloner /source/src/addon/package*.json ./
 RUN npm install
-COPY --from=cloner $CLONE_PATH/. .
+COPY --from=cloner /source/src/addon/. .
 RUN npm run build
 
 # --- Runtime Stage ---

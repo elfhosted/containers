@@ -4,14 +4,14 @@ process:
   node:
     running: true
 
-# # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
-# port:
-#   # https://github.com/aelsabbahy/goss/issues/149
-#   tcp6:8111:
-#     listening: true  
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+port:
+  # https://github.com/aelsabbahy/goss/issues/149
+  tcp6:7000:
+    listening: true  
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
-# http:
-#   http://localhost:8111:
-#     status: 200
-#     timeout: 30000
+http:
+  http://localhost:7000:
+    status: 200
+    timeout: 30000
