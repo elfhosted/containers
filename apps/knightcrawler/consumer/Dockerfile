@@ -1,6 +1,6 @@
-# Get the elfhosted code
+# Get upstream code
 FROM alpine:latest as cloner
-ARG CHANNEL
+ARG VERSION
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git
