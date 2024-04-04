@@ -8,6 +8,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION --depth 1 https://github.com/knightcrawler-stremio/knightcrawler.git /source
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ENV TARGETARCH=amd64
 
 WORKDIR /src
 COPY --from=cloner /source/src/shared/ shared/
