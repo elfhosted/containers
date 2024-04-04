@@ -11,7 +11,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /src
 COPY --from=cloner /source/shared/ shared/
-COPY --from=cloner /source/qbit-collector/ qbit-collector/
+COPY --from=cloner /source/src/qbit-collector/ qbit-collector/
 WORKDIR /src/qbit-collector/
 RUN dotnet restore -a $TARGETARCH
 RUN dotnet publish -c Release --no-restore -o /src/out -a $TARGETARCH

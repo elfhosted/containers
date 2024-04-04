@@ -11,7 +11,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /src
 COPY --from=cloner /source/shared/ shared/
-COPY --from=cloner /source/debrid-collector/ debrid-collector/
+COPY --from=cloner /source/src/debrid-collector/ debrid-collector/
 WORKDIR /src/debrid-collector/
 RUN dotnet restore -a $TARGETARCH
 RUN dotnet publish -c Release --no-restore -o /src/out -a $TARGETARCH
