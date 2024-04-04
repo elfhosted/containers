@@ -10,7 +10,7 @@ RUN git clone -b $VERSION --depth 1 https://github.com/knightcrawler-stremio/kni
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /src
-COPY --from=cloner /source/shared/ shared/
+COPY --from=cloner /source/src/shared/ shared/
 COPY --from=cloner /source/src/qbit-collector/ qbit-collector/
 WORKDIR /src/qbit-collector/
 RUN dotnet restore -a $TARGETARCH

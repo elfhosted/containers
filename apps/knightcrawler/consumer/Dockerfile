@@ -11,7 +11,7 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 ARG TARGETARCH
 WORKDIR /src
-COPY --from=cloner /source/shared/ shared/
+COPY --from=cloner /source/src/shared/ shared/
 COPY --from=cloner /source/src/torrent-consumer/ torrent-consumer/
 WORKDIR /src/torrent-consumer/
 RUN dotnet restore -a $TARGETARCH
