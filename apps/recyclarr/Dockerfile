@@ -17,8 +17,9 @@ ENV RUNTIME=linux-musl-arm64
 FROM base AS base-amd64
 ENV RUNTIME=linux-musl-x64
 
-FROM base-$TARGETARCH AS final
+FROM base-amd64 AS final
 
+ENV RUNTIME=linux-musl-x64
 # Required by environment and/or dotnet
 ENV PATH="${PATH}:/app/recyclarr" \
     RECYCLARR_APP_DATA=/config \
