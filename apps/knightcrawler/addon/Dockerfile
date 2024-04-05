@@ -16,8 +16,13 @@ RUN apk update && apk upgrade && \
 WORKDIR /app
 
 COPY --from=cloner /source/src/addon/package*.json ./
+
 RUN npm install
 COPY --from=cloner /source/src/addon/. .
+
+# ElfHosted branding
+COPY apps/knightcrawler/branding/manifest.js ./src/addon/src/lib/manifest.js
+
 RUN npm run build
 
 # --- Runtime Stage ---
