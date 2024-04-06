@@ -21,7 +21,7 @@ RUN npm install
 COPY --from=cloner /source/src/addon/. .
 
 # ElfHosted branding
-COPY apps/knightcrawler/branding/manifest.js ./src/addon/src/lib/manifest.js
+COPY apps/knightcrawler/branding/manifest.js ./src/lib/manifest.js
 
 RUN npm run build
 
