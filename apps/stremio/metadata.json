@@ -1,5 +1,5 @@
 {
-  "app": "stremio-server",
+  "app": "stremio",
   "base": false,
   "channels": [
     {
