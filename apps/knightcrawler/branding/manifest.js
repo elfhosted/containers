@@ -17,7 +17,7 @@ export function manifest(config = {}) {
     resources: getResources(config),
     types: [Type.MOVIE, Type.SERIES, Type.ANIME, Type.OTHER],
     logo: 'https://elfhosted.com/images/logo.svg',
-    background: 'https://unsplash.com/photos/EOQhsfFBhRk/download?ixid=M3wxMjA3fDB8MXxzZWFyY2h8Mnx8c3RyZWFtaW5nfGVufDB8fHx8MTcwNjkyMDI1M3ww&force=true&w=1920',
+    background: 'https://store.elfhosted.com/wp-content/uploads/2024/02/knightcrawler.jpg',
     behaviorHints: {
       configurable: true,
       configurationRequired: false,
@@ -38,11 +38,11 @@ function getName(config) {
       .filter(moch => config[moch.key])
       .map(moch => moch.shortName)
       .join('/');
-  return [rootName, mochSuffix, 'ElfHosted'].filter(v => v).join(' ');
+  return [rootName, mochSuffix, 'ElfHosted'].filter(v => v).join(' | ');
 }
 
 function getDescription(config) {
-  return `${tenantName}-torrentio.elfhosted.com / torrent streams provided by popular trackers and DMM hashes`;
+  return `KnightCrawlrer ${tenantName} / torrent streams provided by popular trackers and DMM hashes`;
 }
 
 function getDescriptionHTML(config) {
