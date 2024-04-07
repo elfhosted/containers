@@ -4,6 +4,5 @@
 source "/scripts/vpn.sh"
 
 #shellcheck disable=SC2086
-cd /srv/stremio-server
 exec \
-    ./stremio-web-service-run.sh
+    node server.js
