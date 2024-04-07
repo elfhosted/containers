@@ -152,5 +152,6 @@ ENTRYPOINT []
 
 # For our VPN.sh script
 COPY ./apps/alpine/scripts/vpn.sh /scripts/vpn.sh
+COPY ./apps/stremio/entrypoint.sh /entrypoint.sh
 
 CMD ["/entrypoint.sh"]
