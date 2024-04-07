@@ -20,7 +20,6 @@ COPY --from=cloner /source/source/. .
 
 # Add ElfHosted branding
 COPY apps/stremio-jackett/branding/index.html .
-COPY apps/stremio-jackett/branding/index-community.html .
 COPY apps/stremio-jackett/branding/manifest.patch .
 RUN patch main.py < manifest.patch
 
