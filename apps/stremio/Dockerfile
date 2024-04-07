@@ -8,7 +8,8 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION --depth 1 https://github.com//tsaridas/stremio-docker.git /source
 
 # Base image
-FROM node:18-alpine3.18 AS base
+# FROM node:18-alpine3.18 AS base
+FROM ghcr.io/geek-cookbook/alpine-node:20@sha256:34e579ce8fd045ec28105d0ee720e6d4b8fd332ebeb8d4890784b8b991d51e29 as base
 
 RUN apk update && apk upgrade
 
@@ -150,4 +151,4 @@ EXPOSE 8080 11470 12470
 
 ENTRYPOINT []
 
-CMD ["./stremio-web-service-run.sh"]
+CMD ["/entrypoint.sh"]
