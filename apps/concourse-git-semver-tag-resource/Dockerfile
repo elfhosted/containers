@@ -16,3 +16,4 @@ RUN git config --global user.email "git@localhost" && \
 
 ADD apps/concourse-git-semver-tag-resource/assets/ /opt/resource/
 RUN chmod +x /opt/resource/*
+
