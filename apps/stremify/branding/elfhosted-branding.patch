@@ -12,15 +12,9 @@ index 001beb8..fecbaca 100644
            "idPrefixes":[
               "tt"
 diff --git a/server/routes/index.ts b/server/routes/index.ts
-index aa6e812..ae57006 100644
+index aa6e812..437fb1d 100644
 --- a/server/routes/index.ts
 +++ b/server/routes/index.ts
-@@ -1,4 +1,4 @@
--export default eventHandler((event) => {
-+inexport default eventHandler((event) => {
- 
-   return(`<!DOCTYPE html>
-   <html lang="en">
 @@ -6,7 +6,7 @@ export default eventHandler((event) => {
    <head>
      <meta charset="UTF-8">
