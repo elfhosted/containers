@@ -4,9 +4,15 @@ ARG CHANNEL
 ARG VERSION
 
 RUN apk update && apk upgrade && \
-    apk add --no-cache git
+    apk add --no-cache git patch
 
 RUN git clone --depth 1 https://github.com/stremify/stremify /source
+
+# Add ElfHosted branding
+
+COPY apps/stremify/branding/elfhosted-branding.patch /source/
+RUN cd /source && \
+    git apply elfhosted-branding.patch
 
 FROM node:20-slim
 
@@ -20,6 +26,8 @@ COPY --chown=node:node --from=cloner source/package*.json ./
 USER node
 
 RUN npm install
+
+
 
 COPY --chown=node:node --from=cloner source/. .
 
