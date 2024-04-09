@@ -21,7 +21,7 @@ USER node
 
 RUN npm install
 
-COPY --chown=node:node --from=cloner source/src ./src
+COPY --chown=node:node --from=cloner source/. .
 
 EXPOSE 3000
 
