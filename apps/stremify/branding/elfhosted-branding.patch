@@ -12,7 +12,7 @@ index 001beb8..fecbaca 100644
            "idPrefixes":[
               "tt"
 diff --git a/server/routes/index.ts b/server/routes/index.ts
-index aa6e812..437fb1d 100644
+index aa6e812..f7c3f40 100644
 --- a/server/routes/index.ts
 +++ b/server/routes/index.ts
 @@ -6,7 +6,7 @@ export default eventHandler((event) => {
@@ -35,9 +35,12 @@ index aa6e812..437fb1d 100644
    
        .button {
          display: inline-block;
-@@ -49,9 +53,17 @@ export default eventHandler((event) => {
+@@ -47,11 +51,19 @@ export default eventHandler((event) => {
+   
+   <body>
      <div class="content">
-       <h1>Stremify</h1>
+-      <h1>Stremify</h1>
++      <h1>Stremify | ElfHosted</h1>
        <p>Version: 2.6.0</p>
 +      <p>This is a free community <A HREF="https://elfhosted.com">ElfHosted</A> instance of <A HREF="https://github.com/stremify/stremify">Stremify</A> - Enjoy! (<I>reasonable <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">rate-limits</A> apply</I>)</p>
 +      <p><A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily. Individual, hosted <A HREF="https://store.elfhosted.com/product/stremify">Stremify instances are available</A> (<I>say, if you need a higher rate-limit</I>) from $0.10/day, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> for <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.</P>
