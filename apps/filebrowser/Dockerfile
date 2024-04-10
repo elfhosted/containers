@@ -27,6 +27,13 @@ RUN apt-get install curl
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
    	install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
 	rm kubectl
+
+# Get recyclarr
+RUN curl -LO https://github.com/recyclarr/recyclarr/releases/latest/download/recyclarr-linux-x64.tar.xz && \
+	tar xf \
+	recyclarr-linux-x64.tar.xz -C \
+	/usr/local/bin/ --strip-components=1 && \
+	rm recyclarr-linux-x64.tar.xz
     
 # This is our fake bash for command execution
 RUN cp -p /bin/bash /bin/vstat
