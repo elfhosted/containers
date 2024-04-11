@@ -9,20 +9,9 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
-        "type": "web"
-      }
-    },
-    {
-      "name": "laster13",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "stable": false,
-      "tests": {
         "enabled": false,
         "type": "web"
       }
-    } 
+    }
   ]
 }
