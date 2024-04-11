@@ -90,6 +90,9 @@ ENV PATH "$PATH:/usr/share/dotnet"
 # /app should belong to elfie
 USER 568
 
+# Just create the directory as belonging to elfie, so that goss tests will work
+WORKDIR /data
+
 # Copy files for app
 WORKDIR /app
 COPY --from=dotnet-build-env /appserver/server/out .
