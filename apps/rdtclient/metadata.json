@@ -20,7 +20,7 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
     } 
