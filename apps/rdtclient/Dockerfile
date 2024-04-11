@@ -87,6 +87,9 @@ RUN \
 
 ENV PATH "$PATH:/usr/share/dotnet"
 
+# /app should belong to elfie
+USER 568
+
 # Copy files for app
 WORKDIR /app
 COPY --from=dotnet-build-env /appserver/server/out .
