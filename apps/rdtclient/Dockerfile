@@ -97,4 +97,5 @@ COPY --from=node-build-env /appclient/root/ /
 EXPOSE 6500
 
 COPY ./apps/rdtclient/entrypoint.sh /entrypoint.sh
+COPY ./apps/rdtclient/appsettings.json /app/
 CMD ["/entrypoint.sh"]
