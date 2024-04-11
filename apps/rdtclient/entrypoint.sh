@@ -8,6 +8,7 @@ source "/scripts/vpn.sh"
 # We run from /tmp so that we can create a temporary folder for this, and leave /app as read-only
 cd /tmp
 cp /app/appsettings.json ./
+cp /app/wwwroot ./ -rfp
 
 exec \
     dotnet /app/RdtClient.Web.dll
