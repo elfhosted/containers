@@ -77,15 +77,18 @@ RUN \
       tar zxf aspnetcore-runtime-8.0.0-linux-musl-x64.tar.gz -C /usr/share/dotnet ; \
    fi
 	
-RUN \
-    echo "**** Setting permissions ****" && \
-    chown -R 568:568 /storage && \
-    rm -rf \
+RUN rm -rf \
         /tmp/* \
         /var/cache/apk/* \
         /var/tmp/* || true
 
 ENV PATH "$PATH:/usr/share/dotnet"
+
+USER 568 
+
+# /data has to exist for tests
+WORKDIR /data
+RUN mkdir db && mkdir logs
 
 # Copy files for app
 WORKDIR /app
