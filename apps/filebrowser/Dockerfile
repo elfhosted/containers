@@ -32,7 +32,7 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
 RUN curl -LO https://github.com/recyclarr/recyclarr/releases/latest/download/recyclarr-linux-x64.tar.xz && \
 	tar xf \
 	recyclarr-linux-x64.tar.xz -C \
-	/usr/local/bin/ --strip-components=1 && \
+	/usr/local/bin/ && \
 	rm recyclarr-linux-x64.tar.xz
     
 # This is our fake bash for command execution
