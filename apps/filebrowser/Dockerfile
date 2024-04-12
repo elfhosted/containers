@@ -39,7 +39,6 @@ RUN curl -LO https://github.com/recyclarr/recyclarr/releases/latest/download/rec
 RUN cp -p /bin/bash /bin/vstat
 
 USER 568
-
 # Use this so that dgoss works
 ENV FB_DATABASE=/tmp/filebrowser.db
 
