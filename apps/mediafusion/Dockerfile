@@ -26,8 +26,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create the mediafusion user with a specified home directory
-RUN groupadd --gid 568 -r mediafusion && \
-    useradd --gid 568 --no-log-init -r -g mediafusion  -m -d /home/mediafusion mediafusion
+RUN groupadd -r mediafusion && \
+    useradd --no-log-init -r -g mediafusion -m -d /home/mediafusion mediafusion
 
 RUN chown -R mediafusion:mediafusion /mediafusion
 USER mediafusion
@@ -55,7 +55,7 @@ COPY --from=cloner /source/. .
 # set folder permissions
 RUN chown -R mediafusion:mediafusion /mediafusion
 
-USER 568 # satisify k8s-nonroot policy, which requires numeric UIDs
+USER mediafusion
 
 EXPOSE 8000
 
