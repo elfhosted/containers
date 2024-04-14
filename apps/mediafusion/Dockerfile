@@ -38,11 +38,10 @@ ENV GIT_REV=$GIT_REV
 COPY --from=cloner /source .
 
 # Add ElfHosted branding
-COPY apps/mediafusion/branding/home.html ./resources/html/
 COPY apps/mediafusion/branding/mediafusion-elfhosted-logo.png ./resources/images/
-COPY apps/mediafusion/branding/manifest.json ./resources/
-
-
+COPY apps/mediafusion/branding/elfhosted-branding.patch /source/
+RUN cd /source && \
+    git apply elfhosted-branding.patch
 
 # Expose the port
 EXPOSE 8000

@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION --depth 1 https://github.com/bastienwirtz/homer.git /source
 
 # build stage
-FROM node:lts-alpine3.19 as build-stage
+FROM node:lts-alpine as build-stage
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ ENV IPV6_DISABLE 0
 
 USER root 
 
-RUN apk add -U --no-cache lighttpd
+RUN apk add -U --no-cache lighttpd git
 
 WORKDIR /www
 
