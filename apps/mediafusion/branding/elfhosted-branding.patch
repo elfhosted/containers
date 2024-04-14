@@ -1,3 +1,16 @@
+diff --git a/resources/html/configure.html b/resources/html/configure.html
+index 7138ea1..9729bfd 100644
+--- a/resources/html/configure.html
++++ b/resources/html/configure.html
+@@ -17,7 +17,7 @@
+ <div class="container">
+     <div class="row">
+         <div class="col-10 col-md-11 col-lg-11 config-container">
+-            <img class="logo" src="/static/images/mediafusion_logo.png" alt="MediaFusion Logo">
++            <img class="logo" src="/static/images/mediafusion-elfhosted-logo.png" alt="MediaFusion Logo">
+             <h3 class="text-center mb-4">MediaFusion Addon Configuration</h3>
+ 
+             <!-- Configuration Form -->
 diff --git a/resources/html/home.html b/resources/html/home.html
 index 100dfb1..154ed7d 100644
 --- a/resources/html/home.html
