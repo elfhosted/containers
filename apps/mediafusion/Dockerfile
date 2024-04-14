@@ -8,6 +8,11 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION --depth 1 https://github.com/mhdzumair/MediaFusion.git /source
 
+# Add ElfHosted branding
+COPY apps/mediafusion/branding/mediafusion-elfhosted-logo.png /source/resources/images/
+COPY apps/mediafusion/branding/elfhosted-branding.patch /source/
+RUN cd /source && git apply elfhosted-branding.patch && rm elfhosted-branding.patch
+
 # Now based on the upstream Dockerfile
 FROM python:3.11.9-slim-bullseye AS builder
 
@@ -51,11 +56,6 @@ COPY --from=cloner /source/. .
 RUN chown -R mediafusion:mediafusion /mediafusion
 
 USER mediafusion
-
-# Add ElfHosted branding
-COPY apps/mediafusion/branding/mediafusion-elfhosted-logo.png ./resources/images/
-COPY apps/mediafusion/branding/elfhosted-branding.patch /.
-RUN git apply elfhosted-branding.patch && rm elfhosted-branding.patch
 
 EXPOSE 8000
 
