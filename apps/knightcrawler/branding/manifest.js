@@ -7,7 +7,7 @@ const tenantName = process.env.TENANT_NAME;
 
 export function manifest(config = {}) {
   return {
-    id: 'knightcrawler.elfhosted.com',
+    id: `${tenantName}-knightcrawler.elfhosted.com`,
     version: '0.0.1',
     name: getName(config),
     backgroundCredit: 'https://unsplash.com/photos/turned-on-flat-screen-television-EOQhsfFBhRk',
@@ -42,7 +42,7 @@ function getName(config) {
 }
 
 function getDescription(config) {
-  return `KnightCrawlrer ${tenantName} / torrent streams provided by popular trackers and DMM hashes`;
+  return `KnightCrawler ${tenantName}: torrent streams provided by popular trackers and DMM hashes`;
 }
 
 function getDescriptionHTML(config) {
