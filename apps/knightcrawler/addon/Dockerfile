@@ -23,6 +23,9 @@ COPY --from=cloner /source/src/addon/. .
 # ElfHosted branding
 COPY apps/knightcrawler/branding/manifest.js ./src/lib/manifest.js
 
+# Copy fix until https://github.com/knightcrawler-stremio/knightcrawler/pull/207 is resolved
+COPY apps/knightcrawler/addon/repository.js ./src/lib/repository.js
+
 RUN npm run build
 
 # --- Runtime Stage ---
