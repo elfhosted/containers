@@ -56,7 +56,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') \
-            export EXTRA_INSTALL_ARG='mesa-va-drivers'; \
+            export EXTRA_INSTALL_ARG='intel-media-va-driver-non-free nvidia-opencl-icd-340 i965-va-driver mesa-va-drivers'; \            
         ;; \
         'linux/arm64') \
             curl -s "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x6587ffd6536b8826e88a62547876ae518cbcf2f2" | apt-key add - \
