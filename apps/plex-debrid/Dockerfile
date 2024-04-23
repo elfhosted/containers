@@ -12,7 +12,7 @@ RUN apk add -U build-base python3 git
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
-RUN npx pnpm i -g pnpm@latest
+RUN npx pnpm i -g pnpm@v8
 WORKDIR /usr/src/app
 COPY --from=cloner /source/. /usr/src/app
 
@@ -35,7 +35,7 @@ EXPOSE 3000
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
-RUN npx pnpm i -g pnpm@latest
+RUN npx pnpm i -g pnpm@v8
 
 
 COPY --from=prod-deps /usr/src/app/node_modules /usr/src/app/node_modules
