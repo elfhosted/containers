@@ -3,14 +3,14 @@ import { showDebridCatalog } from '../moch/options.js';
 import { Type } from './types.js';
 
 const CatalogMochs = Object.values(MochOptions).filter(moch => moch.catalog);
-const tenantName = process.env.TENANT_NAME;
+const tenantName = process.env.TENANT_NAME;;
 
 export function manifest(config = {}) {
   return {
     id: `${tenantName}-knightcrawler.elfhosted.com`,
-    version: '1337',
+    version: '2.0.26',
     name: getName(config),
-    backgroundCredit: 'https://unsplash.com/photos/turned-on-flat-screen-television-EOQhsfFBhRk',
+    backgroundCredit: 'https://unsplash.com/photos/red-cinema-chair-evlkOfkQ5rE',
     description: getDescription(config),
     descriptionHTML: getDescriptionHTML(config),
     catalogs: getCatalogs(config),
@@ -47,9 +47,9 @@ function getDescription(config) {
 
 function getDescriptionHTML(config) {
   return `This is an <A HREF="https://elfhosted.com">ElfHosted</A> instance of <A HREF="https://github.com/Gabisonfire/knightcrawler">KnightCrawler</A>, a fork of <A HREF="http://torrentio.strem.fm">torrentio.strem.fm</A>, which provides torrent streams from torrent providers' RSS feeds, and <A HREF="https://github.com/debridmediamanager/debrid-media-manager">DebridMediaManager</A> hashes.`
-      + ` <br/><br/>The public instance (<A HREF="http://torrentio.elfhosted.com">torrentio.elfhosted.com</A>) is provided free for public use, and <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">rate-limited</A> appropriately for casual individual streaming use (<I>not automation</I>).`
+      + ` <br/><br/>The public instance (<A HREF="http://knightcrawler.elfhosted.com">knightcrawler.elfhosted.com</A>) is provided free for public use, and <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">rate-limited</A> appropriately for casual individual streaming use (<I>not automation</I>).`
       + ` <br/><br/><A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily.`
-      + ` <br/><br/>Hosted / private KnightCrawler instances with <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-hosted-stremio-addon.yaml">rate-limits</A> appropriate for automation <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-self-hosted-torrentio/">are available</A> for $0.15/day, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> on <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.`
+      + ` <br/><br/>Hosted / private KnightCrawler instances with <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-hosted-stremio-addon.yaml">rate-limits</A> appropriate for automation <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-self-hosted-torrentio/">are available</A>, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> on <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.`
       + ` <br/><br/>An internal, un-rate-limited instance is provided free, with all <A HREF="https://elfhosted.com/apps/">ElfHosted apps</A>, for automation.`
       + ` <br/><br/>Why use <A HREF="https://elfhosted.com/stremio-addons/">ElfHosted Stremio addons</A>?
       <p>
