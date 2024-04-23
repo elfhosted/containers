@@ -8,7 +8,7 @@ const tenantName = process.env.TENANT_NAME;
 export function manifest(config = {}) {
   return {
     id: `${tenantName}-knightcrawler.elfhosted.com`,
-    version: '0.0.1',
+    version: '1337',
     name: getName(config),
     backgroundCredit: 'https://unsplash.com/photos/turned-on-flat-screen-television-EOQhsfFBhRk',
     description: getDescription(config),
@@ -17,7 +17,7 @@ export function manifest(config = {}) {
     resources: getResources(config),
     types: [Type.MOVIE, Type.SERIES, Type.ANIME, Type.OTHER],
     logo: 'https://elfhosted.com/images/logo.svg',
-    background: 'https://store.elfhosted.com/wp-content/uploads/2024/02/knightcrawler.jpg',
+    background: 'https://unsplash.com/photos/evlkOfkQ5rE/download?ixid=M3wxMjA3fDB8MXxzZWFyY2h8M3x8Y2luZW1hfGVufDB8fHx8MTcxMzc5NDg2OHww&force=true&w=1920',
     behaviorHints: {
       configurable: true,
       configurationRequired: false,
