@@ -55,7 +55,7 @@ COPY apps/plex-debrid/launch-tmux.sh /
 COPY apps/plex-debrid/entrypoint.sh /
 COPY apps/plex-debrid/restricted.tmux.conf /usr/src/app
 
-CMD [ /entrypoint.sh ]
+ENTRYPOINT [ /entrypoint.sh ]
 
 
 
