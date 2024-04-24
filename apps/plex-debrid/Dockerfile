@@ -52,9 +52,10 @@ RUN apk add --update --no-cache py3-pip tmux && \
 
 COPY apps/plex-debrid/plex-debrid.sh /
 COPY apps/plex-debrid/launch-tmux.sh /
+COPY apps/plex-debrid/entrypoint.sh /
 COPY apps/plex-debrid/restricted.tmux.conf /usr/src/app
 
-CMD [ "pnpm", "start","--command","/launch-tmux.sh","--base","/","--title","plex_debrid | ElfHosted" ]
+CMD [ /entrypoint.sh ]
 
 
 
