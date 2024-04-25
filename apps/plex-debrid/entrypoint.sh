@@ -2,4 +2,4 @@
 
 tmux -f /usr/src/app/restricted.tmux.conf new-session -A -d -s plex_debrid /plex-debrid.sh
 
-pnpm start --command launch-tmux.sh --base / --title "plex_debrid | ElfHosted"
+pnpm start --command /launch-tmux.sh --base / --title "plex_debrid | ElfHosted"
