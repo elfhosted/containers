@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone --depth 1 https://github.com/aymene69/stremio-jackett-cacher.git /source
 
-FROM python:3.11
+FROM python:3.12
 
 WORKDIR /app
 

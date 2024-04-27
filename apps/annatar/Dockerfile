@@ -12,7 +12,7 @@ RUN git clone -b $VERSION --depth 1 https://gitlab.com/stremio-add-ons/annatar.g
 ## Upstream Dockerfile
 
 # --- Build Stage ---
-FROM python:3.11 as builder
+FROM python:3.12 as builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -41,7 +41,7 @@ COPY --from=cloner /source/annatar /app/annatar
 RUN poetry build
 
 # --- Final Stage ---
-FROM python:3.11-slim as final
+FROM python:3.12-slim as final
 
 # Need this to set the build version - ElfHosted
 ARG VERSION

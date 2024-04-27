@@ -14,7 +14,7 @@ COPY apps/mediafusion/branding/elfhosted-branding.patch /source/
 RUN cd /source && git apply elfhosted-branding.patch && rm elfhosted-branding.patch
 
 # Now based on the upstream Dockerfile
-FROM python:3.11.9-slim-bullseye AS builder
+FROM python:3.12.3-slim-bullseye AS builder
 
 WORKDIR /mediafusion
 
@@ -40,7 +40,7 @@ COPY --chown=mediafusion:mediafusion --from=cloner /source/Pipfile /source/Pipfi
 RUN pip install --user pipenv && \
     pipenv install --deploy --ignore-pipfile
 
-FROM python:3.11.9-slim-bullseye
+FROM python:3.12.3-slim-bullseye
 
 WORKDIR /mediafusion
 

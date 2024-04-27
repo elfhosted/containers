@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION --depth 1 https://github.com/aymene69/stremio-jackett.git /source
 
-FROM python:3.12.2
+FROM python:3.12.3
 
 WORKDIR /app
 
