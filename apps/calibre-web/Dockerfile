@@ -28,6 +28,9 @@ RUN \
     python3-minimal \
     python3-pkg-resources \
     unrar && \
+    libopengl-dev \
+    libxkbcommon-dev \
+    libegl-dev \
   echo "**** install calibre-web ****" && \
   curl -o \
     /tmp/calibre-web.tar.gz -L \
