@@ -30,7 +30,7 @@ RUN \
     unrar \
     libopengl-dev \
     libxkbcommon-dev \
-    libegl-dev \
+    libegl-dev && \
   echo "**** install calibre-web ****" && \
   curl -o \
     /tmp/calibre-web.tar.gz -L \
