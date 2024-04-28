@@ -10,15 +10,11 @@ RUN \
   apt-get update && \
   apt-get install -y --no-install-recommends \
     build-essential \
-    libldap2-dev \
-    libsasl2-dev \
     python3-dev && \
   echo "**** install runtime packages ****" && \
   apt-get install -y --no-install-recommends \
     imagemagick \
     ghostscript \
-    libldap-2.5-0 \
-    libsasl2-2 \
     libxi6 \
     libxslt1.1 \
     python3-venv && \
