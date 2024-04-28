@@ -27,7 +27,7 @@ RUN \
     libxrandr2 \
     python3-minimal \
     python3-pkg-resources \
-    unrar && \
+    unrar \
     libopengl-dev \
     libxkbcommon-dev \
     libegl-dev \
