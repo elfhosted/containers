@@ -57,13 +57,13 @@ index 0dfabed..1d855cc 100644
              <h4 class="mt-4">🔎 Advanced Scraping Capabilities</h4>
              <p>Tap into a world of content with our enhanced scraping features:</p>
 diff --git a/resources/manifest.json b/resources/manifest.json
-index 496b4b0..f683aeb 100644
+index 2361db7..2ba0d7c 100644
 --- a/resources/manifest.json
 +++ b/resources/manifest.json
 @@ -1,10 +1,10 @@
  {
    "id": "mhdzumair.addons.mediafusion",
-   "version": "3.8.2",
+   "version": "3.8.3",
 -  "name": "Media Fusion",
 +  "name": "Media Fusion | ElfHosted",
    "contactEmail": "mhdzumair@gmail",
