@@ -12,7 +12,7 @@ index 7138ea1..9729bfd 100644
  
              <!-- Configuration Form -->
 diff --git a/resources/html/home.html b/resources/html/home.html
-index 0dfabed..1d855cc 100644
+index 0dfabed..aefedce 100644
 --- a/resources/html/home.html
 +++ b/resources/html/home.html
 @@ -8,15 +8,34 @@
@@ -44,7 +44,7 @@ index 0dfabed..1d855cc 100644
 +
 +                 <div class="form-floating mb-3">
 +                    <A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily. Individual, hosted <A HREF="https://store.elfhosted.com/product/mediafusion">MediaFusion instances are available</A> (<I>with more relaxed rate-limits</I>) from $0.15/day, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> for <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.
-+                 </div>	
++                 </div>
 +                 <h3 class="gives">Why use ElfHosted addons?</h3>
 +                 <div class="form-floating mb-3">
 +                    <ul>
@@ -52,7 +52,7 @@ index 0dfabed..1d855cc 100644
 +                       <li>Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A></li>
 +                       <li>Geek out over <A HREF="https://fnky.nz/grafana-mediafusion">public performance metrics</A></li>
 +                    </ul>
-+                 </div>	
++                 </div>
  
              <h4 class="mt-4">🔎 Advanced Scraping Capabilities</h4>
              <p>Tap into a world of content with our enhanced scraping features:</p>
