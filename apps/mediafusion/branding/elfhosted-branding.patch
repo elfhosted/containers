@@ -70,7 +70,7 @@ index 2361db7..2ba0d7c 100644
 -  "description": "Universal Stremio Add-on for Movies, Series, Live TV & Sports Events. Source: https://github.com/mhdzumair/MediaFusion",
 -  "logo": "https://raw.githubusercontent.com/mhdzumair/MediaFusion/main/resources/images/mediafusion_logo.png",
 +  "description": "Universal Stremio Add-on for Movies, Series & Live TV. Source: https://github.com/mhdzumair/MediaFusion",
-+  "logo": "https://mediafusion.elfhosted.com//static/images/mediafusion-elfhosted-logo.png",
++  "logo": "https://mediafusion.elfhosted.com/static/images/mediafusion-elfhosted-logo.png",
    "behaviorHints": {
  	"configurable": true,
  	"configurationRequired": false
