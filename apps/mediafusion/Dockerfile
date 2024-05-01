@@ -11,9 +11,7 @@ RUN git clone -b $VERSION --depth 1 https://github.com/mhdzumair/MediaFusion.git
 # Add ElfHosted branding
 COPY apps/mediafusion/branding/mediafusion-elfhosted-logo.png /source/resources/images/
 COPY apps/mediafusion/branding/elfhosted-branding.patch /source/
-RUN cd /source && git apply elfhosted-branding.patch && rm elfhosted-branding.patch && \
-    sed -i 's/"name": "Media Fusion"/"name": "Media Fusion | ElfHosted"/' /source/resources/manifest.json && \
-    sed -i 's|https://raw.githubusercontent.com/mhdzumair/MediaFusion/main/resources/images/mediafusion_logo.png|https://mediafusion.elfhosted.com/static/images/mediafusion-elfhosted-logo.png|' /source/resources/manifest.json
+RUN cd /source && git apply elfhosted-branding.patch && rm elfhosted-branding.patch
 
 # Now based on the upstream Dockerfile
 FROM python:3.11.9-slim-bullseye AS builder
