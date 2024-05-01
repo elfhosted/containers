@@ -7,40 +7,25 @@ RUN apk update && apk upgrade && \
 
 RUN git clone --depth 1 https://github.com/butlerx/wetty.git /source
 
-FROM node:current-alpine as base
-RUN apk add -U build-base python3 git
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-RUN npx pnpm i -g pnpm@v8
-WORKDIR /usr/src/app
-COPY --from=cloner /source/. /usr/src/app
-
 # Get plex_debrid source
-RUN git clone --depth 1 https://github.com/itsToggle/plex_debrid
-
-FROM base AS prod-deps
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
-
-FROM base AS build
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-RUN pnpm run build
-
-FROM node:current-alpine
-LABEL maintainer="butlerx@notthe.cloud"
-WORKDIR /usr/src/app
-ENV NODE_ENV=production
-EXPOSE 3000
-
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-RUN npx pnpm i -g pnpm@v8
+RUN git clone --depth 1 https://github.com/itsToggle/plex_debrid /plex_debrid
 
 
-COPY --from=prod-deps /usr/src/app/node_modules /usr/src/app/node_modules
-COPY --from=build /usr/src/app/build /usr/src/app/build
-COPY --from=build /usr/src/app/plex_debrid /usr/src/app/plex_debrid
+FROM wettyoss/wetty
+# LABEL maintainer="butlerx@notthe.cloud"
+# WORKDIR /usr/src/app
+# ENV NODE_ENV=production
+# EXPOSE 3000
+
+# ENV PNPM_HOME="/pnpm"
+# ENV PATH="$PNPM_HOME:$PATH"
+# RUN corepack enable
+# RUN npx pnpm i -g pnpm@v8
+
+
+# COPY --from=prod-deps /usr/src/app/node_modules /usr/src/app/node_modules
+# COPY --from=build /usr/src/app/build /usr/src/app/build
+COPY --from=cloner /plex_debrid /usr/src/app/plex_debrid
 COPY --from=cloner /source/package.json /usr/src/app
 # RUN apk add -U coreutils
 
