@@ -55,6 +55,9 @@ COPY apps/plex-debrid/launch-tmux.sh /
 COPY apps/plex-debrid/entrypoint.sh /
 COPY apps/plex-debrid/restricted.tmux.conf /usr/src/app
 
+# Apply the trakt fix
+COPY apps/plex-debrid/trakt.py /usr/src/app/plex_debrid/content/services/
+
 ENTRYPOINT [ "/entrypoint.sh" ]
 
 
