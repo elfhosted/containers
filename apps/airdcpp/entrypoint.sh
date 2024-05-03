@@ -73,6 +73,24 @@ then
     umask $UMASK
 fi
 
+#shellcheck disable=SC1091
+source "/scripts/vpn.sh"
+
+# If we have been given a port by pia/gluetun, insert it into the config before starting
+# Apply the port
+if [[ ! -z "$PORT_FILE" ]]; then
+
+    # Wait until a file is found which is less than 5 min old
+    until (find $PORT_FILE -mmin 5); do
+        echo waiting for port-forward details...
+        sleep 5s
+    done
+
+    sed -i  "s/<InPort type="int">[0-9]+<\/InPort>/<InPort type="int">$(cat $PORT_FILE)<\/InPort>/" /.airdcpp/DCPlusPlus.xml
+fi 
+
+
+
 if [[ "$container" == "podman" ]] || [[ "$(id -u)" -ne 0 ]]
 then
     # Container is run as a normal user or with podman
