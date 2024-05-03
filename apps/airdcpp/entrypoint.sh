@@ -86,7 +86,9 @@ if [[ ! -z "$PORT_FILE" ]]; then
         sleep 5s
     done
 
-    sed -i  "s/<InPort type="int">[0-9]+<\/InPort>/<InPort type="int">$(cat $PORT_FILE)<\/InPort>/" /.airdcpp/DCPlusPlus.xml
+    sed -i  "s/<InPort type=\"int\">.*<\/InPort>/<InPort type=\"int\">$(cat $PORT_FILE)<\/InPort>/" /.airdcpp/DCPlusPlus.xml
+    sed -i  "s/<InPort type=\"int\">.*<\/UDPPort>/<InPort type=\"int\">$(cat $PORT_FILE)<\/UDPPort>/" /.airdcpp/DCPlusPlus.xml
+
 fi 
 
 
