@@ -1,6 +1,8 @@
 <DCPlusPlus>
         <Settings>
-                <DownloadDirectory type="string">/storage/elfstorage/dcpp/</DownloadDirectory>
+		<UploadSpeed type="string">100</UploadSpeed>
+		<DownloadDirectory type="string">/storage/elfstorage/downloads/airdcpp/</DownloadDirectory>        
+                <DownloadSpeed type="string">100</DownloadSpeed>
                 <AutoDetectIncomingConnection type="int">0</AutoDetectIncomingConnection>
                 <InPort type="int">21248</InPort>
                 <UDPPort type="int">21248</UDPPort>
