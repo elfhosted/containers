@@ -87,7 +87,7 @@ if [[ ! -z "$PORT_FILE" ]]; then
     done
 
     sed -i  "s/<InPort type=\"int\">.*<\/InPort>/<InPort type=\"int\">$(cat $PORT_FILE)<\/InPort>/" /.airdcpp/DCPlusPlus.xml
-    sed -i  "s/<InPort type=\"int\">.*<\/UDPPort>/<InPort type=\"int\">$(cat $PORT_FILE)<\/UDPPort>/" /.airdcpp/DCPlusPlus.xml
+    sed -i  "s/<UDPPort type=\"int\">.*<\/UDPPort>/<UDPPort type=\"int\">$(cat $PORT_FILE)<\/UDPPort>/" /.airdcpp/DCPlusPlus.xml
 
 fi 
 
