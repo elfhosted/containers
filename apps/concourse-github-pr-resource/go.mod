@@ -12,7 +12,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.3
 	github.com/shurcooL/githubv4 v0.0.0-20240429030203-be2daab69064
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/oauth2 v0.10.0
+	golang.org/x/oauth2 v0.20.0
 )
 
 require (
