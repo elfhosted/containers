@@ -18,7 +18,7 @@ RUN corepack use pnpm@8
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+COPY --from=cloner /source/package.json /source/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY --from=cloner /source/. .
