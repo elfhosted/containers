@@ -14,6 +14,17 @@
       }
     },
     {
+      "name": "3.19",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "cli"
+      }
+    },    
+    {
       "name": "edge",
       "platforms": [
         "linux/amd64"
