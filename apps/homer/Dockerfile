@@ -9,16 +9,20 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION --depth 1 https://github.com/bastienwirtz/homer.git /source
 
 # build stage
-FROM node:lts-alpine as build-stage
+FROM node:18-alpine3.19 as build-stage
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+RUN corepack use pnpm@8
 
 WORKDIR /app
 
-COPY --from=cloner /source/package.json ./
-RUN yarn install --verbose --frozen-lockfile --non-interactive
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY --from=cloner /source/. .
-RUN yarn build
-
+RUN pnpm build
 
 FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598 
 
