@@ -1,14 +1,18 @@
+# Get upstream code
+FROM alpine:latest as cloner
 ARG VERSION
 
-FROM meisnate12/plex-meta-manager:${VERSION} as upstream
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone -b $VERSION --depth 1 https://github.com/Kometa-Team/Kometa.git /source
 
 FROM python:3.11-slim-buster
+ARG BRANCH_NAME=master
+ENV BRANCH_NAME ${BRANCH_NAME}
 ENV TINI_VERSION v0.19.0
-
-WORKDIR /app
-COPY --from=upstream / /app/
-
-
+ENV KOMETA_DOCKER True
+COPY --from=cloner /source/requirements.txt requirements.txt
 RUN echo "**** install system packages ****" \
  && apt-get update \
  && apt-get upgrade -y --no-install-recommends \
@@ -16,15 +20,15 @@ RUN echo "**** install system packages ****" \
  && apt-get install -y gcc g++ libxml2-dev libxslt-dev libz-dev libjpeg62-turbo-dev zlib1g-dev wget curl \
  && wget -O /tini https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-"$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
  && chmod +x /tini \
- && wget https://github.com/meisnate12/Plex-Meta-Manager/raw/master/requirements.txt -P /app/ \
- && pip3 install --no-cache-dir --upgrade --requirement /app/requirements.txt \
+ && pip3 install --no-cache-dir --upgrade --requirement /requirements.txt \
  && apt-get --purge autoremove gcc g++ libxml2-dev libxslt-dev libz-dev -y \
  && apt-get clean \
  && apt-get update \
  && apt-get check \
  && apt-get -f install \
  && apt-get autoclean \
- && rm -rf /app/requirements.txt /tmp/* /var/tmp/* /var/lib/apt/lists/*
-VOLUME /config
-ENTRYPOINT ["/tini", "-s", "python3", "/app/plex_meta_manager.py", "--"]
+ && rm -rf /requirements.txt /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
+COPY --from=cloner /source/. /
+VOLUME /config
+ENTRYPOINT ["/tini", "-s", "python3", "kometa.py", "--"]
