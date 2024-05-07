@@ -1,5 +1,5 @@
 ARG VERSION
-FROM public.ecr.aws/docker/library/golang:1.20.4-alpine3.18 as builder
+FROM public.ecr.aws/docker/library/golang:1.22.3-alpine3.18 as builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT=""
