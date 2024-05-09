@@ -51,7 +51,7 @@ RUN poetry config virtualenvs.create false && \
 
 # Copy backend code and other necessary files
 COPY --from=cloner /source/backend/ /iceberg/backend
-COPY --from=cloner /source/VERSION entrypoint.sh /iceberg/
+COPY --from=cloner /source/VERSION /source/entrypoint.sh /iceberg/
 
 # Ensure entrypoint script is executable
 RUN chmod +x ./entrypoint.sh
