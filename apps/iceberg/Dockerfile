@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://github.com/dreulavelle/iceberg.git /source
+RUN git clone --depth 1 https://github.com/dreulavelle/iceberg.git /source
 
 # Frontend Builder
 FROM node:20-alpine AS frontend
