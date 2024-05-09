@@ -1,37 +1,59 @@
-# Frontend Builder
-FROM ghcr.io/dreulavelle/iceberg:dev@sha256:731f1a5010dc971f19bd007971ba146753b972debcd552d89b10a45b26d792e8 as upstream
-FROM ghcr.io/geek-cookbook/alpine-node:20@sha256:34e579ce8fd045ec28105d0ee720e6d4b8fd332ebeb8d4890784b8b991d51e29
+# Get the upstream code
+FROM alpine:latest as cloner
+ARG CHANNEL
+ARG VERSION
 
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone -b $VERSION --depth 1 https://gitlab.com/dreulavelle/iceberg.git /source
+
+# Frontend Builder
+FROM node:20-alpine AS frontend
+WORKDIR /app
+COPY --from=cloner /source/frontend/package*.json ./
+RUN npm install
+COPY --from=cloner /source/frontend/ .
+RUN npm run build && npm prune --production
+
+# Final Image
+FROM node:20-alpine
 LABEL name="Iceberg" \
       description="Iceberg Debrid Downloader" \
       url="https://github.com/dreulavelle/iceberg"
 
-RUN apk --update add python3 py3-pip bash shadow vim nano rclone && \
-    rm -rf /var/cache/apk/*
+# Install system dependencies
+RUN apk --update add --no-cache python3 curl bash shadow && \
+    rm -rf /var/cache/apk/* 
 
+# Install Poetry globally
+ENV POETRY_HOME="/etc/poetry"
+ENV PATH="$POETRY_HOME/bin:$PATH"
+RUN curl -sSL https://install.python-poetry.org | python3 - --yes
+
+# Setup the application directory
 WORKDIR /iceberg
-ENV ORIGIN http://localhost:3000
-ARG ORIGIN=http://localhost:3000
+
+# Expose ports
 EXPOSE 3000 8080
 
-# Frontend
-COPY --from=upstream --chown=node:node /iceberg/frontend/build /iceberg/frontend/build
-COPY --from=upstream --chown=node:node /iceberg/frontend/node_modules /iceberg/frontend/node_modules
-COPY --from=upstream --chown=node:node /iceberg/frontend/package.json /iceberg/frontend/package.json
+# Copy frontend build from the previous stage
+COPY --from=frontend --chown=node:node /app/build /iceberg/frontend/build
+COPY --from=frontend --chown=node:node /app/node_modules /iceberg/frontend/node_modules
+COPY --from=frontend --chown=node:node /app/package.json /iceberg/frontend/package.json
 
-# Backend
-COPY  --from=upstream /iceberg/backend/ /iceberg/backend
-RUN python3 -m venv /venv
-COPY  --from=upstream /iceberg/requirements.txt /iceberg/requirements.txt
-RUN source /venv/bin/activate && pip install -r /iceberg/requirements.txt
+# Copy the Python project files
+COPY --from=cloner /source/pyproject.toml poetry.lock* /iceberg/
 
-COPY apps/iceberg/entrypoint.sh ./entrypoint.sh
-# COPY apps/iceberg/entrypoint.sh ./entrypoint.sh
+# Install Python dependencies
+RUN poetry config virtualenvs.create false && \
+    poetry install --no-dev
+
+# Copy backend code and other necessary files
+COPY --from=cloner /source/backend/ /iceberg/backend
+COPY --from=cloner /source/VERSION entrypoint.sh /iceberg/
+
+# Ensure entrypoint script is executable
 RUN chmod +x ./entrypoint.sh
 
-# In case it doesn't exist
-RUN touch /iceberg/VERSION
-
-
 ENTRYPOINT ["/iceberg/entrypoint.sh"]
-
