@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://github.com/knightcrawler-stremio/knightcrawler.git /source
+RUN git clone -b $VERSION --depth 1 https://github.com/elfhosted/knightcrawler.git /source
 
 # --- Build Stage ---
 FROM node:lts-alpine AS builder
@@ -25,7 +25,7 @@ COPY apps/knightcrawler/branding/manifest.js ./src/lib/manifest.js
 COPY apps/knightcrawler/branding/landingTemplate.js ./src/lib/landingTemplate.js
 
 # Copy fix until https://github.com/knightcrawler-stremio/knightcrawler/pull/210 is resolved
-COPY apps/knightcrawler/addon/streamInfo.js ./src/lib/streamInfo.js
+# COPY apps/knightcrawler/addon/streamInfo.js ./src/lib/streamInfo.js
 
 RUN npm run build
 
