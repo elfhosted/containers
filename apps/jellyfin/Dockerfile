@@ -7,6 +7,8 @@ ARG CHANNEL
 
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 
+# Disable glibc dynamic heap adjustment
+ENV MALLOC_TRIM_THRESHOLD_=131072
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # hadolint ignore=DL3008,DL3015,SC2086
