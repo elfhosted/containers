@@ -1,5 +1,5 @@
 diff --git a/resources/html/home.html b/resources/html/home.html
-index e0592f4..f12d854 100644
+index 420af21..54ec7ff 100644
 --- a/resources/html/home.html
 +++ b/resources/html/home.html
 @@ -12,11 +12,28 @@
@@ -9,7 +9,7 @@ index e0592f4..f12d854 100644
 -<div class="container">
 -    <div class="row justify-content-center">
 -        <div class="col-10 col-lg-10 col-md-8 col-sm-10 config-container">
--            <img class="logo" src="{{logo_url}}">
+-            <a href="/"><img class="logo" src="{{logo_url}}"></a>
 -            <h3 class="text-center mb-5"><b>{{addon_name}}</b> - {{version}}</h3>
 +    <div class="container">
 +        <div class="row justify-content-center">
