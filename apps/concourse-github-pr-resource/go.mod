@@ -3,7 +3,7 @@ module github.com/telia-oss/github-pr-resource
 go 1.21
 
 require (
-	github.com/DataDog/datadog-api-client-go/v2 v2.18.0
+	github.com/DataDog/datadog-api-client-go/v2 v2.26.0
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-github/v28 v28.1.1
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
@@ -24,6 +24,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/uuid v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
