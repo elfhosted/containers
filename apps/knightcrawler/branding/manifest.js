@@ -53,7 +53,7 @@ function getDescriptionHTML(config) {
       + ` <br/><br/>An internal, un-rate-limited instance is provided free, with all <A HREF="https://elfhosted.com/apps/">ElfHosted apps</A>, for automation.`
       + ` <br/><br/>Why use <A HREF="https://elfhosted.com/stremio-addons/">ElfHosted Stremio addons</A>?
       <p>
-            ✅ Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/public-torrentio-indexer-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fpublic-torrentio-indexer-addon%2Fuptime.json"></A><br/>
+            ✅ Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/knightcrawler-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fknightcrawler-stremio-addon%2Fuptime.json"></A><br/>
             ✅ Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A><br/>
             ✅ Geek out over <A HREF="https://fnky.nz/grafana-knightcrawler">public performance metrics</A><br/>
       </p>		`
