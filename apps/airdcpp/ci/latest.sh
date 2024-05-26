@@ -1,2 +1,5 @@
 #!/usr/bin/env bash
-printf "%s" "2.9.0"
+version=$(curl -sX GET https://api.github.com/repos/airdcpp-web/airdcpp-webclient/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
+printf "%s" "${version}"
+
+
