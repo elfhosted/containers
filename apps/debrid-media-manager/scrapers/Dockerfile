@@ -23,10 +23,7 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=cloner /source/. .
 
-# Switch to postgres
-RUN sed -i -e 's/mysql/postgres/' prisma/schema.prisma && \
-    sed -i -e 's/mysql/postgres/' node_modules/.prisma/client/schema.prisma && \
-    sed -i -e 's/mysql/postgres/' node_modules/.prisma/client/index.js
+
 
 RUN npx prisma generate && npm run build
 
@@ -49,4 +46,9 @@ RUN apk --no-cache add curl grep
 HEALTHCHECK --interval=30s --timeout=1s --start-period=3s --retries=1 \
   CMD curl -s http://localhost:3000/api/healthz | grep -qm1 ok
 
+# Switch to postgres
+RUN sed -i -e 's/mysql/postgres/' prisma/schema.prisma && \
+    sed -i -e 's/mysql/postgres/' node_modules/.prisma/client/schema.prisma && \
+    sed -i -e 's/mysql/postgres/' node_modules/.prisma/client/index.js
+    
 # Apply ElfHosted branding (soon)
