@@ -22,7 +22,7 @@ FROM node:18-alpine AS build
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=cloner /source/. .
-COPY --from=cloner /scrapers/src/services/* ./src/services/
+
 # Switch to postgres
 RUN sed -i -e 's/mysql/postgres/' prisma/schema.prisma && \
     sed -i -e 's/mysql/postgres/' node_modules/.prisma/client/schema.prisma && \
