@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $CHANNEL https://github.com/debridmediamanager/debrid-media-manager.git /source && \
     cd /source && \
     git checkout $SCRAPERS_SHA
-    
+
 # now the original build
 
 FROM node:18-alpine AS dependencies
