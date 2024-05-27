@@ -7,7 +7,7 @@ ENV SCRAPERS_SHA=23b3710afa7caa874e00cdaaa9c0494b0e3c774a
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $CHANNEL https://github.com/debridmediamanager/debrid-media-manager.git /source && \
+RUN git clone https://github.com/debridmediamanager/debrid-media-manager.git /source && \
     cd /source && \
     git checkout $SCRAPERS_SHA
 
