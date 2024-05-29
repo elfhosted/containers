@@ -61,7 +61,7 @@ jobs:
           echo "::set-output name=changes::${output}"
 
   images-build:
-    uses: geek-cookbook/containers/.github/workflows/action-image-build.yaml@main
+    uses: elfhosted/containers/.github/workflows/action-image-build.yaml@main
     needs:
       - generate-build-matrix
     with:

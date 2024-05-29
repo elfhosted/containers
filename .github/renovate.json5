@@ -7,11 +7,9 @@
     ":semanticCommits"
   ],
   "platform": "github",
-  "username": "funkypenguin-autochef",
-  "repositories": ["geek-cookbook/containers"],
+  "repositories": ["elfhosted/containers"],
   "onboarding": false,
   "requireConfig": false,
-  "gitAuthor": "funkypenguin-autochef <autochef@funkypenguin.co.nz>",
   "dependencyDashboardTitle": "Renovate Dashboard 🤖",
   "suppressNotifications": ["prIgnoreNotification"],
   "commitBodyTable": true,
