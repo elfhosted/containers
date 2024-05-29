@@ -5,8 +5,10 @@ ARG UNRAR_VERSION=6.1.7
 ARG BUILD_DATE
 ARG VERSION
 
+
 # environment variables
 ENV PYTHON_EGG_CACHE="/config/plugins/.python-eggs"
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # install software
 RUN \
