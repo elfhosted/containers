@@ -24,7 +24,7 @@ RUN pnpm install --frozen-lockfile
 COPY --from=cloner /source/. .
 RUN pnpm build
 
-FROM ghcr.io/geek-cookbook/alpine:3.19.1@sha256:c6e07b5d58edb85d2365f26499a2a0d0b6d3cc95594dcfa74e5a747726241e24
+FROM ghcr.io/geek-cookbook/alpine:3.19.1@sha256:9c7e1a891b92b261c034a8d9b77b19dd007cc5398ab958282fd9a152fc4c9b46
 
 ENV GID 568
 ENV UID 568
