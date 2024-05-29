@@ -1,5 +1,5 @@
 ARG VERSION=1.4.3
-FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598 
+FROM ghcr.io/geek-cookbook/alpine:rolling@sha256:f5e27001ebd22ad35f1a30d7d7e127b61273ae9c64666aee8ad37c522b7bae1a 
 
 ENV workers 1
 
