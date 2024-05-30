@@ -13,12 +13,12 @@ RUN git clone https://github.com/debridmediamanager/debrid-media-manager.git /so
 
 # now the original build
 
-FROM node:18-alpine AS dependencies
+FROM node:20-alpine AS dependencies
 WORKDIR /app
 COPY --from=cloner /source/package*.json ./
 RUN npm ci
 
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=cloner /source/. .
@@ -27,7 +27,7 @@ COPY --from=cloner /source/. .
 
 RUN npx prisma generate && npm run build
 
-FROM node:18-alpine AS deploy
+FROM node:20-alpine AS deploy
 WORKDIR /app
 ENV NODE_ENV production
 COPY --from=build /app/public ./public

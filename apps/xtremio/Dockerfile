@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone --depth 1 https://github.com/mik25/m3u-test.git /source
 
-FROM node:18.16.0-alpine as base
+FROM node:20.14.0-alpine as base
 
 WORKDIR /app
 
