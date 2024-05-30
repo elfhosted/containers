@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION --depth 1 https://github.com/tarampampam/error-pages.git /source
 
 # this stage is used to build the application
-FROM golang:1.21-bullseye AS builder
+FROM golang:1.22-bullseye AS builder
 
 COPY --from=cloner /source/go.* /src/
 
