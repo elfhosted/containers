@@ -1,4 +1,4 @@
-FROM mikefarah/yq:4.33.3 as yq
+FROM mikefarah/yq:4.44.1 as yq
 
 FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:cc288732a39209c6989236163ad29a7247546ac99cd7cd213a6cab2c4de68aa1
 
