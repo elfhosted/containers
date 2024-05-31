@@ -1,6 +1,6 @@
 FROM mikefarah/yq:4.44.1 as yq
 
-FROM ghcr.io/geek-cookbook/ghcr.io/elfhosted/ubuntu:focal-20240427@sha256:1b84c219a764d8da5ba0f4b2b1f80e7c6396a8c9dfb499f945549396b53b0821
+FROM ghcr.io/elfhosted/ubuntu:focal-20240427@sha256:1b84c219a764d8da5ba0f4b2b1f80e7c6396a8c9dfb499f945549396b53b0821
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
