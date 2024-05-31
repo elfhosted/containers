@@ -1,5 +1,6 @@
 # Get the elfhosted code
 FROM alpine:latest as cloner
+
 ARG CHANNEL
 ARG VERSION
 ENV SCRAPERS_SHA=23b3710afa7caa874e00cdaaa9c0494b0e3c774a

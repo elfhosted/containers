@@ -1,4 +1,5 @@
 FROM alpine:latest as cloner
+
 ARG CHANNEL
 
 RUN apk update && apk upgrade && \

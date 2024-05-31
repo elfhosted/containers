@@ -1,5 +1,6 @@
 # Get the elfhosted code
 FROM alpine:latest as cloner
+
 ARG CHANNEL
 ARG VERSION
 

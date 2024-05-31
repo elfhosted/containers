@@ -1,5 +1,6 @@
 # Get the upstream code
 FROM alpine:latest as cloner
+
 ARG CHANNEL
 ARG VERSION
 

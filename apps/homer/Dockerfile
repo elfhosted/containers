@@ -1,5 +1,6 @@
 
 FROM alpine:latest as cloner
+
 ARG CHANNEL
 ARG VERSION
 
