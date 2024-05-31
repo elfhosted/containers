@@ -1,6 +1,6 @@
 ARG VERSION
 FROM gotify/server:${VERSION} as upstream
-FROM ghcr.io/geek-cookbook/ubuntu:rolling@sha256:cc288732a39209c6989236163ad29a7247546ac99cd7cd213a6cab2c4de68aa1 
+FROM ghcr.io/geek-cookbook/ghcr.io/elfhosted/ubuntu:focal-20240427@sha256:1b84c219a764d8da5ba0f4b2b1f80e7c6396a8c9dfb499f945549396b53b0821 
 COPY --from=upstream /app /app
 WORKDIR /app
 EXPOSE 80
