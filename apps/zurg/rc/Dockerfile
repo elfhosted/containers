@@ -9,8 +9,6 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION --depth 1 https://$ZURG_GH_CREDS@github.com/debridmediamanager/zurg:${VERSION}.git /source
 
-git clone https://<username>:<token>@github.com/username/repository.git
-
 FROM golang:1-alpine AS builder
 ARG BuiltAt
 ARG GitCommit
