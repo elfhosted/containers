@@ -3,6 +3,7 @@ FROM alpine:latest as cloner
 
 ARG CHANNEL
 ARG VERSION
+ARG ZURG_GH_CREDS
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git
