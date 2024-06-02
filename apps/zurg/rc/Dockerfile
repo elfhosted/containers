@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://$ZURG_GH_CREDS@github.com/debridmediamanager/zurg:${VERSION}.git /source
+RUN git clone -b $VERSION --depth 1 https://$ZURG_GH_CREDS@github.com/debridmediamanager/zurg.git /source
 
 FROM golang:1-alpine AS builder
 ARG BuiltAt
