@@ -14,7 +14,7 @@ ARG BuiltAt
 ARG GitCommit
 ARG Version
 WORKDIR /app
-COPY --from=cloner/source/. .
+COPY --from=cloner /source/. .
 RUN apk add --no-cache bash git go gcc musl-dev curl fuse libxml2-utils
 RUN go build -ldflags "-s -w -X 'github.com/debridmediamanager/zurg/internal/version.BuiltAt=$BuiltAt' -X 'github.com/debridmediamanager/zurg/internal/version.GitCommit=$GitCommit' -X 'github.com/debridmediamanager/zurg/internal/version.Version=$Version'" -o zurg ./cmd/zurg
 
