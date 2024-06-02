@@ -23,7 +23,8 @@ FROM ghcr.io/geek-cookbook/alpine:3.19.1@sha256:9c7e1a891b92b261c034a8d9b77b19dd
 WORKDIR /app
 
 COPY --from=builder /app/zurg .
-COPY --from=cloner config.example.yml /app/config.yml
+COPY --from=cloner /source/config.example.yml /app/config.yml
+
 # Install runtime dependencies and configure FUSE
 RUN apk add curl python3 libxml2-utils
 
