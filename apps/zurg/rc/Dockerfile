@@ -30,5 +30,4 @@ RUN apk add curl python3 libxml2-utils
 
 COPY ./apps/zurg/entrypoint.sh /entrypoint.sh
 
-WORKDIR /config
 CMD ["/entrypoint.sh"]
