@@ -14,7 +14,7 @@
       }
     },
     {
-      "name": "dev",
+      "name": "rc",
       "platforms": [
         "linux/amd64"
       ],

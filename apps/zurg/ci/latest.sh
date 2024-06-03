@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 channel=$1
-if [[ "${channel}" == "dev" ]]; then
+
+if [[ "${channel}" == "rc" ]]; then
     version=$(curl -sX GET https://api.github.com/repos/debridmediamanager/zurg/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
     print "v0.10.0-rc.1"
 else
