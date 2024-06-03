@@ -28,4 +28,7 @@ COPY --from=cloner /source/config.example.yml /app/config.yml
 # Install runtime dependencies and configure FUSE
 RUN apk add curl python3 libxml2-utils
 
-ENTRYPOINT ["./zurg"]
+COPY ./apps/zurg/entrypoint.sh /entrypoint.sh
+
+WORKDIR /config
+CMD ["/entrypoint.sh"]
