@@ -19,7 +19,7 @@ jobs:
 
             - [Docs](https://docs.k8s-at-home.com/)
             - [Discord](https://discord.gg/k8s-at-home)
-            - [GitHub Discussions](https://github.com/geek-cookbook/organization/discussions)
+            - [GitHub Discussions](https://github.com/elfhosted/organization/discussions)
           close-issue: true
           lock-issue: false
           issue-lock-reason: off-topic

@@ -1,6 +1,6 @@
 FROM debian:bullseye-slim as builder
 
-LABEL org.opencontainers.image.source https://github.com/geek-cookbook/docker-deluge
+LABEL org.opencontainers.image.source https://github.com/elfhosted/docker-deluge
 
 SHELL ["/bin/bash", "-c"]
 

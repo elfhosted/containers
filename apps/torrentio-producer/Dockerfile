@@ -5,7 +5,7 @@ ARG CHANNEL
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone  -b $CHANNEL https://github.com/geek-cookbook/torrentio.elfhosted.com.git /tmp/source
+RUN git clone  -b $CHANNEL https://github.com/elfhosted/torrentio.elfhosted.com.git /tmp/source
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
 WORKDIR /App

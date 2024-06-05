@@ -18,10 +18,10 @@ We take do take a similar approach but instead of appending a `-ls69` or `-r420`
 
 | Container                                          | Immutable |
 |----------------------------------------------------|-----------|
-| `ghcr.io/geek-cookbook/sonarr:rolling`                   | ❌         |
-| `ghcr.io/geek-cookbook/sonarr:3.0.8.1507`                | ❌         |
-| `ghcr.io/geek-cookbook/sonarr:rolling@sha256:8053...`    | ✅         |
-| `ghcr.io/geek-cookbook/sonarr:3.0.8.1507@sha256:8053...` | ✅         |
+| `ghcr.io/elfhosted/sonarr:rolling`                   | ❌         |
+| `ghcr.io/elfhosted/sonarr:3.0.8.1507`                | ❌         |
+| `ghcr.io/elfhosted/sonarr:rolling@sha256:8053...`    | ✅         |
+| `ghcr.io/elfhosted/sonarr:3.0.8.1507@sha256:8053...` | ✅         |
 
 _If pinning an image to the sha256 digest, tools like [Renovate](https://github.com/renovatebot/renovate) support updating the container on a digest or application version change._
 
