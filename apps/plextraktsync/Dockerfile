@@ -30,9 +30,9 @@ eot
 
 FROM base AS wheels
 # Download wheels/sources
+COPY --from=cloner source/requirements.txt .
 RUN \
 	--mount=type=cache,id=pip,target=/root/.cache/pip \
-	--mount=type=bind,source=./requirements.txt,target=./requirements.txt \
 	pip download --dest /wheels -r requirements.txt
 # Build missing wheels
 RUN \
