@@ -26,9 +26,6 @@ COPY --from=cloner /source/src/addon/. .
 COPY apps/knightcrawler/branding/manifest.js ./src/lib/manifest.js
 COPY apps/knightcrawler/branding/landingTemplate.js ./src/lib/landingTemplate.js
 
-# Copy fix until https://github.com/knightcrawler-stremio/knightcrawler/pull/210 is resolved
-# COPY apps/knightcrawler/addon/streamInfo.js ./src/lib/streamInfo.js
-
 RUN npm run build
 
 # --- Runtime Stage ---
