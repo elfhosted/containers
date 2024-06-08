@@ -1,7 +1,7 @@
 ARG VERSION
 FROM vaultwarden/server:${VERSION}-alpine as upstream
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:sha256:3d8693e2e68a277e14e96594381f8b8620c81ada3827babb842faeaae607693f 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:3d8693e2e68a277e14e96594381f8b8620c81ada3827babb842faeaae607693f 
 
 ENV ROCKET_PROFILE="release" \
     ROCKET_ADDRESS=0.0.0.0 \
