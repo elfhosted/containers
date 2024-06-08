@@ -1,6 +1,6 @@
 FROM ghcr.io/onedr0p/par2cmdline-turbo:1.1.1 as par2cmdline-turbo
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:f5e27001ebd22ad35f1a30d7d7e127b61273ae9c64666aee8ad37c522b7bae1a 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:sha256:3d8693e2e68a277e14e96594381f8b8620c81ada3827babb842faeaae607693f 
 
 ARG TARGETPLATFORM
 ARG VERSION
