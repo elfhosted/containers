@@ -101,8 +101,8 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy the rest of the application code
 COPY --from=cloner /source/backend/ /iceberg/backend
-COPY --from=cloner /source/pyproject.toml poetry.lock /iceberg/backend/
-COPY --from=cloner /source/VERSION entrypoint.sh /iceberg/
+COPY --from=cloner /source/pyproject.toml /source/poetry.lock /iceberg/backend/
+COPY --from=cloner /source/VERSION /source/entrypoint.sh /iceberg/
 
 # Copy frontend build from the previous stage
 COPY --from=frontend --chown=iceberg:iceberg /app/build /iceberg/frontend/build
