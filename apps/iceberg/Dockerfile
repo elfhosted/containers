@@ -56,6 +56,7 @@ RUN apk add --no-cache \
     fish \
     shadow \
     nodejs \
+    dumb-init \
     npm \
     rclone \
     fontconfig \
@@ -78,8 +79,8 @@ RUN mkdir -p /usr/share/fonts/nerd-fonts && \
 RUN pip install poetry==1.4.2
 
 # Create user and group
-RUN addgroup -g 1000 iceberg && \
-    adduser -u 1000 -G iceberg -h /home/iceberg -s /usr/bin/fish -D iceberg
+RUN addgroup -g 568 iceberg && \
+    adduser -u 568 -G iceberg -h /config -s /usr/bin/fish -D iceberg
 
 # Create fish config directory
 RUN mkdir -p /home/iceberg/.config/fish
