@@ -11,7 +11,7 @@ RUN apk add --no-cache \
         tzdata
 
 # Make sure we have an ssl cert chain and timezone data.
-COPY --from=upstream /image /notifiarr
+COPY --from=upstream /notifiarr /notifiarr
 
 ENV TZ=UTC
 
