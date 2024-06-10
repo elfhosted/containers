@@ -65,6 +65,7 @@ RUN apk add --no-cache \
     gcc \
     musl-dev \
     libffi-dev \
+    py3-pip \
     python3-dev && \
     npm install -g pnpm
 
