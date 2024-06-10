@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/fish
 
-cd /iceberg/backend; 
+cd /iceberg/backend
 poetry run python3 main.py 

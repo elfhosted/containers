@@ -126,6 +126,6 @@ COPY apps/riven/restricted.tmux.conf /usr/src/app
 RUN chmod +x /iceberg/entrypoint.sh
 
 # Switch to fish shell
-SHELL ["fish", "--login"]
+# SHELL ["fish", "--login"]
 
-ENTRYPOINT ["fish", "/iceberg/entrypoint.sh"]
+ENTRYPOINT ["/iceberg/entrypoint.sh"]
