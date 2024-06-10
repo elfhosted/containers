@@ -1,3 +1,5 @@
-#!/bin/bash
+#!/bin/ash
 
-exec -c 'cd backend && source /venv/bin/activate && exec python /iceberg/backend/main.py & ORIGIN=$ORIGIN node /iceberg/frontend/build'
+# tmux -f /usr/src/app/restricted.tmux.conf new-session -A -d -s riven /riven.sh
+
+yarn start --command /iceberg/launch-tmux.sh --base / --title "Riven | ElfHosted"

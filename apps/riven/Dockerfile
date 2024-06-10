@@ -118,6 +118,12 @@ RUN chmod +x /iceberg/entrypoint.sh
 # Set correct permissions for the iceberg user
 RUN chown -R iceberg:iceberg /home/iceberg/.config /iceberg
 
+# Add the components for tmux-in-wetty
+COPY apps/riven/riven.sh /iceberg/
+COPY apps/riven/launch-tmux.sh /iceberg/
+COPY apps/riven/entrypoint.sh /iceberg/
+COPY apps/riven/restricted.tmux.conf /usr/src/app
+
 # Switch to fish shell
 SHELL ["fish", "--login"]
 
