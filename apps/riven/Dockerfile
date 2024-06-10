@@ -66,6 +66,7 @@ RUN apk add --no-cache \
     musl-dev \
     libffi-dev \
     py3-pip \
+    tmux \
     python3-dev && \
     npm install -g pnpm
 
@@ -112,9 +113,6 @@ COPY --from=frontend --chown=iceberg:iceberg /app/build /iceberg/frontend/build
 COPY --from=frontend --chown=iceberg:iceberg /app/node_modules /iceberg/frontend/node_modules
 COPY --from=frontend --chown=iceberg:iceberg /app/package.json /iceberg/frontend/package.json
 
-# Ensure entrypoint script is executable
-RUN chmod +x /iceberg/entrypoint.sh
-
 # Set correct permissions for the iceberg user
 RUN chown -R iceberg:iceberg /home/iceberg/.config /iceberg
 
@@ -123,6 +121,9 @@ COPY apps/riven/riven.sh /iceberg/
 COPY apps/riven/launch-tmux.sh /iceberg/
 COPY apps/riven/entrypoint.sh /iceberg/
 COPY apps/riven/restricted.tmux.conf /usr/src/app
+
+# Ensure entrypoint script is executable
+RUN chmod +x /iceberg/entrypoint.sh
 
 # Switch to fish shell
 SHELL ["fish", "--login"]
