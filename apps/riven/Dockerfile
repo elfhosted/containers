@@ -44,8 +44,8 @@ COPY --from=cloner /source/frontend/ .
 RUN pnpm run build && pnpm prune --prod
 
 # Final Image
-# FROM python:3.11-alpine
-FROM wettyoss/wetty
+FROM python:3.11-alpine
+# FROM wettyoss/wetty
 LABEL name="Iceberg" \
       description="Iceberg Debrid Downloader" \
       url="https://github.com/dreulavelle/iceberg"
@@ -67,8 +67,10 @@ RUN apk add --no-cache \
     libffi-dev \
     py3-pip \
     tmux \
+    make \
+    build-base \
     python3-dev && \
-    npm install -g pnpm
+    npm install -g pnpm wetty
 
 # Install Nerd Fonts
 RUN mkdir -p /usr/share/fonts/nerd-fonts && \
