@@ -82,6 +82,7 @@ RUN mkdir -p /usr/share/fonts/nerd-fonts && \
     rm /usr/share/fonts/nerd-fonts/FiraCode.zip && \
     fc-cache -fv
 
+    
 # Install Poetry
 RUN pip install poetry==1.4.2
 
