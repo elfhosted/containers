@@ -12,8 +12,7 @@ RUN apt-get -y update && \
       libssl-dev \
       libffi-dev \
       python3-pip \
-      python3-venv && \
-      pip install poetry
-
+      python3-venv
+      
 # Back to default user
 USER 1000
