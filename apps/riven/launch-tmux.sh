@@ -1,4 +1,4 @@
 #!/bin/ash
 
-tmux -f /iceberg/restricted.tmux.conf new-session -A -s riven /iceberg/riven.sh
+tmux -f /riven/restricted.tmux.conf new-session -A -s riven /riven/riven.sh
 

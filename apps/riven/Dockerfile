@@ -45,10 +45,10 @@ RUN pnpm run build && pnpm prune --prod
 
 # Final Image
 FROM python:3.11-alpine
-# FROM wettyoss/wetty
+
 LABEL name="Iceberg" \
       description="Iceberg Debrid Downloader" \
-      url="https://github.com/dreulavelle/iceberg"
+      url="https://github.com/dreulavelle/riven"
 
 
 # Install system dependencies and Node.js
@@ -82,16 +82,10 @@ RUN mkdir -p /usr/share/fonts/nerd-fonts && \
     rm /usr/share/fonts/nerd-fonts/FiraCode.zip && \
     fc-cache -fv
 
-    
-# Install Poetry
-RUN pip install poetry==1.4.2
-
 # Create user and group
-RUN addgroup -g 568 iceberg && \
-    adduser -u 568 -G iceberg -h /config -s /usr/bin/fish -D iceberg
+RUN addgroup -g 568 elfie && \
+adduser -u 568 -G elfie -h /config -D elfie
 
-# Create fish config directory
-RUN mkdir -p /home/iceberg/.config/fish
 
 # Expose ports
 EXPOSE 3000 8080 5572
@@ -100,36 +94,37 @@ EXPOSE 3000 8080 5572
 ENV FORCE_COLOR=1
 ENV TERM=xterm-256color
 
+# Add the components for tmux-in-wetty
+COPY apps/riven/riven.sh /riven/
+COPY apps/riven/launch-tmux.sh /riven/
+COPY apps/riven/entrypoint.sh /riven/
+COPY apps/riven/restricted.tmux.conf /riven/
+
+# # Ensure entrypoint script is executable
+RUN chmod +x /riven/entrypoint.sh
+
+USER 568
 # Set working directory
-WORKDIR /iceberg
+WORKDIR /riven
+
+# Copy the rest of the application code
+COPY --from=cloner /source/backend/ /riven/backend
+COPY --from=cloner /source/pyproject.toml /source/poetry.lock /riven/backend/
+
+COPY --from=frontend --chown=riven:riven /app/build /riven/frontend/build
+COPY --from=frontend --chown=riven:riven /app/node_modules /riven/frontend/node_modules
+COPY --from=frontend --chown=riven:riven /app/package.json /riven/frontend/package.json
+
 
 # Copy the virtual environment from the builder stage
-COPY --from=builder /app/.venv /app/.venv
+COPY --chown=568:568 --from=builder /app/.venv /app/.venv
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Copy the rest of the application code
-COPY --from=cloner /source/backend/ /iceberg/backend
-COPY --from=cloner /source/pyproject.toml /source/poetry.lock /iceberg/backend/
-COPY --from=cloner /source/VERSION /source/entrypoint.sh /iceberg/
+# Install Poetry
+RUN pip install poetry==1.4.2 
 
-# Copy frontend build from the previous stage
-COPY --from=frontend --chown=iceberg:iceberg /app/build /iceberg/frontend/build
-COPY --from=frontend --chown=iceberg:iceberg /app/node_modules /iceberg/frontend/node_modules
-COPY --from=frontend --chown=iceberg:iceberg /app/package.json /iceberg/frontend/package.json
+# && \
+#     poetry install --no-root --without dev
 
-# Set correct permissions for the iceberg user
-RUN chown -R iceberg:iceberg /home/iceberg/.config /iceberg
-
-# Add the components for tmux-in-wetty
-COPY apps/riven/riven.sh /iceberg/
-COPY apps/riven/launch-tmux.sh /iceberg/
-COPY apps/riven/entrypoint.sh /iceberg/
-COPY apps/riven/restricted.tmux.conf /iceberg/
-# Ensure entrypoint script is executable
-RUN chmod +x /iceberg/entrypoint.sh
-
-# Switch to fish shell
-SHELL ["fish", "--login"]
-
-ENTRYPOINT ["/iceberg/entrypoint.sh"]
+ENTRYPOINT ["/riven/entrypoint.sh"]
