@@ -95,10 +95,10 @@ ENV FORCE_COLOR=1
 ENV TERM=xterm-256color
 
 # Add the components for tmux-in-wetty
-COPY apps/riven/riven.sh /riven/
-COPY apps/riven/launch-tmux.sh /riven/
-COPY apps/riven/entrypoint.sh /riven/
-COPY apps/riven/restricted.tmux.conf /riven/
+COPY --chown=568:568 apps/riven/riven.sh /riven/
+COPY --chown=568:568 apps/riven/launch-tmux.sh /riven/
+COPY --chown=568:568 apps/riven/entrypoint.sh /riven/
+COPY --chown=568:568 apps/riven/restricted.tmux.conf /riven/
 
 # # Ensure entrypoint script is executable
 RUN chmod +x /riven/entrypoint.sh
@@ -108,12 +108,12 @@ USER 568
 WORKDIR /riven
 
 # Copy the rest of the application code
-COPY --from=cloner /source/backend/ /riven/backend
-COPY --from=cloner /source/pyproject.toml /source/poetry.lock /riven/backend/
-COPY --from=cloner /source/VERSION /riven/
-COPY --from=frontend --chown=riven:riven /app/build /riven/frontend/build
-COPY --from=frontend --chown=riven:riven /app/node_modules /riven/frontend/node_modules
-COPY --from=frontend --chown=riven:riven /app/package.json /riven/frontend/package.json
+COPY --chown=568:568 --from=cloner /source/backend/ /riven/backend
+COPY --chown=568:568 --from=cloner /source/pyproject.toml /source/poetry.lock /riven/backend/
+COPY --chown=568:568 --from=cloner /source/VERSION /riven/
+COPY --chown=568:568 --from=frontend /app/build /riven/frontend/build
+COPY --chown=568:568 --from=frontend /app/node_modules /riven/frontend/node_modules
+COPY --chown=568:568 --from=frontend /app/package.json /riven/frontend/package.json
 
 
 # Copy the virtual environment from the builder stage
