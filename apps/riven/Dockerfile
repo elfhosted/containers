@@ -110,7 +110,7 @@ WORKDIR /riven
 # Copy the rest of the application code
 COPY --from=cloner /source/backend/ /riven/backend
 COPY --from=cloner /source/pyproject.toml /source/poetry.lock /riven/backend/
-
+COPY --from=cloner /source/VERSION /riven/
 COPY --from=frontend --chown=riven:riven /app/build /riven/frontend/build
 COPY --from=frontend --chown=riven:riven /app/node_modules /riven/frontend/node_modules
 COPY --from=frontend --chown=riven:riven /app/package.json /riven/frontend/package.json
