@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://github.com/g0ldyy/annatar.git /source
+RUN git clone --depth 1 https://github.com/g0ldyy/annatar.git /source
 
 
 ## Upstream Dockerfile
