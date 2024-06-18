@@ -71,6 +71,7 @@ RUN apk add --no-cache \
     make \
     build-base \
     ttyd \
+    git \
     python3-dev && \
     npm install -g pnpm
 
