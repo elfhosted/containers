@@ -3,10 +3,10 @@
 cd /riven/backend
 
 if [[ ! -z "$ILIKEDANGER" ]]; then
-    echo "Press any key to continue to pull the latest $ILIKEDANGER branch, or wait 10 seconds for a stable start..."
+    echo "Press any key to continue to pull the latest $ILIKEDANGER branch, or wait 30 seconds for a stable start..."
     
     # -t 5: Timeout of 5 seconds
-    read -s -n 1 -t 10
+    read -s -n 1 -t 30
     
     if [ $? -eq 0 ]; then
         echo "You pressed a key! Let's go to the danger zone, cloning the $ILIKEDANGER branch!"
