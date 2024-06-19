@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 # If gluetun vars exist, then don't actually, just do nothing (useful when we control how a pod will run based on an env var)
 if [[ ! -z "$VPN_SERVICE_PROVIDER" ]]; 
