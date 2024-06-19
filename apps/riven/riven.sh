@@ -16,7 +16,7 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         VIRTUAL_ENV=/app/.venv
         PATH="/app/.venv/bin:$PATH"
         pip install poetry==1.4.2
-        ln -s /riven/data /tmp/riven/
+        ln -s /riven/data/* /tmp/riven/data/
         cd backend
         cp /riven/backend/pyproject.toml ./
         cp /riven/backend/poetry.lock ./
