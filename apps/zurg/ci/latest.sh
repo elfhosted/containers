@@ -3,7 +3,7 @@
 channel=$1
 
 if [[ "${channel}" == "rc" ]]; then
-    version=$(curl -sX GET https://api.github.com/repos/debridmediamanager/zurg/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
+    version=$(curl -sX GET https://api.github.com/repos/debridmediamanager/zurg/releases/latest --header "Authorization: Bearer ${ZURG_GH_CREDS}" | jq --raw-output '. | .tag_name')
     printf "%s" "v0.10.0-rc.2"
 else
     version=$(curl -sX GET https://api.github.com/repos/debridmediamanager/zurg-testing/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
@@ -11,4 +11,5 @@ else
     printf "%s" "${version}"    
 fi
 
+printf "%s" "${version}"
 
