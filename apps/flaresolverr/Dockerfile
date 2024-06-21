@@ -68,5 +68,5 @@ EXPOSE 8191
 EXPOSE 8192
 
 COPY apps/flaresolverr/entrypoint.sh /
-ENTRYPOINT ["/entrypoint.sh]
+ENTRYPOINT ["/entrypoint.sh"]
 
