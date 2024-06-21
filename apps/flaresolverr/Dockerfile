@@ -68,5 +68,6 @@ EXPOSE 8191
 EXPOSE 8192
 
 COPY apps/flaresolverr/entrypoint.sh /
+RUN chmod 755 /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
