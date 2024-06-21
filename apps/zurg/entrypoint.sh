@@ -5,13 +5,15 @@ source "/scripts/vpn.sh"
 
 if [[ "${WAIT_FOR_WARP:-"false"}" == "true" ]]; then
     echo "Waiting for WARP to be connected..."
-    # Also account for gluetun-style http controller
-    if (timeout 2s curl --silent --socks5 127.0.0.1:1080 https://www.cloudflare.com | grep -q cloudflare ); then
-        break
-    fi    
-    echo "WARP not connected"
-    sleep 2
-    echo "WARP Connected, starting application..."
+    while true; do
+        # Wait to confirm WARP is ready
+        if (timeout 2s curl --silent --socks5 127.0.0.1:1080 https://www.cloudflare.com | grep -q cloudflare ); then
+            echo "WARP Connected, starting application..."
+            break
+        fi    
+        echo "WARP not connected"
+        sleep 2
+    done
 fi
 
 cd /config
