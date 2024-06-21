@@ -57,6 +57,9 @@ RUN pip install -r requirements.txt \
     # Remove temporary files
     && rm -rf /root/.cache
 
+COPY apps/flaresolverr/entrypoint.sh /
+RUN chmod 755 /entrypoint.sh
+
 USER flaresolverr
 
 RUN mkdir -p "/app/.config/chromium/Crash Reports/pending"
@@ -67,7 +70,6 @@ COPY --from=cloner source/package.json ../
 EXPOSE 8191
 EXPOSE 8192
 
-COPY apps/flaresolverr/entrypoint.sh /
-RUN chmod 755 /entrypoint.sh
+
 ENTRYPOINT ["/entrypoint.sh"]
 
