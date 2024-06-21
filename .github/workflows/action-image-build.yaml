@@ -38,6 +38,7 @@ on:
 
 env:
   TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  ZURG_GH_CREDS: ${{ secrets.ZURG_GH_CREDS }}
 
 jobs:
   build-and-test:
