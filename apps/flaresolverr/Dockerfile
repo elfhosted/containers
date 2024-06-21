@@ -67,7 +67,6 @@ COPY --from=cloner source/package.json ../
 EXPOSE 8191
 EXPOSE 8192
 
-# dumb-init avoids zombie chromium processes
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+COPY apps/flaresolverr/entrypoint.sh /
+ENTRYPOINT ["/entrypoint.sh]
 
-CMD ["/usr/local/bin/python", "-u", "/app/flaresolverr.py"]
