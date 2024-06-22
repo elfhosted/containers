@@ -11,6 +11,9 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
     if [ $? -eq 0 ]; then
         echo "You pressed a key! Let's go to the danger zone, cloning the $ILIKEDANGER branch!"
         cd /tmp
+        if [[ -d /tmp/riven ]]; then
+            rm -rf /tmp/riven
+        fi
         git clone -b $ILIKEDANGER --depth 1  https://github.com/rivenmedia/riven.git 
         cd riven
         VIRTUAL_ENV=/app/.venv
