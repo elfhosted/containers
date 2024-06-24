@@ -1,47 +1,47 @@
-diff --git a/server/routes/catalog.json.ts b/server/routes/catalog.json.ts
-index 001beb8..fecbaca 100644
---- a/server/routes/catalog.json.ts
-+++ b/server/routes/catalog.json.ts
-@@ -13,7 +13,7 @@ const manifest = [
-              "movie",
-              "series"
-           ],
--          "name":"Stremify",
-+          "name":"Stremify | ElfHosted",
-           "description":"A plugin that allows you to directly stream content from multiple different sources.",
-           "idPrefixes":[
-              "tt"
+diff --git a/server/middleware/config-routing.ts b/server/middleware/config-routing.ts
+index f8912f2..0edfcc1 100644
+--- a/server/middleware/config-routing.ts
++++ b/server/middleware/config-routing.ts
+@@ -15,7 +15,7 @@ export const manifest = {
+ 		"movie",
+ 		"series"
+ 	],
+-	"name": "Stremify",
++	"name": "Stremify | ElfHosted",
+ 	"description": "A multi-server streaming addon.",
+ 	"idPrefixes": [
+ 		"tmdb:", "tt"
 diff --git a/server/routes/index.ts b/server/routes/index.ts
-index aa6e812..f7c3f40 100644
+index 3c6e493..0557667 100644
 --- a/server/routes/index.ts
 +++ b/server/routes/index.ts
-@@ -6,7 +6,7 @@ export default eventHandler((event) => {
+@@ -11,7 +11,7 @@ export default eventHandler(async (event) => {
    <head>
      <meta charset="UTF-8">
      <meta name="viewport" content="width=device-width, initial-scale=1.0">
 -    <title>Stremify</title>
 +    <title>Stremify | ElfHosted</title>
      <style>
-       body {
-         font-family: Arial, sans-serif;
-@@ -27,6 +27,10 @@ export default eventHandler((event) => {
-         border-radius: 10px;
-         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-       }
+     body {
+       font-family: Arial, sans-serif;
+@@ -61,6 +61,10 @@ export default eventHandler(async (event) => {
+     .button:hover {
+       background-color: #a267ac;
+     }
 +
-+      .bullets {
-+        text-align: left;
-+      }      
-   
-       .button {
-         display: inline-block;
-@@ -47,11 +51,19 @@ export default eventHandler((event) => {
++    .bullets {
++      text-align: left;
++    }     
+     
+     p {
+       color: #e4d7f5;
+@@ -71,8 +75,16 @@ export default eventHandler(async (event) => {
    
    <body>
      <div class="content">
 -      <h1>Stremify</h1>
 +      <h1>Stremify | ElfHosted</h1>
-       <p>Version: 2.6.0</p>
+       <p>Version: 2.7.0</p>
 +      <p>This is a free community <A HREF="https://elfhosted.com">ElfHosted</A> instance of <A HREF="https://github.com/stremify/stremify">Stremify</A> - Enjoy! (<I>reasonable <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">rate-limits</A> apply</I>)</p>
 +      <p><A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily. Individual, hosted <A HREF="https://store.elfhosted.com/product/stremify">Stremify instances are available</A> (<I>say, if you need a higher rate-limit</I>) from $0.10/day, with <A HREF="https://elfhosted.com/how-to/spend-elfbuckz/">$10 free credit</A> for <A HREF="https://store.elfhosted.com/my-account/">new accounts</A>.</P>
 +         <h3>Why use <A HREF="https://elfhosted.com/stremio-addons/">ElfHosted Stremio addons</A>?</h3>
@@ -49,11 +49,7 @@ index aa6e812..f7c3f40 100644
 +                 ✅ Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/public-stremify-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fpublic-stremify-stremio-addon%2Fuptime.json"></A><br/>
 +                 ✅ Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A><br/>
 +                 ✅ Geek out over <A HREF="https://fnky.nz/grafana-stremify">public performance metrics</A><br/>
-+           </p>		      
-       <a id="install-link" class="button">Installation Method One</a>
-       <a id="alt-install-link" class="button">Installation Method Two</a>
--    </div>
-+    </div>    
-   
-     <script>
-       function setPluginInstallLink() {
++           </p>		       
+       <a id="install-link" class="button">Default Install</a>
+       <p style="color:grey"><i>or</i></p>
+       ${selectors}
