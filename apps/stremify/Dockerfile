@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git patch
 
-RUN git clone --depth 1 https://github.com/stremify/stremify /source
+RUN git clone -b v2.7 --depth 1 https://github.com/stremify/stremify /source
 
 # Add ElfHosted branding
 
