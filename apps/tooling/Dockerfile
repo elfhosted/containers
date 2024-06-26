@@ -41,8 +41,8 @@ RUN apt-get update && apt-get install -y \
 	--no-install-recommends \
 	&& rm -rf /var/lib/apt/lists/* && \
 	cd /tmp && \
-	wget https://github.com/peak/s5cmd/releases/download/v2.1.0-beta.1/s5cmd_2.1.0-beta.1_Linux-64bit.tar.gz && \
-	tar zxfvp s5cmd_2.1.0-beta.1_Linux-64bit.tar.gz && \
+	wget https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz && \
+	tar zxfvp s5cmd_2.2.2_Linux-64bit.tar.gz && \
 	mv s5cmd /usr/local/bin/ && \
 	chmod 755 /usr/local/bin/s5cmd && \
 	curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
