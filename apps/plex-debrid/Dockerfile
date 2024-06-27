@@ -12,7 +12,8 @@ RUN git clone --depth 1 https://github.com/butlerx/wetty.git /source
 RUN git clone --depth 1 https://github.com/itsToggle/plex_debrid /plex_debrid
 
 
-FROM wettyoss/wetty
+FROM python:3.11-alpine
+
 # LABEL maintainer="butlerx@notthe.cloud"
 # WORKDIR /usr/src/app
 # ENV NODE_ENV=production
@@ -30,7 +31,7 @@ COPY --from=cloner /plex_debrid /usr/src/app/plex_debrid
 COPY --from=cloner /source/package.json /usr/src/app
 # RUN apk add -U coreutils
 
-RUN apk add --update --no-cache py3-pip tmux && \
+RUN apk add --update --no-cache py3-pip tmux ttdy && \
     python3 -m venv plex_debrid/.venv && \
     . plex_debrid/.venv/bin/activate && \
     pip3 install --break-system-packages --no-cache --upgrade pip setuptools && \
