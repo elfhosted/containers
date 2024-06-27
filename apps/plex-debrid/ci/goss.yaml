@@ -1,16 +1,20 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
-# process:
-#   pnpm:
-#     running: true
+process:
+  python:
+    running: true
+  tmux:
+    running: true   
+  ttyd:
+    running: true     
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 port:
   # https://github.com/aelsabbahy/goss/issues/149
-  tcp:3000:
+  tcp:3001:
     listening: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:3000:
+  http://localhost:3001:
     status: 200
