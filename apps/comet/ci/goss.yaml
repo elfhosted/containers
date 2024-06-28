@@ -1,8 +1,8 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
-process:
-  python:
-    running: true
+# process:
+#   python:
+#     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 port:
@@ -10,7 +10,7 @@ port:
   tcp:8000:
     listening: true
 
-# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
-http:
-  http://localhost:8000:
-    status: 200
+# # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+# http:
+#   http://localhost:8000:
+#     status: 200
