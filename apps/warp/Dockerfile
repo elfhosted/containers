@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone --depth 1 https://github.com/cmj2002/warp-docker.git /source
+RUN git clone  https://github.com/cmj2002/warp-docker.git /source
 
 FROM ghcr.io/elfhosted/ubuntu:focal-20240427@sha256:1b84c219a764d8da5ba0f4b2b1f80e7c6396a8c9dfb499f945549396b53b0821 
 

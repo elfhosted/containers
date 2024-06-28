@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://github.com/aymene69/stremio-jackett.git /source
+RUN git clone -b $VERSION  https://github.com/aymene69/stremio-jackett.git /source
 
 FROM python:3.12.2
 

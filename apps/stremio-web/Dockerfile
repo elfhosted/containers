@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://github.com/Stremio/stremio-web.git /source
+RUN git clone -b $VERSION  https://github.com/Stremio/stremio-web.git /source
 
 # Copied from https://github.com/Stremio/stremio-web/blob/development/Dockerfile and modified for cloner source
 # Stremio Node 14.x# the node version for running Stremio Web

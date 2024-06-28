@@ -13,7 +13,7 @@ RUN apk add --no-cache git python3 py3-pip make g++
 
 RUN \
    echo "**** Cloning Source Code ****" && \
-   git clone --depth 1 --branch ${VERSION} https://github.com/rogerfar/rdt-client.git . && \
+   git clone  --branch ${VERSION} https://github.com/rogerfar/rdt-client.git . && \
    cd client && \
    echo "**** Building Code  ****" && \
    npm ci && \

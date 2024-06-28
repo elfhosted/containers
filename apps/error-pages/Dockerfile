@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://github.com/tarampampam/error-pages.git /source
+RUN git clone -b $VERSION  https://github.com/tarampampam/error-pages.git /source
 
 # this stage is used to build the application
 FROM golang:1.21-bullseye AS builder

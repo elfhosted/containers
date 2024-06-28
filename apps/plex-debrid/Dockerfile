@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
     apk add --no-cache git
 
 # Get plex_debrid source
-RUN git clone --depth 1 https://github.com/itsToggle/plex_debrid /source
+RUN git clone  https://github.com/itsToggle/plex_debrid /source
 
 
 FROM python:3.11-alpine

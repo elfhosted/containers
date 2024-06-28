@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone --depth 1 https://github.com/rivenmedia/riven.git /source
+RUN git clone  https://github.com/rivenmedia/riven.git /source
 
 # Builder Image for Python Dependencies
 FROM python:3.11-alpine AS builder

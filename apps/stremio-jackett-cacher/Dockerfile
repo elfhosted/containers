@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone --depth 1 https://github.com/aymene69/stremio-jackett-cacher.git /source
+RUN git clone  https://github.com/aymene69/stremio-jackett-cacher.git /source
 
 FROM python:3.11
 

@@ -14,7 +14,7 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         if [[ -d /tmp/riven ]]; then
             rm -rf /tmp/riven
         fi
-        git clone -b $ILIKEDANGER --depth 1  https://github.com/rivenmedia/riven.git 
+        git clone -b $ILIKEDANGER   https://github.com/rivenmedia/riven.git 
         cd riven
         VIRTUAL_ENV=/app/.venv
         PATH="/app/.venv/bin:$PATH"

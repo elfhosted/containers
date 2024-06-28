@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone --depth 1 https://github.com/g0ldyy/comet.git /source
+RUN git clone  https://github.com/g0ldyy/comet.git /source
 
 
 FROM python:3.11
@@ -28,17 +28,20 @@ ENV POETRY_NO_INTERACTION=1 \
     HOST=0.0.0.0 \
     FASTAPI_WORKERS=1
 
-    USER 568
-
 # Set working directory
 WORKDIR /app
 
 # Copy the application code
-COPY --from=cloner source/. ./
+COPY --from=cloner /source/. ./
 
 RUN poetry install --no-root
 
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-CMD ["python", "run.py"]
+# Set environment variables for uvicorn
+ENV FASTAPI_HOST=0.0.0.0
+ENV FASTAPI_PORT=8000
+
+# Use uvicorn to run the application
+CMD ["uvicorn", "comet.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

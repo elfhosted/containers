@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION --depth 1 https://github.com/mhdzumair/MediaFusion.git /source
+RUN git clone -b $VERSION  https://github.com/mhdzumair/MediaFusion.git /source
 
 # Add ElfHosted branding
 COPY apps/mediafusion/branding/mediafusion-elfhosted-logo.png /source/resources/images/

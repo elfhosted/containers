@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone --depth 1 -b $CHANNEL https://github.com/marcojoao/cyberflix-server.git /source
+RUN git clone  -b $CHANNEL https://github.com/marcojoao/cyberflix-server.git /source
 FROM python:3.11
 
 WORKDIR /app

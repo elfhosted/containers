@@ -6,7 +6,7 @@ ARG CHANNEL
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone --depth 1 https://github.com/Pukabyte/scannarr.git /source
+RUN git clone  https://github.com/Pukabyte/scannarr.git /source
 
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
 WORKDIR /source

@@ -5,8 +5,8 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-# RUN git clone -b $VERSION --depth 1 https://github.com/elfhosted/knightcrawler.git /source
-RUN git clone --depth 1 https://github.com/elfhosted/knightcrawler.git /source
+# RUN git clone -b $VERSION  https://github.com/elfhosted/knightcrawler.git /source
+RUN git clone  https://github.com/elfhosted/knightcrawler.git /source
 
 
 # --- Build Stage ---

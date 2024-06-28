@@ -14,7 +14,7 @@ RUN apt-get update \
 # Enables Yarn
 RUN corepack enable
 
-RUN git clone --depth 1 --branch $VERSION https://github.com/laurent22/joplin.git /source
+RUN git clone  --branch $VERSION https://github.com/laurent22/joplin.git /source
 WORKDIR /build
 
 RUN mkdir .yarn && \
