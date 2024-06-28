@@ -4,7 +4,7 @@ FROM ghcr.io/elfhosted/ubuntu:focal-20240427@sha256:1b84c219a764d8da5ba0f4b2b1f8
 
 # default to ephemeral storage
 ENV DATA_DIR=/config
-RUN mkdir /config
+
 WORKDIR /app
 COPY --from=upstream /app/openbooks /app/openbooks
 ENTRYPOINT ["./openbooks", "server", "--dir", "$DATA_DIR", "--port", "8000", "--name", "elfhosted-user", "--tls=false", "--persist", "-s irc.irchighway.net:6660", "--no-browser-downloads"]
