@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 RUN git clone  https://github.com/g0ldyy/comet.git /source
 
 
-FROM python:3.11-alpine
+FROM python:3.11
 LABEL name="Comet" \
       description="Stremio's fastest torrent/debrid search add-on." \
       url="https://github.com/g0ldyy/comet"
