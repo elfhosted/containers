@@ -1,7 +1,9 @@
 ARG VERSION
 FROM ghcr.io/evan-buss/openbooks:${VERSION} as upstream
 FROM ghcr.io/elfhosted/ubuntu:focal-20240427@sha256:1b84c219a764d8da5ba0f4b2b1f80e7c6396a8c9dfb499f945549396b53b0821 
-ENV DATA_DIR=/config # default to ephemeral storage
+
+# default to ephemeral storage
+ENV DATA_DIR=/config
 RUN mkdir /config
 WORKDIR /app
 COPY --from=upstream /app/openbooks /app/openbooks
