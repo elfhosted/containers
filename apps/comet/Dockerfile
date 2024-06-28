@@ -24,7 +24,11 @@ RUN pip install poetry
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
     POETRY_VIRTUALENVS_CREATE=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache
+    POETRY_CACHE_DIR=/tmp/poetry_cache \
+    HOST=0.0.0.0 \
+    FASTAPI_WORKERS=1
+
+    USER 568
 
 # Set working directory
 WORKDIR /app
