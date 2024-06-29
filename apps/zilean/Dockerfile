@@ -13,7 +13,7 @@ RUN git clone https://github.com/iPromKnight/zilean.git /source
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ENV TARGETARCH=amd64
-COPY . /build
+COPY --from=cloner /source/. /build
 WORKDIR /build/src/Zilean.ApiService
 RUN dotnet publish -c Release -o /build/out -r linux-$TARGETARCH --self-contained false
 
