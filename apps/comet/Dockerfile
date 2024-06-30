@@ -10,7 +10,6 @@ RUN apk update && apk upgrade && \
 RUN git clone  https://github.com/g0ldyy/comet.git /source
 
 
-
 FROM python:3.11-alpine
 LABEL name="Comet" \
       description="Stremio's fastest torrent/debrid search add-on." \
@@ -25,8 +24,7 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_NO_INTERACTION=1 \
     POETRY_HOME="/usr/local" \
     FORCE_COLOR=1 \
-    TERM=xterm-256color \
-    INDEXER_MANAGER_INDEXERS='["FAKE_TO_PASS_TESTING"]'
+    TERM=xterm-256color
 
 # Fix python-alpine gcc
 RUN apk add --no-cache \
@@ -38,5 +36,8 @@ RUN apk add --no-cache \
 RUN pip install poetry
 COPY --from=cloner /source/. .
 RUN poetry install --no-cache --no-root --without dev
+
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
 
 ENTRYPOINT ["poetry", "run", "python", "-m", "comet.main"]
