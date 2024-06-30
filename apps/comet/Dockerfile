@@ -1,4 +1,3 @@
-# Get the elfhosted code
 FROM alpine:latest as cloner
 
 ARG CHANNEL
@@ -17,14 +16,15 @@ LABEL name="Comet" \
 
 WORKDIR /app
 
-ARG DATABASE_PATH
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     POETRY_NO_INTERACTION=1 \
     POETRY_HOME="/usr/local" \
     FORCE_COLOR=1 \
-    TERM=xterm-256color
+    TERM=xterm-256color \
+    INDEXER_MANAGER_INDEXERS='["FAKE_TO_PASS_TESTING"]' \
+    DATABASE_PATH=/tmp
 
 # Fix python-alpine gcc
 RUN apk add --no-cache \
@@ -35,9 +35,14 @@ RUN apk add --no-cache \
 
 RUN pip install poetry
 COPY --from=cloner /source/. .
-RUN poetry install --no-cache --no-root --without dev
 
+# Set environment variables for the virtual environment path
 ENV VIRTUAL_ENV=/app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Create the virtual environment in the specified directory
+RUN python -m venv $VIRTUAL_ENV
+
+RUN poetry install --no-cache --no-root --without dev
 
 ENTRYPOINT ["poetry", "run", "python", "-m", "comet.main"]
