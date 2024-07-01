@@ -45,4 +45,12 @@ RUN python -m venv $VIRTUAL_ENV
 
 RUN poetry install --no-cache --no-root --without dev
 
+RUN \
+    addgroup -S elfie --gid 568 \
+    && adduser -S elfie -G elfie --uid 568 \
+    && chown elfie -R /app
+
+
+USER 568
+
 ENTRYPOINT ["poetry", "run", "python", "-m", "comet.main"]
