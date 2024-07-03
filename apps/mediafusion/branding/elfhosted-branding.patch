@@ -28,7 +28,7 @@ index 420af21..54ec7ff 100644
 +                 <h3 class="gives">Why use ElfHosted addons?</h3>
 +                 <div class="form-floating mb-3">
 +                    <ul>
-+                       <li>Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/media-fusion-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgeek-cookbook%2Felfhosted-upptime%2Fmaster%2Fapi%2Fmedia-fusion-stremio-addon%2Fuptime.json"></A></li>
++                       <li>Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/media-fusion-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Felfhosted%2Fstatus.elfhosted.com%2Fmaster%2Fapi%2Fmedia-fusion-stremio-addon%2Fuptime.json"></A></li>
 +                       <li>Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A></li>
 +                       <li>Geek out over <A HREF="https://fnky.nz/grafana-mediafusion">public performance metrics</A></li>
 +                    </ul>
