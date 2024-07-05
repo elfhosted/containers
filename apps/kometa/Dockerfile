@@ -7,59 +7,34 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/Kometa-Team/Kometa.git /source
 
-# syntax=docker/dockerfile:1
+FROM python:3.11-slim-buster
+ARG BRANCH_NAME=master
+ENV BRANCH_NAME ${BRANCH_NAME}
+ENV TINI_VERSION v0.19.0
+ENV KOMETA_DOCKER True
+COPY --from=cloner /source/requirements.txt requirements.txt
+RUN echo "**** install system packages ****" \
+ && apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y tzdata --no-install-recommends \
+ && apt-get install -y gcc g++ libxml2-dev libxslt-dev libz-dev libjpeg62-turbo-dev zlib1g-dev wget curl \
+ && wget -O /tini https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-"$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
+ && chmod +x /tini \
+ && pip3 install --no-cache-dir --upgrade --requirement /requirements.txt \
+ && apt-get --purge autoremove gcc g++ libxml2-dev libxslt-dev libz-dev -y \
+ && apt-get clean \
+ && apt-get update \
+ && apt-get check \
+ && apt-get -f install \
+ && apt-get -y install tmux fish zsh \
+ && apt-get autoclean \
+ && rm -rf /requirements.txt /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:3d8693e2e68a277e14e96594381f8b8620c81ada3827babb842faeaae607693f 
+COPY --from=cloner /source/. /
+VOLUME /config
 
-# set version label
-ARG BUILD_DATE
-ARG VERSION
-ARG KOMETA_VERSION
-
-ENV HOME="/config" \
-PYTHONIOENCODING=utf-8
-
-RUN \
-  echo "**** install packages ****" && \
-  apk add -U --update --no-cache --virtual=build-dependencies \
-    build-base \
-    libffi-dev \
-    libxml2-dev \
-    libzen-dev \
-    python3-dev \
-    py3-pip && \
-  apk add  -U --update --no-cache \
-    grep \
-    libjpeg \
-    libxslt \
-    ttyd \
-    tmux \
-    python3 && \
-  if [ -z ${KOMETA_VERSION+x} ]; then \
-    KOMETA_VERSION=$(curl -s https://api.github.com/repos/Kometa-Team/Kometa/releases \
-    | jq -r 'first(.[]) | .tag_name'); \
-  fi && \
-  mkdir -p /app/kometa && \
-  curl -o \
-    /tmp/kometa.tar.gz -L \
-    "https://github.com/Kometa-Team/Kometa/archive/${KOMETA_VERSION}.tar.gz" && \
-  tar xf \
-    /tmp/kometa.tar.gz -C \
-    /app/kometa --strip-components=1 && \
-  cd /app/kometa && \
-  python3 -m venv /lsiopy && \
-  pip install -U --no-cache-dir \
-    pip \
-    wheel && \
-  pip install -U --no-cache-dir --find-links https://wheel-index.linuxserver.io/alpine-3.19/ -r requirements.txt && \
-  pip cache purge && \
-  echo "**** cleanup ****" && \
-  apk del --purge \
-    build-dependencies && \
-  rm -rf \
-    /tmp/* \
-    $HOME/.cache
-
+# Add ttyd
+ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 # add local files
 # Add the components for tmux-in-wetty
 COPY --chown=568:568 apps/kometa/kometa.sh /
@@ -69,5 +44,9 @@ COPY --chown=568:568 apps/kometa/restricted.tmux.conf /
 
 # ports and volumes
 VOLUME /config
+
+ARG user=elfie
+RUN groupadd -g 568 $user && useradd --create-home --uid 568 --gid 568 --shell /bin/bash $user
+USER 568
 
 ENTRYPOINT ["/entrypoint.sh"]

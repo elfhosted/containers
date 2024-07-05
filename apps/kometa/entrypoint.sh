@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 # Start riven in the background
 tmux -f /restricted.tmux.conf new-session -x 80 -y 24 -A -d -s kometa /kometa.sh

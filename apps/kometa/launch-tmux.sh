@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
-tmux -f /restricted.tmux.conf new-session -A -s kometa /riven.sh
+tmux -f /restricted.tmux.conf new-session -A -s kometa /kometa.sh
 
