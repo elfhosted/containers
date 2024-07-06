@@ -26,7 +26,7 @@ RUN echo "**** install system packages ****" \
  && apt-get update \
  && apt-get check \
  && apt-get -f install \
- && apt-get -y install tmux fish zsh \
+ && apt-get -y install tmux dialog \
  && apt-get autoclean \
  && rm -rf /requirements.txt /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
