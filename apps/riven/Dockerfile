@@ -100,6 +100,7 @@ COPY --chown=568:568 apps/riven/riven.sh /riven/
 COPY --chown=568:568 apps/riven/launch-tmux.sh /riven/
 COPY --chown=568:568 apps/riven/entrypoint.sh /riven/
 COPY --chown=568:568 apps/riven/restricted.tmux.conf /riven/
+COPY --chown=568:568 --chmod=755 apps/riven/wait-for-it.sh /usr/local/bin/
 
 # # Ensure entrypoint script is executable
 RUN chmod +x /riven/entrypoint.sh

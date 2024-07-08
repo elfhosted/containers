@@ -2,6 +2,10 @@
 
 cd /riven/backend
 
+# Ensure plex is ready
+/usr/local/bin/wait-for-it.sh plex:32400 - echo "plex is up!"
+
+
 if [[ ! -z "$ILIKEDANGER" ]]; then
     echo "Press any key to continue to pull the latest $ILIKEDANGER branch, or wait 10 seconds for a stable start..."
     
