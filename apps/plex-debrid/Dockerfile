@@ -40,19 +40,3 @@ COPY apps/plex-debrid/trakt.py /usr/src/app/plex_debrid/content/services/
 
 WORKDIR /config
 ENTRYPOINT [ "/entrypoint.sh" ]
-
-
-
-
-# FROM ghcr.io/linuxserver/baseimage-kasmvnc:alpine318
-
-
-# # We'll mount this for storing settings.json
-# RUN mkdir -p /config/elfhosted
-
-# ENV TITLE="Plex-Debrid | ElfHosted" \
-#   QTWEBENGINE_DISABLE_SANDBOX="1"
-
-
-
-
