@@ -124,7 +124,7 @@ pages:
       Too many requests in a given amount of time. 
       <P>If you're looking for one of our <A HREF="https://elfhosted.com/stremio-addons/">public Stremio Addons</A>, it's possible that you've hit the public, <A HREF="https://github.com/funkypenguin/elf-infra/blob/ci/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">per-IP rate-limit</A>.<BR/>
       Refresh to retry another randomly-balanced node, or try again after 5 minutes.</P>
-      <P>Hosted instances <A HREF="https://store.elfhosted.com/product-category/stremio-addons">are available</A> with 10 x higher ratelimits, from $$0.05/day, with $$10 free credit for new accounts</P>
+      <P>Hosted instances <A HREF="https://store.elfhosted.com/product-category/stremio-addons">are available</A> with 10 x higher ratelimits.</P>
 
   500:
     message: Internal Server Error
