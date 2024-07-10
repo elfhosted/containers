@@ -32,6 +32,8 @@ RUN apt-get update && apt-get install -y \
 	gpg \
 	git \
 	iproute2 \
+	tmux \
+	ncdu \
 	curl \
 	tree \
 	time \
@@ -72,6 +74,10 @@ RUN \
   mv splash /usr/local/bin && \
   rm README.md
 
+
+# Add ttyd
+ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
+
 # cloudflare cli
 RUN apt -y install nodejs npm && npm install -g cloudflare-cli
 
@@ -89,10 +95,28 @@ RUN { \
 	} > ~/.s3cfg
 
 COPY ./apps/tooling/scripts /scripts
+COPY --chown=568:568 --chmod=755 ./apps/tooling/.bash_profile /home/elfie/
+
+
+# Run elfie in rbash
+RUN usermod -s /bin/rbash elfie
+
+COPY --chown=568:568 apps/tooling/launch-tmux.sh /
+COPY --chown=568:568 apps/tooling/entrypoint.sh /
+COPY --chown=568:568 apps/tooling/restricted.tmux.conf /
 
 # We need yq to merge yamls
 COPY --from=yq /usr/bin/yq /usr/bin/yq  
 
+RUN	 mkdir /home/elfie/programs && \
+	 ln -s /usr/local/bin/kubectl /home/elfie/programs/ && \
+	 ln -s /usr/bin/tmux /home/elfie/programs/ && \
+	 ln -s /usr/local/bin/ttyd /home/elfie/programs/ && \
+	 ln -s /usr/bin/tree /home/elfie/programs/ && \
+	 ln -s /usr/bin/ncdu /home/elfie/programs/
+
+WORKDIR /home/elfie
 USER 568
 
-ENTRYPOINT [ "s3cmd" ]
+# ENTRYPOINT ["rbash","-l","/entrypoint.sh"]
+ENTRYPOINT [ "/entrypoint.sh" ]
