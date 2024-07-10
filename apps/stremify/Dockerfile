@@ -8,7 +8,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git patch
 
-RUN git clone -b v2.7  https://github.com/stremify/stremify /source
+RUN git clone  https://github.com/stremify/stremify /source
 
 FROM node:20-alpine3.19 as build-stage
 
