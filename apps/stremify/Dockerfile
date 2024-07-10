@@ -10,12 +10,6 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b v2.7  https://github.com/stremify/stremify /source
 
-# Add ElfHosted branding
-
-COPY apps/stremify/branding/elfhosted-branding.patch /source/
-RUN cd /source && \
-    git apply elfhosted-branding.patch
-
 FROM node:20-alpine3.19 as build-stage
 
 ENV PNPM_HOME="/pnpm"
