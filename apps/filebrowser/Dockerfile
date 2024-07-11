@@ -71,24 +71,7 @@ RUN mkdir /storage
 
 COPY --chown=568:568 apps/filebrowser/root /
 
-RUN	/filebrowser config init \
-	--disable-preview-resize \
-	--disable-thumbnails \
-	--disable-type-detection-by-header \
-	--branding.name="just a dummy db" \
-	--branding.files=/branding \
-	--branding.disableExternal \
-	--auth.method=noauth \
-	--lockPassword \
-	--database /filebrowser.db \
-	--root /storage \
-	--cache-dir /tmp && \
-	chown elfie /filebrowser.db
-
-
 USER 568
-# Use this so that dgoss works
-ENV FB_DATABASE=/tmp/filebrowser.db
 
 EXPOSE 8080
 
