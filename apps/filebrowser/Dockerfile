@@ -78,5 +78,4 @@ EXPOSE 8080
 # Because filebrowser wants paths relative to its executable
 
 WORKDIR /
-CMD [ "/filebrowser" ]
 ENTRYPOINT [ "/init" ]
