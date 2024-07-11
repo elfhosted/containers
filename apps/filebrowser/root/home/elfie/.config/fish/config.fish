@@ -1,1 +1,1 @@
-# empty for now
+set -U fish_greeting "Welcome to the ElfTerm! For help, see https://elfhosted.com/how-to-use/elfterm/"

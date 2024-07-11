@@ -71,15 +71,19 @@ RUN mkdir /storage
 
 COPY --chown=568:568 apps/filebrowser/root /
 
-RUN	 mkdir -p /home/elfie/programs && \
-	 ln -s /usr/local/bin/kubectl /home/elfie/programs/ && \
-	 ln -s /usr/bin/tmux /home/elfie/programs/ && \
-	 ln -s /usr/bin/ls /home/elfie/programs/ && \
-	 ln -s /usr/bin/cd /home/elfie/programs/ && \
-	 ln -s /usr/sbin/chroot /home/elfie/programs/ && \
-	 ln -s /usr/local/bin/ttyd /home/elfie/programs/ && \
-	 ln -s /usr/bin/tree /home/elfie/programs/ && \
-	 ln -s /usr/bin/ncdu /home/elfie/programs/
+RUN	/filebrowser config init \
+	--disable-preview-resize \
+	--disable-thumbnails \
+	--disable-type-detection-by-header \
+	--branding.name="just a dummy db" \
+	--branding.files=/branding \
+	--branding.disableExternal \
+	--auth.method=noauth \
+	--lockPassword \
+	--database /filebrowser.db \
+	--root /storage \
+	--cache-dir /tmp && \
+	chown elfie /filebrowser.db
 
 
 USER 568
@@ -89,6 +93,7 @@ ENV FB_DATABASE=/tmp/filebrowser.db
 EXPOSE 8080
 
 # Because filebrowser wants paths relative to its executable
+
 WORKDIR /
 CMD [ "/filebrowser" ]
 ENTRYPOINT [ "/init" ]
