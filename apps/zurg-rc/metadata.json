@@ -1,5 +1,5 @@
 {
-  "app": "zurg",
+  "app": "zurg-rc",
   "base": false,
   "channels": [
     {
@@ -12,17 +12,6 @@
         "enabled": true,
         "type": "web"
       }
-    },
-    {
-      "name": "rc",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "stable": false,
-      "tests": {
-        "enabled": true,
-        "type": "web"
-      }
-    }    
+    }
   ]
 }
