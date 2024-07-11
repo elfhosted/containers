@@ -1,2 +1,3 @@
 #!/command/with-contenv bash
+cd /tmp
 /filebrowser

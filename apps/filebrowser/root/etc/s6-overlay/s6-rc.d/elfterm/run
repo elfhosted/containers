@@ -1,2 +1,2 @@
-#!/command/with-contenv
-/elfterm.sh bash
+#!/command/with-contenv bash
+/elfterm.sh
