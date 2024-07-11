@@ -1,2 +1,2 @@
-#!/command/with-contenv
+#!/command/with-contenv bash
 /filebrowser
