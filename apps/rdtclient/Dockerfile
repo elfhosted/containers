@@ -13,7 +13,7 @@ RUN apk add --no-cache git python3 py3-pip make g++
 
 RUN \
    echo "**** Cloning Source Code ****" && \
-   git clone  --branch ${VERSION} https://github.com/elfhosted/rdt-client.git . && \
+   git clone  --branch ${VERSION} https://github.com/rogerfar/rdt-client.git . && \
    cd client && \
    echo "**** Building Code  ****" && \
    npm ci && \
@@ -33,7 +33,7 @@ WORKDIR /appserver
 
 RUN \
    echo "**** Cloning Source Code ****" && \
-   git clone https://github.com/elfhosted/rdt-client.git . && \
+   git clone https://github.com/rogerfar/rdt-client.git . && \
    echo "**** Building Source Code for $TARGETPLATFORM on $BUILDPLATFORM ****" && \
    cd server && \
    if [ "$TARGETPLATFORM" = "linux/arm/v7" ] ; then \
