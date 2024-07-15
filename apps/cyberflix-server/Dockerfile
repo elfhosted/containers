@@ -12,14 +12,18 @@ FROM python:3.11
 
 WORKDIR /app
 
-USER nobody 
-
-COPY --from=cloner /source/requirements.txt .
-
-RUN pip install -r requirements.txt && \
-    mv /app/db /app/db-orig
-
 COPY --from=cloner /source .
+
+RUN mv /app/db /app/db-orig && \
+    mkdir /nonexistent/ && chown nobody /nonexistent
+
+    USER nobody 
+
+# COPY --from=cloner /source/requirements.txt .
+
+RUN pip install -r requirements.txt 
+
+
 
 EXPOSE 8000
 
