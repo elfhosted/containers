@@ -10,6 +10,7 @@ on:
 env:
   TOKEN: ${{ secrets.GITHUB_TOKEN }}
   GH_PAT: ${{ secrets.GH_PAT }}
+  ZURG_GH_CREDS: ${{ secrets.ZURG_GH_CREDS }}
 
 jobs:
   generate-build-matrix:
