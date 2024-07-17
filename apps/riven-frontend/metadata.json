@@ -1,0 +1,17 @@
+{
+  "app": "riven-frontend",
+  "base": false,
+  "channels": [
+    {
+      "name": "stable",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    }
+  ]
+}
