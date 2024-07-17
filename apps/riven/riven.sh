@@ -3,7 +3,9 @@
 cd /riven/backend
 
 # Ensure plex is ready
-/usr/local/bin/wait-for-it.sh plex:32400 - echo "plex is up!"
+/usr/local/bin/wait-for plex:32400 - echo "plex is up!"
+/usr/local/bin/wait-for zurg:9999 - echo "zurg is up!"
+echo "let's go!"
 
 
 if [[ ! -z "$ILIKEDANGER" ]]; then
