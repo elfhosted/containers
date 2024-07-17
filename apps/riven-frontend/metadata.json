@@ -3,13 +3,13 @@
   "base": false,
   "channels": [
     {
-      "name": "stable",
+      "name": "main",
       "platforms": [
         "linux/amd64"
       ],
       "stable": true,
       "tests": {
-        "enabled": false,
+        "enabled": true,
         "type": "web"
       }
     }
