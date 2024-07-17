@@ -34,4 +34,5 @@ COPY --from=frontend  /app/package.json /riven/package.json
 
 COPY --from=cloner /source/version.txt /riven/
 
-ENTRYPOINT ["ORIGIN=$ORIGIN", "BACKEND_URL=$BACKEND_URL", "node", "/riven/build"]
+ENTRYPOINT ["node", "/riven/build"]
+# ENTRYPOINT ["ORIGIN=$ORIGIN", "BACKEND_URL=$BACKEND_URL", "node", "/riven/build"]
