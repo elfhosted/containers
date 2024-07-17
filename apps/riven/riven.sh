@@ -16,10 +16,10 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
     
     if [ $? -eq 0 ]; then
         echo "You pressed a key! Let's go to the danger zone, cloning the $ILIKEDANGER branch!"
-        cd /tmp
         if [[ -d /tmp/riven ]]; then
             rm -rf /tmp/riven
         fi
+        cd /tmp        
         git clone -b $ILIKEDANGER   https://github.com/rivenmedia/riven.git 
         cd riven
         VIRTUAL_ENV=/app/.venv
@@ -29,6 +29,7 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         cd backend
         cp /riven/backend/pyproject.toml ./
         cp /riven/backend/poetry.lock ./
+        poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
         poetry run python3 main.py 
     else
         echo "Timeout reached. Continuing boring normal start..."
