@@ -23,6 +23,7 @@ LABEL name="Riven" \
     description="Riven Media Server: Frontend" \
     url="https://github.com/rivenmedia/riven-frontend"
 
+
 # Set working directory
 WORKDIR /riven
 
