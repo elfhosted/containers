@@ -26,7 +26,6 @@ RUN apk update && \
     && chmod -R 775 /config
 
 
-COPY --chown=$UID:$GID --from=upstream /usr/local/bin/tone /usr/local/bin/
 COPY --chown=$UID:$GID --from=upstream /client /client
 COPY --chown=$UID:$GID --from=upstream /server /server
 COPY --chown=$UID:$GID --from=upstream /index.js /
