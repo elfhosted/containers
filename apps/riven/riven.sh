@@ -36,7 +36,13 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         pip install poetry==1.8.3
         poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
         mkdir -p /riven/data # failsafe incase we're testing locally with no data folder
-        ln -s /riven/data /tmp/riven/
+
+        # make an ilikedanger version of settings
+        if [[ ! -f /riven/data/settings-ilikedanger.json ]]; then
+            cp /riven/data/settings.json /riven/data/settings-ilikedanger.json
+        fi
+        ln -s /riven/data/settings-ilikedanger.json /tmp/riven/settings.json
+        
         cd backend
         cp /riven/backend/pyproject.toml ./
         cp /riven/backend/poetry.lock ./
