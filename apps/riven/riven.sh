@@ -31,9 +31,8 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         cd /tmp        
         git clone -b $ILIKEDANGER   https://github.com/rivenmedia/riven.git 
         cd riven
-        cp /app/.venv /tmp/ -rf
-        VIRTUAL_ENV=/tmp/.venv
-        PATH="/tmp/.venv/bin:$PATH"
+        VIRTUAL_ENV=/app/.venv
+        PATH="/app/.venv/bin:$PATH"
         pip install poetry==1.8.3
         poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
         mkdir -p /riven/data # failsafe incase we're testing locally with no data folder
