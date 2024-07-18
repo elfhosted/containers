@@ -2,14 +2,23 @@
 
 cd /riven/backend
 
-# Ensure plex is ready
-/usr/local/bin/wait-for plex:32400 - echo "plex is up!"
-/usr/local/bin/wait-for zurg:9999 - echo "zurg is up!"
-echo "let's go!"
+# Crash on error
+set -e
 
+# Don't start unless plex/zurg is ready, or if the user is debugging with ILIKEDANGER
+if [[ -z "$ILIKEDANGER" ]]; then
+# Ensure plex is ready
+echo "📺 Waiting for plex to be up..."
+/usr/local/bin/wait-for -t 3600 plex:32400 -- echo "✅"
+
+echo "👽 Waiting for zurg to be up..."
+/usr/local/bin/wait-for -t 3600 zurg:9999 -- echo "✅"
+
+echo "🎉 let's go!"
+fi
 
 if [[ ! -z "$ILIKEDANGER" ]]; then
-    echo "Press any key to continue to pull the latest $ILIKEDANGER branch, or wait 10 seconds for a stable start..."
+    echo "Greetings, brave Elfie! Press any key to continue to pull the latest $ILIKEDANGER branch, or wait 10 seconds for a stable start..."
     
     # -t 5: Timeout of 5 seconds
     read -s -n 1 -t 10
@@ -24,12 +33,13 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         cd riven
         VIRTUAL_ENV=/app/.venv
         PATH="/app/.venv/bin:$PATH"
-        pip install poetry==1.4.2
-        ln -s /riven/data/* /tmp/riven/data/
+        pip install poetry==1.8.3
+        poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
+        mkdir -p /riven/data # failsafe incase we're testing locally with no data folder
+        ln -s /riven/data /tmp/riven/
         cd backend
         cp /riven/backend/pyproject.toml ./
         cp /riven/backend/poetry.lock ./
-        poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
         poetry run python3 main.py 
     else
         echo "Timeout reached. Continuing boring normal start..."
