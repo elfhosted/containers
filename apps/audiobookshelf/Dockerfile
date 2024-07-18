@@ -1,45 +1,43 @@
+# Get upstream code
+FROM alpine:latest as cloner
 ARG VERSION
-FROM ghcr.io/advplyr/audiobookshelf:${VERSION} as upstream
 
-LABEL org.opencontainers.image.source = "https://github.com/advplyr/audiobookshelf"
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
 
-FROM node:16-alpine
+RUN git clone -b $VERSION  https://github.com/advplyr/audiobookshelf.git /source
+
+### STAGE 0: Build client ###
+FROM node:20-alpine AS build
+WORKDIR /client
+COPY --from=cloner /source/client /client
+RUN npm ci && npm cache clean --force
+RUN npm run generate
+
+### STAGE 1: Build server ###
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:3d8693e2e68a277e14e96594381f8b8620c81ada3827babb842faeaae607693f
 
 ENV NODE_ENV=production
-ENV UID=568
-ENV GID=568
-ENV METADATA_PATH=/config/metadata
-ENV CONFIG_PATH=/config/config
-ENV PORT=8000
-ENV npm_config_cache=/tmp
 
 RUN apk update && \
     apk add --no-cache --update \
     curl \
     tzdata \
-    ffmpeg && \
-    addgroup -S elfie --gid 568 \
-    && adduser -S elfie -G elfie --uid 568 \
-    && \
-    mkdir -p /config \
-    && chown -R elfie:elfie /config \
-    && chmod -R 775 /config
+    ffmpeg \
+    make \
+    python3 \
+    g++ \
+    tini
 
+COPY --from=build /client/dist /client/dist
+COPY --from=cloner /source/index.js package* /
+COPY --from=cloner /source/server server
 
-COPY --chown=$UID:$GID --from=upstream /client /client
-COPY --chown=$UID:$GID --from=upstream /server /server
-COPY --chown=$UID:$GID --from=upstream /index.js /
-COPY --chown=$UID:$GID --from=upstream /package* /
-
-EXPOSE 8000
 RUN npm ci --only=production
 
-USER 568
+RUN apk del make python3 g++
 
-# HEALTHCHECK \
-#     --interval=30s \
-#     --timeout=3s \
-#     --start-period=10s \
-#     CMD curl -f http://127.0.0.1/healthcheck || exit 1
+EXPOSE 80
 
-CMD [ "npm","start" ]
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "index.js"]
