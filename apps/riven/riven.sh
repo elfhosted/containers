@@ -2,8 +2,6 @@
 
 cd /riven/backend
 
-# Crash on error
-set -e
 
 # Don't start unless plex/zurg is ready, or if the user is debugging with ILIKEDANGER
 if [[ -z "$ILIKEDANGER" ]]; then
@@ -38,11 +36,12 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         mkdir -p /riven/data # failsafe incase we're testing locally with no data folder
 
         # make an ilikedanger version of settings
-        if [[ ! -f /riven/data/settings-ilikedanger.json ]]; then
+        if [[ ! -f /riven/data/settings-ilikedanger.json && -f /riven/data/settings.json ]]; then
             cp /riven/data/settings.json /riven/data/settings-ilikedanger.json
         fi
-        ln -s /riven/data/settings-ilikedanger.json /tmp/riven/settings.json
-        
+        mkdir -p /tmp/riven/data
+        ln -s /riven/data/settings-ilikedanger.json /tmp/riven/data/settings.json
+
         cd backend
         cp /riven/backend/pyproject.toml ./
         cp /riven/backend/poetry.lock ./
