@@ -9,6 +9,11 @@ RUN apk update && apk upgrade && \
 
 RUN git clone  https://github.com/TheRaceDirector/formuliodev.git /source
 
+# Add ElfHosted branding
+COPY apps/formulio/branding/index.html /source/static/
+COPY apps/formulio/branding/elfhosted-branding.patch /source/
+RUN cd /source && git apply elfhosted-branding.patch && rm elfhosted-branding.patch
+
 # Build stage
 FROM python:3.10.14-slim-bookworm AS builder
 
@@ -37,13 +42,12 @@ WORKDIR /app
 
 # Copy the application code
 COPY --from=cloner /source/. .
-COPY apps/formulio/branding/index.html static/
 
 # Set the PYTHONPATH
 ENV PYTHONPATH=/app
 
 # Make the /app directory writable by all users
-# RUN chmod -R 777 /app
+RUN chown appuser -R /app
 
 # Create log directory and set permissions
 RUN mkdir -p /var/log/gunicorn && chown appuser:appuser /var/log/gunicorn

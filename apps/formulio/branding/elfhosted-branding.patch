@@ -1,0 +1,13 @@
+diff --git a/formulio_addon.py b/formulio_addon.py
+index fcaf1ea..456494c 100644
+--- a/formulio_addon.py
++++ b/formulio_addon.py
+@@ -27,7 +27,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+ MANIFEST = {
+     'id': 'org.stremio.formulio',
+     'version': '1.0.0',
+-    'name': 'Formulio',
++    'name': 'Formulio | ElfHosted',
+     'description': 'An Addon for Formula One Replay Content.  (This addon only displays content from external sources. Use this Stremio torrent addon only where legally permitted. Users are responsible for complying with all applicable laws in their jurisdiction)',
+     'types': ['series'],
+     'catalogs': [
