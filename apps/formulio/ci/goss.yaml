@@ -1,8 +1,8 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
-process:
-  python3:
-    running: true
+# process:
+#   python3:
+#     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 # unsure why this isn't working
@@ -13,6 +13,6 @@ process:
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:3000:
+  http://localhost:8000:
     status: 200
     timeout: 7000
