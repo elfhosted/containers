@@ -1,6 +1,6 @@
 #!/bin/ash
 
-cd /riven/backend
+cd /riven/src
 
 
 # Don't start unless plex/zurg is ready, or if the user is debugging with ILIKEDANGER
@@ -42,9 +42,9 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         mkdir -p /tmp/riven/data
         ln -s /riven/data/settings-ilikedanger.json /tmp/riven/data/settings.json
 
-        cd backend
-        cp /riven/backend/pyproject.toml ./
-        cp /riven/backend/poetry.lock ./
+        cd src
+        cp /riven/src/pyproject.toml ./
+        cp /riven/src/poetry.lock ./
         poetry run python3 main.py 
     else
         echo "Timeout reached. Continuing boring normal start..."
