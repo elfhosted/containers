@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone  https://github.com/rivenmedia/riven-frontend.git /source
+RUN git clone -b $VERSION https://github.com/rivenmedia/riven-frontend.git /source
 
 
 # Frontend Builder
