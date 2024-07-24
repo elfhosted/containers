@@ -3,7 +3,7 @@
 process:
   python:
     running: true
-  xterm:
+  ttyd:
     running: true    
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
@@ -11,8 +11,12 @@ port:
   # https://github.com/aelsabbahy/goss/issues/149
   tcp:3000:
     listening: true
+  tcp:8080:
+    listening: true    
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
   http://localhost:3000:
     status: 200
+  http://localhost:8080:
+    status: 200    

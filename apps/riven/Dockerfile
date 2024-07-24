@@ -89,7 +89,7 @@ ENV RIVEN_DATABASE_HOST=sqlite:///riven/data/riven.db
 
 # Copy the rest of the application code
 COPY --from=cloner /source/src/ /riven/src
-COPY --from=cloner /source/pyproject.toml /source/poetry.lock /riven/src/
+COPY --from=cloner /source/pyproject.toml /source/poetry.lock /riven/
 
 # Ensure entrypoint script is executable
 RUN chmod +x /riven/entrypoint.sh
