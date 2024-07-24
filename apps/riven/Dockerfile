@@ -37,11 +37,9 @@ RUN poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
 
 # Final Image
 FROM python:3.11-alpine
-
 LABEL name="Riven" \
       description="Riven Media Server" \
       url="https://github.com/rivenmedia/riven"
-
 
 # Install system dependencies and Node.js
 ENV PYTHONUNBUFFERED=1
@@ -82,21 +80,18 @@ USER 568
 WORKDIR /riven
 
 # Copy the virtual environment from the builder stage
-COPY --chown=568:568 --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/.venv /app/.venv
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
-# ElfHosted will just use sqlite
+
+# We need this to pass testing
 ENV RIVEN_DATABASE_HOST=sqlite:///riven/data/riven.db 
 
 # Copy the rest of the application code
 COPY --from=cloner /source/src/ /riven/src
 COPY --from=cloner /source/pyproject.toml /source/poetry.lock /riven/src/
-COPY --from=cloner /source/VERSION /riven/
 
-# # Install Poetry
-# RUN pip install poetry==1.8.3
-
-# && \
-#     poetry install --no-root --without dev
+# Ensure entrypoint script is executable
+RUN chmod +x /riven/entrypoint.sh
 
 ENTRYPOINT ["/riven/entrypoint.sh"]
