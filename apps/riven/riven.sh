@@ -43,7 +43,8 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         ln -s /riven/data/settings-ilikedanger.json /tmp/riven/data/settings.json
 
         cp /riven/pyproject.toml ./
-        cp /riven/src/poetry.lock ./
+        cp /riven/poetry.lock ./
+        cd src
         poetry run python3 main.py 
     else
         echo "Timeout reached. Continuing boring normal start..."
