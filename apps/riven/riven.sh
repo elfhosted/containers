@@ -42,8 +42,7 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         mkdir -p /tmp/riven/data
         ln -s /riven/data/settings-ilikedanger.json /tmp/riven/data/settings.json
 
-        cd src
-        cp /riven/src/pyproject.toml ./
+        cp /riven/pyproject.toml ./
         cp /riven/src/poetry.lock ./
         poetry run python3 main.py 
     else
