@@ -69,6 +69,11 @@ RUN \
     && printf "umask %d" "${UMASK}" >> /etc/bash.bashrc
 
 WORKDIR "${PLEX_MEDIA_SERVER_HOME}"
+
+ADD https://raw.githubusercontent.com/ChuckPa/PlexDBRepair/master/DBRepair.sh /usr/local/bin/
+RUN sed -i "s/RootRequired=1/RootRequired=0/g" /usr/local/bin/DBRepair.sh && \
+    chmod 755 /usr/local/bin/DBRepair.sh
+
 USER 568
 COPY ./apps/plex/plex-preferences.sh /scripts/plex-preferences.sh
 COPY ./apps/plex/entrypoint.sh /entrypoint.sh
