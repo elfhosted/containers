@@ -4,6 +4,8 @@
 # readonly PATH=$HOME/programs
 
 export HOME=/home/elfie
+export PATH=$PATH:$HOME/.local/bin/
+
 cd /storage
 tmux -f /restricted.tmux.conf new-session -x 80 -y 24 -A -d -s elfterm fish
 

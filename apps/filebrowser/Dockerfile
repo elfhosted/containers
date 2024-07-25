@@ -24,8 +24,8 @@ ENV S6_OVERLAY_VERSION=3.2.0.0
 
 # Possibly useful binaries
 # RUN apk add --no-cache mlocate ncdu tree curl bash
-RUN apt-get -y update && apt-get -y install curl xz-utils git tmux tree fish
-
+RUN apt-get -y update && apt-get -y install curl xz-utils git tmux tree fish pipx python3-venv && \
+    pipx ensurepath
 
 # Add s6
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
@@ -72,6 +72,9 @@ RUN mkdir /storage
 COPY --chown=568:568 apps/filebrowser/root /
 
 USER 568
+
+# We need plextraktsync
+RUN pipx install PlexTraktSync
 
 EXPOSE 8080
 
