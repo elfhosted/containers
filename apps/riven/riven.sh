@@ -50,5 +50,9 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         echo "Timeout reached. Continuing boring normal start..."
         poetry run python3 main.py 
     fi
+else
+    poetry run python3 main.py 
 fi
-poetry run python3 main.py 
+echo "Riven has exited :( Press any key to restart..."
+read -s -n 1
+
