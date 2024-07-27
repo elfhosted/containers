@@ -65,17 +65,16 @@ ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86
 RUN cp -p /bin/bash /bin/vstat
 
 # Run elfie in rbash
-RUN usermod -s /bin/rbash elfie &&
+RUN usermod -s /bin/rbash elfie && \
+    mkdir -p /storage/config && \
     ln -sf /home/elfie/.config/ /storage/config/elfterm
-
-RUN mkdir /storage
 
 COPY --chown=568:568 apps/filebrowser/root /
 
 USER 568
 
 # We need plextraktsync
-RUN pipx install PlexTraktSync &&
+RUN pipx install PlexTraktSync && \
     sed -i -e 's/timeout: 30/timeout: 3600' /home/elfie/.config/PlexTraktSync/config.yml
 
 EXPOSE 8080
