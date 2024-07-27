@@ -74,8 +74,7 @@ COPY --chown=568:568 apps/filebrowser/root /
 USER 568
 
 # We need plextraktsync
-RUN pipx install PlexTraktSync && \
-    sed -i -e 's/timeout: 30/timeout: 3600' /home/elfie/.config/PlexTraktSync/config.yml
+RUN pipx install PlexTraktSync
 
 EXPOSE 8080
 
