@@ -1,7 +1,4 @@
 #!/command/with-contenv bash
 
-# Make elfterm's config accessible in filebrowser
-ln -s /home/.elfie/.config /storage/config/elfterm
-
 # Launch elfterm
 /elfterm.sh
