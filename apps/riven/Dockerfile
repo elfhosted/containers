@@ -55,7 +55,8 @@ RUN apk add --no-cache \
     libpq-dev \
     ttyd \
     git \
-    tmux
+    tmux \
+    dialog
 
 # Create user and group
 RUN addgroup -g 568 elfie && \

@@ -45,6 +45,13 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         mkdir -p /tmp/riven/data
         ln -s /riven/data/settings-ilikedanger.json /tmp/riven/data/settings.json
         cd src
+
+        read -p "Wipe Riven's database first (y/n)?" choice
+        case "$choice" in 
+        y|Y ) python main.py --hard_reset_db;;
+        * ) ;; # do nothing
+        esac
+        clear # clear after user pressed Cancel
         poetry run python3 main.py 
     else
         echo "Timeout reached. Continuing boring normal start..."
