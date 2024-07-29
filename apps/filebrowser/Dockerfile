@@ -24,7 +24,7 @@ ENV S6_OVERLAY_VERSION=3.2.0.0
 
 # Possibly useful binaries
 # RUN apk add --no-cache mlocate ncdu tree curl bash
-RUN apt-get -y update && apt-get -y install curl xz-utils git tmux tree fish pipx python3-venv && \
+RUN apt-get -y update && apt-get -y install curl xz-utils git tmux tree fish pipx python3-venv nano && \
     pipx ensurepath
 
 # Add s6
