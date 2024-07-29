@@ -16,6 +16,12 @@ RUN         curl -L --silent -o webhook.tar.gz https://github.com/adnanh/webhook
 FROM        ghcr.io/elfhosted/alpine:rolling@sha256:3d8693e2e68a277e14e96594381f8b8620c81ada3827babb842faeaae607693f 
 COPY        --from=build /usr/local/bin/webhook /usr/local/bin/webhook
 RUN         apk add --update curl jq yq gettext git openssh-client github-cli
+
+# Add kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+   	install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+	rm kubectl
+
 WORKDIR     /etc/webhook
 VOLUME      ["/etc/webhook"]
 EXPOSE      9000
