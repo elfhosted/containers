@@ -1,5 +1,5 @@
 {
-  "app": "iceberg",
+  "app": "stremio-easynews-addon",
   "base": false,
   "channels": [
     {
