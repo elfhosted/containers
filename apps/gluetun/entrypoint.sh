@@ -5,6 +5,11 @@ if [[ -f /shared/VPN_ENDPOINT_IP ]]; then
     export VPN_ENDPOINT_IP=$(cat /shared/VPN_ENDPOINT_IP)
 fi
 
+# Allow us to write env files to /shared
+if [[ -f /shared/env ]]; then
+    source /shared/env
+fi
+
 # If we're in "sleep mode", then don't actually, just do nothing (useful when we control how a pod will run based on an env var)
 if [[ ! -z "$ZURG_WARP_ENABLED" ]]; 
 then
