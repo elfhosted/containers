@@ -8,60 +8,52 @@ ARG KEPUBIFY_RELEASE=v4.0.4 # until we can work out how to do github auth on thi
 RUN \
   echo "**** install build packages ****" && \
   apt-get update && \
-  apt-get install -y \
-    git \
+  apt-get install -y --no-install-recommends \
+    build-essential \
     libldap2-dev \
     libsasl2-dev \
-    build-essential \
-    python3-dev \
-    python3-pip && \
+    python3-dev && \
   echo "**** install runtime packages ****" && \
-  apt-get install -y \
+  apt-get install -y --no-install-recommends \
     imagemagick \
-    libnss3 \
-    libxcomposite1 \
+    ghostscript \
+    libldap-2.5-0 \
+    libmagic1 \
+    libsasl2-2 \
     libxi6 \
     libxslt1.1 \
-    libldap-2.4-2 \
-    libsasl2-2 \
-    libxrandr2 \
-    python3-minimal \
-    python3-pkg-resources \
-    unrar \
-    libopengl-dev \
-    libxkbcommon-dev \
-    libegl-dev && \
-  echo "**** install calibre-web ****" && \
-  curl -o \
-    /tmp/calibre-web.tar.gz -L \
-    https://github.com/janeczku/calibre-web/archive/${VERSION}.tar.gz && \
-  mkdir -p \
-    /app/calibre-web && \
-  tar xf \
-    /tmp/calibre-web.tar.gz -C \
-    /app/calibre-web --strip-components=1 && \
-  cd /app/calibre-web && \
-  pip3 install --no-cache-dir -U \
-    pip && \
-  pip install --no-cache-dir -U --ignore-installed --find-links https://wheel-index.linuxserver.io/ubuntu/ -r \
+    python3-venv && \
+    echo "**** install calibre-web ****" && \
+    curl -o \
+      /tmp/calibre-web.tar.gz -L \
+      https://github.com/janeczku/calibre-web/archive/${VERSION}.tar.gz && \
+    mkdir -p \
+      /app/calibre-web && \
+    tar xf \
+      /tmp/calibre-web.tar.gz -C \
+      /app/calibre-web --strip-components=1 && \
+    cd /app/calibre-web && \
+  python3 -m venv /lsiopy && \
+  pip install -U --no-cache-dir \
+    pip \
+    wheel && \
+  pip install -U --no-cache-dir --find-links https://wheel-index.linuxserver.io/ubuntu/ -r \
     requirements.txt -r \
     optional-requirements.txt && \
   echo "***install kepubify" && \
   if [ -z ${KEPUBIFY_RELEASE+x} ]; then \
     KEPUBIFY_RELEASE=$(curl -sX GET "https://api.github.com/repos/pgaskin/kepubify/releases/latest" \
-      | awk '/tag_name/{print $4;exit}' FS='[""]'); \
+    | awk '/tag_name/{print $4;exit}' FS='[""]'); \
   fi && \
   curl -o \
     /usr/bin/kepubify -L \
     https://github.com/pgaskin/kepubify/releases/download/${KEPUBIFY_RELEASE}/kepubify-linux-64bit && \
   echo "**** cleanup ****" && \
   apt-get -y purge \
-    git \
+    build-essential \
     libldap2-dev \
     libsasl2-dev \
-    build-essential \
-    python3-dev \
-    python3-pip && \
+    python3-dev && \
   apt-get -y autoremove && \
   rm -rf \
     /tmp/* \
