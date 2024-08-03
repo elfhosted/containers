@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/sleeyax/stremio-easynews-addon.git /source
+RUN git clone -b $VERSION https://github.com/sleeyax/stremio-easynews-addon.git /source
 FROM node:22-alpine AS builder
 
 WORKDIR /build
