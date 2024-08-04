@@ -2,17 +2,32 @@
 
 cd /riven/src
 
+echo "💥 For the option to reset your database, press the 'x' key within 10 seconds.."
+
+# Read a single character with a timeout of 10 seconds
+read -n 1 -t 10 key
+clear # clear after user pressed Cancel
+
+# Check if the key pressed is 'x'
+if [[ $key == "x" ]]; then
+    read -p "Wipe Riven's database first (y/n)?" choice
+    case "$choice" in 
+    y|Y ) python main.py --hard_reset_db;;
+    * ) ;; # do nothing
+    esac
+    clear # clear after user pressed Cancel
+fi
 
 # Don't start unless plex/zurg is ready, or if the user is debugging with ILIKEDANGER
 if [[ -z "$ILIKEDANGER" ]]; then
-# Ensure plex is ready
-echo "📺 Waiting for plex to be up..."
-/usr/local/bin/wait-for -t 3600 plex:32400 -- echo "✅"
+    # Ensure plex is ready
+    echo "📺 Waiting for plex to be up..."
+    /usr/local/bin/wait-for -t 3600 plex:32400 -- echo "✅"
 
-echo "👽 Waiting for zurg to be up..."
-/usr/local/bin/wait-for -t 3600 zurg:9999 -- echo "✅"
+    echo "👽 Waiting for zurg to be up..."
+    /usr/local/bin/wait-for -t 3600 zurg:9999 -- echo "✅"
 
-echo "🎉 let's go!"
+    echo "🎉 let's go!"
 fi
 
 if [[ ! -z "$ILIKEDANGER" ]]; then
@@ -45,13 +60,6 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
         mkdir -p /tmp/riven/data
         ln -s /riven/data/settings-ilikedanger.json /tmp/riven/data/settings.json
         cd src
-
-        read -p "Wipe Riven's database first (y/n)?" choice
-        case "$choice" in 
-        y|Y ) python main.py --hard_reset_db;;
-        * ) ;; # do nothing
-        esac
-        clear # clear after user pressed Cancel
         poetry run python3 main.py 
     else
         echo "Timeout reached. Continuing boring normal start..."
