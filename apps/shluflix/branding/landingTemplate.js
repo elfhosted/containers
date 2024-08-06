@@ -266,7 +266,11 @@ function landingTemplate(manifest, config = {}) {
 			<h2 class="version">v${manifest.version || '0.0.0'}</h2>
 			<h2 class="description">${manifest.description || ''}</h2>
 
-			This is a free, community <A HREF="https://elfhosted.com">ElfHosted</A> instance of the Shluflix addon (<I>Donate to support hosting <A HREF="https://store.elfhosted.com/product/elf-love">here</A> ❤️</I>)
+			This is a free, community <a href="https://elfhosted.com/">ElfHosted</a> instance of the Shluflix addon, enjoy! (<I>reasonable <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">rate-limits</A> apply</I>)
+			<div class="separator"></div>
+						<a id="installLink" class="install-link" href="#">
+			<button name="Install">INSTALL</button>
+			</a>
 
 			<div class="separator"></div>
 
@@ -279,22 +283,24 @@ function landingTemplate(manifest, config = {}) {
 
 			${formHTML}
 
-			<a id="installLink" class="install-link" href="#">
-			<button name="Install">INSTALL</button>
-			</a>
+
 			${contactHTML}
 
 			<div class="separator"></div>
 
-             <h3>Why use ElfHosted addons?</h3>
+             <h3>What is ElfHosted?</h3>
              <div>
-			 <P><A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily. Individual, hosted <A HREF="https://store.elfhosted.com/product/shluflix">Shluflix instances are available</A> (<I>with <A HREF="https://github.com/elfhosted/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">10 x higher</A> rate-limits</I>).</P>
+			 <p><a href="https://elfhosted.com/">ElfHosted</a> is an <a href="https://elfhosted.com/open/">open-source</a> platform for <A HREF="https://elfhosted.com/guides/media/">"self-hosting" Plex with Real Debrid</A> (<I>using <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex/">plex_debrid</A>, <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-riven/">Riven</A>, or <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-radarr-sonarr-prowlarr/">Radarr & Sonarr</A></I>), and your <a href="https://elfhosted.com/apps/">awesome self-hosted apps</a>, automatically and easily.</p>
+
+			<br/>
+			 <p>We support the Stremio community (<A HREf="https://reddit.com/r/StremioAddons">Reddit</A> / <A HREF="https://discord.gg/zNRf6YF">Discord</A>) by providing free hosting for some of the <A HREF="https://elfhosted.com/stremio-addons/">best Stremio Addons</A>, including those which enable you to:</p>
              </div>	
-                <ul>
-                   <li>✅ Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/shluflix-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Felfhosted%2Fstatus.elfhosted.com%2Fmaster%2Fapi%shluflix-stremio-addon%2Fuptime.json"></A></li>
-                   <li>✅ Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A></li>
-                   <li>✅ Geek out over <A HREF="https://fnky.nz/grafana-shluflix">public performance metrics</A></li>
-                </ul>
+			 <ul>
+				<li>👨‍👩‍👦‍👦 <A HREF="https://elfhosted.com/app/comet/">Share your Real Debrid / Stremio from multiple locations at once</A> (<I>Comet</I>)</li>
+				<li>🎁 Watch your paid <A HREF="https://elfhosted.com/app/xtremio/">IPTV with Stremio</A> (<I>Xtremio</I>)</li>
+				<li>📺 Install a <A HREF="https://elfhosted.com/app/mediafusion/">Stremio Live TV addon</A> (<I>MediaFusion</I>)</li>
+				<li>🏈 Watch recorded / live <A HREF="https://elfhosted.com/app/mediafusion/">sports with Stremio</A> (<I>MediaFusion</I>)</li>
+			 </ul>
              </div>	
 
 
