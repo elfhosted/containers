@@ -51,11 +51,15 @@ function getDescriptionHTML(config) {
       + ` <br/><br/><A HREF="https://elfhosted.com">ElfHosted</A> is an <A HREF="https://elfhosted.com/open/">open-source</A> PaaS built and run by <A HREF="https://geek-cookbook.funkypenguin.co.nz">geeks</A>, which self-hosts <A HREF="https://elfhosted.com/guides/media/">your favorite streaming apps</A> for you automatically and easily.`
       + ` <br/><br/>Hosted / private KnightCrawler instances with <A HREF="https://github.com/funkypenguin/elf-infra/blob/main/traefik-middleware/middleware-rate-limit-hosted-stremio-addon.yaml">rate-limits</A> appropriate for automation <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-self-hosted-torrentio/">are available</A>.`
       + ` <br/><br/>An internal, un-rate-limited instance is provided free, with all <A HREF="https://elfhosted.com/apps/">ElfHosted apps</A>, for automation.`
-      + ` <br/><br/>Why use <A HREF="https://elfhosted.com/stremio-addons/">ElfHosted Stremio addons</A>?
+      + ` <br/><br/>What is ElfHosted?
       <p>
-            ✅ Highly-available, <A HREF="https://elfhosted.com/open/">open-source</A> infrastructure  / <A HREF="https://status.elfhosted.com/history/knightcrawler-stremio-addon"><IMG SRC="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Felfhosted%2Fstatus.elfhosted.com%2Fmaster%2Fapi%2Fknightcrawler-stremio-addon%2Fuptime.json"></A><br/>
-            ✅ Active contributors to <A HREF="https://www.reddit.com/r/StremioAddons/">r/StremioAddons</A> subreddit and <A HREF="https://discord.gg/zNRf6YF">Discord</A><br/>
-            ✅ Geek out over <A HREF="https://fnky.nz/grafana-knightcrawler">public performance metrics</A><br/>
+			 <a href="https://elfhosted.com/">ElfHosted</a> is an <a href="https://elfhosted.com/open/">open-source</a> platform for <A HREF="https://elfhosted.com/guides/media/">"self-hosting" Plex with Real Debrid</A> (<I>using <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex/">plex_debrid</A>, <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-riven/">Riven</A>, or <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-radarr-sonarr-prowlarr/">Radarr & Sonarr</A></I>), and your <a href="https://elfhosted.com/apps/">awesome self-hosted apps</a>, automatically and easily.</p>
+			 <p>We support the Stremio community (<A HREf="https://reddit.com/r/StremioAddons">Reddit</A> / <A HREF="https://discord.gg/zNRf6YF">Discord</A>) by providing free hosting for some of the <A HREF="https://elfhosted.com/stremio-addons/">best Stremio Addons</A>, including those which enable you to:</p>
+       <p>
+				👨‍👩‍👦‍👦 <A HREF="https://elfhosted.com/app/comet/">Share your Real Debrid / Stremio from multiple locations at once</A> (<I>Comet</I>)
+				<br/>🎁 Watch your paid <A HREF="https://elfhosted.com/app/xtremio/">IPTV with Stremio</A> (<I>Xtremio</I>)
+				<br/>📺 Install a <A HREF="https://elfhosted.com/app/mediafusion/">Stremio Live TV addon</A> (<I>MediaFusion</I>)
+				<br/>🏈 Watch recorded / live <A HREF="https://elfhosted.com/app/mediafusion/">sports with Stremio</A> (<I>MediaFusion</I>)<br/>
       </p>		`
 }
 
