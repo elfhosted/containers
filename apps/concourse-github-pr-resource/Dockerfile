@@ -31,6 +31,6 @@ COPY --from=builder /go/src/github.com/telia-oss/github-pr-resource/build /opt/r
 RUN chmod +x /opt/resource/*
 
 FROM resource
-LABEL MAINTAINER=opendoor
+LABEL MAINTAINER=funkypenguin
 
 
