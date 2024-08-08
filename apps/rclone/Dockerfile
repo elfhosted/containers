@@ -28,6 +28,6 @@ RUN curl -o /tmp/rclone-webui-angular.zip -jkSL https://github.com/yuudi/rclone-
     && apk del --purge curl    
 
 # Add files.
-COPY apps/rclone/rootfs/ /
+COPY apps/rclone/rootfs/* /
 
 ENTRYPOINT ["/rclonefm.sh"] # set on test or in child images
