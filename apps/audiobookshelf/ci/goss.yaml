@@ -4,7 +4,7 @@ process:
   node:
     running: true
 
-https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 port:
   # https://github.com/aelsabbahy/goss/issues/149
   tcp6:8000:
