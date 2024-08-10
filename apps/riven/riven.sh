@@ -69,6 +69,6 @@ if [[ ! -z "$ILIKEDANGER" ]]; then
 else
     poetry run python3 main.py 
 fi
-echo "Riven has exited :( Press any key to restart..."
-read -s -n 1
+echo "Riven has unexpectedly exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
+read -s -n 1 -t 300
 
