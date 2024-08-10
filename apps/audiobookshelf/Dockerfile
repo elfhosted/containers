@@ -38,7 +38,7 @@ RUN npm ci --only=production
 
 RUN apk del make python3 g++
 
-EXPOSE 80
+ENV PORT=8000
 
 ENTRYPOINT ["tini", "--"]
 CMD ["node", "index.js"]
