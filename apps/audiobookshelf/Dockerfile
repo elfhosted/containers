@@ -15,7 +15,7 @@ RUN npm ci && npm cache clean --force
 RUN npm run generate
 
 ### STAGE 1: Build server ###
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:2fbe8a2a4806efd76d40a31891112fac02b061b6ac98a6d4377c88c89f2577ce
+FROM node:20-alpine
 
 ENV NODE_ENV=production
 
@@ -25,12 +25,13 @@ RUN apk update && \
     tzdata \
     ffmpeg \
     make \
+    gcompat \
     python3 \
     g++ \
     tini
 
 COPY --from=build /client/dist /client/dist
-COPY --from=cloner /source/index.js package* /
+COPY --from=cloner /source/index.js /source/package* /
 COPY --from=cloner /source/server server
 
 RUN npm ci --only=production
