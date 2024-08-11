@@ -53,6 +53,7 @@ RUN apk add --no-cache \
     libffi-dev \
     python3-dev \
     libpq-dev \
+    libtorrent \
     ttyd \
     git \
     tmux \
