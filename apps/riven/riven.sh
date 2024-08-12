@@ -14,7 +14,8 @@ if [[ $key == "x" ]]; then
     case "$choice" in 
     y|Y ) 
         python main.py --hard_reset_db
-        PGPASSWORD=riven psql -U riven -d riven -h localhost -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+        # workaround
+        PGPASSWORD=postgres psql -U postgres -d riven -h localhost -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
         ;;
     * ) ;; # do nothing
     esac
