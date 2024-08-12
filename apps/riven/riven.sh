@@ -12,7 +12,10 @@ clear # clear after user pressed Cancel
 if [[ $key == "x" ]]; then
     read -p "Wipe Riven's database first (y/n)?" choice
     case "$choice" in 
-    y|Y ) python main.py --hard_reset_db;;
+    y|Y ) 
+        python main.py --hard_reset_db
+        PGPASSWORD=riven psql -U riven -d riven -h localhost -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+        ;;
     * ) ;; # do nothing
     esac
     clear # clear after user pressed Cancel

@@ -57,7 +57,8 @@ RUN apk add --no-cache \
     ttyd \
     git \
     tmux \
-    dialog
+    dialog \
+    postgresql-client
 
 # Create user and group
 RUN addgroup -g 568 elfie && \
