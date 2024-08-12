@@ -75,6 +75,9 @@ ENV TERM=xterm-256color
 COPY --chown=568:568 apps/riven/riven.sh /riven/
 COPY --chown=568:568 apps/riven/launch-tmux.sh /riven/
 COPY --chown=568:568 apps/riven/entrypoint.sh /riven/
+COPY --chown=568:568 apps/riven/riven-dev.sh /riven/
+COPY --chown=568:568 apps/riven/launch-tmux-dev.sh /riven/
+COPY --chown=568:568 apps/riven/entrypoint-dev.sh /riven/
 COPY --chown=568:568 apps/riven/restricted.tmux.conf /riven/
 ADD --chmod=755 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for /usr/local/bin/
 
