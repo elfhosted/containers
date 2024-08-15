@@ -23,6 +23,8 @@ if [[ "$key" == "x" ]]; then
     * ) ;; # do nothing
     esac
     clear # clear after user pressed Cancel
+elif [[ "$key" == "z" ]]; then
+    bash # drop to a shell
 fi
 
 echo "📺 Waiting for plex to be up..."
