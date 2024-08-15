@@ -1,15 +1,13 @@
 diff --git a/comet/utils/general.py b/comet/utils/general.py
-index bbb112c..2b7c320 100644
+index 2b7c320..77cbcdf 100644
 --- a/comet/utils/general.py
 +++ b/comet/utils/general.py
-@@ -361,8 +361,8 @@ async def get_zilean(
-                 take_first = get_dmm[: settings.ZILEAN_TAKE_FIRST]
+@@ -345,7 +345,7 @@ async def get_zilean(
                  for result in take_first:
                      object = {
--                        "Title": result["rawTitle"],
+                         "Title": result["filename"],
 -                        "InfoHash": result["infoHash"],
-+                        "Title": result["raw_title"],
 +                        "InfoHash": result["info_hash"],
-                         "Size": result["size"],
+                         "Size": result["filesize"],
                          "Tracker": "DMM",
                      }

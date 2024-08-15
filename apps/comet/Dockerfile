@@ -7,6 +7,8 @@ RUN apk update && apk upgrade && \
     apk add --no-cache git
 
 RUN git clone -b $VERSION https://github.com/g0ldyy/comet.git /source
+COPY apps/comet/zilean-attributes.patch /source/
+RUN cd /source && git apply zilean-attributes.patch && rm zilean-attributes.patch
 
 FROM python:3.11-alpine
 LABEL name="Comet" \
