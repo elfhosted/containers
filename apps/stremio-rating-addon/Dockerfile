@@ -12,6 +12,7 @@ RUN git clone  -b $CHANNEL https://github.com/hexdecimal16/stremio-rating-addon.
 # Use the official Node.js image as the base image
 FROM node:18
 
+USER 568
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 

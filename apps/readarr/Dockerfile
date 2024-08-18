@@ -1,7 +1,6 @@
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:2fbe8a2a4806efd76d40a31891112fac02b061b6ac98a6d4377c88c89f2577ce 
+ARG VERSIONFROM ghcr.io/elfhosted/alpine:rolling@sha256:2fbe8a2a4806efd76d40a31891112fac02b061b6ac98a6d4377c88c89f2577ce 
 
 ARG TARGETPLATFORM
-ARG BUILDPLATFORM
 ARG VERSION
 ARG CHANNEL
 
@@ -15,33 +14,46 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # for initial install
 USER root
+WORKDIR /app
 
-#hadolint ignore=DL3018
-RUN apk add --no-cache ca-certificates icu-libs libintl sqlite-libs xmlstarlet
-#hadolint ignore=DL3059
+#hadolint ignore=DL3018,DL3059
 RUN \
+    apk add --no-cache \
+        bash \
+        ca-certificates \
+        catatonit \
+        curl \
+        icu-libs \
+        jq \
+        libintl \
+        nano \
+        sqlite-libs \
+        tzdata \
+    && \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') export ARCH='x64' ;; \
         'linux/arm64') export ARCH='arm64' ;; \
     esac \
     && \
-    curl -fsSL "https://readarr.servarr.com/v1/update/${READARR__BRANCH}/updatefile?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
-        | tar xzf - -C /app --strip-components=1 \
+    mkdir -p /app/bin \
     && \
-    rm -rf \
-        /app/Readarr.Update \
+    curl -fsSL "https://readarr.servarr.com/v1/update/${READARR__UPDATE__BRANCH}/updatefile?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
+        | tar xzf - -C /app/bin --strip-components=1 \
     && \
-    printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[geek-cookbook](https://github.com/geek-cookbook)" "${READARR__BRANCH}" "${VERSION}" > /app/package_info \
+    rm -rf /app/bin/Readarr.Update \
+    && \
+    printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[onedr0p](https://github.com/onedr0p)\n" "${READARR__UPDATE__BRANCH}" "${VERSION}" > /app/package_info \
     && chown -R root:root /app \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
-USER 568
-
-ENV COMPlus_EnableDiagnostics=0
-
-COPY ./apps/readarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/readarr/entrypoint.sh /entrypoint.sh
+
+USER nobody:nogroup
+WORKDIR /config
+VOLUME ["/config"]
+
+ENTRYPOINT ["/usr/bin/catatonit", "--"]
 CMD ["/entrypoint.sh"]
 
 LABEL org.opencontainers.image.source="https://github.com/Readarr/Readarr"
