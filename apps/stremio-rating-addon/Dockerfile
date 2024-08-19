@@ -28,8 +28,5 @@ COPY --from=cloner /source/. .
 # Expose the port that the app runs on
 EXPOSE 3000
 
-COPY ./apps/alpine/scripts/vpn.sh /scripts/vpn.sh
-COPY ./apps/stremio-rating-addon/entrypoint.sh /entrypoint.sh
-
-CMD []
-ENTRYPOINT ["/entrypoint.sh"]
+# Command to run the application
+CMD ["npm", "start"]
