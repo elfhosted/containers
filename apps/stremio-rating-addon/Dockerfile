@@ -27,6 +27,5 @@ COPY --from=cloner /source/. .
 # Expose the port that the app runs on
 EXPOSE 3000
 
-USER 568 # run as non-root
 # Command to run the application
 CMD ["npm", "start"]
