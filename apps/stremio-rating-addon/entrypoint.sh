@@ -5,4 +5,4 @@ source "/scripts/vpn.sh"
 
 #shellcheck disable=SC2086
 exec \
-    nmp start
+    npm start
