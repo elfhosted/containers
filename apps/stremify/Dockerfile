@@ -25,7 +25,7 @@ COPY --chown=node:node --from=cloner source/package*.json ./
 RUN apk add git
 USER node
 
-RUN pnpm install
+RUN pnpm install; pnpm run build
 
 
 
@@ -33,4 +33,4 @@ COPY --chown=node:node --from=cloner source/. .
 
 EXPOSE 3000
 
-CMD [ "npm", "run", "dev" ]
+CMD [ "pnpm", "run", "preview" ]
