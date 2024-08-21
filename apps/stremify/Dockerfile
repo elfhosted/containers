@@ -3,6 +3,8 @@ FROM alpine:latest as cloner
 ARG CHANNEL
 ARG VERSION
 
+
+
 RUN apk update && apk upgrade && \
     apk add --no-cache git patch
 
@@ -25,7 +27,7 @@ COPY --chown=node:node --from=cloner source/package*.json ./
 RUN apk add git
 USER node
 
-RUN pnpm install; pnpm run build
+RUN pnpm install
 
 
 
@@ -33,4 +35,4 @@ COPY --chown=node:node --from=cloner source/. .
 
 EXPOSE 3000
 
-CMD [ "pnpm", "run", "preview" ]
+CMD [ "npm", "run", "dev" ]
