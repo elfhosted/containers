@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION https://github.comlibrespeed/speedtest.git /source
+RUN git clone -b $VERSION https://github.com/librespeed/speedtest.git /source
 
 FROM php:8-alpine
 
