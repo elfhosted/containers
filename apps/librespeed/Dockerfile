@@ -1,7 +1,7 @@
 # Get the upstream code
-FROM ghcr.io/librespeed/speedtest:latest-alpine
+FROM ghcr.io/librespeed/speedtest:latest
 
 # Install psql extension
-RUN apk add --quiet --no-cache \
-    php83-pdo_pgsql \
-    php83-session
+# RUN apt install \
+#     php-gd \
+#     php83-session
