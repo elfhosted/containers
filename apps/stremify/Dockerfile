@@ -29,10 +29,10 @@ USER node
 
 RUN pnpm install
 
-
-
 COPY --chown=node:node --from=cloner source/. .
+
+RUN pnpm run build
 
 EXPOSE 3000
 
-CMD [ "npm", "run", "dev" ]
+CMD [ "npm", "run", "preview" ]
