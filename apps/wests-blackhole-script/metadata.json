@@ -1,0 +1,17 @@
+{
+  "app": "wests-blackhole-script",
+  "base": false,
+  "channels": [
+    {
+      "name": "main",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    }
+  ]
+}
