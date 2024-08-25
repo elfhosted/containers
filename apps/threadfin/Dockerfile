@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 FROM golang:1.18 AS builder
 
+ARG VERSION
 # Download the source code
 RUN apt-get update && apt-get install -y git
 RUN git clone -b $VERSION https://github.com/Threadfin/Threadfin.git /src
