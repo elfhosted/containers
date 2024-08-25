@@ -11,7 +11,7 @@ RUN git clone -b $VERSION https://github.com/Threadfin/Threadfin.git /src
 WORKDIR /src
 
 # Disable updates
-RUN sed -i 's/Update: true/Update: false' threadfin.go
+RUN sed -i 's/Update: true/Update: false/' threadfin.go
 
 RUN go mod tidy && go mod vendor
 RUN go build threadfin.go
