@@ -1,5 +1,7 @@
 #!/bin/ash
 
+echo "Starting Doplarr... it's a java app 🤮, this may take a little while, it's normal to see no output for up to a minute..."
+
 # run the script
 cd /app
 java -jar doplarr.jar
