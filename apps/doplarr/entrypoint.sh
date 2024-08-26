@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 # Start riven in the background
 tmux -f /restricted.tmux.conf new-session -x 80 -y 24 -A -d -s doplarr /doplarr.sh

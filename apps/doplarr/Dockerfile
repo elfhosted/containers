@@ -24,19 +24,11 @@ WORKDIR /app
 RUN \
   apk add --no-cache \
     ca-certificates \
-    tini \
-    tzdata
+    tzdata \
+    tmux \
+    ttyd
 
 COPY --from=builder /src/target/doplarr.jar ./
-
-
-# Add tmux
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    tmux
-
-# Add ttyd
-ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 
 COPY --chown=568:568 apps/doplarr/doplarr.sh /
 COPY --chown=568:568 apps/doplarr/launch-tmux.sh /
