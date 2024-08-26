@@ -3,6 +3,10 @@ ARG VERSION
 RUN apk add --update --no-cache tmux ttyd git && \
     git clone -b $VERSION https://github.com/westsurname/scripts.git  /source
 
+# Patch for probe support (we can't do inotify)
+COPY apps/wests-blackhole-script/polling-no-inotify.patch /source/
+RUN cd /source && git apply polling-no-inotify.patch && rm polling-no-inotify.patch
+
 FROM python:3.9-slim
 
 ARG SERVICE_NAME=blackhole
