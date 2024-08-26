@@ -1,13 +1,12 @@
 diff --git a/blackhole_watcher.py b/blackhole_watcher.py
-index 180b687..357a753 100644
+index 180b687..37dd3b8 100644
 --- a/blackhole_watcher.py
 +++ b/blackhole_watcher.py
-@@ -1,20 +1,26 @@
+@@ -1,48 +1,38 @@
  import asyncio
 -from watchdog.observers import Observer
 -from watchdog.events import FileSystemEventHandler
 +import os
-+import time
  from blackhole import on_created, getPath
  
 -class BlackholeHandler(FileSystemEventHandler):
@@ -17,27 +16,65 @@ index 180b687..357a753 100644
 +    def __init__(self, is_radarr, poll_interval=5):
          self.is_radarr = is_radarr
          self.path_name = getPath(is_radarr, create=True)
--
++        self.poll_interval = poll_interval
+ 
 -    def on_created(self, event):
 -        if not event.is_directory and event.src_path.lower().endswith((".torrent", ".magnet")):
 -            asyncio.run(on_created(self.is_radarr))
--
--    async def on_run(self):
--        await on_created(self.is_radarr)
-+        self.poll_interval = poll_interval
-+        self.handled_files = set()
-+
 +    async def check_for_new_files(self):
 +        while True:
-+            current_files = set(os.listdir(self.path_name))
-+            new_files = [f for f in current_files if f not in self.handled_files and f.lower().endswith((".torrent", ".magnet"))]
-+            for file in new_files:
-+                self.handled_files.add(file)
-+                await on_created(self.is_radarr)
++            current_files = os.listdir(self.path_name)
++            for file in current_files:
++                if file.lower().endswith((".torrent", ".magnet")):
++                    await on_created(self.is_radarr)
 +            await asyncio.sleep(self.poll_interval)
-+
+ 
+-    async def on_run(self):
+-        await on_created(self.is_radarr)
 +    def start(self):
 +        asyncio.run(self.check_for_new_files())
  
  async def main():
-         print("Watching blackhole")
+-        print("Watching blackhole")
+-
+-        radarr_handler = BlackholeHandler(is_radarr=True)
+-        sonarr_handler = BlackholeHandler(is_radarr=False)
+-
+-        radarr_observer = Observer()
+-        radarr_observer.schedule(radarr_handler, radarr_handler.path_name)
+-
+-        sonarr_observer = Observer()
+-        sonarr_observer.schedule(sonarr_handler, sonarr_handler.path_name)
+-
+-        try:
+-            radarr_observer.start()
+-            sonarr_observer.start()
+-            
+-            await asyncio.gather(
+-                radarr_handler.on_run(),
+-                sonarr_handler.on_run()
+-            )
+-        except KeyboardInterrupt:
+-            radarr_observer.stop()
+-            sonarr_observer.stop()
+-
+-        radarr_observer.join()
+-        sonarr_observer.join()
+-
++    print("Watching blackhole")
++
++    radarr_handler = BlackholeHandler(is_radarr=True)
++    sonarr_handler = BlackholeHandler(is_radarr=False)
++
++    try:
++        # Start the polling for both Radarr and Sonarr
++        await asyncio.gather(
++            radarr_handler.check_for_new_files(),
++            sonarr_handler.check_for_new_files()
++        )
++    except KeyboardInterrupt:
++        print("Stopping due to keyboard interrupt")
+ 
+ if __name__ == "__main__":
+     asyncio.run(main())
+\ No newline at end of file
