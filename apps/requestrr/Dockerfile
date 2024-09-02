@@ -11,7 +11,7 @@ RUN git clone -b $VERSION  https://github.com/thomst08/requestrr.git /source
 
 FROM node as node-build
 
-COPY --from=cloner /source/ClientApp /app
+COPY --from=cloner /source/Requestrr.WebApi/ClientApp /app
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 as dotnet-build
 RUN apt-get update && \
   apt-get --no-install-recommends -y install nodejs npm
 
-COPY --from=cloner /source/ /app
+COPY --from=cloner /source/Requestrr.WebApi/ /app
 COPY --from=node-build /app /app/ClientApp
 
 WORKDIR /app
