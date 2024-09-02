@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/thomst08/requestrr.git /source
 
-FROM node AS node-build
+FROM node as node-build
 
 COPY --from=cloner /source/ClientApp /app
 
