@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION https://gitlab.com/petio-team/petio.git  /source
+RUN git clone -b $VERSION https://github.com/petio-team/petio.git  /source
 
 FROM node:16.3.0-alpine3.13 as builder
 
