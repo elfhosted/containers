@@ -16,7 +16,7 @@ fi
 cd /app
 
 # Directory where logs are stored
-LOG_DIR="/config/logs"
+LOG_DIR="/tmp/logs"
 
 # Log file name
 LOG_FILE="$LOG_DIR/$(date +'%Y-%m-%d').log"
