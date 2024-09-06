@@ -14,6 +14,23 @@ fi
 
 # run the script
 cd /app
-python blackhole_watcher.py
+
+# Directory where logs are stored
+LOG_DIR="/config/logs"
+
+# Log file name
+LOG_FILE="$LOG_DIR/$(date +'%Y-%m-%d').log"
+# Command to run
+COMMAND="python blackhole_watcher.py"
+
+# Ensure the log directory exists
+mkdir -p "$LOG_DIR"
+
+# Remove logs older than 1 day
+find "$LOG_DIR" -type f -name '*.log' -mtime +1 -exec rm {} \;
+
+# Run the command, log output to both stdout and the log file
+$COMMAND | tee -a "$LOG_FILE"
+
 echo "Blackhole has unexpectedly exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
 read -s -n 1 -t 300
