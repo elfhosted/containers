@@ -22,4 +22,4 @@ COPY --from=cloner /source/. .
 
 EXPOSE 5656
 
-CMD [ "python3", "/app/Kapowarr.py" ]
+CMD [ "python3", "/app/Kapowarr.py", "--DatabaseFolder", "/config" ]
