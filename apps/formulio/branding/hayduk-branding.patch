@@ -7,7 +7,7 @@ index fcaf1ea..456494c 100644
      'id': 'org.stremio.formulio',
      'version': '1.0.0',
 -    'name': 'Formulio',
-+    'name': 'Formulio | ElfHosted',
++    'name': 'Formulio | Hayduk',
      'description': 'An Addon for Formula One Replay Content.  (This addon only displays content from external sources. Use this Stremio torrent addon only where legally permitted. Users are responsible for complying with all applicable laws in their jurisdiction)',
      'types': ['series'],
      'catalogs': [
