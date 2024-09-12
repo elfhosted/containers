@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formulio Addon | ElfHosted</title>
+    <title>Formulio | Hayduk </title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap" rel="stylesheet">    
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap" rel="stylesheet">  
     <style>
         body {
             font-family: 'Ubuntu', sans-serif;
@@ -39,7 +39,7 @@
         .hero-content {
             position: relative;
             z-index: 2;
-            background: rgba(29, 29, 29, 0.85); /* Darker semi-transparent background */
+            background: rgba(29, 29, 29, 0.5); /* Darker semi-transparent background */
             padding: 20px;
             border-radius: 30px;
         }
@@ -106,23 +106,35 @@
             }
         }
     </style>
-    <script>
-        window.addEventListener('DOMContentLoaded', (event) => {
+<script>
+    window.onload = () => {
+        try {
             const currentUrl = window.location.href;
             const url = new URL(currentUrl);
             const stremioUrl = `stremio://${url.host}/manifest.json`;
-            document.getElementById('stremio-link').href = stremioUrl;
-        });
-    </script>
+            
+            const stremioLink = document.getElementById('stremio-link');
+            if (stremioLink) {
+                stremioLink.href = stremioUrl;
+            } else {
+                console.error('Element with ID "stremio-link" not found.');
+            }
+        } catch (error) {
+            console.error('An error occurred:', error);
+        }
+    };
+</script>
+
 </head>
 <body>
     <div class="hero">
         <div class="dark-overlay"></div>
         <div class="hero-content">
             <h1>Formulio | Hayduk</h1>
-
-            
             <p>Formula Racing replays on Stremio</p>
+            <div class="content">
+            <p>Join the offical community <a href="https://reddit.com/r/formulastremio/">r/FormulaStremio</a></p>
+            </div>
             <div class="elfhosted">
                 <p>
                     This is a free, public instance of the <A HREF="https://github.com/TheRaceDirector/formuliodev/">Formulio</A>, initially donated by <A HREF="https://elfhosted.com">ElfHosted</A>, but now independently maintained by <A HREF="https://hayd.uk">Hayduk</A>. Enjoy!
@@ -136,10 +148,11 @@
                🎁 Watch your paid <A HREF="https://elfhosted.com/app/xtremio/">IPTV with Stremio</A> (<I>Xtremio</I>)<BR/>
                📺 Install a <A HREF="https://elfhosted.com/app/mediafusion/">Stremio Live TV addon</A> (<I>MediaFusion</I>)<BR/>
                🏈 Watch recorded / live <A HREF="https://elfhosted.com/app/mediafusion/">sports with Stremio</A> (<I>MediaFusion</I>)
-            </div>	              
-                <p>Click the button below to add the Formulio Addon to your Stremio<br>No debrid or config reqired</p>
+            </div>	
+            <div class="content">
+                <p>Click the button below to add the Formulio Addon to your Stremio.<br>No debrid or config required.</p>
             </div>
-            <a id="stremio-link" href="#"><button class="cta-button">Import to Stremio</button></a>
+            <a id="stremio-link" href="#"><button class="cta-button">Install to Stremio</button></a>
             <div class="disclaimer">
                 Disclaimer: This addon does not host any content. It simply suggests pointers to content that is publicly available on the internet.
             </div>
