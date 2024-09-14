@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-version=$(curl -sX GET https://api.github.com/repos/MediaBrowser/Emby.Releases/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
+version=$(curl -sX GET https://api.github.com/repos/MediaBrowser/Emby.Releases/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq -r '.[] | select(.prerelease == true) | .tag_name' | head -n 1)
 version="${version#*v}"
 version="${version#*release-}"
 printf "%s" "${version}"
