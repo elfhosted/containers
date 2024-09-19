@@ -17,6 +17,7 @@ RUN addgroup -S elfie --gid 568 \
     && adduser -S elfie -G elfie --uid 568
 
 USER 568
+WORKDIR /config
 WORKDIR /app
 
 COPY --from=cloner /source/requirements.txt requirements.txt
