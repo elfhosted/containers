@@ -13,6 +13,10 @@ RUN git clone -b $VERSION https://github.com/Casvt/Kapowarr.git  /source
 FROM python:3.8-alpine
 STOPSIGNAL SIGTERM
 
+RUN addgroup -S elfie --gid 568 \
+    && adduser -S elfie -G elfie --uid 568
+
+USER 568
 WORKDIR /app
 
 COPY --from=cloner /source/requirements.txt requirements.txt
