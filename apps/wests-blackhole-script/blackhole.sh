@@ -12,8 +12,18 @@ elif [[ -z "${TORBOX_API_KEY}" && ${TORBOX_ENABLED+x} ]]; then
   sleep infinity
 fi
 
-# run the script
+# Create log directory if it doesn't exist
+mkdir -p /config/logs
+
+# Log file path (using date for daily log)
+log_file="/config/logs/$(date +'%Y-%m-%d').log"
+
+# Remove logs older than 7 days
+find /config/logs/ -type f -name "*.log" -mtime +7 -exec rm {} \;
+
+# Run the script, log output to both stdout and logfile
 cd /app
-python blackhole_watcher.py
+python blackhole_watcher.py 2>&1 | tee -a "$log_file"
+
 echo "Blackhole has unexpectedly exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
 read -s -n 1 -t 300
