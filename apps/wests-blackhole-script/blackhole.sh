@@ -23,7 +23,7 @@ find /config/logs/ -type f -name "*.log" -mtime +7 -exec rm {} \;
 
 # Run the script, log output to both stdout and logfile
 cd /app
-python blackhole_watcher.py 2>&1 | tee -a "$log_file"
+python -u blackhole_watcher.py 2>&1 | tee -a "$log_file"
 
 echo "Blackhole has unexpectedly exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
 read -s -n 1 -t 300
