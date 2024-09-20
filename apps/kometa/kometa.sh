@@ -37,8 +37,8 @@ if [ $? -eq 0 ]; then
     clear # clear after user pressed Cancel
 
 else
-    echo "Timeout reached, running KOMETA as on schedule (12PM UTC)..."
-    KOMETA_TIMES=12:00 python3 kometa.py
+    echo "Timeout reached, running KOMETA as on schedule (${KOMETA_TIMES:-12:00})..."
+    KOMETA_TIMES=${KOMETA_TIMES:-12:00} python3 kometa.py
 fi
 
 
