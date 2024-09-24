@@ -1,9 +1,9 @@
 {
-  "app": "kometa",
+  "app": "imagemaid",
   "base": false,
   "channels": [
     {
-      "name": "master",
+      "name": "main",
       "platforms": [
         "linux/amd64"
       ],

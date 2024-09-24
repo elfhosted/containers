@@ -22,8 +22,14 @@ ENV AWS_ACCESS_KEY_ID="AWS_ACCESS_KEY_ID" \
 
 USER 1001
 
-# We can't use /bitnami/ghost in the pod because it gets overwritten by an emptyDir
-RUN cd /elfhosted \
-    && npm i --silent ghost-storage-adapter-s3 && \
-    cd node_modules/ghost-storage-adapter-s3 && \
-    npm install
+RUN cd /bitnami/ghost
+RUN yarn add --silent ghost-storage-adapter-s3
+RUN mkdir -p /opt/bitnami/ghost/content/adapters/storage/s3
+RUN cp -r ./node_modules/ghost-storage-adapter-s3/* /opt/bitnami/ghost/content/adapters/storage/s3/
+RUN cd /opt/bitnami/ghost/content/adapters/storage/s3/ && yarn install --production
+
+# # We can't use /bitnami/ghost in the pod because it gets overwritten by an emptyDir
+# RUN cd /elfhosted \
+#     && npm i --silent ghost-storage-adapter-s3 && \
+#     cd node_modules/ghost-storage-adapter-s3 && \
+#     npm install
