@@ -27,8 +27,8 @@ elif [[ "$key" == "z" ]]; then
     bash # drop to a shell
 fi
 
-echo "📺 Waiting for plex to be up..."
-/usr/local/bin/wait-for -t 3600 plex:32400 -- echo "✅"
+#echo "📺 Waiting for plex to be up..."
+#/usr/local/bin/wait-for -t 3600 plex:32400 -- echo "✅"
 
 echo "👽 Waiting for zurg to be up..."
 /usr/local/bin/wait-for -t 3600 zurg:9999 -- echo "✅"
