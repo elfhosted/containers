@@ -38,7 +38,7 @@ COPY --from=cloner --chown=mediaflow_proxy:mediaflow_proxy /source/pyproject.tom
 
 # Project initialization:
 RUN poetry config virtualenvs.in-project true \
-    && poetry install --no-interaction --no-ansi --no-dev
+    && poetry install --no-interaction --no-ansi --no-root --only main
 
 # Copy project files
 COPY --from=cloner --chown=mediaflow_proxy:mediaflow_proxy /source/. /mediaflow_proxy
@@ -47,4 +47,4 @@ COPY --from=cloner --chown=mediaflow_proxy:mediaflow_proxy /source/. /mediaflow_
 EXPOSE 8888
 
 # Activate virtual environment and run the application with Gunicorn
-CMD ["poetry", "run", "gunicorn", "mediaflow_proxy.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8888", "--timeout", "120", "--max-requests", "500", "--max-requests-jitter", "200"]
+CMD ["poetry", "run", "gunicorn", "mediaflow_proxy.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8888", "--timeout", "120", "--max-requests", "500", "--max-requests-jitter", "200", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info"]

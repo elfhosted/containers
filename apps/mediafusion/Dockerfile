@@ -15,13 +15,13 @@ COPY apps/mediafusion/branding/elfhosted-branding.patch /source/
 RUN cd /source && git apply elfhosted-branding.patch && rm elfhosted-branding.patch
 
 # Now based on the upstream Dockerfile
-FROM python:3.11.9-slim-bullseye AS builder
+FROM python:3.12-slim-bookworm AS builder
 
 WORKDIR /mediafusion
 
 # Install build dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends git curl && \
     pip install --upgrade pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -41,7 +41,7 @@ COPY --chown=mediafusion:mediafusion --from=cloner /source/Pipfile /source/Pipfi
 RUN pip install --user pipenv && \
     pipenv install --deploy --ignore-pipfile
 
-FROM python:3.11.9-slim-bullseye
+FROM python:3.12-slim-bookworm
 
 WORKDIR /mediafusion
 
@@ -59,5 +59,6 @@ RUN chown -R mediafusion:mediafusion /mediafusion
 USER mediafusion
 
 EXPOSE 8000
+EXPOSE 9191
 
 CMD ["pipenv", "run", "gunicorn", "api.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "120", "--max-requests", "500", "--max-requests-jitter", "200"]
