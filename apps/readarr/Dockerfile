@@ -50,7 +50,7 @@ RUN \
 
 COPY ./apps/readarr/entrypoint.sh /entrypoint.sh
 
-USER nobody:nogroup
+USER elfie:elfie
 WORKDIR /config
 VOLUME ["/config"]
 
