@@ -4,6 +4,11 @@ if [[ -z "$IMAGEMAID_ENABLED" ]];
 then
     echo "IMAGEMAID_ENABLED env var not set, doing nothing.."
     sleep infinity
+elif [[ -z "$PLEX_TOKEN" ]]; 
+    echo "PLEX_TOKEN not set, can't continue"
+    echo "Use https://plex-token-generator.elfhosted.com to generate a token, and add it"
+    echo "by running 'elfbot env imagemaid PLEX_TOKEN=<token>', and waiting ImageMaid to restart"
+    sleep infinity 
 fi
 
 echo "Press any key to drop to a shell, or wait 10 seconds for a normal start..."
@@ -28,18 +33,19 @@ if [ $? -eq 0 ]; then
         do
         case $choice in
             1) python3 /imagemaid.py ;;
-            2) EMPTY_TRASH=true python3 /imagemaid.py ;; 
-            3) CLEAN_BUNDLES=true python3 /imagemaid.py ;;            
-            4) OPTIMIZE_DB=true python3 /imagemaid.py ;;
-            5) PHOTO_TRANSCODER=true python3 /imagemaid.py ;;              
-            *) SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 /imagemaid.py ;; # some action on other
+            2) EMPTY_TRASH=true python3 -u /imagemaid.py ;; 
+            3) CLEAN_BUNDLES=true python3 -u /imagemaid.py ;;            
+            4) OPTIMIZE_DB=true python3 -u /imagemaid.py ;;
+            5) PHOTO_TRANSCODER=true python3 -u /imagemaid.py ;;              
+            *) SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 -u /imagemaid.py ;; # some action on other
         esac
     done
-    clear # clear after user pressed Cancel
+    read -n 1 -s -r -p "Press any key to continue"
+    clear 
 
 else
     echo "Timeout reached, running ImageMaid on schedule (${SCHEDULE:-'05:00|weekly(sunday)'})... (hit CTRL-C and then ENTER to restart)"
-    SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 /imagemaid.py
+    SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 -u /imagemaid.py
 fi
 
 
