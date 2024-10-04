@@ -28,7 +28,7 @@ if [ $? -eq 0 ]; then
         )
 
     while choice=$(dialog --title "$TITLE" \
-                    --menu "🦖 Welcome, Elfie, to Kometa ☄️! \nPick your Kometa task:" 20 40 8 "${items[@]}" \
+                    --menu "🦖 Welcome, Elfie, to ImageMaid 🧹! \nPick your task:" 20 40 6 "${items[@]}" \
                     2>&1 >/dev/tty)
         do
         case $choice in
