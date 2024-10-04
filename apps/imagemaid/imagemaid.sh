@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [[ -z "$IMAGEMAID_ENABLED" ]]; 
+then
+    echo "IMAGEMAID_ENABLED env var not set, doing nothing.."
+    sleep infinity
+fi
+
 echo "Press any key to drop to a shell, or wait 10 seconds for a normal start..."
 
 # -t 5: Timeout of 5 seconds
@@ -32,7 +38,7 @@ if [ $? -eq 0 ]; then
     clear # clear after user pressed Cancel
 
 else
-    echo "Timeout reached, running ImageMaid on schedule (${SCHEDULE:-'05:00|weekly(sunday)'})..."
+    echo "Timeout reached, running ImageMaid on schedule (${SCHEDULE:-'05:00|weekly(sunday)'})... (hit CTRL-C and then ENTER to restart)"
     SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 /imagemaid.py
 fi
 
