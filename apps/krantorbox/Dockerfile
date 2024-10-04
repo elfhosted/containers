@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone --depth 1 https://gitlab.com/book2566/krantorbox.git  /source
 
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
