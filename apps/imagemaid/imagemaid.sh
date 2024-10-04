@@ -21,19 +21,19 @@ if [ $? -eq 0 ]; then
                     2>&1 >/dev/tty)
         do
         case $choice in
-            1) python3 imagemaid.py ;;
-            2) EMPTY_TRASH=true python3 imagemaid.py ;; 
-            3) CLEAN_BUNDLES=true python3 imagemaid.py ;;            
-            4) OPTIMIZE_DB=true python3 imagemaid.py ;;
-            5) PHOTO_TRANSCODER=true python3 imagemaid.py ;;              
-            *) ;; # some action on other
+            1) python3 /imagemaid.py ;;
+            2) EMPTY_TRASH=true python3 /imagemaid.py ;; 
+            3) CLEAN_BUNDLES=true python3 /imagemaid.py ;;            
+            4) OPTIMIZE_DB=true python3 /imagemaid.py ;;
+            5) PHOTO_TRANSCODER=true python3 /imagemaid.py ;;              
+            *) SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 /imagemaid.py ;; # some action on other
         esac
     done
     clear # clear after user pressed Cancel
 
 else
     echo "Timeout reached, running ImageMaid on schedule (${SCHEDULE:-'05:00|weekly(sunday)'})..."
-    SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 imagemaid.py
+    SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 /imagemaid.py
 fi
 
 

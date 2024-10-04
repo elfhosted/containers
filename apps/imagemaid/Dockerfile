@@ -43,10 +43,12 @@ COPY --chown=568:568 apps/imagemaid/entrypoint.sh /
 COPY --chown=568:568 apps/imagemaid/restricted.tmux.conf /
 
 # ports and volumes
-VOLUME /config
+
 
 ARG user=elfie
-RUN groupadd -g 568 $user && useradd --create-home --uid 568 --gid 568 --shell /bin/bash $user
+RUN groupadd -g 568 $user && useradd -d /config --create-home --uid 568 --gid 568 --shell /bin/bash $user
+RUN chown elfie /config
 USER 568
 
+WORKDIR /config
 ENTRYPOINT ["/entrypoint.sh"]
