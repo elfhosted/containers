@@ -5,6 +5,7 @@ then
     echo "IMAGEMAID_ENABLED env var not set, doing nothing.."
     sleep infinity
 elif [[ -z "$PLEX_TOKEN" ]]; 
+then
     echo "PLEX_TOKEN not set, can't continue"
     echo "Use https://plex-token-generator.elfhosted.com to generate a token, and add it"
     echo "by running 'elfbot env imagemaid PLEX_TOKEN=<token>', and waiting ImageMaid to restart"
