@@ -13,8 +13,11 @@
   "dependencyDashboardTitle": "Renovate Dashboard 🤖",
   "suppressNotifications": ["prIgnoreNotification"],
   "commitBodyTable": true,
-  "excludePackagePatterns": ["alpine", "ubuntu"],
   "packageRules": [
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["!alpine", "!ubuntu"],
+    },
     {
       "description": "Auto-merge Github Actions",
       "matchDatasources": ["github-tags"],
