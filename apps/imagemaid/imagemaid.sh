@@ -6,9 +6,9 @@ then
     sleep infinity
 elif [[ -z "$PLEX_TOKEN" ]]; 
 then
-    echo "PLEX_TOKEN not set, can't continue"
+    echo "PLEX_TOKEN not set, can't continue :("
     echo "Use https://plex-token-generator.elfhosted.com to generate a token, and add it"
-    echo "by running 'elfbot env imagemaid PLEX_TOKEN=<token>', and waiting ImageMaid to restart"
+    echo "by running 'elfbot env imagemaid PLEX_TOKEN=<token>' in ElfTerm, and waiting for Plex to restart"
     sleep infinity 
 fi
 
@@ -33,17 +33,27 @@ if [ $? -eq 0 ]; then
                     2>&1 >/dev/tty)
         do
         case $choice in
-            1) python3 /imagemaid.py ;;
-            2) EMPTY_TRASH=true python3 -u /imagemaid.py ;; 
-            3) CLEAN_BUNDLES=true python3 -u /imagemaid.py ;;            
-            4) OPTIMIZE_DB=true python3 -u /imagemaid.py ;;
-            5) PHOTO_TRANSCODER=true python3 -u /imagemaid.py ;;              
-            *) SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 -u /imagemaid.py ;; # some action on other
+            1) python3 /imagemaid.py
+               read -n 1 -s -r -p "Press any key to continue"
+               ;; 
+            2) EMPTY_TRASH=true python3 -u /imagemaid.py
+               read -n 1 -s -r -p "Press any key to continue"
+               ;; 
+            3) CLEAN_BUNDLES=true python3 -u /imagemaid.py
+               read -n 1 -s -r -p "Press any key to continue"
+               ;; 
+            4) OPTIMIZE_DB=true python3 -u /imagemaid.py
+               read -n 1 -s -r -p "Press any key to continue"
+               ;; 
+            5) PHOTO_TRANSCODER=true python3 -u /imagemaid.py
+               read -n 1 -s -r -p "Press any key to continue"
+               ;; 
+            *) SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 -u /imagemaid.py
+               read -n 1 -s -r -p "Press any key to continue"
+               ;; 
         esac
     done
-    read -n 1 -s -r -p "Press any key to continue"
     clear 
-
 else
     echo "Timeout reached, running ImageMaid on schedule (${SCHEDULE:-'05:00|weekly(sunday)'})... (hit CTRL-C and then ENTER to restart)"
     SCHEDULE=${SCHEDULE:-'05:00|weekly(sunday)'} python3 -u /imagemaid.py
