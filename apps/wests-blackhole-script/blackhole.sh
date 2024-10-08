@@ -31,8 +31,8 @@ move_files_if_exists() {
   fi
 }
 
-move_files_if_exists "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}/processing" "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}"
-move_files_if_exists "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}/processing" "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}"
+# move_files_if_exists "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}/processing" "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}"
+# move_files_if_exists "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}/processing" "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}"
 
 # Run the script, log output to both stdout and logfile
 cd /app
