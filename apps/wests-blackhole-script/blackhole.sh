@@ -21,6 +21,19 @@ log_file="/config/logs/$(date +'%Y-%m-%d').log"
 # Remove logs older than 7 days
 find /config/logs/ -type f -name "*.log" -mtime +7 -exec rm {} \;
 
+# move unprocessed files back into watch dir for processing
+move_files_if_exists() {
+  local src_dir=$1
+  local dest_dir=$2
+
+  if [ ! -z "$(ls -A ${src_dir})" ]; then
+    mv ${src_dir}/* ${dest_dir}
+  fi
+}
+
+move_files_if_exists "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}/processing" "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}"
+move_files_if_exists "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}/processing" "${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}"
+
 # Run the script, log output to both stdout and logfile
 cd /app
 python -u blackhole_watcher.py 2>&1 | tee -a "$log_file"
