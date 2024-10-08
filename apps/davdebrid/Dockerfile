@@ -24,6 +24,7 @@ COPY --chown=node:node --from=cloner /source/src ./src
 
 EXPOSE 4000
 
+COPY ./apps/ubuntu/scripts/vpn.sh /scripts/vpn.sh
 COPY ./apps/davdebrid/entrypoint.sh /entrypoint.sh
 
 CMD ["/entrypoint.sh"]
