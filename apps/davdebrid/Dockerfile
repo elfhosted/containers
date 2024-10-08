@@ -20,7 +20,7 @@ USER node
 
 RUN npm install
 
-COPY ---from=cloner -chown=node:node /source/src ./src
+COPY --from=cloner -chown=node:node /source/src ./src
 
 EXPOSE 4000
 
