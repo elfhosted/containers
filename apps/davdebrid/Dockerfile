@@ -14,13 +14,13 @@ RUN mkdir -p /home/node/app && chown -R node:node /home/node/app \
 
 WORKDIR /home/node/app
 
-COPY --from=cloner --chown=node:node /source/package*.json ./
+COPY --chown=node:node --from=cloner /source/package*.json ./
 
 USER node
 
 RUN npm install
 
-COPY --from=cloner -chown=node:node /source/src ./src
+COPY --chown=node:node --from=cloner /source/src ./src
 
 EXPOSE 4000
 
