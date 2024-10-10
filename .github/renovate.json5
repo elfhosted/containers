@@ -33,7 +33,7 @@
       "automergeType": "branch",
       "platformAutomerge": true,
       "ignoreTests": true,
-      "excludePackagePatterns": ["alpine", "ubuntu"]
+      "matchPackageNames": ["!alpine", "!ubuntu"]
     }, 
     {
       "matchDatasources": ["docker"],
