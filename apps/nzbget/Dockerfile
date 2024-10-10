@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/alpine:3.19.1@sha256:afee25e18dd1ab956742f0c9a685c245dd9384348d2e00b0f54a3c69d272468f
+FROM ghcr.io/elfhosted/alpine:3.19.4@sha256:515e01a51569fc10716ebf97de7fa2cabdb7409bf50e1b7f8d06ed69b096e420
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
