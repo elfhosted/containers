@@ -1,4 +1,6 @@
 #!/command/with-contenv bash
 
+ln -s /config/elfterm /home/elfie/.config
+
 # Launch elfterm
 /elfterm.sh
