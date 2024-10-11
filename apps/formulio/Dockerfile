@@ -9,6 +9,9 @@ RUN apk update && apk upgrade && \
 
 RUN git clone  https://github.com/TheRaceDirector/formuliodev.git /source
 
+# Add branding
+COPY apps/formulio/branding/index.html /source/static/
+
 # Build stage
 FROM python:3.10.14-slim-bookworm AS builder
 
