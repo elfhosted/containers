@@ -1,0 +1,314 @@
+From 0862b676a9867a854f709be3b583c8d7d4c135f6 Mon Sep 17 00:00:00 2001
+From: mhdzumair <mhdzumair@gmail.com>
+Date: Sun, 6 Oct 2024 19:10:11 +0530
+Subject: [PATCH] Add support for MediaFlow Proxy
+
+---
+ src/lib/jackettio.js        |   8 ++-
+ src/lib/mediaflowProxy.js   | 112 ++++++++++++++++++++++++++++++++++++
+ src/template/configure.html |  73 +++++++++++++++++++++--
+ 3 files changed, 185 insertions(+), 8 deletions(-)
+ create mode 100644 src/lib/mediaflowProxy.js
+
+diff --git a/src/lib/jackettio.js b/src/lib/jackettio.js
+index c69da04..9cd46e2 100644
+--- a/src/lib/jackettio.js
++++ b/src/lib/jackettio.js
+@@ -2,6 +2,7 @@ import pLimit from 'p-limit';
+ import {parseWords, numberPad, sortBy, bytesToSize, wait, promiseTimeout} from './util.js';
+ import config from './config.js';
+ import cache from './cache.js';
++import { updateUserConfigWithMediaFlowIp, applyMediaflowProxyIfNeeded } from './mediaflowProxy.js';
+ import * as meta from './meta.js';
+ import * as jackett from './jackett.js';
+ import * as debrid from './debrid.js';
+@@ -342,6 +343,7 @@ async function getDebridFiles(userConfig, infos, debridInstance){
+ export async function getStreams(userConfig, type, stremioId, publicUrl){
+ 
+   userConfig = mergeDefaultUserConfig(userConfig);
++  userConfig = await updateUserConfigWithMediaFlowIp(userConfig);
+   const {id, season, episode} = parseStremioId(stremioId);
+   const debridInstance = debrid.instance(userConfig);
+ 
+@@ -365,7 +367,7 @@ export async function getStreams(userConfig, type, stremioId, publicUrl){
+       rows.push(`⬇️ ${torrent.progress.percent}% ${bytesToSize(torrent.progress.speed)}/s`);
+     }
+     return {
+-      name: `[${debridInstance.shortName}${torrent.isCached ? '+' : ''}] ${config.addonName} ${quality}`,
++      name: `[${debridInstance.shortName}${torrent.isCached ? '+' : ''}] ${userConfig.enableMediaFlow ? '🕵🏼‍♂️ ' : ''}${config.addonName} ${quality}`,
+       title: rows.join("\n"),
+       url: torrent.disabled ? '#' : `${publicUrl}/${btoa(JSON.stringify(userConfig))}/download/${type}/${stremioId}/${torrent.id}`
+     };
+@@ -376,10 +378,11 @@ export async function getStreams(userConfig, type, stremioId, publicUrl){
+ export async function getDownload(userConfig, type, stremioId, torrentId){
+ 
+   userConfig = mergeDefaultUserConfig(userConfig);
++  userConfig = await updateUserConfigWithMediaFlowIp(userConfig);
+   const debridInstance = debrid.instance(userConfig);
+   const infos = await torrentInfos.getById(torrentId);
+   const {id, season, episode} = parseStremioId(stremioId);
+-  const cacheKey = `download:2:${await debridInstance.getUserHash()}:${stremioId}:${torrentId}`;
++  const cacheKey = `download:2:${await debridInstance.getUserHash()}${userConfig.enableMediaFlow ? ':mfp': ''}:${stremioId}:${torrentId}`;
+   let files;
+   let download;
+   let waitMs = 0;
+@@ -417,6 +420,7 @@ export async function getDownload(userConfig, type, stremioId, torrentId){
+     }
+ 
+     if(download){
++      download = applyMediaflowProxyIfNeeded(download, userConfig);
+       await cache.set(cacheKey, download, {ttl: 3600});
+       return download;
+     }
+diff --git a/src/lib/mediaflowProxy.js b/src/lib/mediaflowProxy.js
+new file mode 100644
+index 0000000..55d5c9b
+--- /dev/null
++++ b/src/lib/mediaflowProxy.js
+@@ -0,0 +1,112 @@
++import crypto from 'crypto';
++import { URL } from 'url';
++import path from 'path';
++import cache from './cache.js';
++
++const PRIVATE_CIDR = /^(10\.|127\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/;
++
++function getTextHash(text) {
++  return crypto.createHash('sha256').update(text).digest('hex');
++}
++
++async function getMediaflowProxyPublicIp(userConfig) {
++  // If the user has already provided a public IP, use it
++  if (userConfig.mediaflowPublicIp) return userConfig.mediaflowPublicIp;
++
++  const parsedUrl = new URL(userConfig.mediaflowProxyUrl);
++  if (PRIVATE_CIDR.test(parsedUrl.hostname)) {
++    // MediaFlow proxy URL is a private IP address
++    return null;
++  }
++
++  const cacheKey = `mediaflowPublicIp:${getTextHash(`${userConfig.mediaflowProxyUrl}:${userConfig.mediaflowApiPassword}`)}`;
++  try {
++    const cachedIp = await cache.get(cacheKey);
++    if (cachedIp) {
++      return cachedIp;
++    }
++
++    const response = await fetch(new URL(`/proxy/ip?api_password=${userConfig.mediaflowApiPassword}`, userConfig.mediaflowProxyUrl).toString(), {
++      method: 'GET',
++      headers: {
++      'Content-Type': 'application/json',
++      },
++    });
++
++    if (!response.ok) {
++      throw new Error(`HTTP error! status: ${response.status}`);
++    }
++
++    const data = await response.json();
++    const publicIp = data.ip;
++    if (publicIp) {
++      await cache.set(cacheKey, publicIp, { ttl: 300 }); // Cache for 5 minutes
++      return publicIp;
++    }
++  } catch (error) {
++    console.error('An error occurred:', error);
++  }
++
++  return null;
++}
++
++
++function encodeMediaflowProxyUrl(
++  mediaflowProxyUrl,
++  endpoint,
++  destinationUrl = null,
++  queryParams = {},
++  requestHeaders = null,
++  responseHeaders = null
++) {
++  if (destinationUrl !== null) {
++    queryParams.d = destinationUrl;
++  }
++
++  // Add headers if provided
++  if (requestHeaders) {
++    Object.entries(requestHeaders).forEach(([key, value]) => {
++      queryParams[`h_${key}`] = value;
++    });
++  }
++  if (responseHeaders) {
++    Object.entries(responseHeaders).forEach(([key, value]) => {
++      queryParams[`r_${key}`] = value;
++    });
++  }
++
++  const encodedParams = new URLSearchParams(queryParams).toString();
++
++  // Construct the full URL
++  const baseUrl = new URL(endpoint, mediaflowProxyUrl).toString();
++  return `${baseUrl}?${encodedParams}`;
++}
++
++export async function updateUserConfigWithMediaFlowIp(userConfig) {
++  if (userConfig.enableMediaFlow && userConfig.mediaflowProxyUrl && userConfig.mediaflowApiPassword) {
++    const mediaflowPublicIp = await getMediaflowProxyPublicIp(userConfig);
++    if (mediaflowPublicIp) {
++      userConfig.ip = mediaflowPublicIp;
++    }
++  }
++  return userConfig;
++}
++
++
++export function applyMediaflowProxyIfNeeded(videoUrl, userConfig) {
++  if (userConfig.enableMediaFlow && userConfig.mediaflowProxyUrl && userConfig.mediaflowApiPassword) {
++    return encodeMediaflowProxyUrl(
++      userConfig.mediaflowProxyUrl,
++      "/proxy/stream",
++      videoUrl,
++      {
++        api_password: userConfig.mediaflowApiPassword
++      },
++      null,
++      {
++        "Content-Disposition": `attachment; filename=${path.basename(videoUrl)}`
++      }
++    );
++  }
++  return videoUrl;
++}
+diff --git a/src/template/configure.html b/src/template/configure.html
+index 5ec7104..3c5a563 100644
+--- a/src/template/configure.html
++++ b/src/template/configure.html
+@@ -6,6 +6,7 @@
+     <title>Jackettio</title>
+     <link rel="icon" href="/icon">
+     <link href="/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+     <style>
+       .container {
+         max-width: 600px;
+@@ -117,6 +118,44 @@ <h5>Debrid</h5>
+             <input type="{{field.type}}" v-model="field.value" class="form-control">
+           </div>
+         </div>
++
++        <h5>MediaFlow Proxy</h5>
++        <div class="ps-2 border-start border-secondary-subtle">
++          <div class="mb-3">
++            <div class="form-check form-switch">
++              <input class="form-check-input" type="checkbox" v-model="form.enableMediaFlow" id="enableMediaFlow">
++              <label class="form-check-label" for="enableMediaFlow">Enable MediaFlow Proxy</label>
++            </div>
++          </div>
++          <div v-if="form.enableMediaFlow">
++            <div class="mb-2">
++              <a href="https://github.com/mhdzumair/mediaflow-proxy?tab=readme-ov-file#mediaflow-proxy" target="_blank" rel="noopener">
++                MediaFlow Setup Guide
++              </a>
++            </div>
++            <div class="mb-3">
++              <label for="mediaflowProxyUrl">MediaFlow Proxy URL:</label>
++              <input type="text" v-model="form.mediaflowProxyUrl" class="form-control" id="mediaflowProxyUrl" placeholder="https://your-mediaflow-proxy-url.com">
++            </div>
++            <div class="mb-3">
++              <label for="mediaflowApiPassword">MediaFlow API Password:</label>
++              <div class="input-group">
++                <input :type="showMediaFlowPassword ? 'text' : 'password'" v-model="form.mediaflowApiPassword" class="form-control" id="mediaflowApiPassword">
++                <button class="btn btn-outline-secondary" type="button" @click="toggleMediaFlowPassword">
++                  <i :class="showMediaFlowPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
++                </button>
++              </div>
++            </div>
++            <div class="mb-3">
++              <label for="mediaflowPublicIp">MediaFlow Public IP (Optional):</label>
++              <small class="text-muted">
++                Configure this only when running MediaFlow locally with a proxy service. Leave empty if MediaFlow is configured locally without a proxy server or if it's hosted on a remote server.
++              </small>
++              <input type="text" v-model="form.mediaflowPublicIp" class="form-control" id="mediaflowPublicIp" placeholder="Enter public IP address">
++            </div>
++          </div>
++        </div>
++
+         <div class="my-3 d-flex align-items-center">
+           <button @click="configure" type="button" class="btn btn-primary" :disabled="!debrid.id">{{isUpdate ? 'Update' : 'Install'}}</button>
+           <div v-if="error" class="text-danger ms-2">{{error}}</div>
+@@ -140,6 +179,11 @@ <h5>Debrid</h5>
+           const error = ref('');
+           const manifestUrl = ref('');
+           let isUpdate = false;
++          const showMediaFlowPassword = ref(false);
++
++          function toggleMediaFlowPassword() {
++            showMediaFlowPassword.value = !showMediaFlowPassword.value;
++          }
+ 
+           if(config.userConfig){
+             try {
+@@ -151,7 +195,7 @@ <h5>Debrid</h5>
+             }catch(err){}
+           }
+ 
+-          const form = {
++          const form = ref({
+             maxTorrents: defaultUserConfig.maxTorrents,
+             priotizePackTorrents: defaultUserConfig.priotizePackTorrents,
+             excludeKeywords: defaultUserConfig.excludeKeywords.join(','),
+@@ -161,18 +205,23 @@ <h5>Debrid</h5>
+             forceCacheNextEpisode: defaultUserConfig.forceCacheNextEpisode,
+             priotizeLanguages: defaultUserConfig.priotizeLanguages,
+             indexerTimeoutSec: defaultUserConfig.indexerTimeoutSec,
+-            metaLanguage: defaultUserConfig.metaLanguage
+-          };
++            metaLanguage: defaultUserConfig.metaLanguage,
++            enableMediaFlow: defaultUserConfig.enableMediaFlow || false,
++            mediaflowProxyUrl: defaultUserConfig.mediaflowProxyUrl || '',
++            mediaflowApiPassword: defaultUserConfig.mediaflowApiPassword || '',
++            mediaflowPublicIp: defaultUserConfig.mediaflowPublicIp || ''
++          });
++
+           qualities.forEach(quality => quality.checked = defaultUserConfig.qualities.includes(quality.value));
+           indexers.forEach(indexer => indexer.checked = defaultUserConfig.indexers.includes(indexer.value) || defaultUserConfig.indexers.includes('all'));
+ 
+           async function configure(){
+             try {
+               error.value = '';
+-              const userConfig = Object.assign({}, form);
++              const userConfig = Object.assign({}, form.value);
+               userConfig.qualities = qualities.filter(quality => quality.checked).map(quality => quality.value);
+               userConfig.indexers = indexers.filter(indexer => indexer.checked).map(indexer => indexer.value);
+-              userConfig.excludeKeywords = form.excludeKeywords.split(',').filter(Boolean);
++              userConfig.excludeKeywords = form.value.excludeKeywords.split(',').filter(Boolean);
+               debrid.value.configFields.forEach(field => {
+                 if(field.required && !field.value)throw new Error(`${field.label} is required`);
+                 userConfig[field.name] = field.value
+@@ -196,6 +245,16 @@ <h5>Debrid</h5>
+                 }
+               }
+ 
++              // MediaFlow config validation
++              if (userConfig.enableMediaFlow) {
++                if (!userConfig.mediaflowProxyUrl) {
++                  throw new Error('MediaFlow Proxy URL is required when MediaFlow is enabled');
++                }
++                if (!userConfig.mediaflowApiPassword) {
++                  throw new Error('MediaFlow API Password is required when MediaFlow is enabled');
++                }
++              }
++
+               manifestUrl.value = `stremio://${document.location.host}/${btoa(JSON.stringify(userConfig))}/manifest.json`;
+               document.location.href = manifestUrl.value;
+             }catch(err){
+@@ -218,7 +277,9 @@ <h5>Debrid</h5>
+             immulatableUserConfigKeys,
+             languages,
+             isUpdate,
+-            metaLanguages
++            metaLanguages,
++            showMediaFlowPassword,
++            toggleMediaFlowPassword
+           }
+         }
+       }).mount('#app')
