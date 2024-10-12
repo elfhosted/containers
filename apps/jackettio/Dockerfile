@@ -18,6 +18,10 @@ WORKDIR /home/node/app
 
 COPY --chown=node:node --from=cloner source/package*.json ./
 
+# Patch for mediaflow-proxy support
+COPY apps/jackettio/mediaflow-proxy.patch /source/
+RUN cd /source && git apply mediaflow-proxy.patch && rm mediaflow-proxy.patch
+
 USER node
 
 RUN npm install
