@@ -17,7 +17,7 @@ COPY --from=cloner /source/docker/requirements.txt ./docker/requirements.txt
 RUN pip install --no-cache-dir -r docker/requirements.txt
 COPY --from=cloner /source/. .
 
-RUN apt-get -y install tmux dialog
+RUN apt-get -y update && apt-get -y upgrade && apt-get -y install tmux dialog
 
 COPY --from=cloner /source/. /
 VOLUME /config
