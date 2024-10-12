@@ -9,6 +9,10 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/arvida42/jackettio /source
 
+# Patch for mediaflow-proxy support
+COPY apps/jackettio/mediaflow-proxy.patch /source/
+RUN cd /source && git apply mediaflow-proxy.patch && rm mediaflow-proxy.patch
+
 FROM node:20-slim
 
 RUN mkdir -p /home/node/app && chown -R node:node /home/node/app \
@@ -17,10 +21,6 @@ RUN mkdir -p /home/node/app && chown -R node:node /home/node/app \
 WORKDIR /home/node/app
 
 COPY --chown=node:node --from=cloner source/package*.json ./
-
-# Patch for mediaflow-proxy support
-COPY apps/jackettio/mediaflow-proxy.patch /source/
-RUN cd /source && git apply mediaflow-proxy.patch && rm mediaflow-proxy.patch
 
 USER node
 
