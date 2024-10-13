@@ -75,7 +75,7 @@ pages:
     message: Not Found
     description: |
       The server can not find the requested page
-      <P>This may be the result of an expired / failed subscription, planned work (<I>we run a daily 1h maintenance window from 10PM-11PM NZDT/NZST</I>), or a service outage.<P>
+      <P>This may be the result of an expired / failed subscription, planned work (<I>we run a daily 1h maintenance window from 10AM-11AM NZDT/NZST</I>), or a service outage.<P>
       <P>See <A HREF="https://status.elfhosted.com">https://status.elfhosted.com</A> for global service status, or https://[your username]-health.elfhosted.com for your hosted services.
 
   405:
@@ -138,7 +138,7 @@ pages:
     message: Service Unavailable
     description: |
       Doing magic, come back soon...
-      <P>This usually indicates your apps are being provisioned / updated, but may also be the result of an expired / failed subscription, <BR/>planned work (<I>we run a daily 1h maintenance window from 10PM-11PM NZDT/NZST</I>), or a service outage.<P>
+      <P>This usually indicates your apps are being provisioned / updated, but may also be the result of an expired / failed subscription, <BR/>planned work (<I>we run a daily 1h maintenance window from 10AM-11AM NZDT/NZST</I>), or a service outage.<P>
       <P>See <A HREF="https://status.elfhosted.com">https://status.elfhosted.com</A> for global service status, or https://[your username]-health.elfhosted.com for your hosted services.
 
   504:
