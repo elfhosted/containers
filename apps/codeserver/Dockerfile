@@ -12,7 +12,8 @@ RUN apt-get -y update && \
       libssl-dev \
       libffi-dev \
       python3-pip \
-      python3-venv
+      python3-venv \
+      fish
       
 
       RUN \
@@ -21,7 +22,8 @@ RUN apt-get -y update && \
           --group \
           --system \
           --disabled-password \
-          --home /config/codeserver
+          --home /config/codeserver \
+          --shell /bin/fish
 
 WORKDIR /config/codeserver
 # Back to default user
