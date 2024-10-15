@@ -16,14 +16,14 @@ RUN apt-get -y update && \
       fish
       
 
-      RUN \
-      adduser elfie \
-          --uid 568 \
-          --group \
-          --system \
-          --disabled-password \
-          --home /config/codeserver \
-          --shell /bin/fish
+RUN \
+adduser elfie \
+    --uid 568 \
+    --group \
+    --system \
+    --disabled-password \
+    --home /config/codeserver \
+    --shell /bin/fish
 
 WORKDIR /config/codeserver
 # Back to default user
