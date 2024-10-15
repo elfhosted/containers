@@ -23,5 +23,6 @@ RUN apt-get -y update && \
           --disabled-password \
           --home /config/codeserver
 
+WORKDIR /config/codeserver
 # Back to default user
 USER 568
