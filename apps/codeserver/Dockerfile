@@ -14,5 +14,14 @@ RUN apt-get -y update && \
       python3-pip \
       python3-venv
       
+
+      RUN \
+      adduser elfie \
+          --uid 568 \
+          --group \
+          --system \
+          --disabled-password \
+          --home /config/codeserver
+
 # Back to default user
-USER 1000
+USER 568
