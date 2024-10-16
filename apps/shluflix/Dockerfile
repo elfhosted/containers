@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone  https://bitbucket.org/shluflix-stremio/shluflix.git /source
 
-FROM ghcr.io/elfhosted/alpine-node:20@sha256:6012d04af741b80f2c2d21fe6088a2c096383fdb4269567f837e500af888dd69
+FROM ghcr.io/elfhosted/alpine-node:20@sha256:576b2515ddc5e16fcd9c0338a53c7986f09877388a8f4f8e4a40d96a01c7d6d6
 WORKDIR /app
 COPY --from=cloner /source .
 COPY apps/shluflix/branding/landingTemplate.js .

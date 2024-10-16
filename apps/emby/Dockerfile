@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:94a493911145854de7b13719e0b279fc08887839e14bfe9a4c8a4ab1c02666d5 as builder
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:224fbe07e825d0ee91b483bd8403be754971bd0d4813689dbeb28a2435ab46d6 as builder
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
@@ -39,7 +39,7 @@ RUN \
         /tmp/opt/emby-server/etc \
         /tmp/opt/emby-server/extra/lib/*
 
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:94a493911145854de7b13719e0b279fc08887839e14bfe9a4c8a4ab1c02666d5
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:224fbe07e825d0ee91b483bd8403be754971bd0d4813689dbeb28a2435ab46d6
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
