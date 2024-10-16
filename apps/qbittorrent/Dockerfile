@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/alpine:edge@sha256:b382beeed1ce85b1c52ffa66c72f63741fb9b3904631843037e78172cf75d0b0
+FROM ghcr.io/elfhosted/alpine:edge@sha256:19f970ea84d57dce88a29d162022ef84f696810ab391ef7b6219e33fe81d650c
 
 # environment settings
 ARG UNRAR_VERSION=6.2.8
