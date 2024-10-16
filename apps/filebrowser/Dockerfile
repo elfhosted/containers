@@ -66,8 +66,8 @@ RUN cp -p /bin/bash /bin/vstat
 
 # Run elfie in rbash
 RUN usermod -s /bin/rbash elfie && \
-    mkdir -p /storage/config && \
-    ln -sf /home/elfie/.config/ /storage/config/elfterm
+    mkdir -p /storage/config/plextraktsync && \
+    ln -sf /storage/config/plextraktsync /home/elfie/.config/
 
 COPY --chown=568:568 apps/filebrowser/root /
 
