@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:31de07bc212a284a77c1f1e13ac7065cf8b7e679357f28e6ba7fa88244ec88df 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:e76ead6a3355740808f715e2ed7a2047d46c733171b913f00ab119534b437f28 
 
 ENV NODE_ENV production
 
