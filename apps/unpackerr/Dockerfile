@@ -7,7 +7,7 @@ RUN apk add --update --no-cache build-base git bash && \
     git checkout v${VERSION} && \
     CGO_ENABLED=0 make unpackerr.amd64.linux
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:4dccd868574f5595117642045ab574ed4ca628b43c8680ed253c422de1362a9b 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:6a02d1eae6b2c3b5d76befe1009944c36156fdf536f46ef57c47e2259b81ab1a 
 
 VOLUME /config
 
