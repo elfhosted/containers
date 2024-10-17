@@ -1,7 +1,7 @@
 ARG VERSION
 FROM cloudb0x/autoscan:${VERSION} as upstream
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:523b82a80cbc42de1b430e84afff4c09b377387d3d0fb2e43ba7317d49d84607 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:bf24106fa491cfbf45ffd9d7f51d2c427eecf8e540df6ab6fa1693b10d1d7105 
 
 ENV \
   PATH="/app/autoscan:${PATH}" \
