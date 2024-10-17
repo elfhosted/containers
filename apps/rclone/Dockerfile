@@ -1,5 +1,5 @@
 ARG VERSION
-FROM ghcr.io/elfhosted/alpine:edge@sha256:e12c70c7e860b2b7b86be80ea3f06b9d70cd6e82cb48d6d89b5cb5d62b1d2cec
+FROM ghcr.io/elfhosted/alpine:edge@sha256:c9313c64cc7b8f8561d0cdf11f9025c1675fb41e74abbd44618b6291c43d471e
 
 ENV TZ="UTC" \
   PUID="568" \
