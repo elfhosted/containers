@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:18dcb7cc24759e0af0de915713a2a51e1eab8416968dec473de4d4f8deeecafc 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:f47f2ef8bd7ff63c8edbad27475aac7ed641cc9f3bb264bd2db2332cf19d2287 
 
 ARG TARGETPLATFORM
 ARG VERSION
