@@ -13,7 +13,7 @@ RUN         curl -L --silent -o webhook.tar.gz https://github.com/adnanh/webhook
             rm -rf /var/cache/apk/* && \
             rm -rf /go
 
-FROM        ghcr.io/elfhosted/alpine:rolling@sha256:bf24106fa491cfbf45ffd9d7f51d2c427eecf8e540df6ab6fa1693b10d1d7105 
+FROM        ghcr.io/elfhosted/alpine:rolling@sha256:28fd4528c834775bc761f7a07f2f73b0338f5007e25bb6cd0289f12d65a2c856 
 COPY        --from=build /usr/local/bin/webhook /usr/local/bin/webhook
 RUN         apk add --update curl jq yq gettext git openssh-client github-cli
 
