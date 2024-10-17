@@ -1,7 +1,7 @@
 ARG VERSION
 FROM ghcr.io/autobrr/autobrr:v${VERSION} as upstream
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:d143aa2ae054d1061cb6abc8a820506c90330e51fcc95dc7b7f4d2462b61ed3a 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:3904ab32349188d94668bddf41e967d1c0daa0226b848abf35b235555cad2a59 
 
 LABEL org.opencontainers.image.source = "https://github.com/autobrr/autobrr"
 
