@@ -1,6 +1,6 @@
 ARG VERSION
 FROM ghcr.io/debridmediamanager/zurg-testing:${VERSION} as upstream
-FROM ghcr.io/elfhosted/alpine:3.19.1@sha256:dfb0a18161228f317ed4c96630d70d7855d546a522c0017cbe76b907dabae8ec 
+FROM ghcr.io/elfhosted/alpine:3.19.4@sha256:4293c1100c1dc1839feaac751f1066cbf8543701212e7abbc833bf8cb2ecd2b6 
 
 WORKDIR /config
 
