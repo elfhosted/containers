@@ -49,7 +49,7 @@ RUN \
 
 # Stage 3 - Build runtime image
 # FROM ghcr.io/linuxserver/baseimage-alpine:3.17
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:3904ab32349188d94668bddf41e967d1c0daa0226b848abf35b235555cad2a59 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:a56135e0488267f3b18bc4ada6c39b67e5c9657aeced224a67b173764c6ea80b 
 
 # set environment variables
 ARG DEBIAN_FRONTEND="noninteractive"
