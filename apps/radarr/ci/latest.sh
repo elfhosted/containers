@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
 channel=$1
-version=$(curl -s "https://radarr.servarr.com/v1/update/${channel}/changes?os=linux&runtime=netcore" | jq --raw-output '.[0].version')
-version="${version#*v}"
-version="${version#*release-}"
+version=$(curl -sX GET https://api.github.com/repos/radarr/radarr/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
 printf "%s" "${version}"
