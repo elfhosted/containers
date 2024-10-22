@@ -11,7 +11,7 @@ ARG RCLONE_VERSION=current
 # Define working directory.
 WORKDIR /tmp
 
-RUN apk add --no-cache rclone
+RUN apk add --no-cache rclone fuse3
 
 RUN curl -o /tmp/rclone-rc-web-gui.zip -jkSL https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
     && unzip /tmp/rclone-rc-web-gui.zip \
