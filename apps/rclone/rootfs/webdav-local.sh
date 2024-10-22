@@ -1,4 +1,3 @@
-# run this to serve our mounts internally via webdav from /mount
 #!/bin/ash
 
 /usr/bin/rclone serve webdav \

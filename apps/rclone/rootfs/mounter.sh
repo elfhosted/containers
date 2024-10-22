@@ -8,6 +8,7 @@ done
 }
 
 # run once the first time
+sleep 10s # wait for rclone to be running
 refresh_mounts
 
 # Loop indefinitely, monitoring for changes
