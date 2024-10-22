@@ -10,13 +10,16 @@ done
 
 # run once the first time
 sleep 10s # wait for rclone to be running
-refresh_mounts
 
-# Loop indefinitely, monitoring for changes
-while true; do
-    # Wait for any changes to the file
-    inotifywait -e modify "/config/rclone.conf"
-    
-    # Call the function when the file is modified
+if [ -f /config/rclone.conf ]; then
     refresh_mounts
-done
+
+    # Loop indefinitely, monitoring for changes
+    while true; do
+        # Wait for any changes to the file
+        inotifywait -e modify "/config/rclone.conf"
+        
+        # Call the function when the file is modified
+        refresh_mounts
+    done
+fi
