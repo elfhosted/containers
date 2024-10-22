@@ -13,6 +13,10 @@ COPY --chown=568:568 apps/plextraktsync/entrypoint.sh /
 COPY --chown=568:568 apps/plextraktsync/restricted.tmux.conf /
 
 RUN mkdir -p /home/elfie && chown -R elfie /home/elfie
+
+# Run elfie in rbash
+RUN usermod -s /bin/rbash elfie
+
 USER 568
 # We need plextraktsync
 RUN pipx install PlexTraktSync
