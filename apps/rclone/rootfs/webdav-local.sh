@@ -8,4 +8,4 @@
     --stats 60s \
     --copy-links \
     -v \
-    /mount
+    /mount/remote
