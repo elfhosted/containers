@@ -3,6 +3,7 @@
 # Define the function to be executed when the file changes
 refresh_mounts() {
     for MOUNT in $(grep '^\[.*\]$' "/config/rclone.conf" | grep -v storage | sed 's/^\[\(.*\)\]$/\1/'); do
+    mkdir -p /mount/$MOUNT
     rclone rc mount/mount fs=$MOUNT: mountPoint=/mount/$MOUNT
 done
 }
