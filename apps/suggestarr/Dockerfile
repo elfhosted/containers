@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone  https://github.com/giuseppe99barchetta/SuggestArr /source
+RUN git clone -b $VERSION  https://github.com/giuseppe99barchetta/SuggestArr /source
 
 # Stage 1: Build the client
 FROM node:20 AS client-builder
