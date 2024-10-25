@@ -56,4 +56,8 @@ RUN touch /var/log/cron.log /var/log/gunicorn.log /var/log/gunicorn_error.log
 EXPOSE 5000
 
 # Start Supervisor to manage Gunicorn and cron
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+# We'll run the cron separately
+WORKDIR /app
+CMD ["uvicorn api_service.app:asgi_app", "--host", "0.0.0.0", "--port", "5000", "--log-level", "error" ]
