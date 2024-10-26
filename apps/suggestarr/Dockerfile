@@ -31,6 +31,20 @@ RUN apt-get update && \
 # Set the working directory for the api_service
 WORKDIR /app/api_service
 
+# Add and configure the cron job
+RUN echo "0 0 * * * curl -X POST http://localhost:5000/api/automation/force_run >> /var/log/cron.log 2>&1" > /etc/cron.d/automation-cron && \
+    chmod 0644 /etc/cron.d/automation-cron && \
+    crontab /etc/cron.d/automation-cron
+
+# Copy Supervisor configuration
+COPY apps/suggestarr/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Create log files for cron and Gunicorn
+RUN touch /var/log/cron.log /var/log/gunicorn.log /var/log/gunicorn_error.log
+
+ARG user=elfie
+RUN groupadd -g 568 $user && useradd --create-home --uid 568 --gid 568 --shell /bin/bash $user
+
 # Copy and install Python dependencies
 COPY --from=cloner /source/api_service/requirements.txt /app/api_service/
 RUN pip install --no-cache-dir -r requirements.txt
@@ -41,23 +55,15 @@ COPY --from=client-builder /app/client/dist /app/static
 # Copy the api_service source code
 COPY --from=cloner /source/api_service/ /app/api_service/
 
-# Copy Supervisor configuration
-COPY --from=cloner /source/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Add and configure the cron job
-RUN echo "0 0 * * * curl -X POST http://localhost:5000/api/automation/force_run >> /var/log/cron.log 2>&1" > /etc/cron.d/automation-cron && \
-    chmod 0644 /etc/cron.d/automation-cron && \
-    crontab /etc/cron.d/automation-cron
-
-# Create log files for cron and Gunicorn
-RUN touch /var/log/cron.log /var/log/gunicorn.log /var/log/gunicorn_error.log
-
 # Expose the port used by Gunicorn
 EXPOSE 5000
 
-# Start Supervisor to manage Gunicorn and cron
-# CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+RUN touch /app/app.log && chown elfie /app/app.log
 
-# We'll run the cron separately
-WORKDIR /app
-CMD ["uvicorn api_service.app:asgi_app", "--host", "0.0.0.0", "--port", "5000", "--log-level", "error" ]
+# Start Supervisor to manage Gunicorn and cron
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+# # We'll run the cron separately
+# WORKDIR /app
+# CMD ["uvicorn api_service.app:asgi_app", "--host", "0.0.0.0", "--port", "5000", "--log-level", "error" ]
+
