@@ -1,0 +1,13 @@
+version: 1
+formatters:
+  default:
+    format: "%(levelprefix)s %(message)s"
+handlers:
+  file:
+    class: logging.FileHandler
+    filename: /logs/suggestarr.log
+    formatter: default
+loggers:
+  uvicorn:
+    handlers: [file]
+    level: ERROR
