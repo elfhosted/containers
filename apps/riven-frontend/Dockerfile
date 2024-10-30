@@ -35,5 +35,5 @@ COPY --from=frontend  /app/package.json /riven/package.json
 
 COPY --from=cloner /source/version.txt /riven/
 
-COPY apps/riven-frontend/entrypoint /entrypoint.sh
+COPY apps/riven-frontend/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
