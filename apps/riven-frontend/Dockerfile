@@ -22,6 +22,7 @@ FROM node:20-alpine
 LABEL name="Riven" \
     description="Riven Media Server: Frontend" \
     url="https://github.com/rivenmedia/riven-frontend"
+RUN apk add git
 
 
 # Set working directory
@@ -34,5 +35,5 @@ COPY --from=frontend  /app/package.json /riven/package.json
 
 COPY --from=cloner /source/version.txt /riven/
 
-ENTRYPOINT ["node", "/riven/build"]
-# ENTRYPOINT ["ORIGIN=$ORIGIN", "BACKEND_URL=$BACKEND_URL", "node", "/riven/build"]
+COPY apps/riven-frontend/entrypoint /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
