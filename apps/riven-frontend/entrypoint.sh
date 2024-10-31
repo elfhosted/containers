@@ -8,6 +8,11 @@ if [[ -n "$ILIKEFRONTENDDANGER" ]]; then
     git clone -b $ILIKEFRONTENDDANGER  https://github.com/rivenmedia/riven-frontend.git 
     cd riven-frontend
 
+    HOME=/tmp
+    mkdir -p ~/.npm-global
+    npm config set prefix '~/.npm-global'
+    export PATH=~/.npm-global/bin:$PATH
+
     npm install -g pnpm && pnpm install
     pnpm run build && pnpm prune --prod
 
