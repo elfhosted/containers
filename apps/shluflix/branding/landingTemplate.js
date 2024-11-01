@@ -294,6 +294,7 @@ function landingTemplate(manifest, config = {}) {
 
 			<br/>
 			 <p>We support the Stremio community (<A HREf="https://reddit.com/r/StremioAddons">Reddit</A> / <A HREF="https://discord.gg/zNRf6YF">Discord</A>) by providing free hosting for some of the <A HREF="https://elfhosted.com/stremio-addons/">best Stremio Addons</A>, including those which enable you to:</p>
+		     <P>See the <A HREF='https://stremio-addons-guide.elfhosted.com/'>ElfHosted Stremio Addons Guide</A> for more addons!</P>
              </div>	
 			 <ul>
 				<li>👨‍👩‍👦‍👦 <A HREF="https://elfhosted.com/app/comet/">Share your Real Debrid / Stremio from multiple locations at once</A> (<I>Comet</I>)</li>
