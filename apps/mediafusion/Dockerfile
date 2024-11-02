@@ -11,8 +11,6 @@ RUN git clone -b $VERSION  https://github.com/mhdzumair/MediaFusion.git /source
 
 # Add ElfHosted branding
 COPY apps/mediafusion/branding/mediafusion-elfhosted-logo.png /source/resources/images/
-COPY apps/mediafusion/branding/elfhosted-branding.patch /source/
-RUN cd /source && git apply elfhosted-branding.patch && rm elfhosted-branding.patch
 
 # Now based on the upstream Dockerfile
 FROM python:3.12-slim-bookworm AS builder
