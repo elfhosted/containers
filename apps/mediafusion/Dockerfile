@@ -43,6 +43,9 @@ RUN pip install --user pipenv && \
 
 FROM python:3.12-slim-bookworm
 
+ARG VERSION
+ENV VERSION=${VERSION}
+
 WORKDIR /mediafusion
 
 # Copy the Python environment and other necessary files from the builder stage
