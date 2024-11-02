@@ -9,6 +9,9 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/mhdzumair/MediaFusion.git /source
 
+# Capture the git revision
+RUN cd /source && echo $(git rev-parse --short HEAD) > /git_rev
+
 # Add ElfHosted branding
 COPY apps/mediafusion/branding/mediafusion-elfhosted-logo.png /source/resources/images/
 COPY apps/mediafusion/branding/elfhosted-branding.patch /source/
@@ -16,6 +19,14 @@ RUN cd /source && git apply elfhosted-branding.patch && rm elfhosted-branding.pa
 
 # Now based on the upstream Dockerfile
 FROM python:3.12-slim-bookworm AS builder
+
+# Pass VERSION arg to builder stage
+ARG VERSION
+ENV VERSION=${VERSION}
+
+# Pass GIT_REV from cloner stage
+COPY --from=cloner /git_rev /git_rev
+ENV GIT_REV=$(cat /git_rev)
 
 WORKDIR /mediafusion
 
@@ -42,6 +53,12 @@ RUN pip install --user pipenv && \
     pipenv install --deploy --ignore-pipfile
 
 FROM python:3.12-slim-bookworm
+
+# Pass VERSION and GIT_REV to final stage
+ARG VERSION
+ENV VERSION=${VERSION}
+COPY --from=cloner /git_rev /git_rev
+ENV GIT_REV=$(cat /git_rev)
 
 WORKDIR /mediafusion
 
