@@ -55,6 +55,7 @@ function getDescriptionHTML(config) {
       <p>
 			 <a href="https://elfhosted.com/">ElfHosted</a> is an <a href="https://elfhosted.com/open/">open-source</a> platform for <A HREF="https://elfhosted.com/guides/media/">"self-hosting" Plex with Real Debrid</A> (<I>using <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex/">plex_debrid</A>, <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-riven/">Riven</A>, or <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-radarr-sonarr-prowlarr/">Radarr & Sonarr</A></I>), and your <a href="https://elfhosted.com/apps/">awesome self-hosted apps</a>, automatically and easily.</p>
 			 <p>We support the Stremio community (<A HREf="https://reddit.com/r/StremioAddons">Reddit</A> / <A HREF="https://discord.gg/zNRf6YF">Discord</A>) by providing free hosting for some of the <A HREF="https://elfhosted.com/stremio-addons/">best Stremio Addons</A>, including those which enable you to:</p>
+       <P>See the <A HREF='https://stremio-addons-guide.elfhosted.com/'>ElfHosted Stremio Addons Guide</A> for more addons!</P>
        <p>
 				👨‍👩‍👦‍👦 <A HREF="https://elfhosted.com/app/comet/">Share your Real Debrid / Stremio from multiple locations at once</A> (<I>Comet</I>)
 				<br/>🎁 Watch your paid <A HREF="https://elfhosted.com/app/xtremio/">IPTV with Stremio</A> (<I>Xtremio</I>)

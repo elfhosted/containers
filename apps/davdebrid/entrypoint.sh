@@ -16,7 +16,6 @@ if [[ "${WAIT_FOR_WARP:-"false"}" == "true" ]]; then
     done
 fi
 
-cd /config
 #shellcheck disable=SC2086
 exec \
     node src/index.js

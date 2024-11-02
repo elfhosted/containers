@@ -1,9 +1,9 @@
 {
-  "app": "nzbhydra2",
+  "app": "zyclops",
   "base": false,
   "channels": [
     {
-      "name": "stable",
+      "name": "main",
       "platforms": [
         "linux/amd64"
       ],

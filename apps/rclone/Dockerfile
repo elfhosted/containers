@@ -1,5 +1,5 @@
 ARG VERSION
-FROM ghcr.io/elfhosted/alpine:edge@sha256:2fbe8a2a4806efd76d40a31891112fac02b061b6ac98a6d4377c88c89f2577ce
+FROM ghcr.io/elfhosted/alpine:edge@sha256:1b6029d34d95db03e3cd553100190634945cc56a9807761ea68b25dab08953cd
 
 ENV TZ="UTC" \
   PUID="568" \
@@ -8,10 +8,21 @@ ENV TZ="UTC" \
 # Define build arguments
 ARG RCLONE_VERSION=current
 
+ENV S6_OVERLAY_VERSION=3.2.0.0
+
 # Define working directory.
 WORKDIR /tmp
 
-RUN apk add --no-cache rclone
+# Add s6
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
+RUN chown -R elfie:elfie /run
+
+COPY --chown=568:568 apps/rclone/root /
+
+RUN apk add --no-cache rclone fuse3 inotify-tools
 
 RUN curl -o /tmp/rclone-rc-web-gui.zip -jkSL https://github.com/retifrav/rclone-rc-web-gui/releases/download/v0.4.0/rclone-rc-web-gui.zip \
     && unzip /tmp/rclone-rc-web-gui.zip \
@@ -30,4 +41,4 @@ RUN curl -o /tmp/rclone-webui-angular.zip -jkSL https://github.com/yuudi/rclone-
 # Add files.
 COPY apps/rclone/rootfs/ /
 
-ENTRYPOINT ["/rclonefm.sh"] # set on test or in child images
+ENTRYPOINT [ "/init" ]

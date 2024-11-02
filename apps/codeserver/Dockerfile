@@ -12,7 +12,19 @@ RUN apt-get -y update && \
       libssl-dev \
       libffi-dev \
       python3-pip \
-      python3-venv
+      python3-venv \
+      fish
       
+
+RUN \
+adduser elfie \
+    --uid 568 \
+    --group \
+    --system \
+    --disabled-password \
+    --home /config/codeserver \
+    --shell /bin/fish
+
+WORKDIR /config/codeserver
 # Back to default user
-USER 1000
+USER 568

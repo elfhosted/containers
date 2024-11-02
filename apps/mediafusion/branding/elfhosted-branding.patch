@@ -1,19 +1,18 @@
 diff --git a/resources/html/home.html b/resources/html/home.html
-index eec9688..c4589b6 100644
+index eec9688..94c0f90 100644
 --- a/resources/html/home.html
 +++ b/resources/html/home.html
-@@ -17,7 +17,16 @@
+@@ -17,7 +17,15 @@
          <div class="col-10 col-lg-10 col-md-8 col-sm-10 config-container">
              <a href="/"><img class="logo" src="{{ logo_url }}"></a>
              <h3 class="text-center mb-5"><b>{{ addon_name }}</b> - {{ version }}</h3>
 -
 +            <h4 class="mt-4">🧝 What is ElfHosted?</h4>
 +            <p><a href="https://store.elfhosted.com/">ElfHosted</a> is an <a href="https://elfhosted.com/open/">open-source</a> platform for <A HREF="https://elfhosted.com/guides/media/">"self-hosting" Plex, Jellyfin, or Emby with Real Debrid</A> (<I>using <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex/">plex_debrid</A>, <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-riven/">Riven</A>, or <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-radarr-sonarr-prowlarr/">Radarr & Sonarr</A></I>), and your <a href="https://elfhosted.com/apps/">awesome self-hosted apps</a>, automatically and easily.</p>
-+            <p><A HREF="https://store.elfhosted.com/product/mediafusion/">Get your own, private, hosted MediaFusion instance</A> (<I>for custom indexers, channels, etc</I>)</p>
-+            <p>We support the Stremio community (<A HREf="https://reddit.com/r/StremioAddons">Reddit</A> / <A HREF="https://discord.gg/zNRf6YF">Discord</A>) by providing free hosting for some of the <A HREF="https://elfhosted.com/stremio-addons/">best Stremio Addons</A>, including those which enable you to:</p>
++            <p><A HREF="https://store.elfhosted.com/product/mediafusion/">Get your own, private, hosted MediaFusion instance</A> (<I>for custom indexers, channels, etc</I>), and claim your copy of our FREE <A HREF="https://stremio-addons-guide.elfhosted.com">Stremio Addons Guide</A>, teaching you how to:</p>
 +            <ul>
-+                <li>👨‍👩‍👦‍👦 <A HREF="https://elfhosted.com/app/comet/">Share your Real Debrid / Stremio from multiple locations at once</A> (<I>Comet, MediaFusion</I>)</li>
-+                <li>🎁 Watch your paid <A HREF="https://elfhosted.com/app/xtremio/">IPTV with Stremio</A> (<I>Xtremio</I>)</li>
++                <li>👨‍👩‍👦‍👦 <A HREF="https://elfhosted.com/app/comet/">Share your Real Debrid account from multiple locations at once</A> (<I>Comet, MediaFusion</I>)</li>
++                <li>🎁 Watch your paid <A HREF="https://elfhosted.com/app/mediafusion/">IPTV with Stremio</A> (<I>MediaFusion</I>)</li>
 +                <li>📺 Install a <A HREF="https://elfhosted.com/app/mediafusion/">Stremio Live TV addon</A> (<I>MediaFusion</I>)</li>
 +                <li>🏈 Watch recorded / live <A HREF="https://elfhosted.com/app/mediafusion/">sports with Stremio</A> (<I>MediaFusion</I>)</li>
 +            </ul>            
