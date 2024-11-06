@@ -51,6 +51,7 @@ RUN groupadd -g 568 $user && useradd -d /config --create-home --uid 568 --gid 56
 # Add and configure the cron job
 RUN echo "0 0 * * * curl -X POST http://localhost:5000/api/automation/force_run >> /var/log/cron.log 2>&1" > /etc/cron.d/automation-cron && \
     chmod 0644 /etc/cron.d/automation-cron && \
+    chown 568  /etc/cron.d/automation-cron && \
     crontab /etc/cron.d/automation-cron
 
 # Create log files for cron and Gunicorn
