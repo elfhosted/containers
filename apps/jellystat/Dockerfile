@@ -30,7 +30,7 @@ FROM node:slim
 WORKDIR /app
 
 COPY --from=builder /app .
-COPY --chmod=755 entry.sh /entry.sh
+COPY --chmod=755 --from=cloner /source/entry.sh /entry.sh
 
 EXPOSE 3000
 
