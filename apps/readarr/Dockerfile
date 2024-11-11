@@ -1,5 +1,5 @@
 ARG VERSION
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:672b59dc4580b8aaae42e839c878501109ed7a810072c872363250930899bf16 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:672b59dc4580b8aaae42e839c878501109ed7a810072c872363250930899bf16
 
 ARG TARGETPLATFORM
 ARG VERSION
@@ -30,6 +30,7 @@ RUN \
         nano \
         sqlite-libs \
         tzdata \
+        xmlstarlet \
     && \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') export ARCH='x64' ;; \
@@ -48,6 +49,7 @@ RUN \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
+COPY ./apps/readarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/readarr/entrypoint.sh /entrypoint.sh
 
 USER elfie:elfie

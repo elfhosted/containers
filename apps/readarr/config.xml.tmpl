@@ -3,8 +3,8 @@
   <UrlBase>${READARR__URL_BASE}</UrlBase>
   <Branch>${READARR__BRANCH}</Branch>
   <ApiKey>${READARR__API_KEY}</ApiKey>
-  <AuthenticationMethod>${READARR__AUTHENTICATION_METHOD:-None}</AuthenticationMethod>
-  <AuthenticationRequired>${READARR__AUTHENTICATION_REQUIRED}</AuthenticationRequired>
+  <AuthenticationMethod>${READARR__AUTHENTICATION_METHOD:-External}</AuthenticationMethod>
+  <AuthenticationRequired>${READARR__AUTHENTICATION_REQUIRED:-DisabledForLocalAddresses}</AuthenticationRequired>
   <InstanceName>${READARR__INSTANCE_NAME}</InstanceName>
   <PostgresUser>${READARR__POSTGRES_USER}</PostgresUser>
   <PostgresPassword>${READARR__POSTGRES_PASSWORD}</PostgresPassword>
@@ -20,6 +20,6 @@
   <SslPort>6969</SslPort>
   <SslCertPath></SslCertPath>
   <SslCertPassword></SslCertPassword>
-  <UpdateMechanism>BuiltIn</UpdateMechanism>
+  <UpdateMechanism>Docker</UpdateMechanism>
   <AnalyticsEnabled>${READARR__ANALYTICS_ENABLED}</AnalyticsEnabled>
 </Config>
