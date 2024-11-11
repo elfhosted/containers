@@ -47,7 +47,7 @@ LABEL LSCW_Image_Release="${LSCW_RELEASE}"
 LABEL maintainer="CrocodileStick"
 
 # Copy local files into the container
-COPY --chown=abc:abc --cloner /source/. /app/calibre-web-automated/
+COPY --chown=abc:abc --from=cloner /source/. /app/calibre-web-automated/
 
 # STEP 1 - Install stock Calibre-Web
 RUN \
