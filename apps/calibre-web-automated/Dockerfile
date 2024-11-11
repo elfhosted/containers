@@ -213,7 +213,9 @@ COPY --from=unrar /usr/bin/unrar-ubuntu /usr/bin/unrar
 # In ElfHosted, we can only mount a single config volume to the container, which presents a problem for 
 # CWA's volumes. This is a dirty workaround to avoid surprising the user..
 
-RUN mkdir /config/calibre-library && \
+RUN rm -rf /config/calibre-library && \
+    rm -rf /config/cwa-book-ingest && \
+    mkdir /config/calibre-library && \
     mkdir /config/cwa-book-ingest && \
     ln -s /config/* /
 
