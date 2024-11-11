@@ -1,0 +1,28 @@
+{
+  "app": "calibre-web-automated",
+  "base": false,
+  "channels": [
+    {
+      "name": "stable",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    },
+    {
+      "name": "main",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    }    
+  ]
+}
