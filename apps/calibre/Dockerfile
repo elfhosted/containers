@@ -24,9 +24,9 @@ RUN curl -o /tmp/calibre-tarball.txz -L "https://download.calibre-ebook.com/${VE
     rm -rf /tmp/*
 
 RUN /opt/calibre/calibre_postinstall && \
-    mkdir -p /media/books && \
-    touch /media/books/metadata.db && \
-    chown 568 /media/books/metadata.db
+    mkdir -p /media && \
+    touch /media/metadata.db && \
+    chown 568 /media/metadata.db
 
 COPY ./apps/calibre/entrypoint.sh /entrypoint.sh
 
