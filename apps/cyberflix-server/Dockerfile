@@ -14,10 +14,10 @@ WORKDIR /app
 
 COPY --from=cloner /source .
 
-RUN mv /app/db /app/db-orig && \
-    mkdir /nonexistent/ && chown nobody /nonexistent
+# RUN mv /app/db /app/db-orig && \
+#     mkdir /nonexistent/ && chown nobody /nonexistent
 
-    USER nobody 
+USER nobody 
 
 # COPY --from=cloner /source/requirements.txt .
 
@@ -27,4 +27,5 @@ RUN pip install -r requirements.txt
 
 EXPOSE 8000
 
-CMD ["gunicorn", "run:app", "--threads 4", "--worker-class", "uvicorn.workers.UvicornWorker","--bind", "0.0.0.0:8000" ]
+# CMD ["gunicorn", "run:app", "--threads 4", "--worker-class", "uvicorn.workers.UvicornWorker","--bind", "0.0.0.0:8000" ]
+CMD ["python3","run.py"]
