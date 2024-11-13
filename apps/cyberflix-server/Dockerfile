@@ -14,7 +14,7 @@ WORKDIR /app
 
 COPY --from=cloner /source .
 
-USER nobody 
+# USER nobody 
 
 # COPY --from=cloner /source/requirements.txt .
 
