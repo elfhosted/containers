@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/elfhosted/zyclops.git /source
 # Build stage
-FROM golang:1.20-alpine AS builder
+FROM golang:latest AS builder
 
 WORKDIR /app
 COPY --from=cloner /source/. .
