@@ -21,6 +21,7 @@ COPY --from=cloner /source .
 RUN pip install -r requirements.txt 
 
 
+COPY apps/cyberflix-server/run.py .
 
 EXPOSE 8000
 
