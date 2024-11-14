@@ -8,6 +8,10 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION https://github.com/g0ldyy/comet.git /source
 
+# Patch out requirement for warp
+COPY apps/comet/no-warp-necessary.patch /source/
+RUN cd /source && git apply no-warp-necessary.patch && rm no-warp-necessary.patch
+
 FROM python:3.11-alpine
 LABEL name="Comet" \
       description="Stremio's fastest torrent/debrid search add-on." \
