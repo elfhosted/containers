@@ -17,6 +17,9 @@ LABEL name="Comet" \
       description="Stremio's fastest torrent/debrid search add-on." \
       url="https://github.com/g0ldyy/comet"
 
+ARG BUILD_VERSION=UNKNOWN
+ENV BUILD_VERSION=${VERSION}
+
 WORKDIR /app
 
 
