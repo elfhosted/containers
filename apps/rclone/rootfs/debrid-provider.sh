@@ -11,8 +11,7 @@
     --multi-thread-streams=0 \
     --cutoff-mode=cautious \
     --vfs-cache-mode writes \
-    --network-mode \
-    --buffer-size=0
+    --buffer-size=0 \
     -v \
     debrid-provider:
 
