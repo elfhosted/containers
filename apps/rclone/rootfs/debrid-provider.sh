@@ -1,7 +1,7 @@
 #!/bin/ash
 
 /usr/bin/rclone serve webdav \
-    --config /config/rlcone-debrid-provider.conf \
+    --config /config/rclone-debrid-provider.conf \
     --addr :9999 \
     --max-header-bytes=8192 \
     --no-modtime \
