@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/vault/api/auth/approle v0.5.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.3
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/oauth2 v0.10.0
 )
 
@@ -48,5 +48,5 @@ require (
 	golang.org/x/tools v0.6.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
