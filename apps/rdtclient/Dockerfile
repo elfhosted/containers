@@ -34,6 +34,8 @@ WORKDIR /appserver
 RUN \
    echo "**** Cloning Source Code ****" && \
    git clone https://github.com/rogerfar/rdt-client.git . && \
+   wget https://github.com/rogerfar/rdt-client/pull/619.patch && \
+   git apply 619.patch && \
    echo "**** Building Source Code for $TARGETPLATFORM on $BUILDPLATFORM ****" && \
    cd server && \
    dotnet restore --no-cache RdtClient.sln && dotnet publish --no-restore -c Release -o out ; 
