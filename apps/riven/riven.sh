@@ -27,19 +27,18 @@ elif [[ "$key" == "z" ]]; then
     bash # drop to a shell
 fi
 
-echo "📺 Waiting for streamer (${ELF_STREAMER_URL:-plex:32400}) to be up..."
-/usr/local/bin/wait-for -t 3600 ${ELF_STREAMER_URL:-plex:32400} -- echo "✅"
-
-# echo "👽 Waiting for zurg to be up in ${ZURG_URL:-"zurg:9999"}..."
-# /usr/local/bin/wait-for -t 3600 ${ZURG_URL:-"zurg:9999"} -- echo "✅"
-
 # Wait until the directory exists
-while [ ! -d "$RIVEN_SYMLINK_LIBRARY_PATH" ]; do
-    echo "Waiting for directory $RIVEN_SYMLINK_LIBRARY_PATH to be ready..."
+while [ ! -d "$RIVEN_SYMLINK_RCLONE_PATH" ]; do
+    echo "💾 Waiting for directory $RIVEN_SYMLINK_RCLONE_PATH to be ready..."
     sleep 1
 done
 
-echo "Directory $RIVEN_SYMLINK_LIBRARY_PATH exists. Proceeding..."
+echo "📺 Waiting for streamer (${ELF_STREAMER_URL:-plex:32400}) to be up..."
+/usr/local/bin/wait-for -t 3600 ${ELF_STREAMER_URL:-plex:32400} -- echo "✅"
+
+
+
+echo "Directory $RIVEN_SYMLINK_RCLONE_PATH exists. Proceeding..."
 
 
 
