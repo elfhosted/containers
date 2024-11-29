@@ -12,7 +12,7 @@ RUN git clone -b $VERSION https://github.com/rivenmedia/riven.git /source
 # Until the AD PR is merged
 RUN cd /source && \
     wget https://github.com/rivenmedia/riven/pull/916.patch && \
-    git patch apply 916.patch
+    git apply 916.patch
 
 # Builder Image for Python Dependencies
 FROM python:3.11-alpine AS builder
