@@ -27,9 +27,15 @@ elif [[ "$key" == "z" ]]; then
     bash # drop to a shell
 fi
 
-# Wait until the directory exists
-echo "💾 Waiting for directory $RIVEN_SYMLINK_RCLONE_PATH to be ready..."
-while [ ! -d "$RIVEN_SYMLINK_RCLONE_PATH" ]; do    
+# If we have a settings file already, then grab the path from that
+if [ -f /riven/data/settings.json ]; then
+    WAIT_FOR_PATH=$(jq '.symlink.rclone_path' -r /riven/data/settings.json)
+else
+    WAIT_FOR_PATH=$RIVEN_SYMLINK_RCLONE_PATH
+fi
+
+echo "💾 Waiting for directory $WAIT_FOR_PATH to be ready..."
+while [ ! -d "$WAIT_FOR_PATH" ]; do    
     sleep 5
 done
 echo "✅"
