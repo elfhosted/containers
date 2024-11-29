@@ -30,8 +30,8 @@ fi
 #echo "📺 Waiting for plex to be up..."
 #/usr/local/bin/wait-for -t 3600 plex:32400 -- echo "✅"
 
-echo "👽 Waiting for zurg to be up in ${ZURG_URL:-"zurg:9999"}..."
-/usr/local/bin/wait-for -t 3600 ${ZURG_URL:-"zurg:9999"} -- echo "✅"
+# echo "👽 Waiting for zurg to be up in ${ZURG_URL:-"zurg:9999"}..."
+# /usr/local/bin/wait-for -t 3600 ${ZURG_URL:-"zurg:9999"} -- echo "✅"
 
 echo "🎉 let's go!"
 poetry run python3 main.py 
