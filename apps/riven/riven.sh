@@ -28,18 +28,14 @@ elif [[ "$key" == "z" ]]; then
 fi
 
 # Wait until the directory exists
-while [ ! -d "$RIVEN_SYMLINK_RCLONE_PATH" ]; do
-    echo "💾 Waiting for directory $RIVEN_SYMLINK_RCLONE_PATH to be ready..."
-    sleep 1
+echo "💾 Waiting for directory $RIVEN_SYMLINK_RCLONE_PATH to be ready..."
+while [ ! -d "$RIVEN_SYMLINK_RCLONE_PATH" ]; do    
+    sleep 5
 done
+echo "✅"
 
 echo "📺 Waiting for streamer (${ELF_STREAMER_URL:-plex:32400}) to be up..."
 /usr/local/bin/wait-for -t 3600 ${ELF_STREAMER_URL:-plex:32400} -- echo "✅"
-
-
-
-echo "Directory $RIVEN_SYMLINK_RCLONE_PATH exists. Proceeding..."
-
 
 
 echo "🎉 let's go!"
