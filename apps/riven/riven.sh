@@ -28,7 +28,7 @@ elif [[ "$key" == "z" ]]; then
 fi
 
 # Override whatever's in the bootstrap with the known rclone path from the env
-contents="$(jq '.symlink.rclone_path=$RIVEN_SYMLINK_RCLONE_PATH' /riven/data/settings.json)" && \
+contents="$(jq \".symlink.rclone_path=$RIVEN_SYMLINK_RCLONE_PATH\" /riven/data/settings.json)" && \
 echo -E "${contents}" > /riven/data/settings.json
 
 echo "💾 Waiting for directory $RIVEN_SYMLINK_RCLONE_PATH to be ready..."
