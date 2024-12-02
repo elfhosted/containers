@@ -39,6 +39,11 @@ echo -E "${contents}" > /riven/data/settings.json
 contents="$(jq --arg all_debrid_enabled ${TORBOX_ENABLED:-false} '.downloaders.torbox.enabled=$torbox_enabled' /riven/data/settings.json)" && \
 echo -E "${contents}" > /riven/data/settings.json
 
+# Set proxyurl if it's passed
+if [ -n "$RIVEN_DOWNLOADERS_PROXY_URL" ]; then
+    contents="$(jq --arg proxy_url ${RIVEN_DOWNLOADERS_PROXY_URL} '.downloaders.proxy_url=$proxy_url' /riven/data/settings.json)" && \
+    echo -E "${contents}" > /riven/data/settings.json
+fi
 
 echo "💾 Waiting for directory $RIVEN_SYMLINK_RCLONE_PATH to be ready..."
 while [ ! -d "$RIVEN_SYMLINK_RCLONE_PATH" ]; do    
