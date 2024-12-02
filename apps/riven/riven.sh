@@ -32,11 +32,11 @@ contents="$(jq --arg rclone_path $RIVEN_SYMLINK_RCLONE_PATH '.symlink.rclone_pat
 echo -E "${contents}" > /riven/data/settings.json
 
 # Apply ENV vars to make debrid-switching seamless
-contents="$(jq --arg real_debrid_enabled ${REAL_DEBRID_ENABLED:-true} '.downloaders.real_debrid=$real_debrid_enabled' /riven/data/settings.json)" && \
+contents="$(jq --arg real_debrid_enabled ${REAL_DEBRID_ENABLED:-true} '.downloaders.real_debrid.enabled=$real_debrid_enabled' /riven/data/settings.json)" && \
 echo -E "${contents}" > /riven/data/settings.json
-contents="$(jq --arg all_debrid_enabled ${ALL_DEBRID_ENABLED:-false} '.downloaders.all_debrid=$all_debrid_enabled' /riven/data/settings.json)" && \
+contents="$(jq --arg all_debrid_enabled ${ALL_DEBRID_ENABLED:-false} '.downloaders.all_debrid.enabled=$all_debrid_enabled' /riven/data/settings.json)" && \
 echo -E "${contents}" > /riven/data/settings.json
-contents="$(jq --arg all_debrid_enabled ${TORBOX_ENABLED:-false} '.downloaders.torbox=$torbox_enabled' /riven/data/settings.json)" && \
+contents="$(jq --arg all_debrid_enabled ${TORBOX_ENABLED:-false} '.downloaders.torbox.enabled=$torbox_enabled' /riven/data/settings.json)" && \
 echo -E "${contents}" > /riven/data/settings.json
 
 
