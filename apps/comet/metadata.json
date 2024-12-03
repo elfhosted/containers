@@ -14,7 +14,7 @@
       }
     },
     {
-      "name": "dev",
+      "name": "rewrite",
       "platforms": [
         "linux/amd64"
       ],
