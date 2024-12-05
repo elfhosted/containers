@@ -1,7 +1,7 @@
 ARG GOOS=linux
 ARG GOARCH=amd64
 
-FROM alpine:3.19.0 as resource-tools
+FROM alpine:3.21.0 as resource-tools
 RUN apk add --update --no-cache \
     curl \
     jq \
