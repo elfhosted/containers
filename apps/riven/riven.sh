@@ -58,3 +58,5 @@ echo "📺 Waiting for streamer (${ELF_STREAMER_URL:-plex:32400}) to be up..."
 echo "🎉 let's go!"
 poetry run python3 main.py 
 
+echo "Riven has unexpectedly exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
+read -s -n 1 -t 300
