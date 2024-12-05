@@ -36,7 +36,7 @@ contents="$(jq --arg real_debrid_enabled ${REAL_DEBRID_ENABLED:-true} '.download
 echo -E "${contents}" > /riven/data/settings.json
 contents="$(jq --arg all_debrid_enabled ${ALL_DEBRID_ENABLED:-false} '.downloaders.all_debrid.enabled=$all_debrid_enabled' /riven/data/settings.json)" && \
 echo -E "${contents}" > /riven/data/settings.json
-contents="$(jq --arg all_torbox_enabled ${TORBOX_ENABLED:-false} '.downloaders.torbox.enabled=$torbox_enabled' /riven/data/settings.json)" && \
+contents="$(jq --arg torbox_enabled ${TORBOX_ENABLED:-false} '.downloaders.torbox.enabled=$torbox_enabled' /riven/data/settings.json)" && \
 echo -E "${contents}" > /riven/data/settings.json
 
 # Set proxyurl if it's passed
