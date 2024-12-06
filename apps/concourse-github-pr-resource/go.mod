@@ -9,7 +9,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hashicorp/vault/api/auth/approle v0.5.0
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.3
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.10.0
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/oauth2 v0.10.0
