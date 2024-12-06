@@ -10,7 +10,7 @@ RUN git clone -b $VERSION  https://github.com/Stremio/stremio-web.git /source
 
 # Copied from https://github.com/Stremio/stremio-web/blob/development/Dockerfile and modified for cloner source
 # Stremio Node 14.x# the node version for running Stremio Web
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 # Meta
 LABEL Description="Stremio Web" Vendor="Smart Code OOD" Version="1.0.0"
