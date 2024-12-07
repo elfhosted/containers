@@ -1,4 +1,4 @@
-FROM mikefarah/yq:4.44.1 as yq
+FROM mikefarah/yq:4.44.6 as yq
 
 FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:224fbe07e825d0ee91b483bd8403be754971bd0d4813689dbeb28a2435ab46d6
 
