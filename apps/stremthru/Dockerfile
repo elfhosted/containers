@@ -13,7 +13,7 @@ FROM golang:1.23 AS builder
 
 WORKDIR /workspace
 
-COPY --from=cloner /source/go.mod go.sum ./
+COPY --from=cloner /source/go.mod /source/go.sum ./
 RUN go mod download
 
 COPY --from=cloner /source/core ./core
