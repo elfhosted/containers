@@ -32,7 +32,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /workspace/stremthru ./stremthru
 
 COPY --from=cloner /source/scripts/schema.sh /scripts/
-COPY --from=cloner /source/schema.hcl /
+COPY --from=cloner /source/schema.hcl /app/
 
 EXPOSE 8080
 
