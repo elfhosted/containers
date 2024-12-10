@@ -23,14 +23,15 @@ COPY --from=cloner /source/*.go ./
 
 RUN CGO_ENABLED=1 GOOS=linux go build -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
 
-FROM scratch
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:672b59dc4580b8aaae42e839c878501109ed7a810072c872363250930899bf16 
+
 
 WORKDIR /app
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /workspace/stremthru ./stremthru
 
-VOLUME ["/app/data"]
+COPY --from=cloner /source/scripts/schema.sh /scripts/
 
 EXPOSE 8080
 
