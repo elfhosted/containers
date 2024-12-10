@@ -15,14 +15,15 @@ WORKDIR /workspace
 
 COPY --from=cloner /source/go.mod /source/go.sum ./
 RUN go mod download
-RUN mkdir -p /schema
+
 
 COPY --from=cloner /source/core ./core
 COPY --from=cloner /source/internal ./internal
 COPY --from=cloner /source/store ./store
 COPY --from=cloner /source/*.go ./
-COPY --from=cloner /source/schema.hcl source/schema.postgres.hcl /schema
+COPY --from=cloner /source/schema.hcl source/schema.postgres.hcl ./
 
+RUN mkdir -p /schema
 RUN CGO_ENABLED=1 GOOS=linux go build -tags 'heavy' -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
 
 
