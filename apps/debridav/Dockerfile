@@ -20,10 +20,10 @@ RUN ./gradlew bootJar
 FROM openjdk:21-jdk-slim
 WORKDIR /app
 
-COPY --from=base /app/build/libs/debridav-0.1.0.jar /app
+COPY --from=base /app/build/libs/debridav*.jar /app
 # Expose any necessary ports (adjust as needed)
 EXPOSE 8080
 
 # Command to run the application
 # Replace with the actual command to start the application
-CMD ["java", "-jar", "/app/debridav-*.jar"]
+CMD ["java", "-jar", "/app/debridav-0.1.0.jar"]
