@@ -1,5 +1,5 @@
 # Use official OpenJDK 21 image as base
-FROM openjdk:21-jdk-slim
+FROM openjdk:21-jdk-slim as base
 
 # Set working directory in the container
 WORKDIR /app
@@ -17,6 +17,10 @@ RUN git clone https://github.com/skjaere/debridav.git .
 # This example assumes Maven, but you might need to modify based on the project's build system
 RUN ./gradlew bootJar
 
+FROM openjdk:21-jdk-slim
+WORKDIR /app
+
+COPY --from=base /app/build/libs/debridav-0.1.0.jar /app
 # Expose any necessary ports (adjust as needed)
 EXPOSE 8080
 
