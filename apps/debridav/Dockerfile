@@ -26,4 +26,4 @@ EXPOSE 8080
 
 # Command to run the application
 # Replace with the actual command to start the application
-CMD ["java", "-jar", "build/libs/debridav-*.jar"]
+CMD ["java", "-jar", "/app/debridav-*.jar"]
