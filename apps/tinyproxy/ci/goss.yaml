@@ -1,0 +1,19 @@
+---
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+process:
+  tinyproxy:
+    running: true    
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+port:
+  # 8888://github.com/aelsabbahy/goss/issues/149
+  tcp6:8000:
+    listening: true
+
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+http:
+  http://localhost:8888:
+    status: 200
+    timeout: 5000
+
