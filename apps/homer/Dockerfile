@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION  https://github.com/bastienwirtz/homer.git /source
 
 # build stage
-FROM node:18-alpine3.19 as build-stage
+FROM node:22-alpine3.19 as build-stage
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
