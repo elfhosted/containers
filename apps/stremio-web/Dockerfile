@@ -6,11 +6,15 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/Stremio/stremio-web.git /source
+RUN git clone -b $VERSION  https://github.com/iPromKnight/stremio-web.git /source
 
 # Copied from https://github.com/Stremio/stremio-web/blob/development/Dockerfile and modified for cloner source
 # Stremio Node 14.x# the node version for running Stremio Web
-FROM node:20-alpine AS base
+
+# Stremio Node 20.x
+# the node version for running Stremio Web
+ARG NODE_VERSION=20-alpine
+FROM node:$NODE_VERSION AS base
 
 # Meta
 LABEL Description="Stremio Web" Vendor="Smart Code OOD" Version="1.0.0"
@@ -35,6 +39,5 @@ WORKDIR /var/www/stremio-web
 COPY --from=cloner /source/. .
 COPY --from=prebuild /var/www/stremio-web/node_modules ./node_modules
 COPY --from=prebuild /var/www/stremio-web/build ./build
-
 EXPOSE 8080
-CMD ["node", "http_server.js"]
+CMD ["sh", "-c", "node http_server.js"]
