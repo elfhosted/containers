@@ -13,8 +13,8 @@ RUN git clone https://github.com/iPromKnight/stremio-web.git /source
 
 # Stremio Node 20.x
 # the node version for running Stremio Web
-ARG NODE_VERSION=20-alpine
-FROM node:$NODE_VERSION AS base
+# ARG NODE_VERSION=20-alpine
+FROM node:20-alpine AS base
 
 # Meta
 LABEL Description="Stremio Web" Vendor="Smart Code OOD" Version="1.0.0"
