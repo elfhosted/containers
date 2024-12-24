@@ -22,6 +22,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 RUN apk add --update --no-cache curl
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
+ENV WEB_AUTH_KEY=changemeelfie
 WORKDIR /app
 VOLUME /app/data
 COPY --from=base /app/out .
