@@ -21,9 +21,8 @@ COPY --from=cloner /source/core ./core
 COPY --from=cloner /source/internal ./internal
 COPY --from=cloner /source/store ./store
 COPY --from=cloner /source/*.go ./
-COPY --from=cloner /source/schema.hcl source/schema.postgres.hcl ./
+COPY --from=cloner /source/stremio ./stremio
 
-RUN mkdir -p /schema
 RUN CGO_ENABLED=1 GOOS=linux go build -tags 'heavy' -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
 
 
@@ -33,10 +32,6 @@ WORKDIR /app
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /workspace/stremthru ./stremthru
-
-COPY --from=builder /schema /tmp
-COPY --from=arigaio/atlas:0.29.0-community /atlas /usr/local/bin/atlas
-
 
 EXPOSE 8080
 
