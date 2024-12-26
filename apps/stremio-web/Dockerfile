@@ -32,6 +32,9 @@ COPY --from=cloner /source/. .
 RUN npm install
 RUN npm run build
 
+# intended to be overridden
+ENV WEB_AUTH_KEY=changemeelfie
+
 # Bundle app source
 FROM base AS final
 

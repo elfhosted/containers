@@ -1,7 +1,4 @@
 ---
-env:
-  FLIXIO_API_KEY:
-    value: forgosstests
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 # process:
 #   gunicorn:
