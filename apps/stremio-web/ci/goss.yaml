@@ -2,6 +2,10 @@
 env:
   WEB_AUTH_KEY:
     value: justforgoss
+  API_KEY:
+    value: forgosstests    
+  API_ENDPOINT:
+    value: http://localhost:1234
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 # process:
