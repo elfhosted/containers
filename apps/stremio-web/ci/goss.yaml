@@ -1,4 +1,8 @@
 ---
+environment:
+  WEB_AUTH_KEY:
+    value: justforgoss
+
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 # process:
 #   gunicorn:
