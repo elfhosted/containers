@@ -22,9 +22,9 @@ COPY --from=cloner /source/internal ./internal
 COPY --from=cloner /source/store ./store
 COPY --from=cloner /source/*.go ./
 COPY --from=cloner /source/stremio ./stremio
+COPY --from=cloner /source/schema.hcl source/schema.postgres.hcl ./
 
-RUN CGO_ENABLED=1 GOOS=linux go build -tags 'heavy' -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
-
+RUN CGO_ENABLED=1 GOOS=linux go build -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
 
 FROM scratch
 
@@ -32,6 +32,8 @@ WORKDIR /app
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /workspace/stremthru ./stremthru
+
+VOLUME ["/app/data"]
 
 EXPOSE 8080
 
