@@ -1,5 +1,5 @@
 ---
-environment:
+env:
   WEB_AUTH_KEY:
     value: justforgoss
 
