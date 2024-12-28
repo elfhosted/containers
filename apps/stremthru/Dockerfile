@@ -24,7 +24,7 @@ COPY --from=cloner /source/*.go ./
 COPY --from=cloner /source/stremio ./stremio
 COPY --from=cloner /source/schema.hcl source/schema.postgres.hcl ./
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
+RUN CGO_ENABLED=1 GOOS=linux go build -tags 'heavy' -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
 
 FROM scratch
 
