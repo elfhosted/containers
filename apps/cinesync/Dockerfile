@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Install required packages
 RUN apt-get update && \
-    apt-get install -y inotify-tools bash gosu && \
+    apt-get install -y inotify-tools tmux bash dialog && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -40,9 +40,13 @@ RUN mkdir -p /app/db
 ENV PUID=1000
 ENV PGID=1000
 
-# Add entrypoint script
-COPY --from=cloner /source/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Add ttyd
+ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
+# add local files
+COPY --chown=568:568 apps/cinesync/cinesync.sh /
+COPY --chown=568:568 apps/cinesync/launch-tmux.sh /
+COPY --chown=568:568 apps/cinesync/entrypoint.sh /
+COPY --chown=568:568 apps/cinesync/restricted.tmux.conf /
 
 # Force our preferred user
 ARG user=elfie
@@ -51,4 +55,4 @@ RUN chown elfie /app/db
 USER 568
 
 # Run the application
-CMD ["python3", "MediaHub/main.py", "--auto-select"]
+ENTRYPOINT ["/entrypoint.sh"]
