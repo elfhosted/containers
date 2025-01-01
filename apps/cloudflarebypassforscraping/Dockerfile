@@ -59,7 +59,7 @@ RUN pip3 install pyvirtualdisplay
 WORKDIR /app
 
 # Copy application files
-COPY . .
+COPY --from=cloner /source/. .
 
 # Install Python dependencies
 RUN pip3 install -r requirements.txt
