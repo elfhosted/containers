@@ -6,13 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION https://github.com/g0ldyy/comet.git /source
-
-# Revert removal of ED (for now)
-RUN cd /source && \
-    git config --global user.email "you@example.com" && \
-    git config --global user.name "Your Name" && \
-    git revert d6922010290ebe62b56bc782859e8ad07e14daeb
+RUN git clone https://github.com/elfhosted/comet.git /source
 
 # Patch out requirement for warp
 COPY apps/comet/no-warp-necessary.patch /source/
