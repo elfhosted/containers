@@ -20,14 +20,15 @@ RUN cd /source && git apply no-warp-necessary.patch && rm no-warp-necessary.patc
 
 FROM python:3.11-alpine
 LABEL name="Comet" \
-      description="Stremio's fastest torrent/debrid search add-on." \
-      url="https://github.com/g0ldyy/comet"
+    description="Stremio's fastest torrent/debrid search add-on." \
+    url="https://github.com/g0ldyy/comet"
 
 ARG BUILD_VERSION=UNKNOWN
 ENV BUILD_VERSION=${VERSION}
 
 WORKDIR /app
 
+ARG DATABASE_PATH
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -45,6 +46,7 @@ RUN apk add --no-cache \
     libffi-dev \
     make
 
+# Install poetry and gunicorn
 RUN pip install poetry
 COPY --from=cloner /source/. .
 
@@ -62,7 +64,10 @@ RUN \
     && adduser -S elfie -G elfie --uid 568 \
     && chown elfie -R /app
 
+# Copy application code
+COPY --from=cloner /source/. .
 
-USER 568
-
-ENTRYPOINT ["poetry", "run", "python", "-m", "comet.main"]
+# Default command using gunicorn
+ENTRYPOINT ["poetry", "run", "gunicorn", "comet.main:app", \
+    "--config", "comet/gunicorn_conf.py", \
+    "--worker-class", "uvicorn.workers.UvicornWorker"]
