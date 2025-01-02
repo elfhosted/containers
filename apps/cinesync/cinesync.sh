@@ -5,8 +5,8 @@ then
     echo "CineSync is an alternate way to consume your debrid media in Plex"
     echo "You don't HAVE to configure this, it's harmless to ignore it"
     echo "To activate CineSync, you'll need to point your Plex Libraries to:"
-    echo "  /storage/symlinks/cinesync/movies"
-    echo "  /storage/symlinks/cinesync/series"
+    echo "  /storage/symlinks/CineSync/Movies"
+    echo "  /storage/symlinks/CineSync/Series"
     echo "And then use https://plex-token-generator.elfhosted.com to generate a token, and add it"
     echo "by running 'elfbot env cinesync PLEX_TOKEN=<token>' in ElfTerm, and waiting for CineSync to restart"
     sleep infinity 
