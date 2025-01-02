@@ -13,9 +13,9 @@ COPY apps/comet/no-warp-necessary.patch /source/
 RUN cd /source && git apply no-warp-necessary.patch && rm no-warp-necessary.patch
 
 # Patch in the stremthru PR
-RUN cd /source && \
-    wget https://patch-diff.githubusercontent.com/raw/g0ldyy/comet/pull/166.patch && \
-    git apply 166.patch
+# RUN cd /source && \
+#     wget https://patch-diff.githubusercontent.com/raw/g0ldyy/comet/pull/166.patch && \
+#     git apply 166.patch
 
 
 FROM python:3.11-alpine
