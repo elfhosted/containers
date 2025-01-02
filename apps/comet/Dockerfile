@@ -17,6 +17,9 @@ RUN cd /source && \
     wget https://patch-diff.githubusercontent.com/raw/g0ldyy/comet/pull/166.patch && \
     git apply 166.patch
 
+# Revert removal of ED (for now)
+RUN git revert d6922010290ebe62b56bc782859e8ad07e14daeb
+
 FROM python:3.11-alpine
 LABEL name="Comet" \
       description="Stremio's fastest torrent/debrid search add-on." \
