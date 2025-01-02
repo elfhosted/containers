@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/sureshfizzy/CineSync.git /source
+RUN git clone -b CineSync-$VERSION  https://github.com/sureshfizzy/CineSync.git /source
 
 # Use an official Python runtime as a parent image
 FROM python:3.11-slim
