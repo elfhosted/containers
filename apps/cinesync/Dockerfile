@@ -33,6 +33,10 @@ ENV PYTHONPATH=/app/MediaHub
 # Set environment variables from the .env file
 RUN export $(grep -v '^#' .env | xargs -d '\n' -I {} echo "ENV {}")
 
+# fix for goss, will be overridden in chart
+ENV DESTINATION_DIR=/tmp
+ENV SOURCE_DIR=/tmp
+
 # Create necessary directories
 RUN mkdir -p /app/db
 
