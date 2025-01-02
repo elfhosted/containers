@@ -10,8 +10,8 @@ RUN git clone -b $VERSION https://github.com/g0ldyy/comet.git /source
 
 # Revert removal of ED (for now)
 RUN cd /source && \
-    git config --global user.email "you@example.com" \
-    git config --global user.name "Your Name" \
+    git config --global user.email "you@example.com" && \
+    git config --global user.name "Your Name" && \
     git revert d6922010290ebe62b56bc782859e8ad07e14daeb
 
 # Patch out requirement for warp
