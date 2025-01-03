@@ -3,7 +3,7 @@ ARG VERSION
 RUN apk add --update --no-cache tmux ttyd git && \
     git clone -b $VERSION https://github.com/sirrobot01/debrid-blackhole.git  /source
 
-FROM --platform=$BUILDPLATFORM golang:1.22 as builder
+FROM --platform=$BUILDPLATFORM golang:1.23 as builder
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
