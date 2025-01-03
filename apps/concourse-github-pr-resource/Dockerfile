@@ -13,7 +13,7 @@ ADD apps/concourse-github-pr-resource/scripts/install_git_crypt.sh install_git_c
 RUN ./install_git_crypt.sh && rm ./install_git_crypt.sh
 RUN rm -rf scripts
 
-FROM golang:1.21 as builder
+FROM golang:1.23 as builder
 WORKDIR /go/src/github.com/telia-oss/github-pr-resource
 ENV GOOS=$GOOS
 ENV GOARCH=$GOARCH
