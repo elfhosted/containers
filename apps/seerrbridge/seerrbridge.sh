@@ -2,10 +2,14 @@
 
 if [[ -z "$OVERSEERR_API_KEY" || -z "$TRAKT_API_KEY" ]]; 
 then
-    echo "SeerrBridge uses DebridMediaManager to fulfill Overseerr requests"
-    echo "Before SeerBridge will run, you need to define your OVERSEERR_API_KEY, your TRAKT_API_KEY, and"
-    echo "your RealDebrid/DMM credentials"
-    echo "See https://docs.elfhosted.com/app/seerrbridge for further details"
+    echo "SeerrBridge uses DebridMediaManager to fulfill Overseerr requests
+
+Before SeerBridge will run, you need to define:
+- OVERSEERR_API_KEY
+- TRAKT_API_KEY
+- RealDebrid/DMM credentials
+
+See https://docs.elfhosted.com/app/seerrbridge for further details"
     sleep infinity 
 fi
 
