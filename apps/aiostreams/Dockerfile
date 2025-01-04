@@ -22,6 +22,8 @@ COPY --from=cloner /source/packages/types/package*.json ./packages/types/
 COPY --from=cloner /source/packages/wrappers/package*.json ./packages/wrappers/
 COPY --from=cloner /source/packages/addon/package*.json ./packages/addon/
 COPY --from=cloner /source/packages/frontend/package*.json ./packages/frontend/
+COPY --from=cloner /source/packages/packages/utils/package*.json ./packages/utils/
+
 
 # Install dependencies.
 RUN npm install
@@ -35,6 +37,7 @@ COPY --from=cloner /source/packages/parser ./packages/parser
 COPY --from=cloner /source/packages/types ./packages/types
 COPY --from=cloner /source/packages/wrappers ./packages/wrappers
 COPY --from=cloner /source/packages/frontend ./packages/frontend
+COPY --from=cloner /source/packages/packages/utils ./packages/utils
 
 # Build the project.
 RUN npm run build
@@ -56,6 +59,7 @@ COPY --from=builder /build/packages/formatters/package.*json ./packages/formatte
 COPY --from=builder /build/packages/parser/package.*json ./packages/parser/
 COPY --from=builder /build/packages/types/package.*json ./packages/types/
 COPY --from=builder /build/packages/wrappers/package.*json ./packages/wrappers/
+COPY --from=builder /build/packages/utils/package.*json ./packages/utils/
 
 
 COPY --from=builder /build/packages/addon/dist ./packages/addon/dist
@@ -64,6 +68,7 @@ COPY --from=builder /build/packages/formatters/dist ./packages/formatters/dist
 COPY --from=builder /build/packages/parser/dist ./packages/parser/dist
 COPY --from=builder /build/packages/types/dist ./packages/types/dist
 COPY --from=builder /build/packages/wrappers/dist ./packages/wrappers/dist
+COPY --from=builder /build/packages/utils/dist ./packages/utils/dist
 
 COPY --from=builder /build/node_modules ./node_modules
 
