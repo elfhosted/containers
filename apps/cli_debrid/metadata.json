@@ -1,9 +1,9 @@
 {
-  "app": "autobrr",
+  "app": "cli_debrid",
   "base": false,
   "channels": [
     {
-      "name": "master",
+      "name": "main",
       "platforms": [
         "linux/amd64"
       ],
