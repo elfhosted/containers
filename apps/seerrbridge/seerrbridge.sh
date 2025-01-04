@@ -11,5 +11,5 @@ fi
 
 .local/bin/uvicorn seerrbridge:app --host 0.0.0.0 --port 8777
 
-echo "seerrbridge has unexpectedly exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
+echo "SeerrBridge has unexpectedly exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
 read -s -n 1 -t 300
