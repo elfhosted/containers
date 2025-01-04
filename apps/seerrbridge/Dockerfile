@@ -73,7 +73,4 @@ EXPOSE 8777
 
 
 # Run the application
-CMD ["uvicorn", "seerrbridge:app", "--host", "0.0.0.0", "--port", "8777"]
-
-# Run the application
-# ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
