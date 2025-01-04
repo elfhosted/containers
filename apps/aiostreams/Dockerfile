@@ -22,7 +22,7 @@ COPY --from=cloner /source/packages/types/package*.json ./packages/types/
 COPY --from=cloner /source/packages/wrappers/package*.json ./packages/wrappers/
 COPY --from=cloner /source/packages/addon/package*.json ./packages/addon/
 COPY --from=cloner /source/packages/frontend/package*.json ./packages/frontend/
-COPY --from=cloner /source/packages/packages/utils/package*.json ./packages/utils/
+COPY --from=cloner /source/packages/utils/package*.json ./packages/utils/
 
 
 # Install dependencies.
@@ -37,7 +37,7 @@ COPY --from=cloner /source/packages/parser ./packages/parser
 COPY --from=cloner /source/packages/types ./packages/types
 COPY --from=cloner /source/packages/wrappers ./packages/wrappers
 COPY --from=cloner /source/packages/frontend ./packages/frontend
-COPY --from=cloner /source/packages/packages/utils ./packages/utils
+COPY --from=cloner /source/packages/utils ./packages/utils
 
 # Build the project.
 RUN npm run build
