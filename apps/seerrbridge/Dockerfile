@@ -45,7 +45,8 @@ ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86
 
 # Force our preferred user
 ARG user=elfie
-RUN groupadd -g 568 $user && useradd -d /app/db --create-home --uid 568 --gid 568 --shell /bin/bash $user
+RUN groupadd -g 568 $user && useradd -d /app --create-home --uid 568 --gid 568 --shell /bin/bash $user
+RUN chown elfie /app
 USER 568
 
 # add local files
@@ -71,6 +72,8 @@ COPY --from=cloner /source/. .
 EXPOSE 8777
 
 
+# Run the application
+CMD ["uvicorn", "seerrbridge:app", "--host", "0.0.0.0", "--port", "8777"]
 
 # Run the application
-ENTRYPOINT ["/entrypoint.sh"]
+# ENTRYPOINT ["/entrypoint.sh"]
