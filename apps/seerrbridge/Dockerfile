@@ -41,11 +41,18 @@ RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-te
 
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
+
+
+# Force our preferred user
+ARG user=elfie
+RUN groupadd -g 568 $user && useradd -d /app/db --create-home --uid 568 --gid 568 --shell /bin/bash $user
+USER 568
+
 # add local files
-COPY --chown=568:568 --from=cloner /source/apps/seerrbridge/seerrbridge.sh /
-COPY --chown=568:568 --from=cloner /source/apps/seerrbridge/launch-tmux.sh /
-COPY --chown=568:568 --from=cloner /source/apps/seerrbridge/entrypoint.sh /
-COPY --chown=568:568 --from=cloner /source/apps/seerrbridge/restricted.tmux.conf /
+COPY --chown=568:568 apps/seerrbridge/seerrbridge.sh /
+COPY --chown=568:568 apps/seerrbridge/launch-tmux.sh /
+COPY --chown=568:568 apps/seerrbridge/entrypoint.sh /
+COPY --chown=568:568 apps/seerrbridge/restricted.tmux.conf /
 
 
 # Set environment variables
@@ -64,10 +71,6 @@ COPY --from=cloner /source/. .
 EXPOSE 8777
 
 
-# Force our preferred user
-ARG user=elfie
-RUN groupadd -g 568 $user && useradd -d /app/db --create-home --uid 568 --gid 568 --shell /bin/bash $user
-USER 568
 
 # Run the application
 ENTRYPOINT ["/entrypoint.sh"]
