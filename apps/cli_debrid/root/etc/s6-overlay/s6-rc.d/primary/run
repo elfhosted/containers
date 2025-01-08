@@ -1,0 +1,3 @@
+#!/command/with-contenv bash
+cd /app
+python /app/main.py
