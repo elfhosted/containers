@@ -6,19 +6,19 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-#RUN git clone -b $VERSION https://github.com/g0ldyy/comet.git /source
+RUN git clone -b $VERSION https://github.com/g0ldyy/comet.git /source
 
-RUN git clone https://github.com/elfhosted/comet.git /source
+# RUN git clone https://github.com/elfhosted/comet.git /source
 
 
 # Patch out requirement for warp
 COPY apps/comet/no-warp-necessary.patch /source/
 RUN cd /source && git apply no-warp-necessary.patch && rm no-warp-necessary.patch
 
-# # Patch in the stremthru PR
-# RUN cd /source && \
-#     wget https://patch-diff.githubusercontent.com/raw/g0ldyy/comet/pull/166.patch && \
-#     git apply 166.patch
+# Patch in the stremthru PR
+RUN cd /source && \
+    wget https://patch-diff.githubusercontent.com/raw/g0ldyy/comet/pull/166.patch && \
+    git apply 166.patch
 
 
 FROM python:3.11-alpine
