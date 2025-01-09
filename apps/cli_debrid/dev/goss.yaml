@@ -1,0 +1,14 @@
+---
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+process:
+  python:
+    running: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+http:
+  http://localhost:5000:
+    status: 200
+    timeout: 5000
+  http://localhost:5001:
+    status: 200
+    timeout: 5000    
