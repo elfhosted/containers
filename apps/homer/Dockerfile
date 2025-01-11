@@ -58,7 +58,7 @@ RUN rm -rf /www/assets/* && \
 	rm main.zip && \
 	rm -rf home-theme-main && \
 
-	wget https://github.com/walkxcode/dashboard-icons/archive/refs/heads/main.zip && \
+	wget https://github.com/homarr-labs/dashboard-icons/archive/refs/heads/main.zip && \
 	unzip main.zip && \
 	mv dashboard-icons-main/png ./ && \
 	rm main.zip && \
