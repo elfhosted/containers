@@ -39,22 +39,9 @@ COPY --from=cloner /source/packages/wrappers ./packages/wrappers
 COPY --from=cloner /source/packages/frontend ./packages/frontend
 COPY --from=cloner /source/packages/utils ./packages/utils
 
-ENV NEXT_PUBLIC_ELFHOSTED_BRANDING << EOT
-
-This is an <A HREF="https://elfhosted.com">ElfHosted</A> instance of AIOStreams, for the Stremio Community - Enjoy! ❤️ </BR>(<I>reasonable <A HREF="https://github.com/elfhosted/infra/blob/main/traefik-middleware/middleware-rate-limit-public-stremio-addon.yaml">rate-limits</A> apply</I>)
-<br/><br/>What is ElfHosted?
-
-<p><a href="https://elfhosted.com/">ElfHosted</a> is an <a href="https://elfhosted.com/open/">open-source</a> platform for <A HREF="https://elfhosted.com/guides/media/">"self-hosting" Plex with Real Debrid</A> (<I>using <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex/">plex_debrid</A>, <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-riven/">Riven</A>, or <A HREF="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-radarr-sonarr-prowlarr/">Radarr & Sonarr</A></I>), and your <a href="https://elfhosted.com/apps/">awesome self-hosted apps</a>, automatically and easily.</p>
-<br/>
-<p>We support the Stremio community (<A HREf="https://reddit.com/r/StremioAddons">Reddit</A> / <A HREF="https://discord.gg/zNRf6YF">Discord</A>) by providing free hosting for some of the <A HREF="https://elfhosted.com/stremio-addons/">best Stremio Addons</A>, including those which enable you to:</p>
-👨‍👩‍👦‍👦 <A HREF="https://elfhosted.com/app/comet/">Share your Real Debrid / Stremio from multiple locations at once</A> (<I>Comet</I>)
-<br/>🎁 Watch your paid <A HREF="https://elfhosted.com/app/xtremio/">IPTV with Stremio</A> (<I>Xtremio</I>)
-<br/>📺 Install a <A HREF="https://elfhosted.com/app/mediafusion/">Stremio Live TV addon</A> (<I>MediaFusion</I>)
-<br/>🏈 Watch recorded / live <A HREF="https://elfhosted.com/app/mediafusion/">sports with Stremio</A> (<I>MediaFusion</I>)
-EOT
-
-# Build the project.
-RUN npm run build
+# Setup branding
+COPY apps/aiostreams/elfhosted-branding.html /tmp/elfhosted-branding.html
+RUN NEXT_PUBLIC_ELFHOSTED_BRANDING=$(cat /tmp/elfhosted-branding.html) npm run build
 
 # Remove development dependencies.
 RUN npm --workspaces prune --omit=dev
