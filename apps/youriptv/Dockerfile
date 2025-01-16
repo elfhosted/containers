@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone  https://github.com/mik25/epgtv.git /source
+RUN git clone https://github.com/mikmc55/epgtv.git /source
 
 FROM node:18.16.0-alpine as base
 
