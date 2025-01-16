@@ -117,7 +117,7 @@ async function getManifest(url) {
         id:`org.community.${obj.domainName}` || "org.community.youriptv",
         version:"1.0.0",
         name:obj.domainName + " IPTV" || "Your IPTV",
-        description:`You will access to your ${obj.domainName} IPTV with this addon!`,
+        description:`You will use username ${obj.username} and password ${obj.password} to access to your ${obj.domainName} IPTV with this addon!`,
         idPrefixes:[obj.idPrefix],
         catalogs:[
             {
