@@ -9,13 +9,12 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/mikmc55/epgtv.git /source
 
-
-
 # ElfHosted branding
-COPY apps/youriptv/branding/* .
+COPY apps/youriptv/branding/configure.html /source/views/
+COPY apps/youriptv/manifest.js /source/
 
 # Copy tweaked addon.js (20s timeout, branding
-COPY apps/youriptv/addon.js .
+COPY apps/youriptv/addon.js /source/
 
 FROM node:18.16.0-alpine as base
 
@@ -27,7 +26,7 @@ RUN npm install
 
 COPY --from=cloner /source .
 
-ENV NODE_ENV production
+# ENV NODE_ENV local  # see https://github.com/mikmc55/epgtv/blob/0457abb4bf5c0cea421026fba313c8708efb688e/config.js#L1
 
 EXPOSE 3649
 
