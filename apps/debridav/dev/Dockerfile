@@ -21,7 +21,7 @@ FROM openjdk:21-jdk-slim
 WORKDIR /app
 
 COPY --from=base /app/build/libs/debridav*.jar /app
-COPY --from=cloner /source /source
+COPY --from=base /app /source
 # Expose any necessary ports (adjust as needed)
 EXPOSE 8080
 
