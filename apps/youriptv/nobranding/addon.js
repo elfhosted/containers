@@ -2,7 +2,7 @@ const axios = require('axios').default;
 const { handleChannelRequest, getEpgInfoBatch } = require('./tvGuide');
 
 axios.defaults.headers.get["content-type"] = "application/json";
-axios.defaults.timeout = 5000
+axios.defaults.timeout = 60000
 axios.defaults.method = "GET"
 
 function getUserData(userConf) {
