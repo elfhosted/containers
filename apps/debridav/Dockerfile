@@ -10,7 +10,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Clone the Debridav repository
-RUN git clone https://github.com/skjaere/debridav.git .
+RUN git clone -b $VERSION https://github.com/skjaere/debridav.git .
 
 # Build the project 
 # Note: Adjust the build command based on the project's actual build process
