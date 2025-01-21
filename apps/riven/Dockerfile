@@ -14,6 +14,11 @@ RUN cd /source && \
     wget https://github.com/rivenmedia/riven/pull/916.patch && \
     git apply 916.patch
 
+# Until the mediafusion fix lands in a release
+RUN cd /source && \
+    wget https://github.com/rivenmedia/riven/pull/976.patch && \
+    git apply 976.patch    
+
 # Builder Image for Python Dependencies
 FROM python:3.11-alpine AS builder
 
