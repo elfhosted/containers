@@ -46,12 +46,6 @@ RUN curl -LO https://github.com/recyclarr/recyclarr/releases/latest/download/rec
 	/usr/local/bin/ && \
 	rm recyclarr-linux-x64.tar.xz
 
-# Get aartools
-RUN curl -LO https://github.com/sirk123au/ArrTools/archive/refs/heads/master.zip && \
-	unzip master.zip && \
-  mv ArrTools-master /opt/aartools && \
-	rm master.zip
-
 # splash-cli unsplash client
 RUN \
     SPLASH_CLI_VERSION=$(curl -sX GET "https://api.github.com/repos/rawnly/splash-cli/releases/latest" \
