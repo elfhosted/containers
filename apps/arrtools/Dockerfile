@@ -32,15 +32,14 @@ ENV PYTHONPATH=/app
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 # add local files
-COPY --chown=568:568 apps/arrtools/arrtools.sh /
-COPY --chown=568:568 apps/arrtools/launch-tmux.sh /
-COPY --chown=568:568 apps/arrtools/entrypoint.sh /
-COPY --chown=568:568 apps/arrtools/restricted.tmux.conf /
+COPY --chown=568:568 apps/arrtools/root /
 
 # Force our preferred user
 ARG user=elfie
 RUN groupadd -g 568 $user && useradd -d /config --create-home --uid 568 --gid 568 --shell /bin/bash $user
 USER 568
+
+WORKDIR /config
 
 # Run the application
 ENTRYPOINT ["/entrypoint.sh"]
