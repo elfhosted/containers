@@ -27,7 +27,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=cloner --chmod=755 /source/*.py /app
 
 # Set PYTHONPATH to include the MediaHub directory
-ENV PYTHONPATH=/usr/local/bin
+ENV PYTHONPATH=/app
 
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd

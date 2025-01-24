@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Start riven in the background
+# Start arrtools in the background
 tmux -f /restricted.tmux.conf new-session -x 80 -y 24 -A -d -s arrtools /arrtools.sh
 
 # Prepare a tmux entry to the already-running process, use solarized dark colors
