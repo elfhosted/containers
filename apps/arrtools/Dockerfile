@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Install required packages
 RUN apt-get update && \
-    apt-get install -y inotify-tools tmux bash dialog && \
+    apt-get install -y inotify-tools tmux bash dialog fish && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -32,10 +32,10 @@ ENV PYTHONPATH=/usr/local/bin
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 # add local files
-COPY --chown=568:568 apps/cinesync/arrtools.sh /
-COPY --chown=568:568 apps/cinesync/launch-tmux.sh /
-COPY --chown=568:568 apps/cinesync/entrypoint.sh /
-COPY --chown=568:568 apps/cinesync/restricted.tmux.conf /
+COPY --chown=568:568 apps/arrtools/arrtools.sh /
+COPY --chown=568:568 apps/arrtools/launch-tmux.sh /
+COPY --chown=568:568 apps/arrtools/entrypoint.sh /
+COPY --chown=568:568 apps/arrtools/restricted.tmux.conf /
 
 # Force our preferred user
 ARG user=elfie
