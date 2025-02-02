@@ -48,7 +48,10 @@ ENV PYTHONPATH=/app
 RUN chown appuser -R /app
 
 # Create log directory and set permissions
-RUN mkdir -p /var/log/gunicorn && chown appuser:appuser /var/log/gunicorn
+RUN mkdir -p /var/log/gunicorn && chown appuser:appuser -R /var/log/gunicorn
+
+# Also the log dir
+RUN mkdir -p /var/log/app && chown appuser:appuser -R /var/log/app
 
 # Switch to the non-root user
 USER appuser
