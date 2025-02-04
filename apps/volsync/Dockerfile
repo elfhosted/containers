@@ -13,7 +13,7 @@ RUN git clone  https://github.com/backube/volsync.git /source
 ## Upstream Dockerfile
 ######################################################################
 # Establish a common builder image for all golang-based images
-FROM golang:1.22 AS golang-builder
+FROM golang:1.23 AS golang-builder
 USER root
 WORKDIR /workspace
 # We don't vendor modules. Enforce that behavior
