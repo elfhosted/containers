@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION  https://github.com/giuseppe99barchetta/SuggestArr /source
 
 # Stage 1: Build the client
-FROM node:20 AS client-builder
+FROM node:22 AS client-builder
 WORKDIR /app/client
 COPY --from=cloner /source/client/package*.json ./
 RUN npm install
