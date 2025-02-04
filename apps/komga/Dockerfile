@@ -12,7 +12,7 @@ RUN mkdir /config && chown 568 /config
 USER 568
 ENV KOMGA_CONFIGDIR="/config"
 ENV LC_ALL=en_US.UTF-8
-ENTRYPOINT ["java", "--enable-preview", "--enable-native-access=ALL-UNNAMED", "org.springframework.boot.loader.launch.JarLauncher", "--spring.config.additional-location=file:/config/"]
+ENTRYPOINT ["java", "-Dspring.profiles.include=docker", "--enable-native-access=ALL-UNNAMED", "-jar", "application.jar", "--spring.config.additional-location=file:/config/"]
 EXPOSE 25600
 
 LABEL org.opencontainers.image.source="https://github.com/gotson/komga"
