@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dialog
 
 # Download and install Chrome (specific version)
-RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.69/linux64/chrome-linux64.zip && \
+RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/133.0.6943.53/linux64/chrome-linux64.zip && \
     unzip /tmp/chrome-linux64.zip -d /opt/ && \
     mv /opt/chrome-linux64 /opt/chrome && \
     ln -sf /opt/chrome/chrome /usr/bin/google-chrome && \
