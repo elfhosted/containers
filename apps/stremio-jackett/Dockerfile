@@ -19,11 +19,6 @@ RUN pip install -r requirements.txt
 
 COPY --from=cloner /source/source/. .
 
-# Add ElfHosted branding
-COPY apps/stremio-jackett/branding/index.html ./templates/
-COPY apps/stremio-jackett/branding/manifest.patch .
-RUN patch main.py < manifest.patch
-
 EXPOSE 3000
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]
