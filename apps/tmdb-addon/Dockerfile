@@ -32,6 +32,9 @@ RUN npm run build
 # Etapa de produção
 FROM node:18-alpine AS runner
 
+ENV FANART_API=setme
+ENV PORT=3000
+
 WORKDIR /app
 
 # Copia apenas os arquivos necessários
