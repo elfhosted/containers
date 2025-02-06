@@ -1,0 +1,29 @@
+diff --git a/addon/lib/getManifest.js b/addon/lib/getManifest.js
+index 0bd6bf6..e00c2e0 100644
+--- a/addon/lib/getManifest.js
++++ b/addon/lib/getManifest.js
+@@ -141,10 +141,10 @@ async function getManifest(config) {
+   return {
+     id: packageJson.name,
+     version: packageJson.version,
+-    favicon: "https://github.com/mrcanelas/tmdb-addon/raw/main/images/favicon.png",
+-    logo: "https://github.com/mrcanelas/tmdb-addon/raw/main/images/logo.png",
+-    background: "https://github.com/mrcanelas/tmdb-addon/raw/main/images/background.png",
+-    name: "The Movie Database Addon",
++    favicon: "https://github.com/mrcanelas/tmdb-addon/blob/main/addon/images/favicon.png?raw=true",
++    logo: "https://github.com/mrcanelas/tmdb-addon/blob/main/addon/images/logo.png?raw=true",
++    background: "https://github.com/mrcanelas/tmdb-addon/blob/main/addon/images/background.png?raw=true",
++    name: "The Movie Database Addon | ElfHosted",
+     description: packageJson.description + descriptionSuffix,
+     resources: ["catalog", "meta"],
+     types: ["movie", "series"],
+@@ -154,7 +154,7 @@ async function getManifest(config) {
+       configurationRequired: false,
+     },
+     catalogs,
+-  };
++  }
+ }
+ 
+ module.exports = { getManifest, DEFAULT_LANGUAGE };
+\ No newline at end of file

@@ -9,6 +9,11 @@ RUN apk update && apk upgrade && \
 
 RUN git clone  https://github.com/mrcanelas/tmdb-addon.git /source
 
+COPY apps/tmdb/elfhosted.patch /
+
+# Apply ElfHosted tweaks
+RUN cd /source && \
+    git apply /elfhosted.patch
 
 ## Upstream Dockerfile
 
