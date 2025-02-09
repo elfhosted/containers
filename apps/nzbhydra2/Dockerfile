@@ -18,6 +18,7 @@ RUN \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
+VOLUME /config # needed for goss tests
 USER 568
 COPY ./apps/nzbhydra2/entrypoint.sh /entrypoint.sh
 CMD ["/entrypoint.sh"]
