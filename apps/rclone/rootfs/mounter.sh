@@ -16,10 +16,11 @@ if [ -f /config/rclone.conf ]; then
 
     # Loop indefinitely, monitoring for changes
     while true; do
-        # Wait for any changes to the file
-        inotifywait -e modify "/config/rclone.conf"
+        # Wait for changes, handle errors gracefully
+        inotifywait -e modify "/config/rclone.conf" || sleep 10
         
-        # Call the function when the file is modified
-        refresh_mounts
+        # Ensure the file still exists before calling the function
+        [ -f /config/rclone.conf ] && refresh_mounts
     done
 fi
+
