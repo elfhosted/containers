@@ -1,0 +1,3 @@
+#!/command/with-contenv ash
+cd /gotosocial
+./gotosocial server start

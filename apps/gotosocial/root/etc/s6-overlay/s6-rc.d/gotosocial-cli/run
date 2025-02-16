@@ -1,0 +1,4 @@
+#!/command/with-contenv ash
+
+# Launch elfterm
+/gotosocial-cli.sh
