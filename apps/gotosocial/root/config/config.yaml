@@ -1,0 +1,1264 @@
+# This is just a placeholder so that goss tests will pass
+# GoToSocial
+# Copyright (C) GoToSocial Authors admin@gotosocial.org
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+###########################
+##### GENERAL CONFIG ######
+###########################
+
+# String. Log level to use throughout the application. Must be lower-case.
+# Options: ["trace","debug","info","warn","error","fatal"]
+# Default: "info"
+log-level: "info"
+
+# Bool. Log database queries when log-level is set to debug or trace.
+# This setting produces verbose logs, so it's better to only enable it
+# when you're trying to track an issue down.
+# Options: [true, false]
+# Default: false
+log-db-queries: false
+
+# Bool. Include the client IP in the emitted log lines
+# Options: [true, false]
+# Default: true
+log-client-ip: true
+
+# String. Format to use for the timestamp in log lines.
+# If set to the empty string, the timestamp will be
+# ommitted from the logs entirely.
+#
+# The format must be compatible with Go's time.Layout, as
+# documented on https://pkg.go.dev/time#pkg-constants.
+#
+# Examples: ["2006-01-02T15:04:05.000Z07:00", ""]
+# Default: "02/01/2006 15:04:05.000"
+log-timestamp-format: "02/01/2006 15:04:05.000"
+
+# String. Application name to use internally.
+# Examples: ["My Application","gotosocial"]
+# Default: "gotosocial"
+application-name: gotosocial"
+
+# String. The user that will be shown instead of the landing page. if no user is set, the landing page will be shown.
+# Examples: "admin"
+# Default: ""
+landing-page-user: ""
+
+# String. Hostname that this server will be reachable at. Defaults to localhost for local testing,
+# but you should *definitely* change this when running for real, or your server won't work at all.
+# DO NOT change this after your server has already run once, or you will break things!
+# Examples: ["gts.example.org","some.server.com"]
+# Default: "localhost"
+host: "gosstests-gotosocial.elfhosted.com"
+
+# String. Domain to use when federating profiles. This is useful when you want your server to be at
+# eg., "gts.example.org", but you want the domain on accounts to be "example.org" because it looks better
+# or is just shorter/easier to remember.
+#
+# To make this setting work properly, you need to redirect requests at "example.org/.well-known/webfinger"
+# to "gts.example.org/.well-known/webfinger" so that GtS can handle them properly.
+#
+# You should also redirect requests at "example.org/.well-known/nodeinfo" in the same way.
+#
+# You should also redirect requests at "example.org/.well-known/host-meta" in the same way. This endpoint
+# is used by a number of clients to discover the API endpoint to use when the host and account domain are
+# different.
+#
+# An empty string (ie., not set) means that the same value as 'host' will be used.
+#
+# DO NOT change this after your server has already run once, or you will break things!
+#
+# Please read the appropriate section of the installation guide before you go messing around with this setting:
+# https://docs.gotosocial.org/en/latest/advanced/host-account-domain/
+#
+# Examples: ["example.org","server.com"]
+# Default: ""
+account-domain: ""
+
+# String. Protocol over which the server is reachable from the outside world.
+#
+# ONLY CHANGE THIS TO HTTP FOR LOCAL TESTING! IN 99.99% OF CASES YOU SHOULD NOT CHANGE THIS!
+#
+# This should be the protocol part of the URI that your server is actually reachable on.
+# So even if you're running GoToSocial behind a reverse proxy that handles SSL certificates
+# for you, instead of using built-in letsencrypt, it should still be https, not http.
+#
+# Again, ONLY CHANGE THIS TO HTTP FOR LOCAL TESTING! If you set this to `http`, start your instance,
+# and then later change it to `https`, you will have already broken URI generation for any created
+# users on the instance. You should only touch this setting if you 100% know what you're doing.
+#
+# Options: ["http","https"]
+# Default: "https"
+protocol: "https"
+
+# String. Address to bind the GoToSocial server to.
+# This can be an IPv4 address or an IPv6 address (surrounded in square brackets), or a hostname.
+# The default value will bind to all interfaces, which makes the server
+# accessible by other machines. For most setups there is no need to change this.
+# If you are using GoToSocial in a reverse proxy setup with the proxy running on
+# the same machine, you will want to set this to "localhost" or an equivalent,
+# so that the proxy can't be bypassed.
+# Examples: ["0.0.0.0", "172.128.0.16", "localhost", "[::]", "[2001:db8::fed1]"]
+# Default: "0.0.0.0"
+bind-address: "0.0.0.0"
+
+# Int. Listen port for the GoToSocial webserver + API. If you're running behind a reverse proxy and/or in a docker,
+# container, just set this to whatever you like (or leave the default), and make sure it's forwarded properly.
+# If you are running with built-in letsencrypt enabled, and running GoToSocial directly on a host machine, you will
+# probably want to set this to 443 (standard https port), unless you have other services already using that port.
+# This *MUST NOT* be the same as the letsencrypt port specified below, unless letsencrypt is turned off.
+# Examples: [443, 6666, 8080]
+# Default: 8080
+port: 8080
+
+# Array of string. CIDRs or IP addresses of proxies that should be trusted when determining real client IP from behind a reverse proxy.
+# If you're running inside a Docker container behind Traefik or Nginx, for example, add the subnet of your docker network,
+# or the gateway of the docker network, and/or the address of the reverse proxy (if it's not running on the host network).
+# Example: ["127.0.0.1/32", "172.20.0.1"]
+# Default: ["127.0.0.1/32", "::1"] (localhost ipv4 + ipv6)
+trusted-proxies:
+  - "127.0.0.1/32"
+  - "::1"
+
+############################
+##### DATABASE CONFIG ######
+############################
+
+# Config pertaining to the Gotosocial database connection
+
+# String. Database type.
+# Options: ["postgres","sqlite"]
+# Default: "postgres"
+db-type: "sqlite"
+
+# String. Database address or parameters.
+#
+# For Postgres, this should be the address or socket at which the database can be reached.
+#
+# For Sqlite, this should be the path to your sqlite database file. Eg., /opt/gotosocial/sqlite.db.
+# If the file doesn't exist at the specified path, it will be created.
+# If just a filename is provided (no directory) then the database will be created in the same directory
+# as the GoToSocial binary.
+# If address is set to :memory: then an in-memory database will be used (no file).
+# WARNING: :memory: should NOT BE USED except for testing purposes.
+#
+# Examples: ["localhost","my.db.host","127.0.0.1","192.111.39.110",":memory:", "sqlite.db"]
+# Default: ""
+db-address: "/config/gosstests-gotosocial.db"
+
+# Int. Port for database connection.
+# Examples: [5432, 1234, 6969]
+# Default: 5432
+db-port: 5432
+
+# String. Username for the database connection.
+# Examples: ["mydbuser","postgres","gotosocial"]
+# Default: ""
+db-user: ""
+
+# String. Password to use for the database connection
+# Examples: ["password123","verysafepassword","postgres"]
+# Default: ""
+db-password: ""
+
+# String. Name of the database to use within the provided database type.
+# Examples: ["mydb","postgres","gotosocial"]
+# Default: "gotosocial"
+db-database: "gotosocial"
+
+# String. Disable, enable, or require SSL/TLS connection to the database.
+# If "disable" then no TLS connection will be attempted.
+# If "enable" then TLS will be tried, but the database certificate won't be checked (for self-signed certs).
+# If "require" then TLS will be required to make a connection, and a valid certificate must be presented.
+# Options: ["disable", "enable", "require"]
+# Default: "disable"
+db-tls-mode: "disable"
+
+# String. Path to a CA certificate on the host machine for db certificate validation.
+# If this is left empty, just the host certificates will be used.
+# If filled in, the certificate will be loaded and added to host certificates.
+# Examples: ["/path/to/some/cert.crt"]
+# Default: ""
+db-tls-ca-cert: ""
+
+# Int. Number to multiply by CPU count to set permitted total of open database connections (in-use and idle).
+# You can use this setting to tune your database connection behavior, though most admins won't need to touch it.
+#
+# Example values for multiplier 8:
+#
+# 1 cpu = 08 open connections
+# 2 cpu = 16 open connections
+# 4 cpu = 32 open connections
+#
+# Example values for multiplier 4:
+#
+# 1 cpu = 04 open connections
+# 2 cpu = 08 open connections
+# 4 cpu = 16 open connections
+#
+# A multiplier of 8 is a sensible default, but you may wish to increase this for instances
+# running on very performant hardware, or decrease it for instances using v. slow CPUs.
+#
+# If you set the multiplier to less than 1, only one open connection will be used regardless of cpu count.
+#
+# Examples: [16, 8, 10, 2]
+# Default: 8
+db-max-open-conns-multiplier: 8
+
+# String. SQLite journaling mode.
+# SQLite only -- unused otherwise.
+# If set to empty string, the sqlite default will be used.
+# See: https://www.sqlite.org/pragma.html#pragma_journal_mode
+# Examples: ["DELETE", "TRUNCATE", "PERSIST", "MEMORY", "WAL", "OFF"]
+# Default: "WAL"
+db-sqlite-journal-mode: "WAL"
+
+# String. SQLite synchronous mode.
+# SQLite only -- unused otherwise.
+# If set to empty string, the sqlite default will be used.
+# See: https://www.sqlite.org/pragma.html#pragma_synchronous
+# Examples: ["OFF", "NORMAL", "FULL", "EXTRA"]
+# Default: "NORMAL"
+db-sqlite-synchronous: "NORMAL"
+
+# Byte size. SQlite cache size.
+# SQLite only -- unused otherwise.
+# If set to empty string or zero, the sqlite default (2MiB) will be used.
+# See: https://www.sqlite.org/pragma.html#pragma_cache_size
+#
+# More is not necessarily better for caches. They need to be tuned to the
+# workload. The defaults should be plenty for most instances and you shouldn't
+# change it. If you do change it, ensure you mention this when requesting help
+# in the GoToSocial Help channel.
+#
+# Examples: ["0", "2MiB", "8MiB", "64MiB"]
+# Default: "8MiB"
+db-sqlite-cache-size: "8MiB"
+
+# Duration. SQlite busy timeout.
+# SQLite only -- unused otherwise.
+# If set to empty string or zero, the sqlite default will be used.
+# See: https://www.sqlite.org/pragma.html#pragma_busy_timeout
+# Examples: ["0s", "1s", "30s", "1m", "5m"]
+# Default: "30m"
+db-sqlite-busy-timeout: "30m"
+
+# String. Full Database connection string
+#
+# This connection string is only applicable for Postgres. When this field is defined, all other database related configuration field will be ignored. This field allow you to fine tune connection with Postgres
+# 
+# Examples: ["postgres://user:pass@localhost/db?search_path=gotosocial", "postgres://user:pass@localhost:9999/db"]
+# Default: ""
+db-postgres-connection-string: ""
+
+cache:
+  # cache.memory-target sets a target limit that
+  # the application will try to keep it's caches
+  # within. This is based on estimated sizes of
+  # in-memory objects, and so NOT AT ALL EXACT.
+  # Examples: ["100MiB", "200MiB", "500MiB", "1GiB"]
+  # Default: "100MiB"
+  memory-target: "100MiB"
+
+######################
+##### WEB CONFIG #####
+######################
+
+# Config pertaining to templating and serving of web pages/email notifications and the like
+
+# String. Directory from which gotosocial will attempt to load html templates (.tmpl files).
+# Examples: ["/some/absolute/path/", "./relative/path/", "../../some/weird/path/"]
+# Default: "./web/template/"
+web-template-base-dir: "./web/template/"
+
+# String. Directory from which gotosocial will attempt to serve static web assets (images, scripts).
+# Examples: ["/some/absolute/path/", "./relative/path/", "../../some/weird/path/"]
+# Default: "./web/assets/"
+web-asset-base-dir: "./web/assets/"
+
+###########################
+##### INSTANCE CONFIG #####
+###########################
+
+# Config pertaining to instance federation settings, pages to hide/expose, etc.
+
+# Array of string. BCP47 language tags to indicate preferred languages of users on this instance.
+#
+# If you provide these, you should provide these in order from most-preferred to least-preferred,
+# but note that leaving out a language from this array doesn't mean it can't be used on this instance,
+# it only means it won't be advertised as a preferred instance language.
+#
+# It is valid to provide no entries here; your instance will then have no particular preferred language.
+#
+# See here for commonly-used tags: https://en.wikipedia.org/wiki/IETF_language_tag#List_of_common_primary_language_subtags
+# See here for all current tags: https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+#
+# Example: ["nl", "en-gb", "fr"]
+# Default: []
+instance-languages: []
+
+# String. Federation mode to use for this instance.
+#
+# "blocklist" -- open federation by default. Only instances that are explicitly
+#                blocked will be denied (unless they are also explicitly allowed).
+#
+# "allowlist" -- closed federation by default. Only instances that are explicitly
+#                allowed will be able to interact with this instance.
+#
+# For more details on blocklist and allowlist modes, check the documentation at:
+# https://docs.gotosocial.org/en/latest/admin/federation_modes
+#
+# Options: ["blocklist", "allowlist"]
+# Default: "blocklist"
+instance-federation-mode: "blocklist"
+
+# Bool. Enable spam filtering heuristics for messages entering your instance
+# via the federation API. Regardless of what you set here, basic checks
+# for message relevancy will still be performed, but you can try enabling
+# this setting if you are being spammed with unwanted messages from other
+# instances, and want to more strictly filter out spam messages.
+#
+# THIS IS CURRENTLY AN EXPERIMENTAL SETTING, AND MAY FILTER OUT LEGITIMATE
+# MESSAGES, OR FAIL TO FILTER OUT SPAMMY MESSAGES. It is recommended to
+# only enable this setting when the fediverse is in the midst of a spam
+# wave, and you need to batten down the hatches to keep your instance usable.
+#
+# The decision of whether a message counts as spam or not is made based on
+# the following heuristics, in order, where receiver = the account on your
+# instance that received a message in their inbox, and requester = the
+# account on a remote instance that sent the message.
+#
+# First, basic relevancy checks
+#
+#  1. Receiver follows requester. Return OK.
+#  2. Statusable doesn't mention receiver. Return NotRelevant.
+#
+# If instance-federation-spam-filter = false, then return OK now.
+# Otherwise check:
+#
+#  3. Receiver is locked and is followed by requester. Return OK.
+#  4. Five or more people are mentioned. Return Spam.
+#  5. Receiver follow (requests) a mentioned account. Return OK.
+#  6. Statusable has a media attachment. Return Spam.
+#  7. Statusable contains non-mention, non-hashtag links. Return Spam.
+#
+# Messages identified as spam will be dropped from your instance, and not
+# inserted into the database, or into home timelines or notifications.
+#
+# Options: [true, false]
+# Default: false
+instance-federation-spam-filter: false
+
+# Bool. Allow unauthenticated users to make queries to /api/v1/instance/peers?filter=open in order
+# to see a list of instances that this instance 'peers' with. Even if set to 'false', then authenticated
+# users (members of the instance) will still be able to query the endpoint.
+# Options: [true, false]
+# Default: false
+instance-expose-peers: false
+
+# Bool. Allow unauthenticated users to make queries to /api/v1/instance/peers?filter=suspended in order
+# to see a list of instances that this instance blocks/suspends. Even if set to 'false', then authenticated
+# users (members of the instance) will still be able to query the endpoint.
+#
+# WARNING: Setting this variable to 'true' may result in your instance being scraped by blocklist scrapers.
+# See: https://docs.gotosocial.org/en/latest/admin/domain_blocks/#block-announce-bots
+#
+# Options: [true, false]
+# Default: false
+instance-expose-suspended: false
+
+# Bool. Allow unauthenticated users to view /about/suspended,
+# showing the HTML rendered list of instances that this instance blocks/suspends.
+# Options: [true, false]
+# Default: false
+instance-expose-suspended-web: false
+
+# Bool. Allow unauthenticated users to make queries to /api/v1/timelines/public in order
+# to see a list of public posts on this server. Even if set to 'false', then authenticated
+# users (members of the instance) will still be able to query the endpoint.
+# Options: [true, false]
+# Default: false
+instance-expose-public-timeline: false
+
+# Bool. This flag tweaks whether GoToSocial will deliver ActivityPub messages
+# to the shared inbox of a recipient, if one is available, instead of delivering
+# each message to each actor who should receive a message individually.
+#
+# Shared inbox delivery can significantly reduce network load when delivering
+# to multiple recipients share an inbox (eg., on large Mastodon instances).
+#
+# See: https://www.w3.org/TR/activitypub/#shared-inbox-delivery
+#
+# Options: [true, false]
+# Default: true
+instance-deliver-to-shared-inboxes: true
+
+# Bool. This flag will inject a Mastodon version into the version field that
+# is included in /api/v1/instance. This version is often used by Mastodon clients
+# to do API feature detection. By injecting a Mastodon compatible version, it is
+# possible to cajole those clients to behave correctly with GoToSocial.
+#
+# Options: [true, false]
+# Default: false
+instance-inject-mastodon-version: false
+
+# String. 24hr time of day formatted as hh:mm.
+# Examples: ["14:30", "00:00", "04:00"]
+# Default: "23:00" (11pm).
+instance-subscriptions-process-from: "23:00"
+
+# Duration. Period between subscription updates.
+# Examples: ["24h", "72h", "12h"]
+# Default: "24h" (once per day).
+instance-subscriptions-process-every: "24h"
+
+# String. Allows you to customize if and how stats are served to
+# crawlers at the /api/v1|v2/instance and /nodeinfo endpoints.
+#
+# Note that no matter what you set below, the /api/v1|v2/instance
+# endpoints will not be allowed by robots.txt, as these are client
+# API endpoints.
+#
+# "" / empty string (default mode): Serve accurate stats at instance
+# and nodeinfo endpoints, and DISALLOW crawlers from crawling
+# those endpoints in robots.txt. This mode is equivalent to politely
+# asking crawlers not to crawl, but there's no guarantee they will obey,
+# as unfortunately many crawlers don't even check robots.txt.
+#
+# "zero": Serve zeroed-out stats at instance and nodeinfo endpoints,
+# and DISALLOW crawlers from crawling those endpoints in robots.txt.
+# This mode prevents even ill-behaved crawlers from gathering stats
+# about your instance, as all gathered values will be 0. This is the
+# safest way of preserving your instance's privacy in terms of stats.
+#
+# "serve": Serve accurate stats at instance and nodeinfo endpoints,
+# and ALLOW crawlers to crawl those endpoints. This mode is useful
+# if you want to contribute to fediverse statistics collection projects.
+#
+# "baffle": Serve randomized, preposterous stats at instance and nodeinfo
+# endpoints, and DISALLOW crawlers from crawling those endpoints in robots.txt.
+# This mode can be useful to annoy crawlers that don't respect robots.txt.
+# Warning that this may draw the ire of crawler implementers who don't
+# respect robots.txt, and may therefore put a target on your instance.
+#
+# Options: ["", "zero", "serve", "baffle"]
+# Default: ""
+instance-stats-mode: ""
+
+# Bool. This flag controls whether local accounts may backdate statuses
+# using past dates with the scheduled_at param to /api/v1/statuses.
+# This flag does not affect scheduling posts in the future
+# (which is currently not implemented anyway),
+# nor can it prevent remote accounts from backdating their own statuses.
+#
+# If true, all local accounts may backdate statuses.
+# If false, status backdating will be disabled and an error will be returned if it's used.
+#
+# Options: [true, false]
+# Default: true
+instance-allow-backdating-statuses: true
+
+###########################
+##### ACCOUNTS CONFIG #####
+###########################
+
+# Config pertaining to creation and maintenance of accounts on the server, as well as defaults for new accounts.
+
+# Bool. Allow people to submit new sign-up / registration requests via the form at /signup.
+#
+# Options: [true, false]
+# Default: false
+accounts-registration-open: false
+
+# Bool. Are sign up requests required to submit a reason for the request (eg., an explanation of why they want to join the instance)?
+# Options: [true, false]
+# Default: true
+accounts-reason-required: true
+
+# Int. Number of approved sign-ups allowed within
+# 24hrs before new account registration is closed.
+#
+# Leaving this count at the default essentially limits
+# your instance to growing by 10 accounts per day.
+#
+# Setting this number to 0 or less removes the limit.
+#
+# Default: 10
+accounts-registration-daily-limit: 10
+
+# Int. Number of new account sign-ups allowed in the pending
+# approval queue before new account registration is closed.
+#
+# This can be used to essentially "throttle" the sign-up
+# queue to prevent instance admins becoming overwhelmed.
+#
+# Setting this number to 0 or less removes the limit.
+#
+# Default: 20
+accounts-registration-backlog-limit: 20
+
+# Bool. Allow accounts on this instance to set custom CSS for their profile pages and statuses.
+# Enabling this setting will allow accounts to upload custom CSS via the /user settings page,
+# which will then be rendered on the web view of the account's profile and statuses.
+#
+# For instances with public sign ups, it is **HIGHLY RECOMMENDED** to leave this setting on 'false',
+# since setting it to true allows malicious accounts to make their profile pages misleading, unusable
+# or even dangerous to visitors. In other words, you should only enable this setting if you trust
+# the users on your instance not to produce harmful CSS.
+#
+# Regardless of what this value is set to, any uploaded CSS will not be federated to other instances,
+# it will only be shown on profiles and statuses on *this* instance.
+#
+# Options: [true, false]
+# Default: false
+accounts-allow-custom-css: false
+
+# Int. If accounts-allow-custom-css is true, this is the permitted length in characters for
+# CSS uploaded by accounts on this instance. No effect if accounts-allow-custom-css is false.
+#
+# Examples: [500, 5000, 9999]
+# Default: 10000
+accounts-custom-css-length: 10000
+
+########################
+##### MEDIA CONFIG #####
+########################
+
+# Config pertaining to media uploads (media, image descriptions, emoji).
+
+# Size. Max size in bytes of media uploads via API.
+#
+# Raising this limit may cause other servers to not fetch media
+# attached to a post.
+#
+# Examples: [2097152, 10485760, 40MB, 40MiB]
+# Default: 40MiB (41943040 bytes)
+media-local-max-size: 40MiB
+
+# Size. Size in bytes of max image size referred to on /api/v_/instance endpoints,
+# used by applications like Tusky to automatically scale locally uploaded media.
+#
+# Leaving this unset will default to media-local-max-size.
+#
+# Examples: [64, 500, 5MiB, 5MB, 50M]
+# Default: unset
+media-image-size-hint: 5MiB
+
+# Size. Size in bytes of max video size referred to on /api/v_/instance endpoints,
+# used by applications like Tusky to automatically scale locally uploaded media.
+#
+# Leaving this unset will default to media-local-max-size.
+#
+# Examples: [64, 4096, 4MiB, 4MB, 40M]
+# Default: unset
+media-video-size-hint: 40MiB
+
+# Size. Max size in bytes of media to download from other instances.
+#
+# Lowering this limit may cause your instance not to fetch post media.
+#
+# Examples: [2097152, 10485760, 40MB, 40MiB]
+# Default: 40MiB (41943040 bytes)
+media-remote-max-size: 40MiB
+
+# Int. Minimum amount of characters required as an image or video description.
+# Examples: [500, 1000, 1500]
+# Default: 0 (not required)
+media-description-min-chars: 0
+
+# Int. Maximum amount of characters permitted in an image or video description.
+# Examples: [1000, 1500, 3000]
+# Default: 1500
+media-description-max-chars: 1500
+
+# Size. Max size in bytes of emojis uploaded to this instance via the admin API.
+#
+# The default is the same as the Mastodon size limit for emojis (50kb), which allows
+# for good interoperability. Raising this limit may cause issues with federation
+# of your emojis to other instances, so beware.
+#
+# Examples: [51200, 102400, 50KB, 50KiB]
+# Default: 50KiB (51200 bytes)
+media-emoji-local-max-size: 50KiB
+
+# Size. Max size in bytes of emojis to download from other instances.
+#
+# By default this is 100kb, or twice the size of the default for media-emoji-local-max-size.
+# This strikes a good balance between decent interoperability with instances that have
+# higher emoji size limits, and not taking up too much space in storage.
+#
+# Examples: [51200, 102400, 100KB, 100KiB]
+# Default: 100KiB (102400 bytes)
+media-emoji-remote-max-size: 100KiB
+
+# Int. Number of instances of ffmpeg+ffprobe to add to the media processing pool.
+#
+# Increasing this number will lead to faster concurrent media processing,
+# but at the cost of up to about 250MB of (spiking) memory usage per increment.
+#
+# You'll want to increase this number if you have RAM to spare, and/or if you're
+# hosting an instance for more than 50 or so people who post/view lots of media,
+# but you should leave it at 1 for single-user instances or when running GoToSocial
+# in a constrained (low-memory) environment.
+#
+# If you set this number to 0 or less, then instead of a fixed number of instances,
+# it will scale with GOMAXPROCS x 1, yielding (usually) one ffmpeg instance and one
+# ffprobe instance per CPU core on the host machine.
+#
+# Examples: [1, 2, -1, 8]
+# Default: 1
+media-ffmpeg-pool-size: 1
+
+# The below media cleanup settings allow admins to customize when and
+# how often media cleanup + prune jobs run, while being set to a fairly
+# sensible default (every night @ midnight). For more information on exactly
+# what these settings do, with some customization examples, see the docs:
+# https://docs.gotosocial.org/en/latest/admin/media_caching#cleanup
+
+# Int. Number of days to cache media from remote instances before
+# they are removed from the cache. When remote media is removed from
+# the cache, it is deleted from storage but the database entries for
+# the media are kept so that it can be fetched again if requested by a user.
+#
+# If this is set to 0, then media from remote instances will be cached indefinitely.
+#
+# Examples: [30, 60, 7, 0]
+# Default: 7
+media-remote-cache-days: 7
+
+# String. 24hr time of day formatted as hh:mm.
+# Examples: ["14:30", "00:00", "04:00"]
+# Default: "00:00" (midnight).
+media-cleanup-from: "00:00"
+
+# Duration. Period between media cleanup runs.
+# More than once per 24h is not recommended
+# is likely overkill. Setting this to something
+# very low like once every 10 minutes will probably
+# cause lag and possibly other issues.
+# Examples: ["24h", "72h", "12h"]
+# Default: "24h" (once per day).
+media-cleanup-every: "24h"
+
+##########################
+##### STORAGE CONFIG #####
+##########################
+
+# Config pertaining to storage of user-created uploads (videos, images, etc).
+
+# String. Type of storage backend to use.
+# Examples: ["local", "s3"]
+# Default: "local" (storage on local disk)
+storage-backend: "local"
+
+# String. Directory to use as a base path for storing files.
+# Make sure whatever user/group gotosocial is running as has permission to access
+# this directory, and create new subdirectories and files within it.
+# Only required when running with the local storage backend.
+# Examples: ["/home/gotosocial/storage", "/opt/gotosocial/datastorage"]
+# Default: "/gotosocial/storage"
+storage-local-base-path: "/config/storage"
+
+# String. API endpoint of the S3 compatible service.
+# Only required when running with the s3 storage backend.
+# Examples: ["minio:9000", "s3.nl-ams.scw.cloud", "s3.us-west-002.backblazeb2.com"]
+# GoToSocial uses "DNS-style" when accessing buckets.
+# If you are using Scaleways object storage, please remove the "bucket name" from the endpoint address
+# Default: ""
+storage-s3-endpoint: ""
+
+# Bool. Set this to true if data stored in S3 should be proxied through
+# GoToSocial instead of forwarding the request to a presigned URL.
+#
+# In most cases you won't need to touch this setting, but it might be useful
+# if it's not possible for your bucket provider to generate presigned URLs,
+# or if your bucket is not able to exposed to the wider internet.
+#
+# Default: false
+storage-s3-proxy: false
+
+# String. URL to use a base for redirecting incoming media requests to.
+#
+# Must start with "http://" or "https://" and end without a trailing slash.
+#
+# DON'T SET THIS VALUE UNLESS YOU HAVE GOOD REASON TO! It's not necessary for
+# "normal" s3 usage, and most admins can happily just ignore this setting.
+#
+# If set, then media fileserver requests to your instance will be redirected
+# to this URL instead of your bucket URL, preserving relevant path parts.
+#
+# This is useful if you are using a CDN proxy in front of your S3 bucket, and you
+# want to serve media from the CDN rather than serving from your S3 bucket directly.
+#
+# For example, if you have your storage-s3-endpoint value set to "s3.my-storage.example.org",
+# and you have a CDN set up to proxy your bucket, serving from "cdn.some-fancy-host.org",
+# then you should set storage-s3-redirect-url to "https://cdn.some-fancy-host.org".
+#
+# This will allow your GoToSocial instance to *upload* data to "s3.my-storage.example.org",
+# but direct callers to *download* that data from "https://cdn.some-fancy-host.org".
+#
+# This value is ignored if storage-backend is not s3, or if storage-s3-proxy is true.
+#
+# Examples: ["https://cdn.some-fancy-host.org"]
+# Default: ""
+storage-s3-redirect-url: ""
+
+# Bool. Use SSL for S3 connections.
+#
+# Only set this to 'false' when testing locally.
+#
+# Default: true
+storage-s3-use-ssl: true
+
+# String. Access key part of the S3 credentials.
+# Consider setting this value using environment variables to avoid leaking it via the config file
+# Only required when running with the s3 storage backend.
+# Examples: ["iamasecretaccesskey","miniouser"]
+# Default: ""
+storage-s3-access-key: ""
+
+# String. Secret key part of the S3 credentials.
+# Consider setting this value using environment variables to avoid leaking it via the config file
+# Only required when running with the s3 storage backend.
+# Examples: ["iamasecretkey","miniopassword"]
+# Default: ""
+storage-s3-secret-key: ""
+
+# String. Name of the storage bucket.
+#
+# If you have already encoded your bucket name in the storage-s3-endpoint, this
+# value will be used as a directory containing your data.
+#
+# The bucket must exist prior to starting GoToSocial
+#
+# Only required when running with the s3 storage backend.
+# Examples: ["gts","cool-instance"]
+# Default: ""
+storage-s3-bucket: ""
+
+###########################
+##### STATUSES CONFIG #####
+###########################
+
+# Config pertaining to the creation of statuses/posts, and permitted limits.
+
+# Int. Maximum amount of characters permitted for a new status,
+# including the content warning (if set).
+#
+# Note that going way higher than the default might break federation.
+#
+# Examples: [140, 500, 5000]
+# Default: 5000
+statuses-max-chars: 5000
+
+# Int. Maximum amount of options to permit when creating a new poll.
+# Note that going way higher than the default might break federation.
+# Examples: [4, 6, 10]
+# Default: 6
+statuses-poll-max-options: 6
+
+# Int. Maximum amount of characters to permit per poll option when creating a new poll.
+# Note that going way higher than the default might break federation.
+# Examples: [50, 100, 150]
+# Default: 50
+statuses-poll-option-max-chars: 50
+
+# Int. Maximum amount of media files that can be attached to a new status.
+# Note that going way higher than the default might break federation.
+# Examples: [4, 6, 10]
+# Default: 6
+statuses-media-max-files: 6
+
+##############################
+##### LETSENCRYPT CONFIG #####
+##############################
+
+# Config pertaining to the automatic acquisition and use of LetsEncrypt HTTPS certificates.
+
+# Bool. Whether or not letsencrypt should be enabled for the server.
+# If false, the rest of the settings here will be ignored.
+# If you serve GoToSocial behind a reverse proxy like nginx or traefik, leave this turned off.
+# If you don't, then turn it on so that you can use https.
+# Options: [true, false]
+# Default: false
+letsencrypt-enabled: false
+
+# Int. Port to listen for letsencrypt certificate challenges on.
+# If letsencrypt is enabled, this port must be reachable or you won't be able to obtain certs.
+# If letsencrypt is disabled, this port will not be used.
+# This *must not* be the same as the webserver/API port specified above.
+# Examples: [80, 8000, 1312]
+# Default: 80
+letsencrypt-port: 80
+
+# String. Directory in which to store LetsEncrypt certificates.
+# It is a good move to make this a sub-path within your storage directory, as it makes
+# backup easier, but you might wish to move them elsewhere if they're also accessed by other services.
+# In any case, make sure GoToSocial has permissions to write to / read from this directory.
+# Examples: ["/home/gotosocial/storage/certs", "/acmecerts"]
+# Default: "/gotosocial/storage/certs"
+letsencrypt-cert-dir: "/gotosocial/storage/certs"
+
+# String. Email address to use when registering LetsEncrypt certs.
+# Most likely, this will be the email address of the instance administrator.
+# LetsEncrypt will send notifications about expiring certificates etc to this address.
+# Examples: ["admin@example.org"]
+# Default: ""
+letsencrypt-email-address: ""
+
+##############################
+##### MANUAL TLS CONFIG  #####
+##############################
+
+# String. Path to a PEM-encoded file on disk that includes the certificate chain
+# and the public key
+# Examples: ["/gotosocial/storage/certs/chain.pem"]
+# Default: ""
+tls-certificate-chain: ""
+
+# String. Path to a PEM-encoded file on disk containing the private key for the
+# associated tls-certificate-chain
+# Examples: ["/gotosocial/storage/certs/private.pem"]
+# Default: ""
+tls-certificate-key: ""
+
+#######################
+##### OIDC CONFIG #####
+#######################
+
+# Config for authentication with an external OIDC provider (Dex, Google, Auth0, etc).
+
+# Bool. Enable authentication with external OIDC provider. If set to true, then
+# the other OIDC options must be set as well. If this is set to false, then the standard
+# internal oauth flow will be used, where users sign in to GtS with username/password.
+# Options: [true, false]
+# Default: false
+oidc-enabled: false
+
+# String. Name of the oidc idp (identity provider). This will be shown to users when
+# they log in.
+# Examples: ["Google", "Dex", "Auth0"]
+# Default: ""
+oidc-idp-name: ""
+
+# Bool. Skip the normal verification flow of tokens returned from the OIDC provider, ie.,
+# don't check the expiry or signature. This should only be used in debugging or testing,
+# never ever in a production environment as it's extremely unsafe!
+# Options: [true, false]
+# Default: false
+oidc-skip-verification: false
+
+# String. The OIDC issuer URI. This is where GtS will redirect users to for login.
+# Typically this will look like a standard web URL.
+# Examples: ["https://auth.example.org", "https://example.org/auth"]
+# Default: ""
+oidc-issuer: ""
+
+# String. The ID for this client as registered with the OIDC provider.
+# Examples: ["some-client-id", "i-am-a-secret-oidc-client-name"]
+# Default: ""
+oidc-client-id: ""
+
+# String. The secret for this client as registered with the OIDC provider.
+# Examples: ["super-secret-business", "i-am-a-secret-oidc-key"]
+# Default: ""
+oidc-client-secret: ""
+
+# Array of string. Scopes to request from the OIDC provider. The returned values will be used to
+# populate users created in GtS as a result of the authentication flow. 'openid' and 'email' are required.
+# 'profile' is used to extract a username for the newly created user.
+# 'groups' is optional and can be used to determine if a user is an admin based on oidc-admin-groups.
+# Examples: See eg., https://auth0.com/docs/scopes/openid-connect-scopes
+# Default: ["openid", "email", "profile", "groups"]
+oidc-scopes:
+  - "openid"
+  - "email"
+  - "profile"
+  - "groups"
+
+# Bool. Link OIDC authenticated users to existing ones based on their email address.
+# This is mostly intended for migration purposes if you were running previous versions of GTS
+# which only correlated users with their email address. Should be set to false for most usecases.
+# Options: [true, false]
+# Default: false
+oidc-link-existing: false
+
+# Array of string. If the returned ID token contains a 'groups' claim that matches one of the
+# groups in oidc-allowed-groups, then this user will be granted access on the GtS instance. If the array is empty,
+# then all groups will be granted permission.
+# Default: []
+oidc-allowed-groups: []
+
+# Array of string. If the returned ID token contains a 'groups' claim that matches one of the
+# groups in oidc-admin-groups, then this user will be granted admin rights on the GtS instance
+# Default: []
+oidc-admin-groups: []
+
+#######################
+##### SMTP CONFIG #####
+#######################
+
+# Config for sending emails via an smtp server. See https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol
+
+# String. The hostname of the smtp server you want to use.
+# If this is not set, smtp will not be used to send emails, and you can ignore the other settings.
+# Examples: ["mail.example.org", "localhost"]
+# Default: ""
+smtp-host: ""
+
+# Int. Port to use to connect to the smtp server.
+# In the majority of cases, you should use port 587.
+# Examples: []
+# Default: 0
+smtp-port: 0
+
+# String. Username to use when authenticating with the smtp server.
+# This should have been provided to you by your smtp host.
+# This is often, but not always, an email address.
+# Examples: ["maillord@example.org"]
+# Default: ""
+smtp-username: ""
+
+# String. Password to use when authenticating with the smtp server.
+# This should have been provided to you by your smtp host.
+# Examples: ["1234", "password"]
+# Default: ""
+smtp-password: ""
+
+# String. 'From' address for sent emails.
+# Examples: ["mail@example.org"]
+# Default: ""
+smtp-from: ""
+
+# Bool. If true, when an email is sent that has multiple recipients, each recipient
+# will be included in the To field, so that each recipient can see who else got the
+# email, and they can 'reply all' to the other recipients if they want to.
+#
+# If false, email will be sent to Undisclosed Recipients, and each recipient will not
+# be able to see who else received the email.
+#
+# It might be useful to change this setting to 'true' if you want to be able to discuss
+# new moderation reports with other admins by 'replying-all' to the notification email.
+# Default: false
+smtp-disclose-recipients: false
+
+#########################
+##### SYSLOG CONFIG #####
+#########################
+
+# Config for additional syslog log hooks. See https://en.wikipedia.org/wiki/Syslog,
+# and https://github.com/sirupsen/logrus/tree/master/hooks/syslog.
+#
+# These settings are useful when one wants to daemonize GoToSocial and send logs
+# to a specific place, either a local location or a syslog server. Most users will
+# not need to touch these settings.
+
+# Bool. Enable the syslog logging hook. Logs will be mirrored to the configured destination.
+# Options: [true, false]
+# Default: false
+syslog-enabled: false
+
+# String. Protocol to use when directing logs to syslog. Leave empty to connect to local syslog.
+# Options: ["udp", "tcp", ""]
+# Default: "udp"
+syslog-protocol: "udp"
+
+# String. Address:port to send syslog logs to. Leave empty to connect to local syslog.
+# Default: "localhost:514"
+syslog-address: "localhost:514"
+
+##################################
+##### OBSERVABILITY SETTINGS #####
+##################################
+
+# String. Header name to use to extract a request or trace ID from. Typically set by a
+# loadbalancer or proxy.
+# Default: "X-Request-Id"
+request-id-header: "X-Request-Id"
+
+# Bool. Enable OpenTelemetry based tracing support.
+# Default: false
+tracing-enabled: false
+
+# String. Set the transport protocol for the tracing system. Can either be "grpc"
+# for OTLP gRPC, or "http" for OTLP HTTP.
+# Options: ["grpc", "http"]
+# Default: "grpc"
+tracing-transport: "grpc"
+
+# String. Endpoint of the trace ingester. When using the gRPC or HTTP based transports,
+# provide the endpoint as a single address/port combination without a protocol scheme.
+# Examples: ["localhost:4317"]
+# Default: ""
+tracing-endpoint: ""
+
+# Bool. Disable TLS for the gRPC and HTTP transport protocols.
+# Default: false
+tracing-insecure-transport: false
+
+# Bool. Enable OpenTelemetry based metrics support.
+# Default: false
+metrics-enabled: false
+
+# Bool. Enable HTTP Basic Authentication for Prometheus metrics endpoint.
+# Default: false
+metrics-auth-enabled: false
+
+# String. Username for Prometheus metrics endpoint.
+# Default: ""
+metrics-auth-username: ""
+
+# String. Password for Prometheus metrics endpoint.
+# Default: ""
+metrics-auth-password: ""
+
+################################
+##### HTTP CLIENT SETTINGS #####
+################################
+
+# Settings for OUTGOING http client connections used by GoToSocial to make
+# requests to remote resources (status GETs, media GETs, inbox POSTs, etc).
+
+http-client:
+
+  # Duration. Timeout to use for outgoing HTTP requests. If the timeout
+  # is exceeded, the connection to the remote server will be dropped.
+  # A value of 0s indicates no timeout: this is not advised!
+  # Examples: ["5s", "30s", "0s"]
+  # Default: "30s"
+  timeout: "30s"
+
+  ########################################
+  #### RESERVED IP RANGE EXCEPTIONS ######
+  ########################################
+  #
+  # Explicitly allow or block outgoing dialing within the provided IPv4/v6 CIDR ranges.
+  #
+  # By default, as a basic security precaution, GoToSocial blocks outgoing dialing within most "special-purpose"
+  # IP ranges. However, it may be desirable for admins with more exotic setups (proxies, funky NAT, etc) to
+  # explicitly override one or more of these otherwise blocked ranges.
+  #
+  # Each of the below allow/block config options accepts an array of IPv4 and/or IPv6 CIDR strings.
+  # For example, to override the hardcoded block of IPv4 and IPv6 dialing to localhost, set:
+  #
+  #   allow-ips: ["127.0.0.1/32", "::1/128"].
+  #
+  # You can also use YAML multi-line arrays to define these, but be diligent with indentation.
+  #
+  # When dialing, GoToSocial will first check if the destination falls within explicitly allowed IP ranges,
+  # then explicitly blocked IP ranges, then the default (hardcoded) blocked IP ranges, returning OK on the
+  # first allowed match, not OK on the first blocked match, or just defaulting to OK if nothing is matched.
+  #
+  # As with all security settings, it is better to start too restrictive and then ease off depending on
+  # your use case, than to start too permissive and try to close the stable door after the horse has
+  # already bolted. With this in mind:
+  # - Don't touch these settings unless you have a good reason to, and only if you know what you're doing.
+  # - When adding explicitly allowed exceptions, use the narrowest possible CIDR for your use case.
+  #
+  # For reserved / special ranges, see:
+  # - https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml
+  # - https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml
+  #
+  # Both allow-ips and block-ips default to an empty array.
+  allow-ips: []
+  block-ips: []
+
+  # Bool. Disable verification of TLS certificates of remote servers.
+  # With this set to 'true', GoToSocial will not error when a remote
+  # server presents an invalid or self-signed certificate.
+  #
+  # THIS SETTING SHOULD BE USED FOR TESTING ONLY! IF YOU TURN THIS
+  # ON WHILE RUNNING IN PRODUCTION YOU ARE LEAVING YOUR SERVER WIDE
+  # OPEN TO MAN IN THE MIDDLE ATTACKS! DO NOT CHANGE THIS SETTING
+  # UNLESS YOU KNOW EXACTLY WHAT YOU'RE DOING AND WHY YOU'RE DOING IT.
+  #
+  # Default: false
+  tls-insecure-skip-verify: false
+
+#############################
+##### ADVANCED SETTINGS #####
+#############################
+
+# Advanced settings pertaining to http timeouts, security, cookies, and more.
+#
+# ONLY ADJUST THESE SETTINGS IF YOU KNOW WHAT YOU ARE DOING!
+#
+# Most users will not need to (and should not) touch these settings, since
+# they are set to sensible defaults, and may break if they are changed.
+#
+# Nevertheless, they are provided for the sake of allowing server admins to
+# tweak their instance for performance or security reasons.
+
+# String. Value of the SameSite attribute of cookies set by GoToSocial.
+# Defaults to 'lax' to ensure that the OIDC flow does not break, which is
+# fine in most cases. If you want to harden your instance against CSRF attacks
+# and don't mind if some login-related things might break, you can set this
+# to 'strict' instead.
+#
+# For an overview of what this does, see:
+# https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite
+#
+# Options: ["lax", "strict"]
+# Default: "lax"
+advanced-cookies-samesite: "lax"
+
+# Int. Amount of requests to permit per router grouping from a single IP address within
+# a span of 5 minutes. If this amount is exceeded, a 429 HTTP error code will be returned.
+#
+# If you find yourself adjusting this limit because it's regularly being exceeded,
+# you should first verify that your settings for `trusted-proxies` (above) are correct.
+# In many cases, when the rate limit is exceeded it is because your instance sees all
+# incoming requests as coming from the *same IP address* (you can verify this by looking
+# at the client IPs in your instance logs). If this is the case, try adding that IP
+# address to your `trusted-proxies` *BEFORE* you go adjusting this rate limit setting!
+#
+# If you set this to 0 or less, rate limiting will be disabled entirely.
+#
+# Examples: [1000, 500, 0]
+# Default: 300
+advanced-rate-limit-requests: 300
+
+# Array of string. CIDRs to except from rate limit restrictions.
+# Any IPs inside the CIDR range(s) will not have rate limiting
+# applied on their requests, and rate limit headers will not be
+# set for those requests.
+#
+# For IPv6, we only take subnets up to a /64 into account. If you
+# want to open up a larger prefix, you'll need to list multiple
+# prefixes instead.
+#
+# This can be useful in the following example cases (and probably
+# a bunch of others as well):
+#
+# 1. You've set up an automated service that uses the API, and
+#    it keeps getting rate limited, even though you trust it's
+#    not abusing the instance.
+#
+# 2. You live with multiple people who use the same instance,
+#    and you're all using the same router/NAT, so you all have
+#    the same IP address, and you keep rate limiting each other.
+#
+# 3. You mostly use your own home internet to access your instance,
+#    and you want to exempt your home internet from rate limiting.
+#
+# You should be careful when adjusting this setting, since you
+# might inadvertently make rate limiting useless if you set too
+# wide a range. If in doubt, be too restrictive rather than too
+# lenient, and adjust as you go.
+#
+# Example: ["192.168.0.0/16", "2001:DB8:FACE:CAFE::/64"]
+# Default: []
+advanced-rate-limit-exceptions: []
+
+# Int. Amount of open requests to permit per CPU, per router grouping, before applying http
+# request throttling. Any requests beyond the calculated limit are held in a backlog queue for
+# up to 30 seconds before either being processed or timing out. Requests that don't fit in the backlog
+# queue will have status 503 returned to them, and the header 'Retry-After' will be set to 30 seconds.
+#
+# Open request limit is available CPUs * multiplier; backlog queue limit is limit * multiplier.
+#
+# Example values for multiplier 8:
+#
+# 1 cpu = 08 open, 064 backlog
+# 2 cpu = 16 open, 128 backlog
+# 4 cpu = 32 open, 256 backlog
+#
+# Example values for multiplier 4:
+#
+# 1 cpu = 04 open, 016 backlog
+# 2 cpu = 08 open, 032 backlog
+# 4 cpu = 16 open, 064 backlog
+#
+# A multiplier of 8 is a sensible default, but you may wish to increase this for instances
+# running on very performant hardware, or decrease it for instances using v. slow CPUs.
+#
+# If you set this to 0 or less, http request throttling will be disabled entirely.
+#
+# Examples: [8, 4, 9, 0]
+# Default: 8
+advanced-throttling-multiplier: 8
+
+# Duration. Time period to use as the "retry-after" header value in response to throttled requests.
+# Minimum resolution is 1 second.
+#
+# Examples: [30s, 10s, 5s, 1m]
+# Default: "30s"
+advanced-throttling-retry-after: "30s"
+
+# Int. CPU multiplier for the fixed number of goroutines to spawn in order to send messages via ActivityPub.
+# Messages will be batched and pushed to a singular queue, from which multiplier * CPU count goroutines will
+# pull and attempt deliveries. This can be tuned to limit concurrent posting to remote inboxes, preventing
+# your instance CPU usage skyrocketing when accounts with many followers post statuses.
+#
+# If you set this to 0 or less, only 1 sender will be used regardless of CPU count. This may be
+# useful in cases where you are working with very tight network or CPU constraints.
+#
+# Example values for multiplier 2 (default):
+#
+# 1 cpu = 2 concurrent senders
+# 2 cpu = 4 concurrent senders
+# 4 cpu = 8 concurrent senders
+#
+# Example values for multiplier 4:
+#
+# 1 cpu = 4 concurrent senders
+# 2 cpu = 8 concurrent senders
+# 4 cpu = 16 concurrent senders
+#
+# Example values for multiplier <1:
+#
+# 1 cpu = 1 concurrent sender
+# 2 cpu = 1 concurrent sender
+# 4 cpu = 1 concurrent sender
+advanced-sender-multiplier: 2
+
+# Array of string. Extra URIs to add to 'img-src' and 'media-src'
+# when building the Content-Security-Policy header for your instance.
+#
+# This can be used to allow the browser to load resources from additional
+# sources like S3 buckets and so on when viewing your instance's pages
+# and profiles in the browser.
+#
+# Since non-proxying S3 storage will be probed on instance launch to
+# generate a correct Content-Security-Policy, you probably won't need
+# to ever touch this setting, but it's included in the 'spirit of more
+# configurable (usually) means more good'.
+#
+# See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+#
+# Example: ["s3.example.org", "some-bucket-name.s3.example.org"]
+# Default: []
+advanced-csp-extra-uris: []
+
+# String. HTTP request header filtering mode to use for this instance.
+#
+# "block" -- only requests that are explicitly blocked by header filters
+#            will be denied (unless they are also explicitly allowed).
+#
+# "allow" -- only requests that are explicitly allowed by header filters
+#            will be accepted (unless they are also explicitly blocked).
+#            This mode is considered experimental and will almost certainly
+#            break access to your instance unless you are very careful.
+#
+#   ""    -- request header filtering disabled.
+#
+# For more details on block and allow modes, check the documentation at:
+# https://docs.gotosocial.org/en/latest/admin/request_filtering_modes
+#
+# Options: ["block", "allow", ""]
+# Default: ""
+advanced-header-filter-mode: ""

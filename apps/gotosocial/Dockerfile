@@ -28,10 +28,7 @@ COPY --chown=568:568 apps/gotosocial/root /
 RUN sed -i "/^elfie:/s|/sbin/nologin|/usr/bin/fish|" /etc/passwd
 
 # This just makes gotosocial not fail on start, so that goss can test it on port 8080
-ENV GTS_HOST=bogus.for.ci \
-    GTS_DB_TYPE=sqlite \
-    GTS_DB_ADDRESS="/config/bogus-gotosocial.db" \
-    GTS_STORAGE_LOCAL_BASE_PATH="/config/storage"
+ENV GTS_CONFIG_PATH=/config/config.yaml
 
 USER 568
 
