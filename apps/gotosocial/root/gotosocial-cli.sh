@@ -3,7 +3,7 @@
 # Start lshell in the background
 # readonly PATH=$HOME/programs
 
-export HOME=/home/elfie
+export HOME=/config
 export PATH=$PATH:$HOME/.local/bin/
 
 cd $HOME
