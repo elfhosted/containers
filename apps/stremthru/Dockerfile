@@ -34,7 +34,7 @@ WORKDIR /app
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /workspace/stremthru ./stremthru
 COPY --from=builder /schema /tmp
-COPY --from=arigaio/atlas:0.29.0-community /atlas /usr/local/bin/atlas
+COPY --from=arigaio/atlas:0.31.0-community /atlas /usr/local/bin/atlas
 
 VOLUME ["/app/data"]
 
