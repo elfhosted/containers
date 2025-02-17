@@ -1,0 +1,10 @@
+#!/bin/ash
+
+env | grep PDS > /tmp/pds.env
+PDS_ENV_FILE=/tmp/pds.env
+
+# Command to run.
+COMMAND="${1:-help}"
+shift || true
+
+/pdsadmin/${COMMAND}

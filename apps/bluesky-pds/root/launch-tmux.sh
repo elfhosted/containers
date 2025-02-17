@@ -1,3 +1,3 @@
-#!/bin/bash
+#!/bin/ash
 
-tmux -f /restricted.tmux.conf new-session -A -s pdsadmin fish
+tmux -f /restricted.tmux.conf new-session -A -s pds-cli fish
