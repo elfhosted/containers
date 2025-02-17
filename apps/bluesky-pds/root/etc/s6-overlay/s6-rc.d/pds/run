@@ -1,0 +1,3 @@
+#!/command/with-contenv ash
+cd /app
+node --enable-source-maps index.js
