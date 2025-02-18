@@ -1,10 +1,24 @@
-#!/bin/ash
-
-env | grep PDS > /tmp/pds.env
-PDS_ENV_FILE=/tmp/pds.env
+#!/bin/bash
 
 # Command to run.
 COMMAND="${1:-help}"
 shift || true
 
-/pdsadmin/${COMMAND}
+env | grep PDS > /tmp/pds.env
+export PDS_ENV_FILE=/tmp/pds.env
+
+PDSADMIN_BASE_URL="https://raw.githubusercontent.com/bluesky-social/pds/main/pdsadmin"
+
+# Download the script, if it exists.
+SCRIPT_URL="${PDSADMIN_BASE_URL}/${COMMAND}.sh"
+SCRIPT_FILE="$(mktemp /tmp/pdsadmin.${COMMAND}.XXXXXX)"
+
+if ! curl --fail --silent --show-error --location --output "${SCRIPT_FILE}" "${SCRIPT_URL}"; then
+  echo "ERROR: ${COMMAND} not found"
+  exit 2
+fi
+
+chmod +x "${SCRIPT_FILE}"
+if "${SCRIPT_FILE}" "$@"; then
+  rm "${SCRIPT_FILE}"
+fi

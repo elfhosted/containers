@@ -39,7 +39,7 @@ COPY apps/bluesky-pds/root /
 # Copy pdsadmin commands
 COPY --from=cloner --chmod=755 /source/pdsadmin /pdsadmin
 
-ADD https://raw.githubusercontent.com/bluesky-social/pds/main/pdsadmin.sh /usr/local/bin/pdsadmin
+# This is our slightly-hacked version
 RUN chmod 755 /usr/local/bin/pdsadmin
 
 ENV PDS_DATA_DIRECTORY=/config \
