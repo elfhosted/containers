@@ -7,9 +7,9 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b v$VERSION  https://github.com/bluesky-social/pds.git /source
+RUN git clone https://github.com/bluesky-social/pds.git /source
 
-FROM ghcr.io/bluesky-social/pds:${VERSION} 
+FROM ghcr.io/bluesky-social/pds
 
 ENV S6_OVERLAY_VERSION=3.2.0.2
 
