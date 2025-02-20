@@ -1,4 +1,4 @@
-FROM node:10-alpine
+FROM node:22-alpine
 
 LABEL maintaner="jaruba"
 LABEL description="Docker container to run RPDB Folders"

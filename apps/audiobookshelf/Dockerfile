@@ -8,14 +8,14 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION  https://github.com/advplyr/audiobookshelf.git /source
 
 ### STAGE 0: Build client ###
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /client
 COPY --from=cloner /source/client /client
 RUN npm ci && npm cache clean --force
 RUN npm run generate
 
 ### STAGE 1: Build server ###
-FROM node:20-alpine
+FROM node:22-alpine
 
 ENV NODE_ENV=production
 

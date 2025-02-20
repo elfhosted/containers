@@ -35,7 +35,7 @@ COPY --from=cloner /source/. .
 RUN npm run build
 
 # Etapa de produção
-FROM node:18-alpine AS runner
+FROM node:22-alpine AS runner
 
 ENV FANART_API=setme
 ENV PORT=3000
