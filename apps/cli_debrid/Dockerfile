@@ -35,7 +35,7 @@ RUN chown -R elfie:elfie /run
 WORKDIR /app
 
 # Install build dependencies and supervisor
-RUN apt-get update && apt-get install -y gcc supervisor ffmpeg && \
+RUN apt-get update && apt-get install -y gcc supervisor && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy only the requirements file first to leverage Docker cache
