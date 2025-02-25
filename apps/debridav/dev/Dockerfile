@@ -11,7 +11,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Clone the Debridav repository
-RUN git clone -b easynews https://github.com/skjaere/debridav.git .
+RUN git clone -b database_storage https://github.com/skjaere/debridav.git .
 
 # Build the project 
 # Note: Adjust the build command based on the project's actual build process
