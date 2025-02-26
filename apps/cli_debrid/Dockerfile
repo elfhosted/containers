@@ -7,6 +7,9 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/godver3/cli_debrid.git /source
 
+# Add latest cynesync
+RUN git clone https://github.com/sureshfizzy/CineSync.git /cinesync
+
 # Use Python 3 as the base image
 FROM python:3.11-slim
 
@@ -40,6 +43,9 @@ RUN apt-get update && apt-get install -y gcc supervisor ffmpeg && \
 
 # Copy only the requirements file first to leverage Docker cache
 COPY --from=cloner /source/requirements-linux.txt .
+
+# Copy cinesync
+COPY --from=cloner /cinesync /cinesync
 
 # Install the requirements
 RUN pip install --no-cache-dir -r requirements-linux.txt
