@@ -25,18 +25,46 @@ RUN pnpm install --frozen-lockfile
 COPY --from=cloner /source/. .
 RUN pnpm build
 
-FROM ghcr.io/elfhosted/alpine:3.19.1@sha256:dfb0a18161228f317ed4c96630d70d7855d546a522c0017cbe76b907dabae8ec
 
-ENV GID 568
-ENV UID 568
-ENV PORT 8080
-ENV SUBFOLDER "/_"
-ENV INIT_ASSETS 1
-ENV IPV6_DISABLE 0
+# build stage
+FROM --platform=$BUILDPLATFORM node:22-alpine3.21 AS build-stage
 
-USER root 
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 
-RUN apk add -U --no-cache lighttpd git
+RUN corepack enable && corepack use pnpm@10
+
+WORKDIR /app
+
+COPY --from=cloner source/package.json source/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY --from=cloner source/. .
+RUN pnpm build
+
+# production stage
+FROM alpine:3.21
+
+LABEL \
+    org.label-schema.schema-version="1.0" \
+    org.label-schema.version="$VERSION_TAG" \
+    org.opencontainers.image.title="Homer Image" \
+    org.opencontainers.image.description="A dead simple static Home-Page for your server to keep your services on hand, from a simple yaml configuration file." \
+    org.opencontainers.image.ref.name="b4bz/homer:${VERSION_TAG}" \
+    org.opencontainers.image.version="$VERSION_TAG" \
+    org.opencontainers.image.licenses="Apache-2.0 license" \
+    org.opencontainers.image.source="https://github.com/bastienwirtz/homer" \
+    org.opencontainers.image.url="https://hub.docker.com/r/b4bz/homer"
+
+ENV GID=568 \
+    UID=568 \
+    PORT=8080 \
+    SUBFOLDER="/_" \
+    INIT_ASSETS=1 \
+    IPV6_DISABLE=0
+
+RUN addgroup -S lighttpd -g ${GID} && adduser -D -S -u ${UID} lighttpd lighttpd && \
+    apk add -U --no-cache tzdata lighttpd
 
 WORKDIR /www
 
@@ -71,6 +99,9 @@ COPY ./apps/homer/backgrounds/* backgrounds/
 COPY ./apps/homer/favicon/* /www/assets/icons/
 
 USER ${UID}:${GID}
+
+HEALTHCHECK --start-period=10s --start-interval=1s --interval=30s --timeout=5s --retries=3 \
+    CMD wget --no-verbose -Y off --tries=1 --spider http://127.0.0.1:${PORT}/ || exit 1
 
 EXPOSE ${PORT}
 
