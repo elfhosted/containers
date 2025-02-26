@@ -43,10 +43,6 @@ RUN apt-get update && apt-get install -y gcc supervisor && \
 
 # Copy only the requirements file first to leverage Docker cache
 COPY --from=cloner /source/requirements-linux.txt .
-
-# Copy cinesync
-COPY --from=cloner /cinesync /cinesync
-
 # Install the requirements
 RUN pip install --no-cache-dir -r requirements-linux.txt
 
@@ -67,6 +63,14 @@ RUN sed -i 's/^export LC_ALL=C.UTF-8/# export LC_ALL=C.UTF-8/' /etc/profile && \
     sed -i 's/^clear/# clear/' /etc/profile
 
 COPY --chown=568:568 apps/cli_debrid/root /
+
+# Copy and install cinesync
+COPY --from=cloner /cinesync /cinesync
+WORKDIR /cinesync
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Back to app
+WORKDIR /app
 
 USER 568
 
