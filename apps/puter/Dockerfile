@@ -20,7 +20,7 @@ RUN git clone -b $VERSION  https://github.com/heyputer/puter.git /source
 # worry about Docker unless the build/run process changes.
 
 # Build stage
-FROM node:21-alpine AS build
+FROM node:22-alpine AS build
 
 # Install build dependencies
 RUN apk add --no-cache git python3 make g++ \
@@ -53,7 +53,7 @@ RUN npm cache clean --force && \
 RUN cd src/gui && npm run build && cd -
 
 # Production stage
-FROM node:21-alpine
+FROM node:22-alpine
 
 # Set labels
 LABEL repo="https://github.com/HeyPuter/puter"
