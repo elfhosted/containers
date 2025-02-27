@@ -19,7 +19,7 @@ read -s -n 1 -t 10
 
 if [ $? -eq 0 ]; then
     echo "You pressed a key! Going to manual mode.."
-    python add.py
+    AUTOMATED_MODE=false python add.py
 else
     echo "Timeout reached, running ListSync in automated mode.."
     AUTOMATED_MODE=true python app.py
