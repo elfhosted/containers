@@ -22,7 +22,7 @@ if [ $? -eq 0 ]; then
     AUTOMATED_MODE=false python add.py
 else
     echo "Timeout reached, running ListSync in automated mode.."
-    AUTOMATED_MODE=true python app.py
+    AUTOMATED_MODE=true python add.py
 fi
 
 echo "ListSync has exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
