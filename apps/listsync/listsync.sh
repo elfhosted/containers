@@ -2,9 +2,7 @@
 
 if [[ -z "$OVERSEERR_API_KEY" ]]; 
 then
-    echo "ListSync uses populates Overseerr / Jellyseerr with requests from IMDB, Trakt, or Letterboxd lists"
-    sleep infinity 
-fi
+    echo "ListSync uses populates Overseerr / Jellyseerr with requests from IMDB, Trakt, or Letterboxd lists
 
 Before ListSync will run, you need to define:
 - OVERSEERR_API_KEY
