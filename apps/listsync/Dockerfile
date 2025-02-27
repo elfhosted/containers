@@ -13,7 +13,7 @@ ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86
 ARG user=elfie
 RUN groupadd -g 568 $user && useradd -d /app --create-home --uid 568 --gid 568 --shell /bin/bash $user
 RUN chown elfie /app
-USER 568
+# USER 568
 
 # add local files
 COPY --chown=568:568 apps/listsync/listsync.sh /

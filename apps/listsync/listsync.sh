@@ -1,17 +1,15 @@
 #!/bin/bash
 
-# if [[ -z "$OVERSEERR_API_KEY" || -z "$TRAKT_API_KEY" ]]; 
-# then
-#     echo "SeerrBridge uses DebridMediaManager to fulfill Overseerr requests
+if [[ -z "$OVERSEERR_API_KEY" ]]; 
+then
+    echo "ListSync uses populates Overseerr / Jellyseerr with requests from IMDB, Trakt, or Letterboxd lists"
 
-# Before SeerBridge will run, you need to define:
-# - OVERSEERR_API_KEY
-# - TRAKT_API_KEY
-# - RealDebrid/DMM credentials
+Before ListSync will run, you need to define:
+- OVERSEERR_API_KEY
 
-# See https://docs.elfhosted.com/app/seerrbridge for further details"
-#     sleep infinity 
-# fi
+See https://docs.elfhosted.com/app/listsync for further details"
+    sleep infinity 
+fi
 
 python add.py
 
