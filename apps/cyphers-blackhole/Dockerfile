@@ -17,7 +17,7 @@ COPY --from=cloner /source/go.mod /source/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download -x
 
-COPY COPY --from=cloner /source/. .
+COPY --from=cloner /source/. .
 
 # Build main binary
 RUN --mount=type=cache,target=/go/pkg/mod \
