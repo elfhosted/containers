@@ -3,22 +3,68 @@ ARG VERSION
 RUN apk add --update --no-cache tmux ttyd git && \
     git clone -b $VERSION https://github.com/sirrobot01/debrid-blackhole.git  /source
 
-FROM --platform=$BUILDPLATFORM golang:1.22 as builder
+# Stage 1: Build binaries
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine as builder
 
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=0.0.0
+ARG CHANNEL=dev
 
-# Set destination for COPY
 WORKDIR /app
 
-# Download Go modules
-COPY --from=cloner /source/. .
-RUN go mod download
+COPY --from=cloner /source/go.mod /source/go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download -x
 
-# Build
-RUN CGO_ENABLED=0 GOOS=$(echo $TARGETPLATFORM | cut -d '/' -f1) GOARCH=$(echo $TARGETPLATFORM | cut -d '/' -f2) go build -o /blackhole
+COPY COPY --from=cloner /source/. .
 
-EXPOSE 8181
+# Build main binary
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath \
+    -ldflags="-w -s -X github.com/sirrobot01/debrid-blackhole/pkg/version.Version=${VERSION} -X github.com/sirrobot01/debrid-blackhole/pkg/version.Channel=${CHANNEL}" \
+    -o /blackhole
 
-# Run
-CMD ["/blackhole", "--config", "/app/config.json"]
+# Build healthcheck (optimized)
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -ldflags="-w -s" \
+    -o /healthcheck cmd/healthcheck/main.go
+
+# Stage 2: Create directory structure
+FROM alpine:3.19 as dirsetup
+RUN mkdir -p /app/logs && \
+    chmod 777 /app/logs && \
+    touch /app/logs/decypharr.log && \
+    chmod 666 /app/logs/decypharr.log
+
+# Stage 3: Final image
+FROM gcr.io/distroless/static-debian12:nonroot
+
+LABEL version = "${VERSION}-${CHANNEL}"
+
+LABEL org.opencontainers.image.source = "https://github.com/sirrobot01/debrid-blackhole"
+LABEL org.opencontainers.image.title = "debrid-blackhole"
+LABEL org.opencontainers.image.authors = "sirrobot01"
+LABEL org.opencontainers.image.documentation = "https://github.com/sirrobot01/debrid-blackhole/blob/main/README.md"
+
+# Copy binaries
+COPY --from=builder --chown=nonroot:nonroot /blackhole /usr/bin/blackhole
+COPY --from=builder --chown=nonroot:nonroot /healthcheck /usr/bin/healthcheck
+
+# Copy pre-made directory structure
+COPY --from=dirsetup --chown=nonroot:nonroot /app /app
+
+
+# Metadata
+ENV LOG_PATH=/app/logs
+EXPOSE 8181 8282
+VOLUME ["/app"]
+USER nonroot:nonroot
+
+HEALTHCHECK CMD ["/usr/bin/healthcheck"]
+
+CMD ["/usr/bin/blackhole", "--config", "/app"]
