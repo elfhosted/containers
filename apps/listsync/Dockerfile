@@ -1,3 +1,6 @@
+# Use specific Python version
+ARG PYTHON_VERSION=3.9
+
 # Get upstream code
 FROM alpine:latest as cloner
 ARG VERSION
@@ -6,9 +9,6 @@ RUN apk update && apk upgrade && \
     apk add --no-cache git
 
 RUN git clone -b $VERSION  https://github.com/Woahai321/ListSync.git /source
-
-# Use specific Python version
-ARG PYTHON_VERSION=3.9
 
 # Stage 1: Builder
 FROM python:${PYTHON_VERSION}-slim AS builder
