@@ -104,6 +104,10 @@ RUN mkdir -p /tmp/.X11-unix && \
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 
+# Copy requirements and install them
+COPY --from=cloner /source/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 
 # Force our preferred user
 ARG user=elfie
@@ -123,9 +127,6 @@ ENV CHROME_BIN=/usr/bin/google-chrome
 ENV CHROME_DRIVER_PATH=/usr/local/bin/chromedriver
 ENV RUNNING_IN_DOCKER=true
 
-# Copy requirements and install them
-COPY --from=cloner /source/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
 COPY --from=cloner /source/. .
