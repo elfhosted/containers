@@ -8,7 +8,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/Woahai321/ListSync.git /source
+RUN git clone -b $VERSION  https://github.com/Woahai321/list-sync.git /source
 
 # Stage 1: Builder
 FROM python:${PYTHON_VERSION}-slim AS builder
@@ -19,7 +19,7 @@ WORKDIR /usr/src/app
 RUN pip install poetry==1.8.3
 
 # Copy Poetry configuration
-COPY --from=cloner /source/pyproject.toml poetry.lock ./
+COPY --from=cloner /source/pyproject.toml /source/poetry.lock ./
 
 # Poetry settings
 ENV POETRY_NO_INTERACTION=1 \
@@ -101,10 +101,6 @@ RUN mkdir -p /usr/src/app/data
 RUN mkdir -p /tmp/.X11-unix && \
     chmod 1777 /tmp/.X11-unix
 
-# The entrypoint should run the script directly
-ENTRYPOINT ["xvfb-run", "--server-args='-screen 0 1920x1080x24 -ac'", "--auto-servernum", "python", "add.py"]
-
-
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 
@@ -136,7 +132,6 @@ COPY --from=cloner /source/. .
 
 # Expose the application port (if needed)
 EXPOSE 8777
-
 
 # Run the application
 ENTRYPOINT ["/entrypoint.sh"]
