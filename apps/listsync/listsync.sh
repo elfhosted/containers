@@ -20,8 +20,8 @@ read -s -n 1 -t 10
 if [ $? -eq 0 ]; then
     echo "You pressed a key! Going to manual mode, a few things to note:
 
-1️⃣just hit enter whenever prompted for a password, it's unnecessary
-2️⃣ if prompted for it, your Overseerr URL is $OVERSEERR_URL, and you'll have to retrieve the API key from your instance yourself"
+1️⃣ Hit enter whenever prompted for a password, it's unnecessary
+2️⃣ If prompted for it, your Overseerr URL is $OVERSEERR_URL, and you'll have to retrieve the API key from your instance yourself"
 
     AUTOMATED_MODE=false python add.py
 else
