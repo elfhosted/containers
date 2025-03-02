@@ -101,6 +101,7 @@
             color: white;
             font-size: 16px;
             transition: all 0.3s ease;
+            box-sizing: border-box; /* Ensures padding is included in width calculation */
         }
         .form-group select:focus, .form-group input:focus {
             outline: none;
@@ -117,6 +118,7 @@
             display: flex;
             gap: 15px;
             margin-top: 10px;
+            flex-wrap: wrap; /* Allow wrapping for mobile */
         }
         .radio-option {
             display: flex;
@@ -126,6 +128,19 @@
         .radio-option input[type="radio"] {
             width: auto;
             margin-right: 8px;
+        }
+        .custom-url-input {
+            margin-top: 15px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease, margin 0.3s ease, opacity 0.3s ease;
+            opacity: 0;
+            width: 100%;
+        }
+        .custom-url-input.visible {
+            max-height: 60px; /* Adjust based on your input height */
+            margin-top: 15px;
+            opacity: 1;
         }
         .cta-button {
             background-color: #ff3333;
@@ -168,11 +183,12 @@
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Added shadow for better readability */
         }
         .legacy-option {
-            font-size: 0.75em; /* Smaller font size */
+            font-size: 0.55em; /* Smaller font size */
             color: #888;
             margin-top: 15px; /* Reduced top margin */
             padding-top: 10px;
             border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            opacity: 0.6; /* 40% more transparent */
         }
         .legacy-link {
             color: #888;
@@ -187,8 +203,8 @@
         }
         .legacy-panel {
             display: none;
-            margin-top: 10px; /* Reduced margin */
-            padding: 10px; /* Reduced padding */
+            margin-top: 3px; /* Reduced margin */
+            padding: 3px; /* Reduced padding */
             background: rgba(40, 40, 40, 0.6);
             border-radius: 8px;
             text-align: center;
@@ -399,8 +415,8 @@
                     'ad': 'Your AllDebrid API key from your account dashboard',
                     'dl': 'Your Debrid-Link API key from your account settings',
                     'ed': 'Your Paradise-Cloud EasyDebrid API key from your account page',
-                    'oc': 'Format should be youremail@example.com:yourpassword',
-                    'pp': 'Format should be youremail@example.com:yourpassword',
+                    'oc': 'Format should be email@example.com:password',
+                    'pp': 'Format should be email@example.com:password',
                     'pm': 'Your Premiumize API key from your account settings',
                     'tb': 'Your TorBox API key from your settings page'
                 };
@@ -411,6 +427,20 @@
             
             debridProvider.addEventListener('change', updateApiKeyPlaceholder);
             updateApiKeyPlaceholder(); // Initialize with default value
+            
+            // Setup custom URL input visibility
+            const stremthruProviderRadios = document.querySelectorAll('input[name="stremthru-provider"]');
+            const customUrlInput = document.getElementById('custom-url-input');
+            
+            stremthruProviderRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'custom') {
+                        customUrlInput.classList.add('visible');
+                    } else {
+                        customUrlInput.classList.remove('visible');
+                    }
+                });
+            });
             
             // Setup debrid manifest generation
             const generateDebridLink = document.getElementById('generate-debrid-link');
@@ -472,7 +502,7 @@
         function generateDebridManifest() {
             const debridProvider = document.getElementById('debrid-provider').value;
             const apiKey = document.getElementById('api-key').value.trim();
-            const stremthruProvider = document.querySelector('input[name="stremthru-provider"]:checked').value;
+            const stremthruProviderValue = document.querySelector('input[name="stremthru-provider"]:checked').value;
             
             if (!apiKey) {
                 alert('Please enter your API key or credentials');
@@ -480,12 +510,24 @@
             }
             
             // Get the appropriate base URL based on stremthru provider selection
-            const baseUrls = {
-                'elfhosted': 'https://stremthru.elfhosted.com/stremio/wrap/',
-                'mooo': 'https://stremthru.mooo.com/stremio/wrap/'
-            };
-            
-            const baseUrl = baseUrls[stremthruProvider];
+            let baseUrl;
+            if (stremthruProviderValue === 'custom') {
+                baseUrl = document.getElementById('custom-url').value.trim();
+                if (!baseUrl) {
+                    alert('Please enter a custom URL');
+                    return;
+                }
+                // Ensure URL ends with a slash
+                if (!baseUrl.endsWith('/')) {
+                    baseUrl += '/';
+                }
+            } else {
+                const baseUrls = {
+                    'elfhosted': 'https://stremthru.elfhosted.com/stremio/wrap/',
+                    'mooo': 'https://stremthru.mooo.com/stremio/wrap/'
+                };
+                baseUrl = baseUrls[stremthruProviderValue];
+            }
             
             // Create the configuration object
             const config = {
@@ -564,77 +606,82 @@
                     </div>
                 </div>                               
                 
-                <form onsubmit="return false;">
-                    <div class="section-heading">
-                        <span>Debrid Service Configuration</span>
-                    </div>
-                    <div class="form-group">
-                        <label for="debrid-provider">Select Debrid Provider:</label>
-                        <select id="debrid-provider">
-                            <option value="rd">Real Debrid</option>
-                            <option value="ad">All Debrid</option>
-                            <option value="dl">Debrid Link</option>
-                            <option value="ed">Easy Debrid (Paradise-Cloud)</option>
-                            <option value="oc">Offcloud</option>
-                            <option value="pp">PikPak</option>
-                            <option value="pm">Premiumize</option>
-                            <option value="tb">TorBox</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="api-key">API Key/Credentials:</label>
-                        <input type="text" id="api-key" placeholder="Enter your API key">
-                        <div id="api-key-hint" class="hint"></div>
-                    </div>
-                    
-                    <div class="section-heading">
-                        <span class="tooltip">
-                            Stremthru Provider Configuration
-                            <span class="tooltip-icon"><i class="fas fa-info-circle"></i></span>
-                            <span class="tooltip-text">This is the wrap service that Formulio will use to leverage debrid capabilities</span>
-                        </span>
-                    </div>
-                    <div class="form-group">
-                        <label>Select Stremthru Provider:</label>
-                        <div class="radio-group">
-                            <label class="radio-option">
-                                <input type="radio" name="stremthru-provider" value="elfhosted" checked> Elfhosted (recommended)
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="stremthru-provider" value="mooo"> Mooo
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <button id="generate-debrid-link" class="cta-button">Generate Debrid Link</button>
-                </form>
-
-                <div id="debrid-result" style="display: none;">
-                    <p>Your debrid-enabled Formulio is ready! Click below to install:</p>
-                    <a id="debrid-link" href="#"><button class="cta-button">Install Debrid-Enabled Formulio</button></a>
-                    <div style="margin-top: 30px; font-size: 0.9em;">
-                        <p style="margin-bottom: 5px; font-size: 0.85em;">Manifest URL (for manual installation):</p>
-                        <a id="manifest-url" href="#" target="_blank" style="color: #ff9999; word-break: break-all; display: block; margin-bottom: 10px; font-size: 0.85em;"></a>
-                        
-                        <p style="margin-top: 30px; margin-bottom: 5px; font-weight: bold;">DO THIS: Pin Formulio to The Top of Your Stremio Homepage</p>
-                        <p style="margin-top: 0px;">Rearrange your Stremio addons here: <a href="https://stremio-addon-manager.vercel.app/" target="_blank" style="color: #ff9999;">Stremio Addon Manager</a></p>
-                    </div>                   
+            <form onsubmit="return false;">
+                <div class="section-heading">
+                    <span>Debrid Service Configuration</span>
                 </div>
-                              
+                <div class="form-group">
+                    <label for="debrid-provider">Select Debrid Provider:</label>
+                    <select id="debrid-provider">
+                        <option value="rd">Real Debrid</option>
+                        <option value="ad">All Debrid</option>
+                        <option value="dl">Debrid Link</option>
+                        <option value="ed">Easy Debrid (Paradise-Cloud)</option>
+                        <option value="oc">Offcloud</option>
+                        <option value="pp">PikPak</option>
+                        <option value="pm">Premiumize</option>
+                        <option value="tb">TorBox</option>
+                    </select>
+                </div>
                 
-                <div class="legacy-option">
-                    <span>Not recommended: </span><a href="#" id="legacy-toggle" class="legacy-link">P2P</a><span> version without debrid</span>
-                    <div id="legacy-panel" class="legacy-panel">
-                        <p>The P2P version is only recommended for testing or for backup.</p>
-                        <a id="stremio-link" href="#"><button class="cta-button" style="background-color: #666; font-size: 14px; padding: 8px 15px;">Install P2P Version</button></a>
+                <div class="form-group">
+                    <label for="api-key">API Key/Credentials:</label>
+                    <input type="text" id="api-key" placeholder="Enter your API key">
+                    <div id="api-key-hint" class="hint"></div>
+                </div>
+                
+                <div class="section-heading">
+                    <span class="tooltip">
+                        Stremthru Provider Configuration
+                        <span class="tooltip-icon"><i class="fas fa-info-circle"></i></span>
+                        <span class="tooltip-text">This is the wrap service that Formulio will use to leverage debrid capabilities</span>
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label>Select Stremthru Provider:</label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="stremthru-provider" value="elfhosted" checked> Elfhosted (recommended)
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="stremthru-provider" value="mooo"> Mooo
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="stremthru-provider" value="custom"> Custom
+                        </label>
+                    </div>
+                    <div id="custom-url-input" class="custom-url-input">
+                        <input type="text" id="custom-url" placeholder="https://stremthru.<domain>/stremio/wrap/" class="form-control">
                     </div>
                 </div>
+                
+                <button id="generate-debrid-link" class="cta-button">Generate Debrid Link</button>
+            </form>
+
+            <div id="debrid-result" style="display: none;">
+                <p>Your debrid-enabled Formulio is ready! Click below to install:</p>
+                <a id="debrid-link" href="#"><button class="cta-button">Install Debrid-Enabled Formulio</button></a>
+                <div style="margin-top: 30px; font-size: 0.9em;">
+                    <p style="margin-bottom: 5px; font-size: 0.85em;">Manifest URL (for manual installation):</p>
+                    <a id="manifest-url" href="#" target="_blank" style="color: #ff9999; word-break: break-all; display: block; margin-bottom: 10px; font-size: 0.85em;"></a>
+                    
+                    <p style="margin-top: 30px; margin-bottom: 5px; font-weight: bold;">DO THIS: Pin Formulio to The Top of Your Stremio Homepage</p>
+                    <p style="margin-top: 0px;">Rearrange your Stremio addons here: <a href="https://stremio-addon-manager.vercel.app/" target="_blank" style="color: #ff9999;">Stremio Addon Manager</a></p>
+                </div>                   
             </div>
+                          
             
-            <div class="disclaimer">
-                Disclaimer: This addon does not host any content. It simply suggests pointers to content that is publicly available on the internet.
+            <div class="legacy-option">
+                <a href="#" id="legacy-toggle" class="legacy-link">.</a>
+                <div id="legacy-panel" class="legacy-panel">
+                    <p>Not recommended and depreciated - the P2P version should only be used for testing.</p>
+                    <a id="stremio-link" href="#"><button class="cta-button" style="background-color: #666; font-size: 10px; padding: 3px 3px;">Install P2P Version</button></a>
+                </div>
             </div>
+        </div>
+        
+        <div class="disclaimer">
+            Disclaimer: This addon does not host any content. It simply suggests pointers to content that is publicly available on the internet.
         </div>
     </div>
     
