@@ -17,9 +17,6 @@ See https://docs.elfhosted.com/app/seerrbridge for further details"
     sleep infinity 
 fi
 
-# Create log directory if it doesn't exist
-mkdir -p /logs
-
 # Log file path (using date for daily log)
 log_file="/logs/$(date +'%Y-%m-%d').log"
 

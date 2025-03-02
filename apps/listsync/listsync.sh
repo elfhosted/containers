@@ -11,6 +11,12 @@ See https://docs.elfhosted.com/app/listsync for further details"
     sleep infinity 
 fi
 
+# Log file path (using date for daily log)
+log_file="/logs/$(date +'%Y-%m-%d').log"
+
+# Remove logs older than 7 days
+find /logs/ -type f -name "*.log" -mtime +7 -exec rm {} \;
+
 echo "👋 ListSync usually runs in automated (hands-off) mode. 
 Press any key to drop to a shell for manual mode, or wait 10 seconds for a normal start... ⏱️"
 
@@ -26,7 +32,7 @@ if [ $? -eq 0 ]; then
     AUTOMATED_MODE=false python add.py
 else
     echo "Timeout reached, running ListSync in automated mode.."
-    AUTOMATED_MODE=true python add.py
+    AUTOMATED_MODE=true python add.py 2>&1 | tee -a "$log_file"
 fi
 
 echo "ListSync has exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
