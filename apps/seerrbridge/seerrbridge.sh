@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# We need to point /app/.env to /config/.env for persistence
+touch /config/.env
+ln -sf /config/.env /app/.env
+
 if [[ -z "$OVERSEERR_API_KEY" || -z "$TRAKT_API_KEY" ]]; 
 then
     echo "SeerrBridge uses DebridMediaManager to fulfill Overseerr requests
