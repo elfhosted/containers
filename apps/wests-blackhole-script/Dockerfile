@@ -3,10 +3,6 @@ ARG VERSION
 RUN apk add --update --no-cache tmux ttyd git && \
     git clone -b $VERSION https://github.com/westsurname/scripts.git  /source
 
-# Patch for probe support (we can't do inotify)
-COPY apps/wests-blackhole-script/polling-no-inotify.patch /source/
-RUN cd /source && git apply polling-no-inotify.patch && rm polling-no-inotify.patch
-
 FROM python:3.9-slim
 
 ARG SERVICE_NAME=blackhole
@@ -17,14 +13,11 @@ WORKDIR /app
 # Copy only the files needed for pip install to maximize cache utilization
 COPY --from=cloner /source/requirements.txt ./
 
-# Install Python dependencies
-RUN grep -E "#.*($SERVICE_NAME|all)" requirements.txt | awk '{print $0}' > service_requirements.txt && \
-    pip install --no-cache-dir -r service_requirements.txt
+# Install ALL Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY --from=cloner /source/. .
-
-CMD ["python", "blackhole_watcher.py"]
 
 # Add tmux
 RUN apt-get update && \
