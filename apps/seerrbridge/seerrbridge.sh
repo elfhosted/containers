@@ -14,13 +14,12 @@ ln -sf /config/seerrbridge.log $log_file
 # Remove logs older than 7 days
 find /logs/ -type f -name "*.log" -mtime +7 -exec rm {} \;
 
-if [[ -z "$OVERSEERR_API_KEY" || -z "$TRAKT_API_KEY" ]]; 
+if [[ -z "$OVERSEERR_API_KEY" ]]; 
 then
     echo "SeerrBridge uses DebridMediaManager to fulfill Overseerr requests
 
 Before SeerBridge will run, you need to define:
 - OVERSEERR_API_KEY (even if it's provided by Jellyseerr)
-- TRAKT_API_KEY
 - RealDebrid/DMM credentials
 
 See https://docs.elfhosted.com/app/seerrbridge for further details"
