@@ -6,7 +6,9 @@ ln -sf /config/.env /app/.env
 
 # Fresh logs
 log_file="/logs/$(date +'%Y-%m-%d').log"
-rm /config/seerrbridge.log
+if [ -f /config/seerrbridge.log ]; then
+    rm /config/seerrbridge.log
+fi
 ln -sf /config/seerrbridge.log $log_file
 
 # Remove logs older than 7 days
