@@ -1,19 +1,5 @@
 #!/bin/bash
 
-# We need to point /app/.env to /config/.env for persistence
-touch /config/.env
-ln -sf /config/.env /app/.env
-
-# Fresh logs
-log_file="/logs/$(date +'%Y-%m-%d').log"
-if [ -f /config/seerrbridge.log ]; then
-    rm /config/seerrbridge.log
-fi
-ln -sf /config/seerrbridge.log $log_file
-
-# Remove logs older than 7 days
-find /logs/ -type f -name "*.log" -mtime +7 -exec rm {} \;
-
 if [[ -z "$OVERSEERR_API_KEY" ]]; 
 then
     echo "SeerrBridge uses DebridMediaManager to fulfill Overseerr requests
