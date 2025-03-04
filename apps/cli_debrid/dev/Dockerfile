@@ -5,7 +5,9 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/godver3/cli_debrid.git /source
+RUN git clone -b dev  https://github.com/godver3/cli_debrid.git /source
+
+#  RUN git clone -b $VERSION  https://github.com/godver3/cli_debrid.git /source
 
 # Use Python 3 as the base image
 FROM python:3.11-slim
