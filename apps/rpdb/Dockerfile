@@ -1,28 +1,28 @@
-FROM node:10-alpine
+FROM debian:bullseye-slim
 
 LABEL maintaner="jaruba"
 LABEL description="Docker container to run RPDB Folders"
 
-RUN apk update && \
-    apk --no-cache add git && \
-    apk --no-cache add util-linux && \
-    apk --no-cache add --virtual builds-deps build-base python
+ARG version=0.2.7
+
+RUN apt-get update && \
+    apt-get install -y unzip && \
+    apt-get install -y wget
 
 WORKDIR /app
 
-RUN git clone -b main https://www.github.com/RatingPosterDB/rpdb-folders.git && \
+RUN wget https://github.com/RatingPosterDB/rpdb-folders/releases/latest/download/linux-rpdb-folders.zip && \
+    mkdir -p ./rpdb-folders && \
+    unzip linux-rpdb-folders.zip -d ./rpdb-folders && \
+    rm ./linux-rpdb-folders.zip && \
     mkdir -p /rpdb/config && \
     mkdir -p /rpdb/mounts && \
-    cd rpdb-folders && \
-    echo bW9kdWxlLmV4cG9ydHMgPSB7IGtleTogJzA1OTAxY2RlYzVmYWFkNGRjODFjYWI1NTY5ZTg1MzhjJyB9 | base64 -d > tmdbKey.js && \
-    rm -rf package-lock.json node_modules && \
-    npm install --production
+    chmod +x ./rpdb-folders/rpdb-folders
 
 WORKDIR /app/rpdb-folders
 
 VOLUME ["/rpdb/config"]
 VOLUME ["/rpdb/mounts"]
 
-USER 568
 EXPOSE 8750
-CMD ["npm", "start"]
+CMD ["./rpdb-folders", "--no-browser"]

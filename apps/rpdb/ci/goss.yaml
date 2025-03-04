@@ -1,10 +1,10 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 process:
-  python3:
+  rpdb-folders:
     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
-# http:
-#   http://localhost:5299:
-#     status: 200
+http:
+  http://localhost:8750:
+    status: 200
