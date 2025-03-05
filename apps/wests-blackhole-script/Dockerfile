@@ -32,4 +32,8 @@ COPY --chown=568:568 apps/wests-blackhole-script/launch-tmux.sh /
 COPY --chown=568:568 apps/wests-blackhole-script/entrypoint.sh /
 COPY --chown=568:568 apps/wests-blackhole-script/restricted.tmux.conf /
 
+COPY --chown=568:568 --chmod=755 apps/wests-blackhole-script/request.sh /
+COPY --chown=568:568 --chmod=755 apps/wests-blackhole-script/auth.sh /
+COPY --chown=568:568 --chmod=755 apps/wests-blackhole-script/watchlist.sh /
+
 ENTRYPOINT ["/entrypoint.sh"]
