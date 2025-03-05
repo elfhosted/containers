@@ -6,4 +6,4 @@ if [[ -z "${OVERSEERR_HOST}" ]]; then
 fi
 
 cd /app
-gunicorn --bind 0.0.0.0:32501 plex_request_wsgi:app
+gunicorn --bind 0.0.0.0:32502 plex_request_wsgi:app
