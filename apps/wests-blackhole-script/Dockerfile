@@ -25,7 +25,7 @@ RUN apt-get update && \
     tmux
 
 # tokens.json needs to exist at /config
-RUN sed -i "s|os.path.join(pathToScript, 'tokens.json')|'/config/tokens.json'|"
+RUN sed -i "s|os.path.join(pathToScript, 'tokens.json')|'/config/tokens.json'|" shared/shared.py
 
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
