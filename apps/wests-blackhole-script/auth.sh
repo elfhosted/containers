@@ -2,7 +2,7 @@
 
 # Create a dummy tokens.json if it doesn't exist
 if [ ! -f /config/tokens.json ]; then
-    echo "[]" > /config/tokens.json
+    echo "{}" > /config/tokens.json
 fi
 
 if [[ -z "${OVERSEERR_HOST}" ]]; then
