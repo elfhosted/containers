@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION  https://github.com/markbeep/AudioBookRequest.git /source
 
 # Install daisyui
-FROM node:23-alpine3.20
+FROM node:23-alpine3.20 as node
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ COPY --from=cloner /source/requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
 
-COPY --from=0 /app/node_modules/ node_modules/
+COPY --from=node /app/node_modules/ node_modules/
 
 COPY --from=cloner /source/alembic/ alembic/
 COPY --from=cloner /source/alembic.ini alembic.ini
