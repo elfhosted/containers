@@ -17,7 +17,7 @@ WORKDIR /app
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o seonaut cmd/server/main.go
 
-FROM node:18-alpine3.18 AS front
+FROM node:22-alpine3.18 AS front
 WORKDIR /home/node
 COPY --from=builder /app ./app/
 RUN npm install --save-exact esbuild && ./node_modules/esbuild/bin/esbuild ./app/web/css/style.css \

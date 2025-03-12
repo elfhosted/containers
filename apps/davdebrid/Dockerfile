@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/arvida42/davdebrid.git /source
 
-FROM node:20-slim
+FROM node:22-slim
 
 RUN mkdir -p /home/node/app && chown -R node:node /home/node/app \
   && mkdir -p /data && chown -R node:node /data
