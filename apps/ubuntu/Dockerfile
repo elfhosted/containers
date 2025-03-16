@@ -104,7 +104,7 @@ RUN \
 ENV LANG en_US.UTF-8
 
 VOLUME ["/config"]
-COPY ./apps/ubuntu/scripts /scripts
+COPY --chmod=755 ./apps/ubuntu/scripts /scripts
 COPY --from=builder /go/bin/envsubst /usr/local/bin/envsubst
 
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
