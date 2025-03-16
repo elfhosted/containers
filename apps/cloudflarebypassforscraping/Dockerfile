@@ -11,7 +11,7 @@ RUN git clone  https://github.com/sarperavci/CloudflareBypassForScraping.git /so
 
 
 ## Upstream Dockerfile
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:224fbe07e825d0ee91b483bd8403be754971bd0d4813689dbeb28a2435ab46d6 
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:7b82b83612a1da268ffefae8714cc9e8d30d677076acc2d2b6f0dff584a0452d 
 
 # Set environment variables to avoid interactive prompts during build
 ENV DEBIAN_FRONTEND=noninteractive
