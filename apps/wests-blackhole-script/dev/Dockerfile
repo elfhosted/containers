@@ -19,6 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY --from=cloner /source/. .
 
+# Copy patched blackhole.py to debug history issue
+COPY apps/wests-blackhole-script/dev/blackhole.py .
+
 # Add tmux
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
