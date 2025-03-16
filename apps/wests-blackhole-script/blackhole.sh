@@ -12,6 +12,12 @@ elif [[ -z "${TORBOX_API_KEY}" && ${TORBOX_ENABLED+x} ]]; then
   sleep infinity
 fi
 
+echo "💾 Waiting for directory $REALDEBRID_MOUNT_TORRENTS_PATH to be ready..."
+while [ ! -d "$REALDEBRID_MOUNT_TORRENTS_PATH" ]; do    
+    sleep 5
+done
+echo "✅"
+
 # Create log directory if it doesn't exist
 mkdir -p /config/logs
 
