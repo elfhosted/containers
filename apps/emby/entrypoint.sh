@@ -3,6 +3,8 @@
 #shellcheck disable=SC1091
 test -f "/scripts/umask.sh" && source "/scripts/umask.sh"
 
+source "/scripts/mounts.sh"
+
 export LD_LIBRARY_PATH="/app/emby"
 export FONTCONFIG_PATH="/app/emby/etc/fonts"
 if [ -d "/lib/x86_64-linux-gnu" ]; then
