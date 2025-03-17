@@ -77,20 +77,25 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
             --data=/config
 
         # Dump DB schemas
-        pg_dump --schema-only -d sonarr > /tmp/radarr_schema.sql
+        echo "Dumbing DB schemas..."
+        pg_dump --schema-only -d radarr > /tmp/radarr_schema.sql
         pg_dump --schema-only -d logs > /tmp/logs_schema.sql
 
         # Recreate database from schemas
-        psql -c "DROP DATABASE IF EXISTS logs;" && psql -c "CREATE DATABASE radarr;" && psql -c "ALTER DATABASE radarr OWNER TO radarr;" && psql -d logs -f /tmp/radarr_schema.sql
+        echo "Recreating databases..."
+        psql -c "DROP DATABASE IF EXISTS radarr;" && psql -c "CREATE DATABASE radarr;" && psql -c "ALTER DATABASE radarr OWNER TO radarr;" && psql -d logs -f /tmp/radarr_schema.sql
         psql -c "DROP DATABASE IF EXISTS logs;" && psql -c "CREATE DATABASE logs;" && psql -c "ALTER DATABASE logs OWNER TO radarr;" && psql -d logs -f /tmp/logs_schema.sql
 
         # Import sqlite data
+        echo "Importing SQLite databases..."
         pgloader --with "quote identifiers" --with "data only" /config/radarr.db "postgresql://radarr:radarr@localhost/radarr"
         pgloader --with "quote identifiers" --with "data only" /config/logs.db "postgresql://radarr:radarr@localhost/logs"
 
         # Move sqlite files into migrated folder
+        echo "Archiving SQLite databases"
         mkdir -p /config/migrated-to-postgres
         mv /config/radarr.db /config/logs.db /config/migrated-to-postgres
+
         
         echo "Migration done, starting application..."
     else

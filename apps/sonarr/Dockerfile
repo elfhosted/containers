@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:7103ff074d62322cb204b775e2b2b058a0ca1bee97bc1bdc5f0c129e0e10bb66
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:9fe67d87930b27bf9f7743ac1a4fe4d6b614d3ac94420babdffe243888a3e36d 
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
@@ -16,53 +16,30 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # for initial install
 USER root
 
-# hadolint ignore=DL3008,DL3015,SC2086
+#hadolint ignore=DL3018
+RUN apk add --no-cache ca-certificates icu-libs libintl sqlite-libs xmlstarlet postgresql-client pgloader
+#hadolint ignore=DL3059
 RUN \
-    apt-get -qq update \
-    && apt-get -qq install -y gnupg \
+    case "${TARGETPLATFORM}" in \
+        'linux/amd64') export ARCH='x64' ;; \
+        'linux/arm64') export ARCH='arm64' ;; \
+    esac \
     && \
-    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF \
-    && echo "deb https://download.mono-project.com/repo/ubuntu stable-focal main" | tee /etc/apt/sources.list.d/mono-official.list \
-    && apt-get -qq update \
-    && \
-    apt-get -qq install -y \
-        ca-certificates \
-        mono-complete \
-        ca-certificates-mono \
-        libmediainfo0v5 \
-        xmlstarlet \
-        pgloader \
-        postgresql-client \
-    && \
-    curl -fsSL "https://download.sonarr.tv/v3/${SONARR__BRANCH}/${VERSION}/Sonarr.${SONARR__BRANCH}.${VERSION}.linux.tar.gz" \
+    curl -fsSL "https://services.sonarr.tv/v1/update/download?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
         | tar xzf - -C /app --strip-components=1 \
-    && \
-    printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[geek-cookbook](https://github.com/geek-cookbook)" "${SONARR__BRANCH}" "${VERSION}" > /app/package_info \
-    && \
-    gpgconf --kill all \
-    && apt-get remove -y gnupg \
-    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-    && apt-get autoremove -y \
-    && apt-get clean \
     && \
     rm -rf \
         /app/Sonarr.Update \
-        /tmp/* \
-        /var/lib/apt/lists/* \
-        /var/tmp/ \
+    && \
+    printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[geek-cookbook](https://github.com/geek-cookbook)" "${SONARR__BRANCH}" "${VERSION}" > /app/package_info \
     && chown -R root:root /app \
     && chmod -R 755 /app \
-    && printf "umask %d" "${UMASK}" >> /etc/bash.bashrc
-
-
-
-ENV COMPlus_EnableDiagnostics=0
-
-COPY ./apps/sonarr/config.xml.tmpl /app/config.xml.tmpl
-COPY ./apps/sonarr/entrypoint.sh /entrypoint.sh
+    && rm -rf /tmp/*
 
 USER 568
 
+COPY ./apps/sonarr/config.xml.tmpl /app/config.xml.tmpl
+COPY ./apps/sonarr/entrypoint.sh /entrypoint.sh
 CMD ["/entrypoint.sh"]
 
-LABEL org.opencontainers.image.source="https://github.com/Sonarr/Sonarr"
+LABEL org.opencontainers.image.title="${SONARR__INSTANCE_NAME} (${SONARR__BRANCH})"

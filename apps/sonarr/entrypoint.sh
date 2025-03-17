@@ -52,30 +52,50 @@ xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
 
 if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
-    xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
+    [[ -z "${SONARR__POSTGRES_HOST}" && -n "${current_postgres_host}" ]] && xmlstarlet edit --inplace --update //PostgresHost -v "${current_postgres_host}" /config/config.xml
+    # Make sure config is updated for postgres
 
     if [[ -f /config/i-am-bootstrapped && -f /config/logs.db && -f /config/sonarr.db ]]; then
         echo "Migrating to postgresql database..."
 
+        # Function to check PostgreSQL connection
+        function pg_is_ready() {
+        psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
+        return $?
+        }
+
+        # Wait for PostgreSQL to be ready
+        echo "Waiting for PostgreSQL to be ready..."
+        until pg_is_ready; do
+        echo "PostgreSQL is unavailable - sleeping for 5 seconds"
+        sleep 5
+        done
+
         # Create logs database if it doesn't exist
-        psql -U postgres -c "SELECT 'CREATE DATABASE logs; ALTER DATABASE logs OWNER TO sonarr;' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'logs')\gexec"
-
+        psql -c "CREATE DATABASE logs;" || true && psql -c "ALTER DATABASE logs OWNER TO sonarr;"
+        
         # Start sonarr to force the database schemas to be created
-        timeout 60s /usr/bin/mono --debug \
-        /app/Sonarr.exe \
-            --nobrowser \
-            --data=/config \
-            "$@"
+        timeout 60s /app/Sonarr \
+                --nobrowser \
+                --data=/config
 
-        # empty the databases of any initial data which would conflict with our import
-        psql -U postgres -d radarr -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
-        psql -U postgres -d logs -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
+        # Dump DB schemas
+        echo "Dumbing DB schemas..."
+        pg_dump --schema-only -d sonarr > /tmp/sonarr_schema.sql
+        pg_dump --schema-only -d logs > /tmp/logs_schema.sql
+
+        # Recreate database from schemas
+        echo "Recreating databases..."
+        psql -c "DROP DATABASE IF EXISTS sonarr;" && psql -c "CREATE DATABASE sonarr;" && psql -c "ALTER DATABASE sonarr OWNER TO sonarr;" && psql -d logs -f /tmp/sonarr_schema.sql
+        psql -c "DROP DATABASE IF EXISTS logs;" && psql -c "CREATE DATABASE logs;" && psql -c "ALTER DATABASE logs OWNER TO sonarr;" && psql -d logs -f /tmp/logs_schema.sql
 
         # Import sqlite data
+        echo "Importing SQLite databases..."
         pgloader --with "quote identifiers" --with "data only" /config/sonarr.db "postgresql://sonarr:sonarr@localhost/sonarr"
-        pgloader --with "quote identifiers" --with "data only" /config/logs.db "postgresql://sonarr:sonarr@localhost/sonarr"
+        pgloader --with "quote identifiers" --with "data only" /config/logs.db "postgresql://sonarr:sonarr@localhost/logs"
 
         # Move sqlite files into migrated folder
+        echo "Archiving SQLite databases"
         mkdir -p /config/migrated-to-postgres
         mv /config/sonarr.db /config/logs.db /config/migrated-to-postgres
         
@@ -97,8 +117,7 @@ fi
 
 #shellcheck disable=SC2086
 exec \
-    /usr/bin/mono --debug \
-        /app/Sonarr.exe \
-            --nobrowser \
-            --data=/config \
-            "$@"
+    /app/Sonarr \
+        --nobrowser \
+        --data=/config \
+        "$@"
