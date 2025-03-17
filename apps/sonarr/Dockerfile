@@ -25,7 +25,7 @@ RUN \
         'linux/arm64') export ARCH='arm64' ;; \
     esac \
     && \
-    curl -fsSL "https://services.sonarr.tv/v1/update/download?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
+    curl -fsSL "https://services.sonarr.tv/v1/update/${SONARR__BRANCH}/download?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
         | tar xzf - -C /app --strip-components=1 \
     && \
     rm -rf \
