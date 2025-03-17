@@ -59,7 +59,7 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         echo "Migrating to postgresql database..."
 
         # Create logs database if it doesn't exist
-        psql -U postgres -c "SELECT 'CREATE DATABASE logs; ALTER DATABASE logs OWNER TO sonarr;' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'logs')\gexec"
+        psql -c "SELECT 'CREATE DATABASE logs; ALTER DATABASE logs OWNER TO sonarr;' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'logs')\gexec"
 
         # Start sonarr to force the database schemas to be created
         timeout 60s exec \
@@ -69,12 +69,12 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
                 "$@"
 
         # empty the databases of any initial data which would conflict with our import
-        psql -U postgres -d radarr -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
-        psql -U postgres -d logs -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
+        psql -d radarr -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
+        psql -d logs -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
 
         # Import sqlite data
         pgloader --with "quote identifiers" --with "data only" /config/sonarr.db "postgresql://sonarr:sonarr@localhost/sonarr"
-        pgloader --with "quote identifiers" --with "data only" /config/logs.db "postgresql://sonarr:sonarr@localhost/sonarr"
+        pgloader --with "quote identifiers" --with "data only" /config/logs.db "postgresql://sonarr:sonarr@localhost/logs"
 
         # Move sqlite files into migrated folder
         mkdir -p /config/migrated-to-postgres
