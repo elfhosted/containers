@@ -75,14 +75,12 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         psql -c "SELECT 'CREATE DATABASE logs; ALTER DATABASE logs OWNER TO sonarr;' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'logs')\gexec"
 
         # Start sonarr to force the database schemas to be created
-        timeout 60s exec \
-            /app/Sonarr \
+        timeout 60s /app/Sonarr \
                 --nobrowser \
-                --data=/config \
-                "$@"
+                --data=/config
 
         # empty the databases of any initial data which would conflict with our import
-        psql -d radarr -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
+        psql -d sonarr -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
         psql -d logs -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
 
         # Import sqlite data
