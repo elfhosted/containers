@@ -87,8 +87,8 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
         # Recreate database from schemas
         echo "Recreating databases..."
-        psql -c "DROP DATABASE IF EXISTS sonarr_main;" && psql -c "CREATE DATABASE sonarr_main;" && psql -c "ALTER DATABASE sonarr_main OWNER TO sonarr;" && psql -d logs -f /tmp/sonarr_main_schema.sql
-        psql -c "DROP DATABASE IF EXISTS sonarr_logs;" && psql -c "CREATE DATABASE sonarr_logs;" && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;" && psql -d logs -f /tmp/sonarr_logs_schema.sql
+        psql -c "DROP DATABASE IF EXISTS sonarr_main;" && psql -c "CREATE DATABASE sonarr_main;" && psql -c "ALTER DATABASE sonarr_main OWNER TO sonarr;" && psql -d sonarr_main -f /tmp/sonarr_main_schema.sql
+        psql -c "DROP DATABASE IF EXISTS sonarr_logs;" && psql -c "CREATE DATABASE sonarr_logs;" && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;" && psql -d sonarr_logs -f /tmp/sonarr_logs_schema.sql
 
         # Import sqlite data
         echo "Importing SQLite databases..."

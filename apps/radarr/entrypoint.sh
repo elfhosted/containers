@@ -84,8 +84,8 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
         # Recreate database from schemas
         echo "Recreating databases..."
-        psql -c "DROP DATABASE IF EXISTS radarr_main;" && psql -c "CREATE DATABASE radarr_main;" && psql -c "ALTER DATABASE radarr_main OWNER TO radarr;" && psql -d logs -f /tmp/radarr_main_schema.sql
-        psql -c "DROP DATABASE IF EXISTS radarr_logs;" && psql -c "CREATE DATABASE radarr_logs;" && psql -c "ALTER DATABASE radarr_logs OWNER TO radarr;" && psql -d logs -f /tmp/radarr_logs_schema.sql
+        psql -c "DROP DATABASE IF EXISTS radarr_main;" && psql -c "CREATE DATABASE radarr_main;" && psql -c "ALTER DATABASE radarr_main OWNER TO radarr;" && psql -d radarr_main -f /tmp/radarr_main_schema.sql
+        psql -c "DROP DATABASE IF EXISTS radarr_logs;" && psql -c "CREATE DATABASE radarr_logs;" && psql -c "ALTER DATABASE radarr_logs OWNER TO radarr;" && psql -d radarr_logs -f /tmp/radarr_logs_schema.sql
 
         # Import sqlite data
         echo "Importing SQLite databases..."
