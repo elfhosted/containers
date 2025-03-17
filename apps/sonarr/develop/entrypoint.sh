@@ -72,8 +72,7 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         done
 
         # Create logs database if it doesn't exist
-        psql -c "SELECT 'CREATE DATABASE logs; ALTER DATABASE logs OWNER TO sonarr;' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'logs')\gexec"
-
+        psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'logs') THEN EXECUTE 'CREATE DATABASE logs'; END IF; END \$\$;" -c "ALTER DATABASE logs OWNER TO sonarr;"
         # Start sonarr to force the database schemas to be created
         timeout 60s /app/Sonarr \
                 --nobrowser \
