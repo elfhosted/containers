@@ -58,6 +58,19 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
     if [[ -f /config/i-am-bootstrapped && -f /config/logs.db && -f /config/sonarr.db ]]; then
         echo "Migrating to postgresql database..."
 
+        # Function to check PostgreSQL connection
+        function pg_is_ready() {
+        PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
+        return $?
+        }
+
+        # Wait for PostgreSQL to be ready
+        echo "Waiting for PostgreSQL to be ready..."
+        until pg_is_ready; do
+        echo "PostgreSQL is unavailable - sleeping for 1 second"
+        sleep 1
+        done
+
         # Create logs database if it doesn't exist
         psql -c "SELECT 'CREATE DATABASE logs; ALTER DATABASE logs OWNER TO sonarr;' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'logs')\gexec"
 
