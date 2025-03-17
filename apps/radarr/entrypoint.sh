@@ -70,15 +70,19 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         
         # Create logs database if it doesn't exist
         psql -c "CREATE DATABASE logs;" || true && psql -c "ALTER DATABASE logs OWNER TO radarr;"
-        
+
         # Start radarr to force the database schemas to be created
         timeout 60s /app/bin/Radarr \
             --nobrowser \
             --data=/config
 
-        # empty the databases of any initial data which would conflict with our import
-        psql -d radarr -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
-        psql -d logs -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
+        # Dump DB schemas
+        pg_dump --schema-only -d sonarr > /tmp/radarr_schema.sql
+        pg_dump --schema-only -d logs > /tmp/logs_schema.sql
+
+        # Recreate database from schemas
+        psql -c "DROP DATABASE IF EXISTS logs;" && psql -c "CREATE DATABASE radarr;" && psql -c "ALTER DATABASE radarr OWNER TO radarr;" && psql -d logs -f /tmp/radarr_schema.sql
+        psql -c "DROP DATABASE IF EXISTS logs;" && psql -c "CREATE DATABASE logs;" && psql -c "ALTER DATABASE logs OWNER TO radarr;" && psql -d logs -f /tmp/logs_schema.sql
 
         # Import sqlite data
         pgloader --with "quote identifiers" --with "data only" /config/radarr.db "postgresql://radarr:radarr@localhost/radarr"

@@ -79,9 +79,13 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
                 --nobrowser \
                 --data=/config
 
-        # empty the databases of any initial data which would conflict with our import
-        psql -d sonarr -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
-        psql -d logs -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
+        # Dump DB schemas
+        pg_dump --schema-only -d sonarr > /tmp/sonarr_schema.sql
+        pg_dump --schema-only -d logs > /tmp/logs_schema.sql
+
+        # Recreate database from schemas
+        psql -c "DROP DATABASE IF EXISTS logs;" && psql -c "CREATE DATABASE sonarr;" && psql -c "ALTER DATABASE sonarr OWNER TO sonarr;" && psql -d logs -f /tmp/sonarr_schema.sql
+        psql -c "DROP DATABASE IF EXISTS logs;" && psql -c "CREATE DATABASE logs;" && psql -c "ALTER DATABASE logs OWNER TO sonarr;" && psql -d logs -f /tmp/logs_schema.sql
 
         # Import sqlite data
         pgloader --with "quote identifiers" --with "data only" /config/sonarr.db "postgresql://sonarr:sonarr@localhost/sonarr"
