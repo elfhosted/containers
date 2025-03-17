@@ -55,7 +55,7 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
     xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
     # Make sure config is updated for postgres
 
-    if [[ -f /config/i-am-bootstrapped && -f /config/logs.db && -f /config/sonarr.db ]]; then
+    if [[ -f /config/i-am-bootstrapped && -f /config/sonarr.db ]]; then
         echo "Migrating to postgresql database..."
 
         # Function to check PostgreSQL connection
