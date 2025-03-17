@@ -62,11 +62,11 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         psql -U postgres -c "SELECT 'CREATE DATABASE logs; ALTER DATABASE logs OWNER TO sonarr;' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'logs')\gexec"
 
         # Start sonarr to force the database schemas to be created
-        timeout 60s /usr/bin/mono --debug \
-        /app/Sonarr.exe \
-            --nobrowser \
-            --data=/config \
-            "$@"
+        timeout 60s exec \
+            /app/Sonarr \
+                --nobrowser \
+                --data=/config \
+                "$@"
 
         # empty the databases of any initial data which would conflict with our import
         psql -U postgres -d radarr -c "DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' CASCADE' FROM pg_tables WHERE schemaname = 'public'); END \$\$;"
@@ -98,8 +98,7 @@ fi
 
 #shellcheck disable=SC2086
 exec \
-    /usr/bin/mono --debug \
-        /app/Sonarr.exe \
-            --nobrowser \
-            --data=/config \
-            "$@"
+    /app/Sonarr \
+        --nobrowser \
+        --data=/config \
+        "$@"
