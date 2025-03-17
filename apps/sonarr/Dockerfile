@@ -31,6 +31,8 @@ RUN \
         ca-certificates-mono \
         libmediainfo0v5 \
         xmlstarlet \
+        pgloader \
+        postgresql-client \
     && \
     curl -fsSL "https://download.sonarr.tv/v3/${SONARR__BRANCH}/${VERSION}/Sonarr.${SONARR__BRANCH}.${VERSION}.linux.tar.gz" \
         | tar xzf - -C /app --strip-components=1 \
