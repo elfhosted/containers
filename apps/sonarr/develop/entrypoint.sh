@@ -60,15 +60,15 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
         # Function to check PostgreSQL connection
         function pg_is_ready() {
-        PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
+        psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
         return $?
         }
 
         # Wait for PostgreSQL to be ready
         echo "Waiting for PostgreSQL to be ready..."
         until pg_is_ready; do
-        echo "PostgreSQL is unavailable - sleeping for 1 second"
-        sleep 1
+        echo "PostgreSQL is unavailable - sleeping for 5 seconds"
+        sleep 5
         done
 
         # Create logs database if it doesn't exist
