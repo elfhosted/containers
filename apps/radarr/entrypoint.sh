@@ -68,34 +68,34 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         sleep 5
         done
         
-        # Create logs database if it doesn't exist
-        psql -c "CREATE DATABASE logs;" || true && psql -c "ALTER DATABASE logs OWNER TO radarr;"
-
+        # Create databases
+        psql -c "CREATE DATABASE radarr-logs;" || true && psql -c "ALTER DATABASE radarr-logs OWNER TO radarr;"
+        psql -c "CREATE DATABASE radarr-main;" || true && psql -c "ALTER DATABASE radarr-main OWNER TO radarr;"
+                
         # Start radarr to force the database schemas to be created
         timeout 60s /app/bin/Radarr \
-            --nobrowser \
-            --data=/config
+                --nobrowser \
+                --data=/config
 
         # Dump DB schemas
         echo "Dumbing DB schemas..."
-        pg_dump --schema-only -d radarr > /tmp/radarr_schema.sql
-        pg_dump --schema-only -d logs > /tmp/logs_schema.sql
+        pg_dump --schema-only -d radarr-main > /tmp/radarr-main_schema.sql
+        pg_dump --schema-only -d radarr-logs > /tmp/radarr-logs_schema.sql
 
         # Recreate database from schemas
         echo "Recreating databases..."
-        psql -c "DROP DATABASE IF EXISTS radarr;" && psql -c "CREATE DATABASE radarr;" && psql -c "ALTER DATABASE radarr OWNER TO radarr;" && psql -d logs -f /tmp/radarr_schema.sql
-        psql -c "DROP DATABASE IF EXISTS logs;" && psql -c "CREATE DATABASE logs;" && psql -c "ALTER DATABASE logs OWNER TO radarr;" && psql -d logs -f /tmp/logs_schema.sql
+        psql -c "DROP DATABASE IF EXISTS radarr-main;" && psql -c "CREATE DATABASE radarr-main;" && psql -c "ALTER DATABASE radarr-main OWNER TO radarr;" && psql -d logs -f /tmp/radarr-main_schema.sql
+        psql -c "DROP DATABASE IF EXISTS radarr-logs;" && psql -c "CREATE DATABASE radarr-logs;" && psql -c "ALTER DATABASE radarr-logs OWNER TO radarr;" && psql -d logs -f /tmp/radarr-logs_schema.sql
 
         # Import sqlite data
         echo "Importing SQLite databases..."
-        pgloader --with "quote identifiers" --with "data only" /config/radarr.db "postgresql://radarr:radarr@localhost/radarr"
-        pgloader --with "quote identifiers" --with "data only" /config/logs.db "postgresql://radarr:radarr@localhost/logs"
+        pgloader --with "quote identifiers" --with "data only" /config/radarr.db "postgresql://radarr:radarr@localhost/radarr-main"
+        pgloader --with "quote identifiers" --with "data only" /config/logs.db   "postgresql://radarr:radarr@localhost/radarr-logs"
 
         # Move sqlite files into migrated folder
         echo "Archiving SQLite databases"
         mkdir -p /config/migrated-to-postgres
         mv /config/radarr.db /config/logs.db /config/migrated-to-postgres
-
         
         echo "Migration done, starting application..."
     else
