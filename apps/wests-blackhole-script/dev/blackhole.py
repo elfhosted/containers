@@ -344,10 +344,6 @@ async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
 
     print(f"Failing")
     
-    # torrentHash = torrent.getHash()
-    # history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'], includeGrandchildDetails=True)
-    # items = [item for item in history if (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
-
     torrentHash = torrent.getHash()
     print(f"Looking for torrent with hash: {torrentHash}")
 
@@ -381,17 +377,16 @@ async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
         matching_by_name = [item for item in history if hasattr(item, 'sourceTitle') and cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
         print(f"Items matching by name: {len(matching_by_name)}")
 
-        # Continue with the rest of your code...
+        # Fixed filtering with proper attribute checks
         items = [item for item in history if (hasattr(item, 'torrentInfoHash') and item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or 
-                    (hasattr(item, 'sourceTitle') and cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold())]
-            
-            print(f"Found {len(items)} matching history items")
-            
-        except Exception as e:
-            print(f"Exception during debugging: {e}")
-            import traceback
-            print(traceback.format_exc())
-
+                (hasattr(item, 'sourceTitle') and cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold())]
+        
+        print(f"Found {len(items)} matching history items")
+        
+    except Exception as e:
+        print(f"Exception during debugging: {e}")
+        import traceback
+        print(traceback.format_exc())
 
     if not items:
         message = "No history items found to mark as failed. Arr will not attempt to grab an alternative."
