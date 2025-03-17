@@ -351,32 +351,47 @@ async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
     torrentHash = torrent.getHash()
     print(f"Looking for torrent with hash: {torrentHash}")
 
-    history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'], includeGrandchildDetails=True)
-    print(f"History retrieved, containing {len(history)} items")
+    try:
+        # Get the history as a map object
+        history_map = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'], includeGrandchildDetails=True)
+        
+        # Convert the map object to a list so we can use it multiple times
+        history = list(history_map)
+        print(f"History retrieved, containing {len(history)} items")
+        
+        # Debug the history items
+        for i, hist_item in enumerate(history[:5]):  # Print first 5 items to avoid overwhelming output
+            print(f"History item {i}:")
+            print(f"  - Has torrentInfoHash?: {'Yes' if hasattr(hist_item, 'torrentInfoHash') and hist_item.torrentInfoHash else 'No'}")
+            if hasattr(hist_item, 'torrentInfoHash') and hist_item.torrentInfoHash:
+                print(f"  - Hash: {hist_item.torrentInfoHash}")
+            print(f"  - Source title: {hist_item.sourceTitle if hasattr(hist_item, 'sourceTitle') else 'N/A'}")
 
-    # Debug the history items
-    for i, hist_item in enumerate(history[:5]):  # Print first 5 items to avoid overwhelming output
-        print(f"History item {i}:")
-        print(f"  - Has torrentInfoHash?: {'Yes' if hasattr(hist_item, 'torrentInfoHash') and hist_item.torrentInfoHash else 'No'}")
-        if hasattr(hist_item, 'torrentInfoHash') and hist_item.torrentInfoHash:
-            print(f"  - Hash: {hist_item.torrentInfoHash}")
-        print(f"  - Source title: {hist_item.sourceTitle if hasattr(hist_item, 'sourceTitle') else 'N/A'}")
+        # Print what we're comparing to
+        print(f"Will compare against torrentHash (case-insensitive): {torrentHash.casefold()}")
+        print(f"Will compare against filename (case-insensitive): {torrent.file.fileInfo.filenameWithoutExt.casefold()}")
 
-    # Print what we're comparing to
-    print(f"Will compare against torrentHash (case-insensitive): {torrentHash.casefold()}")
-    print(f"Will compare against filename (case-insensitive): {torrent.file.fileInfo.filenameWithoutExt.casefold()}")
+        items = [item for item in history if (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
+        print(f"Found {len(items)} matching history items")
 
-    items = [item for item in history if (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
-    print(f"Found {len(items)} matching history items")
+        # Inspect the filtering logic more closely
+        matching_by_hash = [item for item in history if hasattr(item, 'torrentInfoHash') and item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()]
+        print(f"Items matching by hash: {len(matching_by_hash)}")
 
-    # Inspect the filtering logic more closely
-    matching_by_hash = [item for item in history if hasattr(item, 'torrentInfoHash') and item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()]
-    print(f"Items matching by hash: {len(matching_by_hash)}")
+        matching_by_name = [item for item in history if hasattr(item, 'sourceTitle') and cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
+        print(f"Items matching by name: {len(matching_by_name)}")
 
-    matching_by_name = [item for item in history if hasattr(item, 'sourceTitle') and cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
-    print(f"Items matching by name: {len(matching_by_name)}")
+        # Continue with the rest of your code...
+        items = [item for item in history if (hasattr(item, 'torrentInfoHash') and item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or 
+                    (hasattr(item, 'sourceTitle') and cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold())]
+            
+            print(f"Found {len(items)} matching history items")
+            
+        except Exception as e:
+            print(f"Exception during debugging: {e}")
+            import traceback
+            print(traceback.format_exc())
 
-    # Continue with the rest of your code...
 
     if not items:
         message = "No history items found to mark as failed. Arr will not attempt to grab an alternative."
