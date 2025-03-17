@@ -72,8 +72,8 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         done
 
         # Create databases
-        psql -c "CREATE DATABASE sonarr-logs;" || true && psql -c "ALTER DATABASE sonarr-logs OWNER TO sonarr;"
-        psql -c "CREATE DATABASE sonarr-main;" || true && psql -c "ALTER DATABASE sonarr-main OWNER TO sonarr;"
+        psql -c "CREATE DATABASE sonarr_logs;" || true && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;"
+        psql -c "CREATE DATABASE sonarr_main;" || true && psql -c "ALTER DATABASE sonarr_main OWNER TO sonarr;"
                 
         # Start sonarr to force the database schemas to be created
         timeout 60s /app/Sonarr \
@@ -82,18 +82,18 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
         # Dump DB schemas
         echo "Dumbing DB schemas..."
-        pg_dump --schema-only -d sonarr-main > /tmp/sonarr-main_schema.sql
-        pg_dump --schema-only -d sonarr-logs > /tmp/sonarr-logs_schema.sql
+        pg_dump --schema-only -d sonarr_main > /tmp/sonarr_main_schema.sql
+        pg_dump --schema-only -d sonarr_logs > /tmp/sonarr_logs_schema.sql
 
         # Recreate database from schemas
         echo "Recreating databases..."
-        psql -c "DROP DATABASE IF EXISTS sonarr-main;" && psql -c "CREATE DATABASE sonarr-main;" && psql -c "ALTER DATABASE sonarr-main OWNER TO sonarr;" && psql -d logs -f /tmp/sonarr-main_schema.sql
-        psql -c "DROP DATABASE IF EXISTS sonarr-logs;" && psql -c "CREATE DATABASE sonarr-logs;" && psql -c "ALTER DATABASE sonarr-logs OWNER TO sonarr;" && psql -d logs -f /tmp/sonarr-logs_schema.sql
+        psql -c "DROP DATABASE IF EXISTS sonarr_main;" && psql -c "CREATE DATABASE sonarr_main;" && psql -c "ALTER DATABASE sonarr_main OWNER TO sonarr;" && psql -d logs -f /tmp/sonarr_main_schema.sql
+        psql -c "DROP DATABASE IF EXISTS sonarr_logs;" && psql -c "CREATE DATABASE sonarr_logs;" && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;" && psql -d logs -f /tmp/sonarr_logs_schema.sql
 
         # Import sqlite data
         echo "Importing SQLite databases..."
-        pgloader --with "quote identifiers" --with "data only" /config/sonarr.db "postgresql://sonarr:sonarr@localhost/sonarr-main"
-        pgloader --with "quote identifiers" --with "data only" /config/logs.db   "postgresql://sonarr:sonarr@localhost/sonarr-logs"
+        pgloader --with "quote identifiers" --with "data only" /config/sonarr.db "postgresql://sonarr:sonarr@localhost/sonarr_main"
+        pgloader --with "quote identifiers" --with "data only" /config/logs.db   "postgresql://sonarr:sonarr@localhost/sonarr_logs"
 
         # Move sqlite files into migrated folder
         echo "Archiving SQLite databases"

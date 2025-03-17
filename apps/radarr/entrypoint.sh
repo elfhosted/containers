@@ -69,8 +69,8 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         done
         
         # Create databases
-        psql -c "CREATE DATABASE radarr-logs;" || true && psql -c "ALTER DATABASE radarr-logs OWNER TO radarr;"
-        psql -c "CREATE DATABASE radarr-main;" || true && psql -c "ALTER DATABASE radarr-main OWNER TO radarr;"
+        psql -c "CREATE DATABASE radarr_logs;" || true && psql -c "ALTER DATABASE radarr_logs OWNER TO radarr;"
+        psql -c "CREATE DATABASE radarr_main;" || true && psql -c "ALTER DATABASE radarr_main OWNER TO radarr;"
                 
         # Start radarr to force the database schemas to be created
         timeout 60s /app/bin/Radarr \
@@ -79,18 +79,18 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
         # Dump DB schemas
         echo "Dumbing DB schemas..."
-        pg_dump --schema-only -d radarr-main > /tmp/radarr-main_schema.sql
-        pg_dump --schema-only -d radarr-logs > /tmp/radarr-logs_schema.sql
+        pg_dump --schema-only -d radarr_main > /tmp/radarr_main_schema.sql
+        pg_dump --schema-only -d radarr_logs > /tmp/radarr_logs_schema.sql
 
         # Recreate database from schemas
         echo "Recreating databases..."
-        psql -c "DROP DATABASE IF EXISTS radarr-main;" && psql -c "CREATE DATABASE radarr-main;" && psql -c "ALTER DATABASE radarr-main OWNER TO radarr;" && psql -d logs -f /tmp/radarr-main_schema.sql
-        psql -c "DROP DATABASE IF EXISTS radarr-logs;" && psql -c "CREATE DATABASE radarr-logs;" && psql -c "ALTER DATABASE radarr-logs OWNER TO radarr;" && psql -d logs -f /tmp/radarr-logs_schema.sql
+        psql -c "DROP DATABASE IF EXISTS radarr_main;" && psql -c "CREATE DATABASE radarr_main;" && psql -c "ALTER DATABASE radarr_main OWNER TO radarr;" && psql -d logs -f /tmp/radarr_main_schema.sql
+        psql -c "DROP DATABASE IF EXISTS radarr_logs;" && psql -c "CREATE DATABASE radarr_logs;" && psql -c "ALTER DATABASE radarr_logs OWNER TO radarr;" && psql -d logs -f /tmp/radarr_logs_schema.sql
 
         # Import sqlite data
         echo "Importing SQLite databases..."
-        pgloader --with "quote identifiers" --with "data only" /config/radarr.db "postgresql://radarr:radarr@localhost/radarr-main"
-        pgloader --with "quote identifiers" --with "data only" /config/logs.db   "postgresql://radarr:radarr@localhost/radarr-logs"
+        pgloader --with "quote identifiers" --with "data only" /config/radarr.db "postgresql://radarr:radarr@localhost/radarr_main"
+        pgloader --with "quote identifiers" --with "data only" /config/logs.db   "postgresql://radarr:radarr@localhost/radarr_logs"
 
         # Move sqlite files into migrated folder
         echo "Archiving SQLite databases"
