@@ -52,8 +52,7 @@ xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
 
 if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
-    [[ -z "${SONARR__POSTGRES_HOST}" && -n "${current_postgres_host}" ]] && xmlstarlet edit --inplace --update //PostgresHost -v "${current_postgres_host}" /config/config.xml
-    # Make sure config is updated for postgres
+    xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
 
     if [[ -f /config/i-am-bootstrapped && -f /config/logs.db && -f /config/sonarr.db ]]; then
         echo "Migrating to postgresql database..."

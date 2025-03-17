@@ -50,7 +50,7 @@ xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
 if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
     # Update the host if we're using postgres
-    [[ -z "${RADARR__POSTGRES_HOST}" && -n "${current_postgres_host}" ]] && xmlstarlet edit --inplace --update //PostgresHost -v "${current_postgres_host}" /config/config.xml
+    xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
 
     if [[ -f /config/i-am-bootstrapped && -f /config/logs.db && -f /config/radarr.db ]]; then
         echo "Migrating to postgresql database..."
