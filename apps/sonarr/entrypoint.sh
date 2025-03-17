@@ -41,7 +41,7 @@ envsubst < /app/config.xml.tmpl > /config/config.xml
 # 3 move sqlite databases to indicate they've been migrated
 # 4 start normally
 
-if [[ "${MIGRATE_TO_POSTGRES:-"false"}" == "true" ]]; then
+if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
     # Make sure config is updated for postgres
     [[ -z "${SONARR__POSTGRES_USER}" && -n "${current_postgres_user}" ]] && xmlstarlet edit --inplace --update //PostgresUser -v "${current_postgres_user}" /config/config.xml
