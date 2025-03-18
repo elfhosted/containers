@@ -44,17 +44,21 @@ RUN mkdir -p /app/data/db && \
 # Copy build artifacts, config, and cache
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.cache/@fastify/vite/vite.config.dist.json ./node_modules/.cache/@fastify/vite/
+COPY --from=cloner /source/vite.config.js ./
 COPY --from=cloner /source/migrations ./migrations
 COPY --from=cloner /source/docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
-
-# Copy our modified config
-COPY apps/pulsarr/vite.config.js ./
 
 # Set production environment
 ENV NODE_ENV=production
 
 VOLUME /app/data
 EXPOSE 3003
+
+# Force our preferred user
+ARG user=elfie
+RUN groupadd -g 568 $user && useradd --uid 568 --gid 568 --shell /bin/bash $user && \
+    chown $user /app -R
+USER 568
 
 CMD ["./docker-entrypoint.sh"]
