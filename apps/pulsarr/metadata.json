@@ -14,7 +14,7 @@
       }
     },
     {
-      "name": "devel",
+      "name": "develop",
       "platforms": [
         "linux/amd64"
       ],
