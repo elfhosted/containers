@@ -28,7 +28,7 @@ RUN npm run build
 # Ensure cache directory exists for build
 RUN mkdir -p node_modules/.cache/@fastify/vite
 
-FROM node:23.6.0-alpine as builder
+FROM node:23.6.0-alpine
 
 WORKDIR /app
 
