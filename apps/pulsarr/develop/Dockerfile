@@ -5,11 +5,14 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b develop https://github.com/jamcalli/pulsarr.git /source
+RUN git clone -b develop  https://github.com/jamcalli/pulsarr.git /source
 
 FROM node:23.6.0-alpine AS builder
 
 WORKDIR /app
+
+# Set cache dir
+ENV CACHE_DIR=/app/build-cache
 
 # Copy build essentials
 COPY --from=cloner /source/package*.json ./
@@ -32,6 +35,9 @@ FROM node:23.6.0-alpine
 
 WORKDIR /app
 
+# cache dir in final
+ENV CACHE_DIR=/app/build-cache
+
 # Copy package files and install dependencies
 COPY --from=cloner /source/package*.json ./
 RUN npm ci
@@ -43,7 +49,7 @@ RUN mkdir -p /app/data/db && \
 
 # Copy build artifacts, config, and cache
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.cache/@fastify/vite/vite.config.dist.json ./node_modules/.cache/@fastify/vite/
+COPY --from=builder ${CACHE_DIR} ${CACHE_DIR}
 COPY --from=cloner /source/vite.config.js ./
 COPY --from=cloner /source/migrations ./migrations
 COPY --from=cloner /source/docker-entrypoint.sh ./
@@ -52,13 +58,9 @@ RUN chmod +x docker-entrypoint.sh
 # Set production environment
 ENV NODE_ENV=production
 
+# Make volumes
+VOLUME ${CACHE_DIR}
 VOLUME /app/data
 EXPOSE 3003
-
-# Force our preferred user
-ARG user=elfie
-RUN groupadd -g 568 $user && useradd --uid 568 --gid 568 --shell /bin/bash $user && \
-    chown $user /app -R
-USER 568
 
 CMD ["./docker-entrypoint.sh"]
