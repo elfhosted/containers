@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b develop  https://github.com/jamcalli/pulsarr.git /source
 
-FROM node:23.6.0-alpine AS builder
+FROM node:23.10.0-alpine AS builder
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ RUN npm run build
 # Ensure cache directory exists for build
 RUN mkdir -p node_modules/.cache/@fastify/vite
 
-FROM node:23.6.0-alpine
+FROM node:23.10.0-alpine
 
 WORKDIR /app
 
