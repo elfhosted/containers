@@ -28,7 +28,7 @@ RUN npm run build
 # Ensure cache directory exists for build
 RUN mkdir -p node_modules/.cache/@fastify/vite
 
-FROM node:23.6.0-alpine
+FROM node:23.6.0-alpine as builder
 
 WORKDIR /app
 
@@ -44,10 +44,12 @@ RUN mkdir -p /app/data/db && \
 # Copy build artifacts, config, and cache
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.cache/@fastify/vite/vite.config.dist.json ./node_modules/.cache/@fastify/vite/
-COPY --from=cloner /source/vite.config.js ./
 COPY --from=cloner /source/migrations ./migrations
 COPY --from=cloner /source/docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
+
+# Copy our modified config
+COPY apps/pulsarr/vite.config.js ./
 
 # Set production environment
 ENV NODE_ENV=production
