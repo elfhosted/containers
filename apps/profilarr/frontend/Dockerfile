@@ -11,6 +11,9 @@ FROM node:18
 
 WORKDIR /app
 
+# cache dir in final
+ENV CACHE_DIR=/app/build-cache
+
 COPY --from=cloner /source/frontend/package*.json ./
 RUN npm install
 
