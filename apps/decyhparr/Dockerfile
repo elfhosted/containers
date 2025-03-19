@@ -42,7 +42,9 @@ RUN mkdir -p /app/logs && \
     chmod 666 /app/logs/decypharr.log
 
 # Stage 3: Final image
-FROM gcr.io/distroless/static-debian12:nonroot
+# need a shell for debugging for now
+# FROM gcr.io/distroless/static-debian12:nonroot
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:9fe67d87930b27bf9f7743ac1a4fe4d6b614d3ac94420babdffe243888a3e36d
 
 LABEL version = "${VERSION}-${CHANNEL}"
 
@@ -58,13 +60,16 @@ COPY --from=builder --chown=nonroot:nonroot /healthcheck /usr/bin/healthcheck
 # Copy pre-made directory structure
 COPY --from=dirsetup --chown=nonroot:nonroot /app /app
 
-
 # Metadata
 ENV LOG_PATH=/app/logs
 EXPOSE 8181 8282
 VOLUME ["/app"]
 USER nonroot:nonroot
 
+# So that the app will start for goss tests
+COPY apps/decypharr/config.json /config/
+
 HEALTHCHECK CMD ["/usr/bin/healthcheck"]
 
-CMD ["/usr/bin/blackhole", "--config", "/app"]
+# We need config to go to /config so that we can mount logs to /app/logs
+CMD ["/usr/bin/blackhole", "--config", "/config"]
