@@ -1,5 +1,5 @@
 {
-  "app": "cyphers-blackhole",
+  "app": "decypharr",
   "base": false,
   "channels": [
     {
@@ -9,7 +9,7 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": false,
+        "enabled": true,
         "type": "web"
       }
     }
