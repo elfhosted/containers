@@ -4,7 +4,7 @@
         "name": "realdebrid",
         "host": "https://api.real-debrid.com/rest/1.0",
         "api_key": "realdebrid_key",
-        "folder": "/mnt/remote/realdebrid/__all__/"
+        "folder": "/tmp"
       }
     ],
     "proxy": {
@@ -15,7 +15,7 @@
     },
     "qbittorrent": {
       "port": "8282",
-      "download_folder": "/mnt/symlinks/",
+      "download_folder": "/tmp",
       "categories": ["sonarr", "radarr"]
     },
     "repair": {
