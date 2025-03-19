@@ -43,7 +43,7 @@ RUN mkdir -p /app/logs && \
 
 # Stage 3: Final image
 # need a shell for debugging for now
-# FROM gcr.io/distroless/static-debian12:nonroot
+# FROM gcr.io/distroless/static-debian12:elfie
 FROM ghcr.io/elfhosted/alpine:rolling@sha256:9fe67d87930b27bf9f7743ac1a4fe4d6b614d3ac94420babdffe243888a3e36d
 
 LABEL version = "${VERSION}-${CHANNEL}"
@@ -54,17 +54,17 @@ LABEL org.opencontainers.image.authors = "sirrobot01"
 LABEL org.opencontainers.image.documentation = "https://github.com/sirrobot01/debrid-blackhole/blob/main/README.md"
 
 # Copy binaries
-COPY --from=builder --chown=nonroot:nonroot /blackhole /usr/bin/blackhole
-COPY --from=builder --chown=nonroot:nonroot /healthcheck /usr/bin/healthcheck
+COPY --from=builder --chown=elfie:elfie /blackhole /usr/bin/blackhole
+COPY --from=builder --chown=elfie:elfie /healthcheck /usr/bin/healthcheck
 
 # Copy pre-made directory structure
-COPY --from=dirsetup --chown=nonroot:nonroot /app /app
+COPY --from=dirsetup --chown=elfie:elfie /app /app
 
 # Metadata
 ENV LOG_PATH=/app/logs
 EXPOSE 8181 8282
 VOLUME ["/app"]
-USER nonroot:nonroot
+USER elfie:elfie
 
 # So that the app will start for goss tests
 COPY apps/decypharr/config.json /config/
