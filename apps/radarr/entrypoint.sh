@@ -69,9 +69,9 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         done
         
         # Create databases
-        psql -c "CREATE DATABASE radarr_logs;" || true && psql -c "ALTER DATABASE radarr_logs OWNER TO radarr;"
-        psql -c "CREATE DATABASE radarr_main;" || true && psql -c "ALTER DATABASE radarr_main OWNER TO radarr;"
-                
+        psql -c "DROP DATABASE IF EXISTS radarr_main;" && psql -c "CREATE DATABASE radarr_main;" && psql -c "ALTER DATABASE radarr_main OWNER TO radarr;"
+        psql -c "DROP DATABASE IF EXISTS radarr_logs;" && psql -c "CREATE DATABASE radarr_logs;" && psql -c "ALTER DATABASE radarr_logs OWNER TO radarr;"
+  
         # Start radarr to force the database schemas to be created
         timeout 60s /app/bin/Radarr \
                 --nobrowser \
