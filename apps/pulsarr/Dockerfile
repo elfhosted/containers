@@ -55,6 +55,9 @@ COPY --from=cloner /source/migrations ./migrations
 COPY --from=cloner /source/docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
+# Overwrite cache dir
+COPY apps/pulsarr/vite.config.js ./
+
 # Set production environment
 ENV NODE_ENV=production
 
