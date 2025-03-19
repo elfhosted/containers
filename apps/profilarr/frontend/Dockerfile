@@ -19,4 +19,6 @@ RUN npm install
 
 COPY --from=cloner /source/frontend/. .
 
+COPY apps/profilarr/frontend/vite.config.js .
+
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
