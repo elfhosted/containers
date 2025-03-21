@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/ThePhaseless/Byparr.git /source
 
-FROM ghcr.io/astral-sh/uv:0.6-debian-slim
+FROM ghcr.io/astral-sh/uv:0.6-debian-slim as base
 ARG GITHUB_BUILD=false \
     VERSION
 
