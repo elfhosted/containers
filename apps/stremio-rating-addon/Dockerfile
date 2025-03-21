@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 RUN git clone  -b $CHANNEL https://github.com/hexdecimal16/stremio-rating-addon.git /source
 
 # Use the official Node.js image as the base image
-FROM node:18
+FROM node:22
 
 # Set the working directory inside the container
 WORKDIR /usr/src/app
