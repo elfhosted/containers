@@ -11,9 +11,9 @@ RUN git clone  https://github.com/mrcanelas/tmdb-addon.git /source
 
 COPY apps/tmdb-addon/elfhosted.patch /
 
-# Apply ElfHosted tweaks
-RUN cd /source && \
-    git apply /elfhosted.patch
+# # Apply ElfHosted tweaks
+# RUN cd /source && \
+#     git apply /elfhosted.patch
 
 ## Upstream Dockerfile
 
