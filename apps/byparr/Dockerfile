@@ -26,7 +26,7 @@ RUN apt-get update && \
 
 # Force our preferred user
 ARG user=elfie
-RUN groupadd -g 568 $user && useradd -d /app --uid 568 --gid 568 --shell /bin/bash $user && \
+RUN groupadd -g 568 $user && useradd -d /app --create-home --uid 568 --gid 568 --shell /bin/bash $user && \
     chown $user /app -R
 USER 568
 WORKDIR /app
