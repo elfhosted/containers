@@ -1,0 +1,10 @@
+---
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+process:
+  uv:
+    running: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+http:
+  http://localhost:8191/health:
+    status: 200
