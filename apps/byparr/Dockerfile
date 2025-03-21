@@ -29,7 +29,7 @@ RUN apt-get update && \
 
 ADD https://astral.sh/uv/install.sh install.sh
 RUN sh install.sh
-COPY --from=cloner /source/pyproject.toml uv.lock ./
+COPY --from=cloner /source/pyproject.toml /source/uv.lock ./
 RUN --mount=type=cache,target=${HOME}/.cache/uv uv sync
 
 # SeleniumBase does not come with an arm64 chromedriver binary
