@@ -25,14 +25,17 @@ ENV PATH="${HOME}/.local/bin:$PATH"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests xauth xvfb scrot curl chromium chromium-driver ca-certificates
 
+
+
+WORKDIR /app
+ADD https://astral.sh/uv/install.sh install.sh
+RUN sh install.sh
+
 # Force our preferred user
 ARG user=elfie
 RUN groupadd -g 568 $user && useradd -d /config --create-home --uid 568 --gid 568 --shell /bin/bash $user
 USER 568
 
-WORKDIR /app
-ADD https://astral.sh/uv/install.sh install.sh
-RUN sh install.sh
 COPY --from=cloner /source/pyproject.toml /source/uv.lock ./
 RUN --mount=type=cache,target=${HOME}/.cache/uv uv sync
 
