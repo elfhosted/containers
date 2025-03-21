@@ -7,8 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/ThePhaseless/Byparr.git /source
 
-FROM debian:bullseye-slim AS base
-
+FROM ghcr.io/astral-sh/uv:0.6-debian-slim
 ARG GITHUB_BUILD=false \
     VERSION
 
@@ -25,17 +24,13 @@ ENV PATH="${HOME}/.local/bin:$PATH"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests xauth xvfb scrot curl chromium chromium-driver ca-certificates
 
-WORKDIR /app
-ADD https://astral.sh/uv/install.sh install.sh
-RUN chmod +x install.sh
-
 # Force our preferred user
 ARG user=elfie
 RUN groupadd -g 568 $user && useradd -d /app --uid 568 --gid 568 --shell /bin/bash $user && \
     chown $user /app -R
-
 USER 568
-RUN sh install.sh
+WORKDIR /app
+
 
 COPY --from=cloner /source/pyproject.toml /source/uv.lock ./
 RUN --mount=type=cache,target=${HOME}/.cache/uv uv sync
