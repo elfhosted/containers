@@ -11,7 +11,7 @@ FROM ghcr.io/astral-sh/uv:0.6-debian-slim as base
 ARG GITHUB_BUILD=false \
     VERSION
 
-ENV HOME=/root \
+ENV HOME=/app \
     GITHUB_BUILD=${GITHUB_BUILD}\
     VERSION=${VERSION}\
     DEBIAN_FRONTEND=noninteractive \
