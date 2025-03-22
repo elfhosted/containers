@@ -7,16 +7,27 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/bsm-elf/symlink-cleaner.git /source
 
+# Use an official Python runtime as the base image
 FROM python:3.9-slim
+
+# Set the working directory in the container
 WORKDIR /app
 
-# Force our preferred user
-ARG user=elfie
-RUN groupadd -g 568 $user && useradd -d /config --create-home --uid 568 --gid 568 --shell /bin/bash $user
-USER 568
+# Create a non-root user with UID 568
+RUN useradd -u 568 -m -s /bin/bash appuser && \
+    chown -R appuser:appuser /app
 
-COPY --from=cloner /source/requirements.txt .
-RUN pip install -r requirements.txt
+# Copy the project files into the container
 COPY --from=cloner /source/. .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose the port the app runs on
 EXPOSE 5000
-CMD ["python", "symlink_cleaner.py", "--config", "/app/config.json"]
+
+# Switch to the non-root user
+USER appuser
+
+# Command to run the app with gunicorn and eventlet
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:5000", "symlink_cleaner:app"]
