@@ -42,7 +42,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Install Python dependencies including playwright
-COPY requirements.txt .
+COPY --from=cloner /source/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
     rm -rf /root/.cache /app/.cache
 
