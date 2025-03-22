@@ -24,8 +24,8 @@ mkdir -p /config/logs
 # Log file path (using date for daily log)
 log_file="/config/logs/$(date +'%Y-%m-%d').log"
 
-# Remove logs older than 7 days
-find /config/logs/ -type f -name "*.log" -mtime +7 -exec rm {} \;
+# Remove logs older than 1 days
+find /config/logs/ -type f -name "*.log" -mtime +1 -exec rm {} \;
 
 # move unprocessed files back into watch dir for processing
 move_files_if_exists() {
