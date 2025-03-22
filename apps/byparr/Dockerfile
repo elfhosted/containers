@@ -7,11 +7,12 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/ThePhaseless/Byparr.git /source
 
-FROM ghcr.io/astral-sh/uv:0.6-debian-slim as base
+FROM debian:bullseye-slim AS base
+
 ARG GITHUB_BUILD=false \
     VERSION
 
-ENV HOME=/app \
+ENV HOME=/root \
     GITHUB_BUILD=${GITHUB_BUILD}\
     VERSION=${VERSION}\
     DEBIAN_FRONTEND=noninteractive \
@@ -24,10 +25,17 @@ ENV PATH="${HOME}/.local/bin:$PATH"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests xauth xvfb scrot curl chromium chromium-driver ca-certificates
 
+
+# ADD https://astral.sh/uv/install.sh install.sh
+# RUN sh install.sh
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Force our preferred user
 ARG user=elfie
-RUN groupadd -g 568 $user && useradd -d /app --create-home --uid 568 --gid 568 --shell /bin/bash $user && \
+RUN groupadd -g 568 $user && useradd -d /app --uid 568 --gid 568 --shell /bin/bash $user && \
     chown $user /app -R
+
 USER 568
 WORKDIR /app
 
