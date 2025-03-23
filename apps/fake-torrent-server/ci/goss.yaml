@@ -6,5 +6,5 @@ process:
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:8000:
+  http://localhost:8000/Movie.Title.2024.2160p.BluRay.x265-GROUP.torrent:
     status: 200
