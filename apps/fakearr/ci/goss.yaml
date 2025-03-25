@@ -1,12 +1,10 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 process:
-  fakearr:
+  python:
     running: true
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:8000/iama.torrent:
-    status: 200
-  http://localhost:8000/iama.nzb:
+  http://localhost:5001/api?t=search:
     status: 200    
