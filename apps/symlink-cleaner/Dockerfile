@@ -7,19 +7,40 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/bsm-elf/symlink-cleaner.git /source
 
+# Base image
 FROM python:3.9-slim
 
+# Set environment
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_APP=symlink_cleaner.py \
+    FLASK_ENV=production
+
+# Create app directory
 WORKDIR /app
 
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency list and install
 COPY --from=cloner /source/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY --from=cloner /source/symlink_cleaner.py .
+# Copy app files
+COPY --from=cloner /source/symlink_cleaner.py /app/
+COPY --from=cloner /source/templates/ /app/templates/
+COPY --from=cloner /source/static/ /app/static/
 
-RUN mkdir -p /app/config/logs \
-    && chown -R 568:568 /app/config \
-    && chmod -R u+rw /app/config
+# Create logs directory and set ownership to non-root user (UID 568)
+RUN mkdir -p /app/logs && chown -R 568:568 /app/logs
 
+# Run as non-root user
 USER 568
+
+# Expose Flask port
 EXPOSE 5000
+
+# Run the app
 CMD ["python", "symlink_cleaner.py"]
