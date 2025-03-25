@@ -20,7 +20,7 @@ COPY --from=cloner /source/go.mod /source/go.sum* ./
 RUN go mod download
 
 # Copy the source code into the container
-COPY /source/. .
+COPY --from=cloner /source/. .
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o fakearr
