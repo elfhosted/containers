@@ -20,7 +20,7 @@ COPY --from=cloner /source/. /app
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Define environment variable (optional)
-ENV FLASK_APP=fakearr.py
+ENV FLASK_APP=app.py
 
 # Run the application
-CMD ["uvicorn", "app_asgi:app", "--host", "0.0.0.0", "--port", "5001"]
+CMD ["python", "fakearr.py"]
