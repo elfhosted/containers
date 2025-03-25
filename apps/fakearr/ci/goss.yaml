@@ -6,7 +6,7 @@ process:
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:8080/iama.torrent:
+  http://localhost:8000/iama.torrent:
     status: 200
-  http://localhost:8080/iama.nzb:
+  http://localhost:8000/iama.nzb:
     status: 200    
