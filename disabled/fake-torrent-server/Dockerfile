@@ -25,5 +25,5 @@ COPY --from=cloner /source/. .
 # Expose port 8000 for FastAPI
 EXPOSE 8000
 
-# Start the FastAPI application
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application
+CMD ["python", "fakearr.py"]
