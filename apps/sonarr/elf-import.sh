@@ -2,7 +2,7 @@
 
 # Check if sonarr_sourcepath contains the string "/storage/symlinks"
 if echo "$sonarr_sourcepath" | grep -q "/storage/symlinks"; then
-    cp "$sonarr_sourcepath" "$sonarr_destinationpath"
+    mv "$sonarr_sourcepath" "$sonarr_destinationpath"
     exit 0
 else
     # Get the parent directory of sonarr_sourcepath

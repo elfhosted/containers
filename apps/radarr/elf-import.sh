@@ -2,7 +2,7 @@
 
 # Check if radarr_sourcepath contains the string "/storage/symlinks"
 if echo "$radarr_sourcepath" | grep -q "/storage/symlinks"; then
-    cp "$radarr_sourcepath" "$radarr_destinationpath"
+    mv "$radarr_sourcepath" "$radarr_destinationpath"
     exit 0
 else
     # Get the parent directory of radarr_sourcepath
