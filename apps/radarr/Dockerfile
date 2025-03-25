@@ -44,7 +44,6 @@ ENV COMPlus_EnableDiagnostics=0
 COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/radarr/elf-import.sh /elf-import.sh
-RUN chmod 755 /elf-import.sh
 
 CMD ["/entrypoint.sh"]
 
