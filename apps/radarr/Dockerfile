@@ -52,6 +52,7 @@ COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/radarr/elf-import.sh /elf-import.sh
 
 
+ENV PATH="/app/bin:$PATH"
 
 CMD ["/entrypoint.sh"]
 

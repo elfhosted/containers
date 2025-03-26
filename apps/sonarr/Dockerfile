@@ -48,6 +48,8 @@ COPY ./apps/sonarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/sonarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/sonarr/elf-import.sh /elf-import.sh
 
+ENV PATH="/app:$PATH"
+
 CMD ["/entrypoint.sh"]
 
 LABEL org.opencontainers.image.title="${SONARR__INSTANCE_NAME} (${SONARR__BRANCH})"
