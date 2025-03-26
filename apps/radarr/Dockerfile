@@ -45,9 +45,6 @@ COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/radarr/elf-import.sh /elf-import.sh
 
-# fake ffprobe
-COPY ./apps/radarr/ffprobe /app/bin/ffprobe
-
 CMD ["/entrypoint.sh"]
 
 LABEL org.opencontainers.image.source="https://github.com/Radarr/Radarr"
