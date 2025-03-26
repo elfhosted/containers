@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/Dictionarry-Hub/profilarr.git /source
 
-FROM node:18
+FROM node:22
 
 WORKDIR /app
 
