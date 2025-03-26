@@ -11,24 +11,26 @@ if echo "$radarr_sourcepath" | grep -q "/storage/symlinks"; then
     echo "[DEBUG] Moving file from $radarr_sourcepath to $radarr_destinationpath" >> /tmp/elf-import.log
     mv "$radarr_sourcepath" "$radarr_destinationpath"
 else
-
     filename=$(basename "$radarr_sourcepath")
-    containing_folder=$(dirname "$radarr_sourcepath")
-    grandparent_folder=$(dirname "$containing_folder")
+    filename_without_ext="${filename%.*}"
+
+    parent_folder=$(dirname "$radarr_sourcepath")
+    grandparent_folder=$(dirname "$parent_folder")
     great_grandparent_folder=$(dirname "$grandparent_folder")
 
+    if [[ "$parent_folder" != "$filename_without_ext" ]]; then
+        selected_folder="$parent_folder"
+    elif [[ "$grandparent_folder" != "$filename_without_ext" ]]; then
+        selected_folder="$grandparent_folder"
+    else
+        selected_folder="$great_grandparent_folder"
+    fi
+
     echo "[DEBUG] Extracted filename: $filename" >> /tmp/elf-import.log
-    echo "[DEBUG] Containing folder: $containing_folder" >> /tmp/elf-import.log
+    echo "[DEBUG] Parent folder: $parent_folder" >> /tmp/elf-import.log
     echo "[DEBUG] Grandparent folder: $grandparent_folder" >> /tmp/elf-import.log
     echo "[DEBUG] Great-grandparent folder: $great_grandparent_folder" >> /tmp/elf-import.log
-
-    if [ "$(basename "$containing_folder")" = "$filename" ]; then
-        selected_folder="$grandparent_folder"
-    elif [ "$(basename "$grandparent_folder")" = "$filename" ]; then
-        selected_folder="$great_grandparent_folder"
-    else
-        selected_folder="$containing_folder"
-    fi
+    echo "[DEBUG] Selected folder: $selected_folder" >> /tmp/elf-import.log
 
     symlink_target="$selected_folder/imported-and-symlinked"
     mkdir -p "$symlink_target"
