@@ -10,8 +10,12 @@ RUN apt-get update && \
     apt-get install -y git && \
     rm -rf /var/lib/apt/lists/*
 
+# Copy the patch file
+COPY apps/debridav/increase-db-pool-size.patch .
+
 # Clone the Debridav repository
-RUN git clone -b $VERSION https://github.com/skjaere/debridav.git .
+RUN git clone -b $VERSION https://github.com/skjaere/debridav.git . && \
+    git patch apply increase-db-pool-size.patch
 
 # Build the project 
 # Note: Adjust the build command based on the project's actual build process
