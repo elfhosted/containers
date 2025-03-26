@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/ffprobe-shim:rolling@sha256:082a1ae4ea4469b0484d79d166e97e02f0dfa3a0dfce971409d298cdcb756177 as ffprobe-shim
+FROM ghcr.io/elfhosted/ffprobe-shim:rolling as ffprobe-shim
 
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
@@ -49,7 +49,7 @@ COPY ./apps/radarr/elf-import.sh /elf-import.sh
 
 # Try to overwrite ffprobe with shim
 RUN mv app/bin/ffprobe app/bin/ffprobe-real
-COPY --from=ffprobe-shim /ffprobe-shim /app/bin/ffprobe
+COPY --from=ffprobe-shim /app/ffprobe-shim /app/bin/ffprobe
 
 
 CMD ["/entrypoint.sh"]
