@@ -1,45 +1,27 @@
 #!/bin/ash
 
-# Enable debug logging
-echo "[DEBUG] sonarr_sourcepath: $sonarr_sourcepath" >> /tmp/elf-import.log
-echo "[DEBUG] sonarr_destinationpath: $sonarr_destinationpath" >> /tmp/elf-import.log
-echo "[DEBUG] symlinked_dir: $symlinked_dir" >> /tmp/elf-import.log
-echo "[DEBUG] parent_dir: $parent_dir" >> /tmp/elf-import.log
-
-echo "[DEBUG] Checking if sonarr_sourcepath contains '/storage/symlinks'" >> /tmp/elf-import.log
+# Check if sonarr_sourcepath contains the string "/storage/symlinks"
 if echo "$sonarr_sourcepath" | grep -q "/storage/symlinks"; then
-    echo "[DEBUG] Moving file from $sonarr_sourcepath to $sonarr_destinationpath" >> /tmp/elf-import.log
     mv "$sonarr_sourcepath" "$sonarr_destinationpath"
+    exit 0
 else
-    filename=$(basename "$sonarr_sourcepath")
-    filename_without_ext="${filename%.*}"
-
-    parent_folder=$(dirname "$sonarr_sourcepath")
-    grandparent_folder=$(dirname "$parent_folder")
-    great_grandparent_folder=$(dirname "$grandparent_folder")
-
-    if [[ "$parent_folder" != "$filename_without_ext" ]]; then
-        selected_folder="$parent_folder"
-    elif [[ "$grandparent_folder" != "$filename_without_ext" ]]; then
-        selected_folder="$grandparent_folder"
+    # Get the parent directory of sonarr_sourcepath
+    parent_dir=$(dirname "$sonarr_sourcepath")
+    grantparent_dir=$(dirname "$parent_dir")
+    
+    if [[ "$parent_dir" == */downloads/ ]]; then
+        downloads_dir="$parent_dir/symlinked"
     else
-        selected_folder="$great_grandparent_folder"
+        downloads_dir="$grantparent_dir/symlinked"
     fi
 
-    echo "[DEBUG] Extracted filename: $filename" >> /tmp/elf-import.log
-    echo "[DEBUG] Parent folder: $parent_folder" >> /tmp/elf-import.log
-    echo "[DEBUG] Grandparent folder: $grandparent_folder" >> /tmp/elf-import.log
-    echo "[DEBUG] Great-grandparent folder: $great_grandparent_folder" >> /tmp/elf-import.log
-    echo "[DEBUG] Selected folder: $selected_folder" >> /tmp/elf-import.log
+    # Create the "symlinked" directory in the parent directory
+    symlinked_dir="$downloads_dir/symlinked"
+    mkdir -p "$symlinked_dir"
+    
+    # Move the source file to the new directory (so that the aarr can't delete it)
+    mv "$sonarr_sourcepath" "$symlinked_dir/"
 
-    symlink_target="$selected_folder/imported-and-symlinked"
-    mkdir -p "$symlink_target"
-
-    # Move the file for safekeeping so the aars don't clean it up
-    mv "$sonarr_sourcepath" "$symlink_target/"
-
-    symlink_from="$symlink_target/$(basename "$sonarr_sourcepath")"
-
-    echo "[DEBUG] Creating symlink from $symlink_from to $sonarr_destinationpath" >> /tmp/elf-import.log
-    ln -s "$symlink_from" "$sonarr_destinationpath"
+    # Create a symlink at sonarr_destinationpath pointing to the copied file
+    ln -s "$symlinked_dir/$(basename "$sonarr_sourcepath")" "$sonarr_destinationpath"
 fi
