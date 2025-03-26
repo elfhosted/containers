@@ -48,7 +48,7 @@ COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/radarr/elf-import.sh /elf-import.sh
 
 # Try to overwrite ffprobe with shim
-RUN mv app/bin/ffprobe app/bin/ffprobe_real
+RUN mv app/bin/ffprobe app/bin/ffprobe-real
 COPY --from=ffprobe /ffprobe-shim /app/bin/ffprobe
 
 
