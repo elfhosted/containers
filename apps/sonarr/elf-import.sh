@@ -8,11 +8,14 @@ else
     # Get the parent directory of sonarr_sourcepath
     parent_dir=$(dirname "$sonarr_sourcepath")
     grantparent_dir=$(dirname "$parent_dir")
+    greatgrantparent_dir=$(dirname "$grantparent_dir")
     
     if [[ "$parent_dir" == */downloads/ ]]; then
-        downloads_dir="$parent_dir/symlinked"
+        downloads_dir="$parent_dir"
+    elif [[ "$grandparent_dir" == */downloads/ ]]; then
+        downloads_dir="$grantparent_dir"
     else
-        downloads_dir="$grantparent_dir/symlinked"
+        downloads_dir="$greatgrantparent_dir"
     fi
 
     # Create the "symlinked" directory in the parent directory
