@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
 
 # Use the official Golang image to build the binary
-FROM golang:1.20 as builder
+FROM golang:1.24 as builder
 
 # Set the working directory inside the container
 WORKDIR /app
