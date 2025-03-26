@@ -28,13 +28,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=cloner /source/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app files
-COPY --from=cloner /source/symlink_cleaner.py /app/
-COPY --from=cloner /source/templates/ /app/templates/
-COPY --from=cloner /source/static/ /app/static/
+# Copy app files with correct ownership
+COPY --chown=568:568 --from=cloner /source/symlink_cleaner.py /app/
+COPY --chown=568:568 --from=cloner /source/templates/ /app/templates/
+COPY --chown=568:568 --from=cloner /source/static/ /app/static/
+COPY --chown=568:568 --from=cloner /source/config/ /app/config/
 
-# Create logs directory and set ownership to non-root user (UID 568)
-RUN mkdir -p /app/logs && chown -R 568:568 /app/logs
+# Ensure the entire /app is writable by the runtime user
+RUN chown -R 568:568 /app
 
 # Run as non-root user
 USER 568
