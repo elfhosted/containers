@@ -42,6 +42,10 @@ COPY ./apps/sonarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/sonarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/sonarr/elf-import.sh /elf-import.sh
 
+# fake ffprobe
+COPY ./apps/sonarr/ffprobe /app/bin/ffprobe
+
+
 CMD ["/entrypoint.sh"]
 
 LABEL org.opencontainers.image.title="${SONARR__INSTANCE_NAME} (${SONARR__BRANCH})"

@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Fake ffprobe script that returns dummy video metadata
+
+# Check if the script is called with the correct arguments
+if [[ "$1" != "-loglevel" || "$2" != "error" || "$3" != "-print_format" || "$4" != "json" || "$5" != "-show_format" || "$6" != "-sexagesimal" || "$7" != "-show_streams" || "$8" != "-probesize" || "$9" != "50000000" ]]; then
+    echo "Incorrect arguments. Usage matches ffprobe requirements." >&2
+    exit 1
+fi
+
+# Generate a consistent dummy JSON output
+cat << EOF
+{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+            "profile": "High",
+            "codec_type": "video",
+            "codec_tag_string": "x264",
+            "width": 1920,
+            "height": 1080,
+            "r_frame_rate": "24/1",
+            "avg_frame_rate": "24/1",
+            "duration": "1:30:00.000000",
+            "bit_rate": "5000000",
+            "nb_frames": "129600",
+            "pix_fmt": "yuv420p"
+        },
+        {
+            "index": 1,
+            "codec_name": "ac3",
+            "codec_long_name": "ATSC A/52A (AC-3)",
+            "codec_type": "audio",
+            "channels": 6,
+            "channel_layout": "5.1(side)",
+            "sample_rate": "48000",
+            "duration": "1:30:00.000000",
+            "bit_rate": "640000"
+        }
+    ],
+    "format": {
+        "filename": "${10}",
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "duration": "1:30:00.000000",
+        "size": "5000000000",
+        "bit_rate": "5640000"
+    }
+}
+EOF
