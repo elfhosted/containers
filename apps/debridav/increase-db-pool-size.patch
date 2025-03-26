@@ -1,5 +1,5 @@
 diff --git a/src/main/kotlin/io/skjaere/debridav/PersistenceConfiguration.kt b/src/main/kotlin/io/skjaere/debridav/PersistenceConfiguration.kt
-index 0f88c02..396021f 100644
+index 0f88c02..e241aeb 100644
 --- a/src/main/kotlin/io/skjaere/debridav/PersistenceConfiguration.kt
 +++ b/src/main/kotlin/io/skjaere/debridav/PersistenceConfiguration.kt
 @@ -30,6 +30,13 @@ class PersistenceConfiguration(
@@ -7,10 +7,10 @@ index 0f88c02..396021f 100644
          props["dataSource.logWriter"] = PrintWriter(System.out)
  
 +        // Add HikariCP-specific properties to optimize for frequent and bursty database access
-+        props.setProperty("maximumPoolSize", "90")
++        props.setProperty("maximumPoolSize", "300")
 +        props.setProperty("minimumIdle", "5")
 +        props.setProperty("connectionTimeout", "5000")
-+        props.setProperty("idleTimeout", "600000")
++        props.setProperty("idleTimeout", "30000")
 +        props.setProperty("maxLifetime", "1800000")
 +
          val config = HikariConfig(props)
