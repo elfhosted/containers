@@ -1,21 +1,17 @@
 #!/bin/ash
 
-# Check if sonarr_sourcepath contains the string "/storage/symlinks"
-if echo "$sonarr_sourcepath" | grep -q "/storage/symlinks"; then
-    mv "$sonarr_sourcepath" "$sonarr_destinationpath"
-    exit 0
-else
-    # Get the parent directory of sonarr_sourcepath
-    parent_dir=$(dirname "$sonarr_sourcepath")
-    grandparent_dir=$(dirname "$parent_dir")
-    
-    # Create the "symlinked" directory in the grandparent directory
-    symlinked_dir="$grandparent_dir/symlinked"
-    mkdir -p "$symlinked_dir"
-    
-    # Move the parent dir file to the new grandparent directory (so that the aarr can't delete it)
-    mv "$parent_dir" "$symlinked_dir/"
+# Enable debug logging
+echo "[DEBUG] sonarr_sourcepath: $sonarr_sourcepath" >> /tmp/elf-import.log.log
+echo "[DEBUG] sonarr_destinationpath: $sonarr_destinationpath" >> /tmp/elf-import.log.log
+echo "[DEBUG] symlinked_dir: $symlinked_dir" >> /tmp/elf-import.log.log
+echo "[DEBUG] parent_dir: $parent_dir" >> /tmp/elf-import.log.log
 
-    # Create a symlink at sonarr_destinationpath pointing to the copied file
-    ln -s "$symlinked_dir/$(basename "$parent_dir")/$(basename "$sonarr_sourcepath")" "$sonarr_destinationpath"
+echo "[DEBUG] Checking if sonarr_sourcepath contains '/storage/symlinks'" >> /tmp/elf-import.log.log
+if echo "$sonarr_sourcepath" | grep -q "/storage/symlinks"; then
+    echo "[DEBUG] Moving file from $sonarr_sourcepath to $sonarr_destinationpath" >> /tmp/elf-import.log.log
+    mv "$sonarr_sourcepath" "$sonarr_destinationpath"
+else
+    symlink_target="$symlinked_dir/$(basename "$parent_dir")/$(basename "$sonarr_sourcepath")"
+    echo "[DEBUG] Creating symlink from $symlink_target to $sonarr_destinationpath" >> /tmp/elf-import.log.log
+    ln -s "$symlink_target" "$sonarr_destinationpath"
 fi

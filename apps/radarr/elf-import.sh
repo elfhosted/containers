@@ -1,21 +1,17 @@
 #!/bin/ash
 
-# Check if radarr_sourcepath contains the string "/storage/symlinks"
-if echo "$radarr_sourcepath" | grep -q "/storage/symlinks"; then
-    mv "$radarr_sourcepath" "$radarr_destinationpath"
-    exit 0
-else
-    # Get the parent directory of radarr_sourcepath
-    parent_dir=$(dirname "$radarr_sourcepath")
-    grandparent_dir=$(dirname "$parent_dir")
-    
-    # Create the "symlinked" directory in the grandparent directory
-    symlinked_dir="$grandparent_dir/symlinked"
-    mkdir -p "$symlinked_dir"
-    
-    # Move the parent dir file to the new grandparent directory (so that the aarr can't delete it)
-    mv "$parent_dir" "$symlinked_dir/"
+# Enable debug logging
+echo "[DEBUG] radarr_sourcepath: $radarr_sourcepath" >> /tmp/elf-import.log.log
+echo "[DEBUG] radarr_destinationpath: $radarr_destinationpath" >> /tmp/elf-import.log.log
+echo "[DEBUG] symlinked_dir: $symlinked_dir" >> /tmp/elf-import.log.log
+echo "[DEBUG] parent_dir: $parent_dir" >> /tmp/elf-import.log.log
 
-    # Create a symlink at radarr_destinationpath pointing to the copied file
-    ln -s "$symlinked_dir/$(basename "$parent_dir")/$(basename "$radarr_sourcepath")" "$radarr_destinationpath"
+echo "[DEBUG] Checking if radarr_sourcepath contains '/storage/symlinks'" >> /tmp/elf-import.log.log
+if echo "$radarr_sourcepath" | grep -q "/storage/symlinks"; then
+    echo "[DEBUG] Moving file from $radarr_sourcepath to $radarr_destinationpath" >> /tmp/elf-import.log.log
+    mv "$radarr_sourcepath" "$radarr_destinationpath"
+else
+    symlink_target="$symlinked_dir/$(basename "$parent_dir")/$(basename "$radarr_sourcepath")"
+    echo "[DEBUG] Creating symlink from $symlink_target to $radarr_destinationpath" >> /tmp/elf-import.log.log
+    ln -s "$symlink_target" "$radarr_destinationpath"
 fi
