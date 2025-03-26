@@ -1,5 +1,3 @@
-FROM ghcr.io/elfhosted/ffprobe-shim:rolling as ffprobe-shim
-
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
 ARG TARGETPLATFORM
@@ -39,10 +37,6 @@ RUN \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
-# Try to overwrite ffprobe with shim
-RUN mv /app/bin/ffprobe /app/bin/ffprobe-real
-COPY --from=ffprobe-shim /app/ffprobe-shim /app/bin/ffprobe
-
 USER 568
 
 ENV COMPlus_EnableDiagnostics=0
@@ -50,9 +44,6 @@ ENV COMPlus_EnableDiagnostics=0
 COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/radarr/elf-import.sh /elf-import.sh
-
-
-ENV PATH="/app/bin:$PATH"
 
 CMD ["/entrypoint.sh"]
 
