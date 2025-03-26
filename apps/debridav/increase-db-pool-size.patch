@@ -1,17 +1,18 @@
-diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
-index 0b19eb4..8feada8 100644
---- a/src/main/resources/application.properties
-+++ b/src/main/resources/application.properties
-@@ -32,6 +32,12 @@ debridav.db.database-name=debridav
- debridav.db.username=debridav
- debridav.db.password=debridav
- spring.datasource.url=jdbc:postgresql://${debridav.db.host}:${debridav.db.port}/${debridav.db.database-name}?user=${debridav.db.username}&password=${debridav.db.password}
-+# attempt to cope with spikes in DB connections
-+spring.datasource.hikari.maximum-pool-size=90
-+spring.datasource.hikari.minimum-idle=5
-+spring.datasource.hikari.connection-timeout=5000
-+spring.datasource.hikari.idle-timeout=600000
-+spring.datasource.hikari.max-lifetime=1800000
- premiumize.api-key=
- premiumize.bas-eurl=https://www.premiumize.me/api
- real-debrid.api-key=
+diff --git a/src/main/kotlin/io/skjaere/debridav/PersistenceConfiguration.kt b/src/main/kotlin/io/skjaere/debridav/PersistenceConfiguration.kt
+index 0f88c02..396021f 100644
+--- a/src/main/kotlin/io/skjaere/debridav/PersistenceConfiguration.kt
++++ b/src/main/kotlin/io/skjaere/debridav/PersistenceConfiguration.kt
+@@ -30,6 +30,13 @@ class PersistenceConfiguration(
+         props.setProperty("dataSource.password", password)
+         props["dataSource.logWriter"] = PrintWriter(System.out)
+ 
++        // Add HikariCP-specific properties to optimize for frequent and bursty database access
++        props.setProperty("maximumPoolSize", "90")
++        props.setProperty("minimumIdle", "5")
++        props.setProperty("connectionTimeout", "5000")
++        props.setProperty("idleTimeout", "600000")
++        props.setProperty("maxLifetime", "1800000")
++
+         val config = HikariConfig(props)
+         return HikariDataSource(config)
+     }
