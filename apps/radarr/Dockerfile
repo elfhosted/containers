@@ -39,6 +39,10 @@ RUN \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
+# Try to overwrite ffprobe with shim
+RUN mv /app/bin/ffprobe /app/bin/ffprobe-real
+COPY --from=ffprobe-shim /app/ffprobe-shim /app/bin/ffprobe
+
 USER 568
 
 ENV COMPlus_EnableDiagnostics=0
@@ -47,9 +51,6 @@ COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/radarr/elf-import.sh /elf-import.sh
 
-# Try to overwrite ffprobe with shim
-RUN mv /app/bin/ffprobe /app/bin/ffprobe-real
-COPY --from=ffprobe-shim /app/ffprobe-shim /app/bin/ffprobe
 
 
 CMD ["/entrypoint.sh"]

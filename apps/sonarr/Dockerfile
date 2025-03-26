@@ -36,6 +36,10 @@ RUN \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
+# Try to overwrite ffprobe with shim
+RUN mv /app/ffprobe /app/ffprobe-real
+COPY --from=ffprobe-shim /app/ffprobe-shim /app/ffprobe
+
 USER 568
 
 COPY ./apps/sonarr/config.xml.tmpl /app/config.xml.tmpl
