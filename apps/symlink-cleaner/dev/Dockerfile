@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION https://github.com/bsm-elf/symlink-cleaner.git /source
+RUN git clone https://github.com/bsm-elf/symlink-cleaner.git /source
 
 # Base image
 FROM python:3.9-slim
