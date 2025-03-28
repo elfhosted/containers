@@ -34,7 +34,13 @@ else
 
     # Create the "symlinked" directory in the parent directory
     symlinked_dir="$downloads_dir/symlinked"
-    mkdir -p "$symlinked_dir"
+    if [ ! -d "$symlinked_dir" ]; then
+        mkdir -p "$symlinked_dir"
+        echo "Created directory: $symlinked_dir" >> "$LOG_FILE"
+        sleep 10
+    else
+        echo "Directory already exists: $symlinked_dir" >> "$LOG_FILE"
+    fi
     echo "Created directory: $symlinked_dir" >> "$LOG_FILE"
 
     # Move the source file to the new directory (so that the aarr can't delete it)
