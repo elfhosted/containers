@@ -21,13 +21,16 @@ else
     echo "Parent directory: $parent_dir" >> "$LOG_FILE"
     echo "Grandparent directory: $grantparent_dir" >> "$LOG_FILE"
     echo "Great-grandparent directory: $greatgrantparent_dir" >> "$LOG_FILE"
+    echo "Great-great-grandparent directory: $greatgrantparent_dir" >> "$LOG_FILE"
 
     if [[ "$parent_dir" == */downloads/ ]]; then
         downloads_dir="$parent_dir"
     elif [[ "$grandparent_dir" == */downloads/ ]]; then
         downloads_dir="$grantparent_dir"
+    elif [[ "$greatgrandparent_dir" == */downloads/ ]]; then
+        downloads_dir="$greatgrantparent_dir"        
     else
-        downloads_dir="$greatgrantparent_dir"
+        downloads_dir="$greatgreatgrantparent_dir"
     fi
 
     echo "Resolved downloads directory: $downloads_dir" >> "$LOG_FILE"
@@ -37,7 +40,7 @@ else
     if [ ! -d "$symlinked_dir" ]; then
         mkdir -p "$symlinked_dir"
         echo "Created directory: $symlinked_dir" >> "$LOG_FILE"
-        sleep 10
+        sleep 30
     else
         echo "Directory already exists: $symlinked_dir" >> "$LOG_FILE"
     fi
