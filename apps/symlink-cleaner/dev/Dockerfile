@@ -1,11 +1,12 @@
 # Get upstream code
 FROM alpine:latest as cloner
 ARG VERSION
+ARG ZURG_GH_CREDS
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/bsm-elf/symlink-cleaner.git /source
+RUN git clone https://$ZURG_GH_CREDS@github.com/bsm-elf/symlink-cleaner.git /source
 
 # Base image
 FROM python:3.9-slim
