@@ -11,10 +11,10 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-RUN wget https://github.com/RatingPosterDB/rpdb-folders/releases/latest/download/linux-rpdb-folders.zip && \
+RUN wget https://github.com/RatingPosterDB/rpdb-folders/releases/latest/download/linux-rpdb-folders-x64.zip && \
     mkdir -p ./rpdb-folders && \
-    unzip linux-rpdb-folders.zip -d ./rpdb-folders && \
-    rm ./linux-rpdb-folders.zip && \
+    unzip linux-rpdb-folders-x64.zip -d ./rpdb-folders && \
+    rm ./linux-rpdb-folders-x64.zip && \
     mkdir -p /rpdb/config && \
     mkdir -p /rpdb/mounts && \
     chmod +x ./rpdb-folders/rpdb-folders
