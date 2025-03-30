@@ -1,8 +1,8 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
-# process:
-#   gunicorn:
-#     running: true
+process:
+  Flixio.Api:
+    running: true
 
 # # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 # port:

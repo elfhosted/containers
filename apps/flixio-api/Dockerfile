@@ -23,6 +23,10 @@ RUN apk add --update --no-cache curl
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
 ENV WEB_AUTH_KEY=changemeelfie
+
+ENV FLIXIO_API_KEY: pass-goss-tests
+ENV FLIXIO_CORS_ALLOWED_ORIGINS: pass-goss-tests
+
 WORKDIR /app
 VOLUME /app/data
 COPY --from=base /app/out .
