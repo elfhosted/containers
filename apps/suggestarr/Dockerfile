@@ -34,7 +34,7 @@ COPY --from=client-builder /app/client/dist /app/static
 COPY --from=cloner /source/api_service/ /app/api_service/
 
 # Copy docker entrypoint script
-COPY docker/docker_entrypoint.sh /app/
+COPY --from=cloner /source/docker/docker_entrypoint.sh /app/
 RUN chmod +x /app/docker_entrypoint.sh
 
 # Create log files for Gunicorn
