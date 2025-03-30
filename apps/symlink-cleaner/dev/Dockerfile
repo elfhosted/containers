@@ -27,11 +27,11 @@ COPY --from=cloner /source/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install gunicorn[eventlet]
 
-COPY --chown=568:568 symlink_cleaner.py /app/
-COPY --chown=568:568 event_manager.py /app/
-COPY --chown=568:568 templates/ /app/templates/
-COPY --chown=568:568 static/ /app/static/
-COPY --chown=568:568 gunicorn_config.py /app/
+COPY --chown=568:568 --from=cloner /source/ssymlink_cleaner.py /app/
+COPY --chown=568:568 --from=cloner /source/sevent_manager.py /app/
+COPY --chown=568:568 --from=cloner /source/stemplates/ /app/templates/
+COPY --chown=568:568 --from=cloner /source/sstatic/ /app/static/
+COPY --chown=568:568 --from=cloner /source/gunicorn_config.py /app/
 
 # Create default config directory and file if not mounted
 RUN mkdir -p /app/config && \
