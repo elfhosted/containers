@@ -13,6 +13,7 @@
     --cutoff-mode=soft \
     --vfs-cache-mode full \
     --buffer-size=32M \
+    --poll-interval=0 \
     -vv \
     debrid-provider:
 
