@@ -14,18 +14,7 @@
       }
     },
     {
-      "name": "develop",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "stable": false,
-      "tests": {
-        "enabled": true,
-        "type": "web"
-      }
-    },
-    {
-      "name": "nightly",
+      "name": "dev",
       "platforms": [
         "linux/amd64"
       ],
