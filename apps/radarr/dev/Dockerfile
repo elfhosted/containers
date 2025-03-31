@@ -43,6 +43,7 @@ RUN \
 # Try using shim
 RUN mv /app/bin/ffprobe /app/bin/ffprobe.real
 COPY --from=ffprobe-shim /usr/bin/ffprobe /app/bin/ffprobe
+RUN chmod 755 /app/bin/ffprobe
 ENV REAL_FFPROBE=/app/bin/ffprobe.real
 
 USER 568
