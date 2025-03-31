@@ -12,6 +12,6 @@
     --cutoff-mode=soft \
     --vfs-cache-mode writes \
     --buffer-size=32M \
-    -v \
+    -vv \
     debrid-provider:
 
