@@ -8,30 +8,46 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
 
-# Use the official Golang image to build the binary
-FROM golang:1.20 as builder
+FROM golang:1.23-alpine AS builder
 
-# Set the working directory inside the container
+# Install git for fetching dependencies
+RUN apk add --no-cache git
+
+# Set working directory
 WORKDIR /app
 
-# Copy the Go module files and download dependencies
-COPY --from=cloner /source/go.mod /source/go.sum ./
-RUN go mod download
+# Copy go.mod and go.sum first to leverage Docker cache
+COPY --from=cloner /source/go.mod go.sum* ./
 
-# Copy the rest of the application code
-COPY --from=cloner /source/. .
+# Initialize module if go.mod doesn't exist
+RUN if [ ! -f go.mod ]; then \
+    go mod init ffprobe-shim && \
+    go get github.com/middelink/go-parse-torrent-name; \
+    else \
+    go get github.com/middelink/go-parse-torrent-name; \
+    fi
 
-# Build the Go binary
-RUN go build -o ffprobe-shim ./cmd/ffprobe-shim
+# Copy source code
+COPY --from=cloner /source/*.go ./
 
-# Use a minimal base image to run the binary
-FROM debian:bullseye-slim
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ffprobe
 
-# Set the working directory inside the container
-WORKDIR /app
+# Create a minimal runtime image
+FROM alpine:latest
 
-# Copy the built binary from the builder stage
-COPY --from=builder /app/ffprobe-shim .
+# Create directory for logs
+RUN mkdir -p /tmp
 
-# Expose the binary as the entrypoint
-ENTRYPOINT ["./ffprobe-shim"]
+# Copy our compiled binary
+COPY --from=builder /app/ffprobe /usr/bin/ffprobe
+
+# Ensure our binary is executable
+RUN chmod +x /usr/bin/ffprobe
+
+# Create a non-root user
+RUN adduser -D appuser
+USER appuser
+
+# Set the entrypoint to run our shim or optionally the real ffprobe
+ENTRYPOINT ["/usr/bin/ffprobe"]
