@@ -1,11 +1,12 @@
 # Get upstream code
 FROM alpine:latest as cloner
 ARG VERSION
+ARG ZURG_GH_CREDS
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
+RUN git clone https://$ZURG_GH_CREDS@github.com/elfhosted/ffprobe-shim.git /source
 
 # Use the official Golang image to build the binary
 FROM golang:1.20 as builder
