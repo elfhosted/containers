@@ -32,6 +32,7 @@ COPY --chown=568:568 --from=cloner /source/event_manager.py /app/
 COPY --chown=568:568 --from=cloner /source/templates/ /app/templates/
 COPY --chown=568:568 --from=cloner /source/static/ /app/static/
 COPY --chown=568:568 --from=cloner /source/gunicorn_config.py /app/
+COPY --chown=568:568 --from=cloner /source/file_watcher.py /app/
 
 # Create default config directory and file if not mounted, plus storage paths
 RUN mkdir -p /app/config /storage/realdebrid-zurg/__all__ \
