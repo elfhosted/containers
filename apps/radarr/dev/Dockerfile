@@ -1,50 +1,39 @@
-FROM ghcr.io/elfhosted/ffprobe-shim:rolling@sha256:46ef065532f5182fb716b2714b8c59151669ab1fe6744a434ed71d1c0e38f12f as ffprobe-shim 
+FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 
-FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
-
-ARG TARGETPLATFORM
 ARG VERSION
-ARG CHANNEL
 
-ENV \
-    RADARR__INSTANCE_NAME="Radarr" \
-    RADARR__BRANCH="master" \
-    RADARR__PORT="7878" \
-    RADARR__ANALYTICS_ENABLED="False"
+# Install Node.js for UI build
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g npm
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# Set working directory
+WORKDIR /app
 
-# for initial install
-USER root
+# Clone Radarr source
+RUN git clone -b $VERSION https://github.com/Radarr/Radarr.git /app/Radarr
 
-#hadolint ignore=DL3018
-RUN apk add --no-cache ca-certificates icu-libs libintl sqlite-libs xmlstarlet postgresql-client pgloader sqlite
-#hadolint ignore=DL3059
-RUN \
-    case "${TARGETPLATFORM}" in \
-        'linux/amd64') export ARCH='x64' ;; \
-        'linux/arm64') export ARCH='arm64' ;; \
-    esac \
-    && \
-    mkdir -p /app/bin \
-    && \
-    curl -fsSL "https://radarr.servarr.com/v1/update/${RADARR__BRANCH}/updatefile?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
-        | tar xzf - -C /app/bin --strip-components=1 \
-    && \
-    rm -rf \
-        /app/bin/Radarr.Update \
-    && \
-    printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[onedr0p](https://github.com/onedr0p)\n" "${RADARR__BRANCH}" "${VERSION}" > /app/package_info \
-    && chown -R root:root /app \
-    && chmod -R 755 /app \
-    && rm -rf /tmp/*
+# Set working directory inside the cloned repository
+WORKDIR /app/Radarr
 
+# Restore dependencies
+RUN dotnet restore src/Radarr.sln
+RUN npm install --prefix src/UI
 
-# Try using shim
-RUN mv /app/bin/ffprobe /app/bin/ffprobe.real
-COPY --from=ffprobe-shim /usr/bin/ffprobe /app/bin/ffprobe
-RUN chmod 755 /app/bin/ffprobe
-ENV REAL_FFPROBE=/app/bin/ffprobe.real
+# Build Radarr
+RUN dotnet publish src/Radarr.Console -c Release -o /out
+
+# Final image
+FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
+WORKDIR /app
+COPY --from=build /out .
+
+# Expose Radarr default port
+EXPOSE 7878
+
+# # Run Radarr
+# CMD ["./Radarr"]
+
 
 USER 568
 
@@ -53,7 +42,6 @@ ENV COMPlus_EnableDiagnostics=0
 COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/radarr/elf-import.sh /elf-import.sh
-
 
 CMD ["/entrypoint.sh"]
 
