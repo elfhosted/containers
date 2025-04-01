@@ -18,7 +18,7 @@ WORKDIR /app/Radarr
 
 # Restore dependencies
 RUN dotnet restore src/Radarr.sln
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Build Radarr
 RUN dotnet publish src/Radarr.Console -c Release -o /out
