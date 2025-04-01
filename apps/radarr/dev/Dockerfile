@@ -11,7 +11,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 WORKDIR /app
 
 # Clone Radarr source
-RUN git clone -b $VERSION https://github.com/Radarr/Radarr.git /app/Radarr
+RUN git clone -b v$VERSION https://github.com/Radarr/Radarr.git /app/Radarr
 
 # Set working directory inside the cloned repository
 WORKDIR /app/Radarr
