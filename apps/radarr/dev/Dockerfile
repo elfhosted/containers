@@ -21,7 +21,7 @@ RUN dotnet restore src/Radarr.sln
 RUN npm install --legacy-peer-deps
 
 # Build Radarr
-RUN dotnet publish src/NzbDrone.Console/Radarr.Console.csproj -c Release -f net7.0 -o /out
+RUN dotnet publish src/NzbDrone.Console/Radarr.Console.csproj -c Release -f net6.0 -o /out
 
 # Final image
 FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
