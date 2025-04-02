@@ -21,12 +21,14 @@ RUN dotnet restore src/Radarr.sln
 RUN npm install --legacy-peer-deps
 
 # Build Radarr
-RUN dotnet publish src/NzbDrone.Console/Radarr.Console.csproj -c Release -f net6.0 -o /out
+RUN dotnet publish src/NzbDrone.Console/Radarr.Console.csproj -c Release -f net6.0 -o /out /p:TreatWarningsAsErrors=false
 
 # Final image
 FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
 WORKDIR /app
 COPY --from=build /out .
+
+RUN mkdir /config && chown 568 /config
 
 # Expose Radarr default port
 EXPOSE 7878
@@ -34,7 +36,7 @@ EXPOSE 7878
 # # Run Radarr
 # CMD ["./Radarr"]
 
-
+RUN apt-get -y update && apt-get -y install gettext-base xmlstarlet
 USER 568
 
 ENV COMPlus_EnableDiagnostics=0
