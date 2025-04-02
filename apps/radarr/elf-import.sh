@@ -15,21 +15,23 @@ if echo "$radarr_sourcepath" | grep -q "/storage/symlinks"; then
 else
     # Get the parent directory of radarr_sourcepath
     parent_dir=$(dirname "$radarr_sourcepath")
-    grantparent_dir=$(dirname "$parent_dir")
-    greatgrantparent_dir=$(dirname "$grantparent_dir")
+    grandparent_dir=$(dirname "$parent_dir")
+    greatgrandparent_dir=$(dirname "$grandparent_dir")
+    greatgreatgrandparent_dir=$(dirname "$greatgrandparent_dir")
 
     echo "Parent directory: $parent_dir" >> "$LOG_FILE"
-    echo "Grandparent directory: $grantparent_dir" >> "$LOG_FILE"
-    echo "Great-grandparent directory: $greatgrantparent_dir" >> "$LOG_FILE"
+    echo "Grandparent directory: $grandparent_dir" >> "$LOG_FILE"
+    echo "Great-grandparent directory: $greatgrandparent_dir" >> "$LOG_FILE"
+    echo "Great-great-grandparent directory: $greagreatgrandparent_dir" >> "$LOG_FILE"
 
-    if [[ "$parent_dir" == */downloads/ ]]; then
+    if [[ "$parent_dir" == */downloads ]]; then
         downloads_dir="$parent_dir"
-    elif [[ "$grandparent_dir" == */downloads/ ]]; then
-        downloads_dir="$grantparent_dir"
-    elif [[ "$greatgrandparent_dir" == */downloads/ ]]; then
-        downloads_dir="$greatgrantparent_dir"        
+    elif [[ "$grandparent_dir" == */downloads ]]; then
+        downloads_dir="$grandparent_dir"
+    elif [[ "$greatgrandparent_dir" == */downloads ]]; then
+        downloads_dir="$greatgrandparent_dir"        
     else
-        downloads_dir="$greatgreatgrantparent_dir"
+        downloads_dir="$greatgreatgrandparent_dir"
     fi
 
     echo "Resolved downloads directory: $downloads_dir" >> "$LOG_FILE"
