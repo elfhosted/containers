@@ -39,7 +39,7 @@ ARG CHANNEL
 
 ENV \
     SONARR__INSTANCE_NAME="Sonarr" \
-    SONARR__BRANCH="master" \
+    SONARR__BRANCH="main" \
     SONARR__PORT="8989" \
     SONARR__ANALYTICS_ENABLED="False"
 
