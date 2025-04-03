@@ -75,7 +75,7 @@ COPY --from=builder /app/ffprobe /app/bin/ffprobe
 USER 568
 
 ENV COMPlus_EnableDiagnostics=0
-ENV REAL_FFPROBE=/app/bin/ffprobe-real
+ENV REAL_FFPROBE_PATH=/app/bin/ffprobe-real
 
 COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh

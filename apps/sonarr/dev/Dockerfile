@@ -73,7 +73,7 @@ RUN  mv /app/ffprobe /app/ffprobe-real
 COPY --from=builder /app/ffprobe /app/ffprobe
 
 USER 568
-ENV REAL_FFPROBE=/app/bin/ffprobe-real
+ENV REAL_FFPROBE_PATH=/app/ffprobe-real
 
 COPY ./apps/sonarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/sonarr/entrypoint.sh /entrypoint.sh
