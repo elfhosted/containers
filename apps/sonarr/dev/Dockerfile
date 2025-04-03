@@ -68,7 +68,7 @@ RUN \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
-RUN  mv /app/bin/ffprobe /app/ffprobe-real
+RUN  mv /app/ffprobe /app/ffprobe-real
 COPY --from=builder /app/ffprobe /app/ffprobe
 
 USER 568
