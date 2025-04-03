@@ -1,4 +1,34 @@
-FROM ghcr.io/elfhosted/ffprobe-shim:rolling@sha256:e7c0ad6be17409a21abb3e80b2215d289dc514ca53172b102ea0b1379141cb66 as ffprobe-shim
+FROM alpine:latest as cloner
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
+
+FROM golang:1.23-alpine AS builder
+
+# Install git for fetching dependencies
+RUN apk add --no-cache git
+
+# Set working directory
+WORKDIR /app
+
+# Copy go.mod and go.sum first to leverage Docker cache
+COPY --from=cloner /source/go.mod go.sum* ./
+
+# Initialize module if go.mod doesn't exist
+RUN if [ ! -f go.mod ]; then \
+    go mod init ffprobe-shim && \
+    go get github.com/middelink/go-parse-torrent-name; \
+    else \
+    go get github.com/middelink/go-parse-torrent-name; \
+    fi
+
+# Copy source code
+COPY --from=cloner /source/*.go ./
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ffprobe
 
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
@@ -39,7 +69,7 @@ RUN \
     && rm -rf /tmp/*
 
 RUN  mv /app/bin/ffprobe /app/ffprobe-real
-COPY --from=ffprobe-shim /usr/ffprobe /app/ffprobe
+COPY --from=builder /app/ffprobe /app/ffprobe
 
 USER 568
 ENV REAL_FFPROBE=/app/bin/ffprobe-real
