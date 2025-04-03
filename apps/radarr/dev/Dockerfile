@@ -1,45 +1,49 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+FROM ghcr.io/elfhosted/ffprobe-shim:rolling@ghcr.io/elfhosted/ffprobe-shim:9394b0503f19814edf959006a4174fe846c43fae as ffprobe-shim
+FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
+ARG TARGETPLATFORM
 ARG VERSION
+ARG CHANNEL
 
-# Install Node.js for UI build
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g npm
+ENV \
+    RADARR__INSTANCE_NAME="Radarr" \
+    RADARR__BRANCH="${CHANNEL}" \
+    RADARR__PORT="7878" \
+    RADARR__ANALYTICS_ENABLED="False"
 
-# Set working directory
-WORKDIR /app
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Clone Radarr source
-RUN git clone -b v$VERSION https://github.com/Radarr/Radarr.git /app/Radarr
+# for initial install
+USER root
 
-# Set working directory inside the cloned repository
-WORKDIR /app/Radarr
+#hadolint ignore=DL3018
+RUN apk add --no-cache ca-certificates icu-libs libintl sqlite-libs xmlstarlet postgresql-client pgloader sqlite
+#hadolint ignore=DL3059
+RUN \
+    case "${TARGETPLATFORM}" in \
+        'linux/amd64') export ARCH='x64' ;; \
+        'linux/arm64') export ARCH='arm64' ;; \
+    esac \
+    && \
+    mkdir -p /app/bin \
+    && \
+    curl -fsSL "https://radarr.servarr.com/v1/update/${RADARR__BRANCH}/updatefile?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
+        | tar xzf - -C /app/bin --strip-components=1 \
+    && \
+    rm -rf \
+        /app/bin/Radarr.Update \
+    && \
+    printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[onedr0p](https://github.com/onedr0p)\n" "${RADARR__BRANCH}" "${VERSION}" > /app/package_info \
+    && chown -R root:root /app \
+    && chmod -R 755 /app \
+    && rm -rf /tmp/*
 
-# Restore dependencies
-RUN dotnet restore src/Radarr.sln
-RUN npm install --legacy-peer-deps
-
-# Build Radarr
-RUN dotnet publish src/NzbDrone.Console/Radarr.Console.csproj -c Release -f net6.0 -o /out /p:TreatWarningsAsErrors=false
-
-# Final image
-FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
-WORKDIR /app
-COPY --from=build /out .
-
-RUN mkdir /config && chown 568 /config
-
-# Expose Radarr default port
-EXPOSE 7878
-
-# # Run Radarr
-# CMD ["./Radarr"]
-
-RUN apt-get -y update && apt-get -y install gettext-base xmlstarlet
+RUN  mv /app/bin/ffprobe /app/bin/ffprobe-real
+COPY --from=ffprobe-shim /usr/bin/ffprobe /app/bin/ffprobe
 USER 568
 
 ENV COMPlus_EnableDiagnostics=0
+ENV REAL_FFPROBE=/app/bin/ffprobe-real
 
 COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
