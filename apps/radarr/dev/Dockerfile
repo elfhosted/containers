@@ -27,9 +27,9 @@ RUN if [ ! -f go.mod ]; then \
 # Copy source code
 COPY --from=cloner /source/*.go ./
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ffprobe
-
+# Add a build argument to bust the cache
+ARG CACHE_BUSTER=1
+RUN echo "Cache Buster: $CACHE_BUSTER" && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ffprobe
 
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
