@@ -16,7 +16,7 @@ COPY apps/youriptv/manifest.js /source/
 # Copy tweaked addon.js (20s timeout, branding
 COPY apps/youriptv/addon.js /source/
 
-FROM node:18.16.0-alpine as base
+FROM node:22.14.0-alpine as base
 
 WORKDIR /app
 
