@@ -1,3 +1,36 @@
+FROM alpine:latest as cloner
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
+
+FROM golang:1.23-alpine AS builder
+
+# Install git for fetching dependencies
+RUN apk add --no-cache git
+
+# Set working directory
+WORKDIR /app
+
+# Copy go.mod and go.sum first to leverage Docker cache
+COPY --from=cloner /source/go.mod go.sum* ./
+
+# Initialize module if go.mod doesn't exist
+RUN if [ ! -f go.mod ]; then \
+    go mod init ffprobe-shim && \
+    go get github.com/middelink/go-parse-torrent-name; \
+    else \
+    go get github.com/middelink/go-parse-torrent-name; \
+    fi
+
+# Copy source code
+COPY --from=cloner /source/*.go ./
+
+# Add a build argument to bust the cache
+ARG CACHE_BUSTER=1
+RUN echo "Cache Buster: $CACHE_BUSTER" && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ffprobe
+
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
 ARG TARGETPLATFORM
@@ -37,9 +70,12 @@ RUN \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
+RUN  mv /app/bin/ffprobe /app/bin/ffprobe-real
+COPY --from=builder /app/ffprobe /app/bin/ffprobe
 USER 568
 
 ENV COMPlus_EnableDiagnostics=0
+ENV REAL_FFPROBE_PATH=/app/bin/ffprobe-real
 
 COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
