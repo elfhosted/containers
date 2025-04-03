@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/ffprobe-shim:rolling@ghcr.io/elfhosted/ffprobe-shim:9394b0503f19814edf959006a4174fe846c43fae as ffprobe-shim
+FROM ghcr.io/elfhosted/ffprobe-shim:rolling@sha256:e7c0ad6be17409a21abb3e80b2215d289dc514ca53172b102ea0b1379141cb66 as ffprobe-shim
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
 ARG TARGETPLATFORM
