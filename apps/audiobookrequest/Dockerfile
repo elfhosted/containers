@@ -29,20 +29,21 @@ RUN curl https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/ta
 FROM ${TARGETOS}-${TARGETARCH}${TARGETVARIANT}
 RUN chmod +x /bin/tailwindcss
 
-COPY --from=1 /app/node_modules/ node_modules/
+COPY --from=0 /app/node_modules/ node_modules/
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-COPY --from=cloner /source/uv.lock /source/pyproject.toml /app
+COPY uv.lock pyproject.toml /app
 RUN uv sync --frozen --no-cache
 
 COPY --from=cloner /source/alembic/ alembic/
 COPY --from=cloner /source/alembic.ini alembic.ini
-COPY --from=cloner /source/styles/ styles/
 COPY --from=cloner /source/static/ static/
 COPY --from=cloner /source/templates/ templates/
 COPY --from=cloner /source/app/ app/
 
-RUN /bin/tailwindcss -i styles/globals.css -o static/globals.css -m
+RUN /bin/tailwindcss -i static/tw.css -o static/globals.css -m
+# Fetch all the required js files
+RUN uv run python /app/app/util/fetch_js.py
 
 ENV ABR_APP__PORT=8000
 ARG VERSION
