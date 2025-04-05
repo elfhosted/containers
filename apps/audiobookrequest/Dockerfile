@@ -29,10 +29,10 @@ RUN curl https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/ta
 FROM ${TARGETOS}-${TARGETARCH}${TARGETVARIANT}
 RUN chmod +x /bin/tailwindcss
 
-COPY --from=0 /app/node_modules/ node_modules/
+COPY --from=1 /app/node_modules/ node_modules/
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-COPY uv.lock pyproject.toml /app
+COPY --from=cloner /source/uv.lock --from=cloner /source/pyproject.toml /app
 RUN uv sync --frozen --no-cache
 
 COPY --from=cloner /source/alembic/ alembic/
