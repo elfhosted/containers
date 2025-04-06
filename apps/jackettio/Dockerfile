@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/arvida42/jackettio /source
+RUN git clone -b $VERSION  https://github.com/Telkaoss/jackettio /source
 
 FROM node:20-slim
 
