@@ -15,7 +15,7 @@ COPY --from=cloner /source/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY --from=cloner /source/main.py /source/config.py /source/api.py /source/state.py ./
-COPY --from=cloner /source/missing.py upgrade.py ./
+COPY --from=cloner /source/missing.py /source/upgrade.py ./
 COPY --from=cloner /source/utils/ ./utils/
 # Create state directory
 RUN mkdir -p /tmp/huntarr-state
