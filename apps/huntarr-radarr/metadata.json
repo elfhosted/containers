@@ -1,5 +1,5 @@
 {
-  "app": "huntarr-sonarr",
+  "app": "huntarr-radarr",
   "base": false,
   "channels": [
     {
