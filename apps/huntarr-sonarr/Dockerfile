@@ -45,7 +45,7 @@ VOLUME ["/config"]
 # Expose web interface port
 EXPOSE 8988
 # Add startup script that conditionally starts the web UI
-COPY start.sh .
+COPY --from=cloner /source/start.sh .
 RUN chmod +x start.sh
 # Run the startup script which will decide what to launch
 CMD ["./start.sh"]
