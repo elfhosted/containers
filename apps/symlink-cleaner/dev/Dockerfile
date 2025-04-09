@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy dependency list and install
 COPY --from=cloner /source/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install gunicorn[eventlet]
+RUN pip install gunicorn[gevent]  # Change from gunicorn[eventlet] to gunicorn[gevent]
 
 COPY --chown=568:568 --from=cloner /source/symlink_cleaner.py /app/
 COPY --chown=568:568 --from=cloner /source/event_manager.py /app/
