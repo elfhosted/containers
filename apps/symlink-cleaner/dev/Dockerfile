@@ -22,16 +22,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency list and install
 COPY --from=cloner /source/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install gunicorn[gevent]  # Change from gunicorn[eventlet] to gunicorn[gevent]
+RUN pip install gunicorn[gevent]
 
 COPY --chown=568:568 --from=cloner /source/symlink_cleaner.py /app/
 COPY --chown=568:568 --from=cloner /source/event_manager.py /app/
 COPY --chown=568:568 --from=cloner /source/templates/ /app/templates/
 COPY --chown=568:568 --from=cloner /source/static/ /app/static/
-COPY --chown=568:568 --from=cloner /source/gunicorn_config.py /app/
 COPY --chown=568:568 --from=cloner /source/file_watcher.py /app/
 
 # Create default config directory and file if not mounted, plus storage paths
@@ -48,7 +46,7 @@ RUN mkdir -p /app/config /storage/realdebrid-zurg/__all__ \
 USER 568
 EXPOSE 5000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:5000/ || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=600s --retries=3 \
+    CMD curl -f http://localhost:5000/ || exit 1
 
-CMD ["gunicorn", "--config", "gunicorn_config.py", "symlink_cleaner:app"]
+CMD ["gunicorn", "--worker-class", "gevent", "--workers", "2", "--bind", "0.0.0.0:5000", "symlink_cleaner:application"]
