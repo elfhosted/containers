@@ -5,6 +5,26 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
 
+######## importarr
+FROM golang:1.20-alpine AS importarr
+
+# Set environment variables
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+
+# Install necessary build tools
+RUN apk add --no-cache git
+
+RUN git clone https://github.com/elfhosted/importarr.git /app
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the Go module files and download dependencies
+RUN go mod download
+
+# Build the Go binary
+RUN go build -o importarr cmd/main.go
+
 FROM golang:1.23-alpine AS builder
 
 # Install git for fetching dependencies
@@ -71,6 +91,9 @@ RUN \
 
 RUN  mv /app/ffprobe /app/ffprobe-real
 COPY --from=builder /app/ffprobe /app/ffprobe
+
+COPY --from=importarr /app/importarr /usr/local/bin/importarr
+RUN chmod +x /usr/local/bin/importarr
 
 USER 568
 ENV REAL_FFPROBE_PATH=/app/ffprobe-real
