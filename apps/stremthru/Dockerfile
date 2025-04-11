@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION https://github.com/MunifTanjim/stremthru.git /source
 
-FROM golang:1.23 AS builder
+FROM golang:1.24 AS builder
 
 WORKDIR /workspace
 
