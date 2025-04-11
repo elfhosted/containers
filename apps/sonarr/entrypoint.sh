@@ -92,8 +92,8 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
         # Import sqlite data
         echo "Importing SQLite databases..."
-        pgloader --with "quote identifiers" --with "data only" /config/sonarr.db "postgresql://sonarr:sonarr@localhost/sonarr_main"
-        pgloader --with "quote identifiers" --with "data only" /config/logs.db   "postgresql://sonarr:sonarr@localhost/sonarr_logs"
+        POSTGRES_CONN_STRING=postgres://sonarr:sonarr@localhost/sonarr_main?sslmode=disable SQLITE_CONN_STRING=/config/sonarr.db importarr
+        POSTGRES_CONN_STRING=postgres://sonarr:sonarr@localhost/sonarr_logs?sslmode=disable SQLITE_CONN_STRING=/config/logs.db importarr
 
         # Move sqlite files into migrated folder
         echo "Archiving SQLite databases"

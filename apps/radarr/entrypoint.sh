@@ -89,8 +89,8 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
         # Import sqlite data
         echo "Importing SQLite databases..."
-        pgloader --with "quote identifiers" --with "data only" /config/radarr.db "postgresql://radarr:radarr@localhost/radarr_main"
-        pgloader --with "quote identifiers" --with "data only" /config/logs.db   "postgresql://radarr:radarr@localhost/radarr_logs"
+        POSTGRES_CONN_STRING=postgres://radarr:radarr@localhost/radarr_main?sslmode=disable SQLITE_CONN_STRING=/config/radarr.db importarr
+        POSTGRES_CONN_STRING=postgres://radarr:radarr@localhost/radarr_logs?sslmode=disable SQLITE_CONN_STRING=/config/logs.db importarr
 
         # Move sqlite files into migrated folder
         echo "Archiving SQLite databases"
