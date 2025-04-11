@@ -31,6 +31,27 @@ COPY --from=cloner /source/*.go ./
 ARG CACHE_BUSTER=1
 RUN echo "Cache Buster: $CACHE_BUSTER" && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ffprobe
 
+######## importarr
+FROM golang:1.20-alpine AS builder
+
+# Set environment variables
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+
+# Install necessary build tools
+RUN apk add --no-cache git
+
+RUN git clone https://github.com/elfhosted/importarr.git /app
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the Go module files and download dependencies
+RUN go mod download
+
+# Build the Go binary
+RUN go build -o importarr cmd/main.go
+
+
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
 ARG TARGETPLATFORM
@@ -72,6 +93,9 @@ RUN \
 
 RUN  mv /app/bin/ffprobe /app/bin/ffprobe-real
 COPY --from=builder /app/ffprobe /app/bin/ffprobe
+COPY --from=importarr /app/importarr /usr/local/bin/importarr
+RUN chmod +x /usr/local/bin/importarr
+
 USER 568
 
 ENV COMPlus_EnableDiagnostics=0
