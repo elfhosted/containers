@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/ubuntu:focal-20250404@sha256:ff81e19bb95c489d057fd02de96d0a37f6f3006a27d4446aba9306bc70b17c00
+FROM ghcr.io/elfhosted/ubuntu:focal-20250404@sha256:ff81e19bb95c489d057fd02de96d0a37f6f3006a27d4446aba9306bc70b17c00 as builder
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
@@ -39,7 +39,7 @@ RUN \
         /tmp/opt/emby-server/etc \
         /tmp/opt/emby-server/extra/lib/*
 
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:ff81e19bb95c489d057fd02de96d0a37f6f3006a27d4446aba9306bc70b17c00
+FROM ghcr.io/elfhosted/ubuntu:focal-20250404@sha256:ff81e19bb95c489d057fd02de96d0a37f6f3006a27d4446aba9306bc70b17c00
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
