@@ -31,21 +31,22 @@ COPY --from=cloner /source/*.go ./
 ARG CACHE_BUSTER=1
 RUN echo "Cache Buster: $CACHE_BUSTER" && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ffprobe
 
-######## importarr
-FROM golang:1.20-alpine AS importarr
+############# importarr
+FROM golang:1.20-bullseye AS builder
+
+# Install necessary build tools and SQLite dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libc6-dev sqlite3 libsqlite3-dev git && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set environment variables
 ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
-
-# Install necessary build tools
-RUN apk add --no-cache git gcc musl-dev sqlite-dev
-
-RUN git clone https://github.com/elfhosted/importarr.git /app
 
 # Set the working directory
 WORKDIR /app
 
 # Copy the Go module files and download dependencies
+COPY go.mod go.sum ./
 RUN go mod download
 
 # Build the Go binary
