@@ -42,16 +42,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set environment variables
 ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 
+RUN git clone https://github.com/elfhosted/importarr.git /app
+
 # Set the working directory
 WORKDIR /app
 
 # Copy the Go module files and download dependencies
-COPY go.mod go.sum ./
 RUN go mod download
 
 # Build the Go binary
 RUN go build -o importarr cmd/main.go
-
 
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 

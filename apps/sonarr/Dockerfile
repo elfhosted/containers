@@ -16,16 +16,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set environment variables
 ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 
+RUN git clone https://github.com/elfhosted/importarr.git /app
+
 # Set the working directory
 WORKDIR /app
 
 # Copy the Go module files and download dependencies
-COPY go.mod go.sum ./
 RUN go mod download
 
 # Build the Go binary
 RUN go build -o importarr cmd/main.go
 
+####### and the final arr
 FROM golang:1.23-alpine AS builder
 
 # Install git for fetching dependencies
