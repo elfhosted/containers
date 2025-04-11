@@ -9,10 +9,10 @@ RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
 FROM golang:1.20-alpine AS importarr
 
 # Set environment variables
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 
 # Install necessary build tools
-RUN apk add --no-cache git
+RUN apk add --no-cache git gcc musl-dev
 
 RUN git clone https://github.com/elfhosted/importarr.git /app
 
