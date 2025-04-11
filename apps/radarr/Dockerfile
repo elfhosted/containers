@@ -32,7 +32,7 @@ ARG CACHE_BUSTER=1
 RUN echo "Cache Buster: $CACHE_BUSTER" && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ffprobe
 
 ######## importarr
-FROM golang:1.20-alpine AS builder
+FROM golang:1.20-alpine AS importarr
 
 # Set environment variables
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
