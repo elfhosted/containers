@@ -31,12 +31,12 @@ else
     # Wait until all URLs return HTTP 200
     while [ "$(check_urls)" = "false" ]; do
         echo "$(date): Waiting for all URLs to return HTTP 200..."
-        
+                
         # Print status of each URL
         OLD_IFS="$IFS"
         IFS=","
         for url in $WAIT_FOR_URLS; do
-            if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "200"; then
+            if curl -s --max-time 10 -o /dev/null "$url"; then
                 echo "- Available: $url"
             else
                 echo "- Waiting for: $url"
