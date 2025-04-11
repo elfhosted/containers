@@ -38,7 +38,7 @@ FROM golang:1.20-alpine AS importarr
 ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 
 # Install necessary build tools
-RUN apk add --no-cache git gcc musl-dev
+RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
 RUN git clone https://github.com/elfhosted/importarr.git /app
 
