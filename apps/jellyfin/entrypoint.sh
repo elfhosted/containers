@@ -2,7 +2,7 @@
 
 #shellcheck disable=SC1091
 test -f "/scripts/umask.sh" && source "/scripts/umask.sh"
-
+source "/scripts/wait-for-urls.sh"
 source "/scripts/mounts.sh"
 
 #shellcheck disable=SC2086

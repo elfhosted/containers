@@ -2,6 +2,7 @@
 
 #shellcheck disable=SC1091
 source "/scripts/vpn.sh"
+source "/scripts/wait-for-urls.sh"
 source "/scripts/mounts.sh"
 test -f "/scripts/umask.sh" && source "/scripts/umask.sh"
 test -f "/scripts/plex-preferences.sh" && source "/scripts/plex-preferences.sh"
