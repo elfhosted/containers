@@ -106,6 +106,7 @@ ENV REAL_FFPROBE_PATH=/app/ffprobe-real
 COPY ./apps/sonarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/sonarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/sonarr/elf-import.sh /elf-import.sh
+COPY ./apps/sonarr/elf-import.sh /database-backup.sh
 
 
 CMD ["/entrypoint.sh"]

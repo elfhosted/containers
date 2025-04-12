@@ -80,6 +80,7 @@ ENV REAL_FFPROBE_PATH=/app/bin/ffprobe-real
 COPY ./apps/radarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/radarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/radarr/elf-import.sh /elf-import.sh
+COPY ./apps/radarr/database-backup.sh /database-backup.sh
 
 CMD ["/entrypoint.sh"]
 
