@@ -36,11 +36,11 @@ FROM golang:1.20-bullseye AS importarr
 
 # Install necessary build tools and SQLite dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libc6-dev sqlite3 libsqlite3-dev git && \
+    gcc libc6-dev sqlite3 libsqlite3-dev musl-dev git && \
     rm -rf /var/lib/apt/lists/*
 
 # Set environment variables
-ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
+ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC=x86_64-linux-musl-gcc
 
 RUN git clone https://github.com/elfhosted/importarr.git /app
 
