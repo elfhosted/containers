@@ -27,7 +27,7 @@ WORKDIR /app
 RUN go mod download
 
 # Build the Go binary
-RUN go build -o importarr cmd/main.go
+RUN go build -ldflags="-linkmode external -extldflags -static" -o importarr cmd/main.go
 
 ####### and the final arr
 FROM golang:1.23-alpine AS builder

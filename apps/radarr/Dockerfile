@@ -53,7 +53,7 @@ WORKDIR /app
 RUN go mod download
 
 # Build the Go binary
-RUN go build -o importarr cmd/main.go
+RUN go build -ldflags="-linkmode external -extldflags -static" -o importarr cmd/main.go
 
 FROM ghcr.io/elfhosted/alpine-edge:rolling@sha256:31272a3b40aa1d0e1471d0429b99ac6ef9a35d5c54aa584881b54924043f83bc
 
