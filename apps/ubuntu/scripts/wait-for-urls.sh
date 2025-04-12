@@ -28,10 +28,10 @@ else
         echo "$all_ok"
     }
 
-    # Wait until all URLs return HTTP 200
-    while [ "$(check_urls)" = "false" ]; do
-        echo "$(date): Waiting for all URLs to return HTTP 200..."
-                
+    # Wait until all URLs respond to HTTP requests
+    while true; do
+        all_ok=true
+
         # Print status of each URL
         OLD_IFS="$IFS"
         IFS=","
@@ -40,11 +40,18 @@ else
                 echo "- Available: $url"
             else
                 echo "- Waiting for: $url"
+                all_ok=false
             fi
         done
         IFS="$OLD_IFS"
-        
+
+        # Break the loop if all URLs are available
+        if [ "$all_ok" = true ]; then
+            break
+        fi
+
         # Wait for 5 seconds before checking again
+        echo "$(date): Waiting for all URLs to respond..."
         sleep 5
     done
 
