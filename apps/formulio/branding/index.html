@@ -12,9 +12,10 @@
             margin: 0;
             padding: 0;
             color: #fff;
+            overflow-x: hidden; /* Prevent horizontal scroll */
         }
         .hero {
-            background: url('../images/background.jpg') no-repeat center center;
+            background: url('../images/background.jpg') no-repeat center center fixed; /* Fixed background prevents zoom */
             background-size: cover;
             min-height: 100vh;
             display: flex;
@@ -31,22 +32,24 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.3); /* Reduced opacity */
+            background: rgba(0, 0, 0, 0.3);
             z-index: 1;
+            position: fixed; /* Fixed to match the background */
         }
         .hero-content {
             position: relative;
             z-index: 2;
-            background: rgba(29, 29, 29, 0.4); /* Reduced opacity significantly */
+            background: rgba(29, 29, 29, 0.4);
             padding: 30px;
             border-radius: 30px;
             max-width: 800px;
             width: 100%;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(3px); /* Reduced blur */
-            transition: all 0.5s ease; /* Smooth transition for all properties */
+            backdrop-filter: blur(3px);
+            transition: all 0.5s ease;
             opacity: 1;
             transform: scale(1);
+            margin: 40px 0; /* Add margin to ensure content doesn't touch edges */
         }
         /* Hide state for hero-content with transition effect */
         .hero-content.hidden {
@@ -63,14 +66,14 @@
         .hero h1 {
             font-size: 4em;
             margin: 0;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8); /* Increased shadow for better readability */
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
             font-weight: bold;
             color: #ff3333;
         }
         .hero p {
             font-size: 1.5em;
             margin: 20px 0;
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7); /* Added shadow for better readability */
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
         }
         .hero .content {
             max-width: 800px;
@@ -79,7 +82,7 @@
         .hero .content p {
             font-size: 1.2em;
             line-height: 1.6;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Added shadow for better readability */
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
         }
         .form-group {
             margin-bottom: 20px;
@@ -90,7 +93,7 @@
             margin-bottom: 8px;
             font-weight: bold;
             color: #f0f0f0;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Added shadow for better readability */
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
         }
         .form-group select, .form-group input {
             width: 100%;
@@ -101,7 +104,7 @@
             color: white;
             font-size: 16px;
             transition: all 0.3s ease;
-            box-sizing: border-box; /* Ensures padding is included in width calculation */
+            box-sizing: border-box;
         }
         .form-group select:focus, .form-group input:focus {
             outline: none;
@@ -118,7 +121,7 @@
             display: flex;
             gap: 15px;
             margin-top: 10px;
-            flex-wrap: wrap; /* Allow wrapping for mobile */
+            flex-wrap: wrap;
         }
         .radio-option {
             display: flex;
@@ -138,7 +141,7 @@
             width: 100%;
         }
         .custom-url-input.visible {
-            max-height: 60px; /* Adjust based on your input height */
+            max-height: 60px;
             margin-top: 15px;
             opacity: 1;
         }
@@ -168,6 +171,8 @@
             color: #aaa;
             padding: 10px 0 0 0; 
             border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 2;
         }
         .section-heading {
             border-bottom: 2px solid rgba(255, 51, 51, 0.5);
@@ -180,34 +185,102 @@
             justify-content: space-between;
             color: #ff3333;
             font-size: 1.2em;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Added shadow for better readability */
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
         }
-        .legacy-option {
-            font-size: 0.55em; /* Smaller font size */
-            color: #888;
-            margin-top: 15px; /* Reduced top margin */
-            padding-top: 10px;
-            border-top: 1px dashed rgba(255, 255, 255, 0.1);
-            opacity: 0.6; /* 40% more transparent */
+        .p2p-section {
+            margin-top: 40px;
+            background: rgba(40, 40, 40, 0.3);
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 3px solid rgba(100, 100, 100, 0.6);
         }
-        .legacy-link {
-            color: #888;
-            text-decoration: none;
-            border-bottom: 1px dotted #888;
-            transition: all 0.3s ease;
-            font-size: 0.9em; /* Smaller text */
+        .p2p-header {
+            display: flex;
+            align-items: center;
         }
-        .legacy-link:hover {
-            color: #aaa;
-            border-bottom: 1px solid #aaa;
+        .p2p-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 0;
+            color: #ff3333;
         }
-        .legacy-panel {
-            display: none;
-            margin-top: 3px; /* Reduced margin */
-            padding: 3px; /* Reduced padding */
-            background: rgba(40, 40, 40, 0.6);
+        .p2p-description {
+            text-align: left;
+            font-size: 0.85em;
+            line-height: 1.5;
+            margin: 15px 0;
+            color: #ddd;
+        }
+        .p2p-warning {
+            background-color: rgba(80, 40, 30, 0.4);
+            padding: 12px 15px;
             border-radius: 8px;
+            font-size: 0.9em;
+            color: #ffaa88;
+            margin-bottom: 20px;
+            text-align: left;
+            border-left: 3px solid #ff7755;
+        }
+        .p2p-button {
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+            display: inline-block;
+        }
+        .p2p-button:hover {
+            background-color: #666;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+        }
+        .p2p-benefits {
+            text-align: left;
+            margin: 20px 0;
+        }
+        .benefit-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .benefit-icon {
+            color: #88dd88;
+            margin-right: 10px;
+            margin-top: 3px;
+        }
+        .benefit-text {
+            color: #ddd;
+            font-size: 0.9em;
+        }
+        .step-number {
+            display: inline-block;
+            background-color: #ff3333;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
             text-align: center;
+            line-height: 24px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 0.9em;
+        }
+        .step-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .optional-tag {
+            background-color: #666;
+            color: white;
         }
         .tooltip {
             position: relative;
@@ -259,37 +332,39 @@
         }
         #debrid-result {
             background: rgba(40, 40, 40, 0.5);
-            padding: 20px;
+            padding: 25px;
             border-radius: 8px;
             border-left: 3px solid #ff3333;
-            margin-top: 25px;
+            margin-top: 30px;
             animation: fadeIn 0.5s ease-in-out;
+            display: none;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Retained public-host CSS for provider injection */
         .public-host {
-            font-size: 0.8em; /* Much smaller text */
+            font-size: 0.8em;
             margin-bottom: 15px;
-            background: rgba(40, 40, 40, 0.3); /* Reduced background opacity */
+            background: rgba(40, 40, 40, 0.3);
             padding: 15px;
             border-radius: 8px;
             text-align: left;
             line-height: 1.5;
-            color: rgba(255, 255, 255, 0.8); /* Slightly transparent text */
-            border: 1px solid rgba(120, 120, 120, 0.4); /* Gray themed border */
-            box-shadow: none; /* Remove any shadow */
-            backdrop-filter: none; /* Remove blur effect */
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(120, 120, 120, 0.4);
+            box-shadow: none;
+            backdrop-filter: none;
         }
         .public-host h3 {
-            color: rgba(255, 51, 51, 0.9); /* Slightly transparent red */
+            color: rgba(255, 51, 51, 0.9);
             margin-top: 12px;
             margin-bottom: 8px;
             font-size: 0.95em;
         }
         .public-host a {
-            color: rgba(255, 153, 153, 0.9); /* Slightly transparent link color */
+            color: rgba(255, 153, 153, 0.9);
             text-decoration: none;
             transition: color 0.2s;
         }
@@ -354,6 +429,99 @@
         .toggle-button.fade-in {
             opacity: 1;
         }
+        .info-box {
+            background: rgba(40, 40, 40, 0.6);
+            border-left: 3px solid #ffcc00;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        .info-box-title {
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            color: #ffcc00;
+            margin-bottom: 8px;
+        }
+        .info-icon {
+            margin-right: 8px;
+            font-size: 1.1em;
+        }
+        .manual-link {
+            color: #aaa;
+            text-decoration: none;
+            font-size: 0.85em;
+            display: inline-block;
+            margin-top: 10px;
+            transition: color 0.3s ease;
+            text-align: center;
+        }
+        .manual-link:hover {
+            color: #fff;
+        }
+        
+        /* Improved visibility for important information */
+        .highlight-box {
+            background-color: rgba(255, 51, 51, 0.1);
+            border-left: 3px solid #ff3333;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        /* Smaller text for pin message */
+        .pin-message {
+            font-size: 0.9em;
+        }
+        .pin-message p {
+            margin: 5px 0;
+        }
+        .pin-message a {
+            font-size: 0.95em;
+        }
+        
+        /* Flow indicator styles */
+        .flow-arrow {
+            display: block;
+            text-align: center;
+            margin: 20px 0;
+            color: #888;
+            font-size: 1.5em;
+        }
+        
+        /* Add separation between sections */
+        .section-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 30px 0;
+        }
+        
+        /* Focus styles for better accessibility */
+        a:focus, button:focus, input:focus, select:focus {
+            outline: 2px solid #ff3333;
+            outline-offset: 2px;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #ff3333;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
         @media (max-width: 600px) {
             .hero h1 {
                 font-size: 2.5em;
@@ -370,6 +538,21 @@
             }
             .hero-content {
                 padding: 20px;
+                margin: 20px 0;
+            }
+            .manual-link {
+                font-size: 0.8em;
+            }
+            .toggle-button {
+                bottom: 10px;
+                right: 10px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            .public-host {
+                font-size: 0.75em;
+                padding: 12px;
+                margin-bottom: 15px;
             }
         }
     </style>
@@ -380,13 +563,19 @@
                 const currentUrl = window.location.href;
                 const url = new URL(currentUrl);
                 const host = url.host;
-                const stremioUrl = `stremio://${host}/manifest.json`;
+                const stremioUrl = `stremio://${host}/manifest.json?v=p2p`;
+                const manifestUrl = `${url.protocol}//${host}/manifest.json?v=p2p`;
                 
                 const stremioLink = document.getElementById('stremio-link');
+                const manualLink = document.getElementById('manual-p2p-link');
                 if (stremioLink) {
                     stremioLink.href = stremioUrl;
                 } else {
                     console.error('Element with ID "stremio-link" not found.');
+                }
+                if (manualLink) {
+                    manualLink.href = manifestUrl;
+                    manualLink.title = "Right-click to copy link address";
                 }
             } catch (error) {
                 console.error('An error occurred:', error);
@@ -446,120 +635,148 @@
             const generateDebridLink = document.getElementById('generate-debrid-link');
             generateDebridLink.addEventListener('click', generateDebridManifest);
             
-            // Legacy option toggle
-            document.getElementById('legacy-toggle').addEventListener('click', function(e) {
-                e.preventDefault();
-                const legacyPanel = document.getElementById('legacy-panel');
-                legacyPanel.style.display = legacyPanel.style.display === 'block' ? 'none' : 'block';
-            });
-            
             // Hide/Unhide functionality with smooth transitions
             const hideButton = document.getElementById('hide-button');
             const unhideButton = document.getElementById('unhide-button');
             const heroContent = document.querySelector('.hero-content');
             
             hideButton.addEventListener('click', function() {
-                // Add hidden class with transition
                 heroContent.classList.add('hidden');
-                
-                // Fade out hide button
                 hideButton.classList.add('fade-out');
                 
-                // After content is hidden, show unhide button
                 setTimeout(() => {
                     hideButton.style.display = 'none';
                     unhideButton.style.display = 'block';
-                    
-                    // Trigger a reflow for animation
                     void unhideButton.offsetWidth;
-                    
-                    // Fade in unhide button
                     unhideButton.classList.add('fade-in');
-                }, 500); // Match this with the transition time
+                }, 500);
             });
             
             unhideButton.addEventListener('click', function() {
-                // Fade out unhide button
                 unhideButton.classList.remove('fade-in');
                 unhideButton.classList.add('fade-out');
                 
-                // After button fades out, show content
                 setTimeout(() => {
                     unhideButton.style.display = 'none';
                     heroContent.classList.remove('hidden');
                     hideButton.style.display = 'block';
-                    
-                    // Trigger a reflow for animation
                     void hideButton.offsetWidth;
-                    
-                    // Fade in hide button
                     hideButton.classList.remove('fade-out');
                     hideButton.classList.add('fade-in');
                 }, 300);
             });
+            
+            // Add keyboard accessibility
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    if (!heroContent.classList.contains('hidden')) {
+                        hideButton.click();
+                    } else {
+                        unhideButton.click();
+                    }
+                }
+            });
         };
         
         function generateDebridManifest() {
+            const generateBtn = document.getElementById('generate-debrid-link');
+            const btnText = generateBtn.textContent;
+            
+            // Show loading state
+            generateBtn.innerHTML = '<span class="loading"></span> Generating...';
+            generateBtn.disabled = true;
+            
+            // Get values
             const debridProvider = document.getElementById('debrid-provider').value;
             const apiKey = document.getElementById('api-key').value.trim();
             const stremthruProviderValue = document.querySelector('input[name="stremthru-provider"]:checked').value;
             
             if (!apiKey) {
                 alert('Please enter your API key or credentials');
+                // Reset button
+                generateBtn.innerHTML = btnText;
+                generateBtn.disabled = false;
                 return;
             }
             
-            // Get the appropriate base URL based on stremthru provider selection
-            let baseUrl;
-            if (stremthruProviderValue === 'custom') {
-                baseUrl = document.getElementById('custom-url').value.trim();
-                if (!baseUrl) {
-                    alert('Please enter a custom URL');
-                    return;
+            // Small delay to show the loading animation
+            setTimeout(() => {
+                // Get the appropriate base URL based on stremthru provider selection
+                let baseUrl;
+                if (stremthruProviderValue === 'custom') {
+                    baseUrl = document.getElementById('custom-url').value.trim();
+                    if (!baseUrl) {
+                        alert('Please enter a custom URL');
+                        generateBtn.innerHTML = btnText;
+                        generateBtn.disabled = false;
+                        return;
+                    }
+                    // Ensure URL ends with a slash
+                    if (!baseUrl.endsWith('/')) {
+                        baseUrl += '/';
+                    }
+                } else {
+                    const baseUrls = {
+                        'elfhosted': 'https://stremthru.elfhosted.com/stremio/wrap/',
+                        'mooo': 'https://stremthru.mooo.com/stremio/wrap/'
+                    };
+                    baseUrl = baseUrls[stremthruProviderValue];
                 }
-                // Ensure URL ends with a slash
-                if (!baseUrl.endsWith('/')) {
-                    baseUrl += '/';
-                }
-            } else {
-                const baseUrls = {
-                    'elfhosted': 'https://stremthru.elfhosted.com/stremio/wrap/',
-                    'mooo': 'https://stremthru.mooo.com/stremio/wrap/'
+                
+                // Get current domain for the manifest URL
+                const currentUrl = window.location.href;
+                const url = new URL(currentUrl);
+                const protocol = url.protocol;
+                const host = url.host;
+                
+                // Create the configuration object with dynamic manifest URL
+                const config = {
+                    upstreams: [{
+                        u: `${protocol}//${host}/manifest.json`
+                    }],
+                    stores: [{
+                        c: debridProvider,
+                        t: apiKey
+                    }]
                 };
-                baseUrl = baseUrls[stremthruProviderValue];
-            }
-            
-            // Create the configuration object
-            const config = {
-                upstreams: [{
-                    u: "https://formulio.hayd.uk/manifest.json"
-                }],
-                stores: [{
-                    c: debridProvider,
-                    t: apiKey
-                }]
-            };
-            
-            // Convert to JSON string and then base64 encode
-            const jsonString = JSON.stringify(config);
-            const base64Config = btoa(jsonString);
-            
-            // Create the manifest URL
-            const manifestUrl = `${baseUrl}${base64Config}/manifest.json`;
-            const stremioUrl = `stremio://${manifestUrl.replace('https://', '')}`;
-            
-            // Update link and show it
-            const debridLink = document.getElementById('debrid-link');
-            debridLink.href = stremioUrl;
-            
-            // Show the result section
-            const resultSection = document.getElementById('debrid-result');
-            resultSection.style.display = 'block';
-            
-            // Also display the URLs for reference
-            const manifestUrlDisplay = document.getElementById('manifest-url');
-            manifestUrlDisplay.textContent = manifestUrl;
-            manifestUrlDisplay.href = manifestUrl;
+                
+                // Convert to JSON string and then base64 encode
+                const jsonString = JSON.stringify(config);
+                const base64Config = btoa(jsonString);
+                
+                // Create the manifest URL
+                const manifestUrl = `${baseUrl}${base64Config}/manifest.json`;
+                const stremioUrl = `stremio://${manifestUrl.replace('https://', '')}`;
+                
+                // Update link and show it
+                const debridLink = document.getElementById('debrid-link');
+                debridLink.href = stremioUrl;
+                
+                // Show the result section and flow indicator
+                const resultSection = document.getElementById('debrid-result');
+                resultSection.style.display = 'block';
+                
+                const flowIndicator = document.getElementById('flow-indicator');
+                if (flowIndicator) {
+                    flowIndicator.style.display = 'block';
+                }
+                
+                // No scroll behavior to prevent background zoom
+                const scrollPos = resultSection.getBoundingClientRect().top + window.pageYOffset - 20;
+                window.scrollTo({
+                    top: scrollPos,
+                    behavior: 'auto'
+                });
+                
+                // Also display the URLs for reference
+                const manifestUrlDisplay = document.getElementById('manifest-url');
+                manifestUrlDisplay.href = manifestUrl;
+                manifestUrlDisplay.title = "Right-click to copy link address";
+                
+                // Reset button
+                generateBtn.innerHTML = btnText;
+                generateBtn.disabled = false;
+            }, 600);
             
             return false;
         }
@@ -608,7 +825,7 @@
                 
             <form onsubmit="return false;">
                 <div class="section-heading">
-                    <span>Debrid Service Configuration</span>
+                    <span><span class="step-number">1</span> Debrid Service Configuration</span>
                 </div>
                 <div class="form-group">
                     <label for="debrid-provider">Select Debrid Provider:</label>
@@ -658,30 +875,86 @@
                 <button id="generate-debrid-link" class="cta-button">Generate Debrid Link</button>
             </form>
 
-            <div id="debrid-result" style="display: none;">
+            <div id="debrid-result">
                 <p>Your debrid-enabled Formulio is ready! Click below to install:</p>
                 <a id="debrid-link" href="#"><button class="cta-button">Install Debrid-Enabled Formulio</button></a>
-                <div style="margin-top: 30px; font-size: 0.9em;">
-                    <p style="margin-bottom: 5px; font-size: 0.85em;">Manifest URL (for manual installation):</p>
-                    <a id="manifest-url" href="#" target="_blank" style="color: #ff9999; word-break: break-all; display: block; margin-bottom: 10px; font-size: 0.85em;"></a>
-                    
-                    <p style="margin-top: 30px; margin-bottom: 5px; font-weight: bold;">DO THIS: Pin Formulio to The Top of Your Stremio Homepage</p>
-                    <p style="margin-top: 0px;">Rearrange your Stremio addons here: <a href="https://stremio-addon-manager.vercel.app/" target="_blank" style="color: #ff9999;">Stremio Addon Manager</a></p>
-                </div>                   
+                <div style="text-align: center;">
+                    <a id="manifest-url" href="#" target="_blank" class="manual-link">Manual installation link</a>
+                </div>
+                
+                <!-- Added Debrid Session Information Box -->
+                <div class="info-box">
+                    <div class="info-box-title">
+                        <span class="info-icon"><i class="fas fa-info-circle"></i></span>
+                        <span>Important: About Debrid Sessions</span>
+                    </div>
+                    <p>When using debrid, after selecting a session:</p>
+                    <ul>
+                        <li><strong>⚡ visible:</strong> Content is already cached on debrid server - instant playback</li>
+                        <li><strong>No ⚡ visible:</strong> Content is not yet downloaded to the debrid server</li>
+                    </ul>
+                    <p>If you don't see the ⚡ icon, you can:</p>
+                    <ol>
+                        <li>Wait for the content to download to debrid (check back later - go back to another session to refresh)</li>
+                        <li>Use the P2P non-debrid option below which will play instantly</li>
+                    </ol>
+                </div>
+                
+                <div class="highlight-box pin-message" style="margin-top: 25px;">
+                    <p style="font-weight: bold; margin-top: 0;"><i class="fas fa-thumbtack"></i> DO THIS: Pin Formulio to The Top of Your Stremio Homepage</p>
+                    <p style="margin-bottom: 5px;">Rearrange your Stremio addons here: <a href="https://stremio-addon-manager.vercel.app/" target="_blank" style="color: #ff9999;">Stremio Addon Manager</a></p>
+                    <ul style="margin-top: 5px; text-align: left; font-size: 0.9em;">
+                        <li>Move <strong>Formulio (Stremthru)</strong> to the <strong>top</strong> of your addon list</li>
+                        <li>Move <strong>Formulio P2P</strong> to the <strong>bottom</strong> of your addon list</li>
+                    </ul>
+                </div>                
             </div>
-                          
             
-            <div class="legacy-option">
-                <a href="#" id="legacy-toggle" class="legacy-link">.</a>
-                <div id="legacy-panel" class="legacy-panel">
-                    <p>Not recommended and depreciated - the P2P version should only be used for testing.</p>
-                    <a id="stremio-link" href="#"><button class="cta-button" style="background-color: #666; font-size: 10px; padding: 3px 3px;">Install P2P Version</button></a>
+            <div class="flow-arrow" id="flow-indicator" style="display: none;">
+                <i class="fas fa-arrow-down"></i>
+            </div>
+            
+            <!-- P2P Option (now always visible) -->
+            <div class="p2p-section">
+                <div class="p2p-header">
+                    <span class="step-number">2</span>
+                    <span class="p2p-title">Install P2P Version <span class="step-tag optional-tag">Optional Backup</span></span>
+                </div>
+                
+                <div class="p2p-description">
+                    Backup option for instant streaming without Debrid download wait times. Includes exclusive content not in main version.
+                </div>
+                
+                <div class="p2p-warning">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i> Warning: Uses peer-to-peer connections which may be unsafe in some regions. Only use this version where legally permitted.
+                </div>
+                
+                <div class="p2p-benefits">
+                    <div class="benefit-item">
+                        <span class="benefit-icon"><i class="fas fa-bolt"></i></span>
+                        <span class="benefit-text">Streams start instantly - no Debrid download wait time</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon"><i class="fas fa-plus-circle"></i></span>
+                        <span class="benefit-text">Exclusive content not available in the main version</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon"><i class="fas fa-check-circle"></i></span>
+                        <span class="benefit-text">Can be installed alongside the Debrid version without conflicts</span>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 25px;">
+                    <a id="stremio-link" href="#"><button class="p2p-button">Install P2P Backup Version</button></a>
+                    <div>
+                        <a id="manual-p2p-link" href="#" target="_blank" class="manual-link">Manual installation link</a>
+                    </div>
                 </div>
             </div>
         </div>
         
         <div class="disclaimer">
-            Disclaimer: This addon does not host any content. It simply suggests pointers to content that is publicly available on the internet.
+            Disclaimer: This addon does not host any content. It simply provides pointers to content that is publicly available on the internet. Use only where legally permitted.
         </div>
     </div>
     
