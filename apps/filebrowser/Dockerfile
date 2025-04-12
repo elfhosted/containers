@@ -8,7 +8,7 @@ FROM filebrowser/filebrowser:v${VERSION} as upstream
 
 
 # FROM ghcr.io/elfhosted/alpine:rolling@sha256:6b59b2060ffbb6af76654aae9f5185fbfdfb08b2532d0186f3b14e8ad26b7598 
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:161f02f9be153b783e6908070d54cb5c3fa326ce8a934df254166b8841506edf 
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:2ba3258c7cc40330bfea13a600ca6762591d677db211a3255fbf44d4635481f0 
 
 
 LABEL org.opencontainers.image.source = "https://github.com/filebrowser/filebrowser"
