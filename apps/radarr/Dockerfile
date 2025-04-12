@@ -39,6 +39,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libc6-dev sqlite3 libsqlite3-dev musl musl-dev musl-tools gcc-multilib git && \
     rm -rf /var/lib/apt/lists/*
 
+RUN ln -s /usr/bin/musl-gcc /usr/bin/x86_64-linux-musl-gcc
+
 # Set environment variables
 ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 
