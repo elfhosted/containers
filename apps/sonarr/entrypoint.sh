@@ -83,22 +83,22 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         # Dump DB schemas
         echo "Dumbing DB schemas..."
         pg_dump --schema-only -d sonarr_main > /tmp/sonarr_main_schema.sql
-        # pg_dump --schema-only -d sonarr_logs > /tmp/sonarr_logs_schema.sql
+        pg_dump --schema-only -d sonarr_logs > /tmp/sonarr_logs_schema.sql
 
         # Recreate database from schemas
         echo "Recreating databases..."
         psql -c "DROP DATABASE IF EXISTS sonarr_main;" && psql -c "CREATE DATABASE sonarr_main;" && psql -c "ALTER DATABASE sonarr_main OWNER TO sonarr;" && psql -d sonarr_main -f /tmp/sonarr_main_schema.sql
-        # psql -c "DROP DATABASE IF EXISTS sonarr_logs;" && psql -c "CREATE DATABASE sonarr_logs;" && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;" && psql -d sonarr_logs -f /tmp/sonarr_logs_schema.sql
+        psql -c "DROP DATABASE IF EXISTS sonarr_logs;" && psql -c "CREATE DATABASE sonarr_logs;" && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;" && psql -d sonarr_logs -f /tmp/sonarr_logs_schema.sql
 
         # Import sqlite data
         echo "Importing SQLite databases..."
         POSTGRES_CONN_STRING=postgres://sonarr:sonarr@localhost/sonarr_main?sslmode=disable SQLITE_CONN_STRING=/config/sonarr.db importarr
-        # POSTGRES_CONN_STRING=postgres://sonarr:sonarr@localhost/sonarr_logs?sslmode=disable SQLITE_CONN_STRING=/config/logs.db importarr
+        POSTGRES_CONN_STRING=postgres://sonarr:sonarr@localhost/sonarr_logs?sslmode=disable SQLITE_CONN_STRING=/config/logs.db importarr
 
         # Move sqlite files into migrated folder
         echo "Archiving SQLite databases"
         mkdir -p /config/migrated-to-postgres
-        mv /config/sonarr.db /config/migrated-to-postgres
+        mv /config/sonarr.db /config/logs.db /config/migrated-to-postgres
         
         echo "Migration done, starting application..."
     else
