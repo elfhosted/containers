@@ -35,7 +35,7 @@ COPY --chown=568:568 apps/cinesync/restricted.tmux.conf /
 
 # Force our preferred user
 ARG user=elfie
-RUN groupadd -g 568 $user && useradd --uid 568 --gid 568 --shell /bin/bash $user
+RUN addgroup -S elfie --gid 568 && adduser -S elfie -G elfie --uid 568
 USER 568
 
 # Run the application

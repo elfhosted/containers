@@ -35,6 +35,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
     curl \
     xvfb \
+    sudo \
     chromium-driver \
     dumb-init && \
     rm -rf /var/lib/apt/lists/*
