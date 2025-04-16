@@ -72,8 +72,8 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         done
 
         # Create databases
-        psql -c "CREATE DATABASE sonarr_logs;" || true && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;"
-        psql -c "CREATE DATABASE sonarr_main;" || true && psql -c "ALTER DATABASE sonarr_main OWNER TO sonarr;"
+        psql -c "DROP DATABASE IF EXISTS sonarr_logs;" && psql -c "CREATE DATABASE sonarr_logs;" || true && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;"
+        psql -c "DROP DATABASE IF EXISTS sonarr_main;" && psql -c "CREATE DATABASE sonarr_main;" || true && psql -c "ALTER DATABASE sonarr_main OWNER TO sonarr;"
                 
         # Start sonarr to force the database schemas to be created
         timeout 60s /app/Sonarr \
