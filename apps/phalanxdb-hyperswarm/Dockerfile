@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 RUN git clone  https://github.com/godver3/phalanx_db_hyperswarm.git /source
 
 ## Upstream Dockerfile
-FROM node:18-slim
+FROM node:22-slim
 
 WORKDIR /app
 
