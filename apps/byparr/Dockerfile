@@ -27,7 +27,13 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests xauth xvfb scrot curl chromium chromium-driver ca-certificates
 
+
 ADD https://astral.sh/uv/install.sh install.sh
+
+ARG user=elfie
+RUN groupadd -g 568 $user && useradd -d /app --uid 568 --gid 568 --shell /bin/bash $user && \
+    chown $user /app -R
+
 RUN sh install.sh
 COPY --from=cloner /source/pyproject.toml /source/uv.lock ./
 RUN --mount=type=cache,target=${HOME}/.cache/uv uv sync
