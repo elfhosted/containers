@@ -32,12 +32,13 @@ RUN apt-get update && \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Force our preferred user
+WORKDIR /app
 ARG user=elfie
 RUN groupadd -g 568 $user && useradd -d /app --uid 568 --gid 568 --shell /bin/bash $user && \
     chown $user /app -R
 
 USER 568
-WORKDIR /app
+
 
 
 COPY --from=cloner /source/pyproject.toml /source/uv.lock ./
