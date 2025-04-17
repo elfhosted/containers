@@ -52,21 +52,21 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
     # Update the host if we're using postgres
     xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
 
+    # Function to check PostgreSQL connection
+    function pg_is_ready() {
+    psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
+    return $?
+    }
+
+    # Wait for PostgreSQL to be ready
+    echo "Waiting for PostgreSQL to be ready..."
+    until pg_is_ready; do
+    echo "PostgreSQL is unavailable - sleeping for 5 seconds"
+    sleep 5
+    done    
+
     if [[ -f /config/i-am-bootstrapped && -f /config/radarr.db ]]; then
         echo "Migrating to postgresql database..."
-
-        # Function to check PostgreSQL connection
-        function pg_is_ready() {
-        psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
-        return $?
-        }
-
-        # Wait for PostgreSQL to be ready
-        echo "Waiting for PostgreSQL to be ready..."
-        until pg_is_ready; do
-        echo "PostgreSQL is unavailable - sleeping for 5 seconds"
-        sleep 5
-        done
         
         # Create databases
         psql -c "DROP DATABASE IF EXISTS radarr_main;" && psql -c "CREATE DATABASE radarr_main;" && psql -c "ALTER DATABASE radarr_main OWNER TO radarr;"

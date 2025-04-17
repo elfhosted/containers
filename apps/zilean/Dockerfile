@@ -7,7 +7,10 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/iPromKnight/zilean.git /source
+RUN git clone -b $VERSION  https://github.com/iPromKnight/zilean.git /source && \
+    wget https://patch-diff.githubusercontent.com/raw/iPromKnight/zilean/pull/90.patch -O /source/90.patch && \
+    git apply /source/90.patch && \ 
+    rm /source/90.patch
 
 # Build Stage
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS base

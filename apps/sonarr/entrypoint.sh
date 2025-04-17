@@ -55,21 +55,21 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
     xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
     # Make sure config is updated for postgres
 
+    # Function to check PostgreSQL connection
+    function pg_is_ready() {
+    psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
+    return $?
+    }
+
+    # Wait for PostgreSQL to be ready
+    echo "Waiting for PostgreSQL to be ready..."
+    until pg_is_ready; do
+    echo "PostgreSQL is unavailable - sleeping for 5 seconds"
+    sleep 5
+    done    
+
     if [[ -f /config/i-am-bootstrapped && -f /config/sonarr.db ]]; then
         echo "Migrating to postgresql database..."
-
-        # Function to check PostgreSQL connection
-        function pg_is_ready() {
-        psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
-        return $?
-        }
-
-        # Wait for PostgreSQL to be ready
-        echo "Waiting for PostgreSQL to be ready..."
-        until pg_is_ready; do
-        echo "PostgreSQL is unavailable - sleeping for 5 seconds"
-        sleep 5
-        done
 
         # Create databases
         psql -c "DROP DATABASE IF EXISTS sonarr_logs;" && psql -c "CREATE DATABASE sonarr_logs;" || true && psql -c "ALTER DATABASE sonarr_logs OWNER TO sonarr;"
