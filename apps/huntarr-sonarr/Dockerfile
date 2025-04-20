@@ -9,6 +9,9 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION  https://github.com/plexguide/Huntarr /source
 
 
+BREAK on purpose until we fix for v4
+
+
 FROM python:3.9-slim
 WORKDIR /app
 # Install dependencies
