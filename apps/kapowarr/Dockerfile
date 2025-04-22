@@ -13,19 +13,11 @@ RUN git clone -b $VERSION https://github.com/Casvt/Kapowarr.git  /source
 FROM python:3.8-slim-buster
 STOPSIGNAL SIGTERM
 
-RUN \
-    adduser elfie \
-        --uid 568 \
-        --group \
-        --system \
-        --disabled-password \
-        --no-create-home \
-    && \
-    mkdir -p /config \
-    && chown -R elfie:elfie /config \
-    && chmod -R 775 /config
-
+# Force our preferred user
+ARG user=elfie
+RUN groupadd -g 568 $user && useradd -d /home/elfie --create-home --uid 568 --gid 568 --shell /bin/bash $user
 USER 568
+
 WORKDIR /config
 WORKDIR /app
 
