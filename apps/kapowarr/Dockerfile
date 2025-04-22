@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION https://github.com/Casvt/Kapowarr.git  /source
+RUN git clone -b V$VERSION https://github.com/Casvt/Kapowarr.git  /source
 
 # syntax=docker/dockerfile:1
 
