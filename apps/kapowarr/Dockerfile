@@ -10,7 +10,7 @@ RUN git clone -b $VERSION https://github.com/Casvt/Kapowarr.git  /source
 
 # syntax=docker/dockerfile:1
 
-FROM python:3.8-alpine
+FROM python:3.8-slim-buster
 STOPSIGNAL SIGTERM
 
 RUN addgroup -S elfie --gid 568 \
