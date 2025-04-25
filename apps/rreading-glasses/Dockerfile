@@ -13,7 +13,7 @@ RUN git clone https://github.com/blampe/rreading-glasses.git /source
 FROM --platform=$BUILDPLATFORM golang:1.24.2-alpine AS build
 
 WORKDIR /app
-COPY --from=cloner /source/go.mod go.sum ./
+COPY --from=cloner /source/go.mod /source/go.sum ./
 RUN go mod download
 COPY --from=cloner /source/schema.sql .
 COPY --from=cloner /source/. .
