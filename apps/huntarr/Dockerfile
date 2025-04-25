@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/plexguide/Huntarr-Lidarr /source
+RUN git clone -b $VERSION  https://github.com/plexguide/Huntarr.io /source
 
 FROM python:3.9-slim
 
