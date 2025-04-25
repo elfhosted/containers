@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION https://github.com/blampe/rreading-glasses.git /source
+RUN git clone https://github.com/blampe/rreading-glasses.git /source
 
 
 FROM --platform=$BUILDPLATFORM golang:1.24.2-alpine AS build
