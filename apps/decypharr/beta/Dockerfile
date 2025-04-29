@@ -42,8 +42,8 @@ RUN mkdir -p /app/logs && \
     touch /app/logs/decypharr.log && \
     chmod 666 /app/logs/decypharr.log
 
-# Stage 3: Final image
-FROM gcr.io/distroless/static-debian12:nonroot
+# # Stage 3: Final image
+# FROM gcr.io/distroless/static-debian12:nonroot
 
 LABEL version = "${VERSION}-${CHANNEL}"
 
@@ -56,8 +56,8 @@ LABEL org.opencontainers.image.documentation = "https://github.com/sirrobot01/de
 COPY --from=builder --chown=nonroot:nonroot /decypharr /usr/bin/decypharr
 COPY --from=builder --chown=nonroot:nonroot /healthcheck /usr/bin/healthcheck
 
-# Copy pre-made directory structure
-COPY --from=dirsetup --chown=nonroot:nonroot /app /app
+# # Copy pre-made directory structure
+# COPY --from=dirsetup --chown=nonroot:nonroot /app /app
 
 
 # Metadata
