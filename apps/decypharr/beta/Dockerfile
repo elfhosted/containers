@@ -64,7 +64,7 @@ COPY --from=builder --chown=nonroot:nonroot /healthcheck /usr/bin/healthcheck
 ENV LOG_PATH=/app/logs
 EXPOSE 8181 8282
 VOLUME ["/app"]
-USER nonroot:nonroot
+USER nobody:nobody
 
 HEALTHCHECK --interval=5s --timeout=3s --retries=10 CMD ["/usr/bin/healthcheck", "--config", "/app"]
 
