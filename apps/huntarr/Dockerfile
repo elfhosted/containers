@@ -8,47 +8,23 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/plexguide/Huntarr.io /source
 
-FROM python:3.13-slim-bookworm AS base
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONFAULTHANDLER=1
+FROM python:3.9-slim
 
 WORKDIR /app
 
-FROM base AS builder
+# Install dependencies
+COPY --from=cloner /source/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-ENV PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VERSION=1.8
+# Copy application files
+COPY --from=cloner /source/. /app/
 
-RUN pip install "poetry==$POETRY_VERSION"
-
-COPY --from=cloner /source/poetry.lock /source/pyproject.toml ./
-
-RUN poetry config virtualenvs.in-project true && \
-    poetry install --only=main
-
-FROM base AS runtime
-
+# Create necessary directories
 RUN mkdir -p /config/settings /config/stateful /config/user /config/logs
+RUN chmod -R 755 /config
 
-RUN adduser -u 1000 --disabled-password --gecos "" python && \
-    chown -R python:python /config
-
-# non-root user
-USER python
-
-ENV DEBUG=false
-
-COPY --from=builder /app/.venv ./.venv
-COPY --from=cloner /source/src/ /app/src/
-COPY --from=cloner /source/frontend/ /app/frontend/
-COPY --from=cloner /source/main.py /source/routes.py /source/version.txt /app/
-
-ENV PYTHONPATH=/app
-
+# Expose port
 EXPOSE 9705
 
-ENTRYPOINT ["/app/.venv/bin/python3", "./main.py"]
+# Run the application
+CMD ["python3", "main.py"]
