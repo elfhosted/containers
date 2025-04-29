@@ -42,8 +42,10 @@ RUN mkdir -p /app/logs && \
     touch /app/logs/decypharr.log && \
     chmod 666 /app/logs/decypharr.log
 
-# # Stage 3: Final image
-# FROM gcr.io/distroless/static-debian12:nonroot
+# Stage 3: Final image
+# need a shell for debugging for now
+# FROM gcr.io/distroless/static-debian12:elfie
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:9fe67d87930b27bf9f7743ac1a4fe4d6b614d3ac94420babdffe243888a3e36d
 
 LABEL version = "${VERSION}-${CHANNEL}"
 
@@ -53,19 +55,19 @@ LABEL org.opencontainers.image.authors = "sirrobot01"
 LABEL org.opencontainers.image.documentation = "https://github.com/sirrobot01/decypharr/blob/main/README.md"
 
 # Copy binaries
-COPY --from=builder --chown=nonroot:nonroot /decypharr /usr/bin/decypharr
-COPY --from=builder --chown=nonroot:nonroot /healthcheck /usr/bin/healthcheck
+COPY --from=builder --chown=elfie:elfie /decypharr /usr/bin/decypharr
+COPY --from=builder --chown=elfie:elfie /healthcheck /usr/bin/healthcheck
 
-# # Copy pre-made directory structure
-# COPY --from=dirsetup --chown=nonroot:nonroot /app /app
-
+# Copy pre-made directory structure
+COPY --from=dirsetup --chown=elfie:elfie /app /app
 
 # Metadata
 ENV LOG_PATH=/app/logs
 EXPOSE 8181 8282
 VOLUME ["/app"]
-# USER nobody:nobody
+USER elfie:elfie
 
-HEALTHCHECK --interval=5s --timeout=3s --retries=10 CMD ["/usr/bin/healthcheck", "--config", "/app"]
+# So that the app will start for goss tests
+COPY apps/decypharr/config.json /config/
 
-CMD ["/usr/bin/decypharr", "--config", "/app"]
+CMD ["/usr/bin/decypharr", "--config", "/config"]
