@@ -5,7 +5,5 @@ process:
     running: true
 
 http:
-  http://localhost:8181:
-    status: 200    
   http://localhost:8282:
     status: 200        
