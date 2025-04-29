@@ -16,7 +16,6 @@ WORKDIR /workspace
 COPY --from=cloner /source/go.mod /source/go.sum ./
 RUN go mod download
 
-
 COPY --from=cloner /source/migrations ./migrations
 COPY --from=cloner /source/core ./core
 COPY --from=cloner /source/internal ./internal
@@ -26,11 +25,12 @@ COPY --from=cloner /source/*.go ./
 
 RUN CGO_ENABLED=1 GOOS=linux go build -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
 
-FROM scratch
+FROM alpine
+
+RUN apk add --no-cache git
 
 WORKDIR /app
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /workspace/stremthru ./stremthru
 
 VOLUME ["/app/data"]
