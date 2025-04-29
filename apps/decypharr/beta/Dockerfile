@@ -68,6 +68,6 @@ VOLUME ["/app"]
 USER elfie:elfie
 
 # So that the app will start for goss tests
-COPY --chown elfie:elfie apps/decypharr/config.json /config/
+COPY --chown=elfie:elfie apps/decypharr/config.json /config/
 
 CMD ["/usr/bin/decypharr", "--config", "/config"]
