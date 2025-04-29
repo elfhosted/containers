@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY --from=cloner /source/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt  
 
 # Copy application files
 COPY --from=cloner /source/. /app/
@@ -25,6 +25,8 @@ RUN chmod -R 755 /config
 
 # Expose port
 EXPOSE 9705
+
+ENV PYTHONPATH=/app
 
 # Run the application
 CMD ["python3", "main.py"]
