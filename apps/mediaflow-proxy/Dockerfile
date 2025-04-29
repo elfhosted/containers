@@ -40,6 +40,9 @@ COPY --from=cloner --chown=mediaflow_proxy:mediaflow_proxy /source/pyproject.tom
 RUN poetry config virtualenvs.in-project true \
     && poetry install --no-interaction --no-ansi --no-root --only main
 
+# Temporary fix
+RUN poetry add requests
+
 # Copy project files
 COPY --from=cloner --chown=mediaflow_proxy:mediaflow_proxy /source/. /mediaflow_proxy
 
