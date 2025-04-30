@@ -26,6 +26,9 @@ backup_db() {
   fi
 }
 
+# Don't impact migration operations
+sleep 10m
+
 # Loop forever
 while true; do
   for DB in $DATABASES; do
