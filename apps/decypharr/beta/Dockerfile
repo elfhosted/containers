@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     -o /healthcheck cmd/healthcheck/main.go
 
 # Stage 2: Create directory structure
-FROM alpine:3.19 as dirsetup
+FROM alpine:3.21 as dirsetup
 RUN mkdir -p /app/logs && \
     mkdir -p /app/cache && \
     chmod 777 /app/logs && \
