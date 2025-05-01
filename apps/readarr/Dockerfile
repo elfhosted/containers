@@ -75,6 +75,7 @@ RUN \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
 
+COPY ./apps/readarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/readarr/entrypoint.sh /entrypoint.sh
 COPY ./apps/readarr/database-backup.sh /database-backup.sh
 COPY --from=importarr /app/importarr /usr/local/bin/importarr
