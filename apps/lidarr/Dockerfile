@@ -1,3 +1,27 @@
+############# importarr
+FROM golang:1.20-bullseye AS importarr
+
+# Install necessary build tools and SQLite dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libc6-dev sqlite3 libsqlite3-dev musl musl-dev musl-tools gcc-multilib git && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN ln -s /usr/bin/musl-gcc /usr/bin/x86_64-linux-musl-gcc
+
+# Set environment variables
+ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
+
+RUN git clone https://github.com/elfhosted/importarr.git /app
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the Go module files and download dependencies
+RUN go mod download
+
+# Build the Go binary
+RUN go build -ldflags="-linkmode external -extldflags -static" -o importarr cmd/main.go
+
 FROM ghcr.io/elfhosted/alpine:rolling@sha256:9fe67d87930b27bf9f7743ac1a4fe4d6b614d3ac94420babdffe243888a3e36d 
 
 ARG TARGETPLATFORM
@@ -37,6 +61,9 @@ RUN \
     && chown -R root:root /app \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
+
+COPY --from=importarr /app/importarr /usr/local/bin/importarr
+RUN chmod +x /usr/local/bin/importarr
 
 USER 568
 
