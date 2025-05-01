@@ -69,6 +69,8 @@ RUN chmod +x /usr/local/bin/importarr
 USER 568
 COPY ./apps/prowlarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/prowlarr/entrypoint.sh /entrypoint.sh
+COPY ./apps/prowlarr/database-backup.sh /database-backup.sh
+
 CMD ["/entrypoint.sh"]
 
 LABEL org.opencontainers.image.source="https://github.com/Prowlarr/Prowlarr"

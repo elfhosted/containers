@@ -49,6 +49,7 @@ RUN \
     && rm -rf /tmp/*
 
 COPY ./apps/readarr/entrypoint.sh /entrypoint.sh
+COPY ./apps/readarr/database-backup.sh /database-backup.sh
 
 USER elfie:elfie
 WORKDIR /config

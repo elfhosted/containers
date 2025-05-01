@@ -45,9 +45,63 @@ envsubst < /app/config.xml.tmpl > /config/config.xml
 # BindAddress, LaunchBrowser, Port, EnableSsl, SslPort, SslCertPath, SslCertPassword, UpdateMechanism
 # have been omited because their configuration is not really needed in a container environment
 
-if [[ "${LIDARR__LOG_LEVEL}" == "debug" || "${current_log_level}" == "debug" ]]; then
-    echo "Starting with the following configuration..."
-    xmlstarlet format --omit-decl /config/config.xml
+# Set the host to nothing for now
+xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
+
+# BindAddress, LaunchBrowser, Port, EnableSsl, SslPort, SslCertPath, SslCertPassword, UpdateMechanism
+# have been omited because their configuration is not really needed in a container environment
+
+if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
+
+    # Update the host if we're using postgres
+    xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
+
+    # Function to check PostgreSQL connection
+    function pg_is_ready() {
+    psql -h $PGHOST -U $PGUSER -d $PGDATABASE -c "SELECT 1" >/dev/null 2>&1
+    return $?
+    }
+
+    # Wait for PostgreSQL to be ready
+    echo "Waiting for PostgreSQL to be ready..."
+    until pg_is_ready; do
+    echo "PostgreSQL is unavailable - sleeping for 5 seconds"
+    sleep 5
+    done    
+
+    if [[ -f /config/i-am-bootstrapped && -f /config/lidarr.db ]]; then
+        echo "Migrating to postgresql database..."
+        
+        # Create databases
+        psql -c "DROP DATABASE IF EXISTS lidarr_main;" && psql -c "CREATE DATABASE lidarr_main;" && psql -c "ALTER DATABASE lidarr_main OWNER TO lidarr;"
+        psql -c "DROP DATABASE IF EXISTS lidarr_logs;" && psql -c "CREATE DATABASE lidarr_logs;" && psql -c "ALTER DATABASE lidarr_logs OWNER TO lidarr;"
+  
+        # Start lidarr to force the database schemas to be created
+        timeout 60s /app/bin/Readarr \
+                --nobrowser \
+                --data=/config
+
+        # Dump DB schemas
+        echo "Dumbing DB schemas..."
+        pg_dump --schema-only -d lidarr_main > /tmp/lidarr_main_schema.sql
+
+        # Recreate database from schemas
+        echo "Recreating databases..."
+        psql -c "DROP DATABASE IF EXISTS lidarr_main;" && psql -c "CREATE DATABASE lidarr_main;" && psql -c "ALTER DATABASE lidarr_main OWNER TO lidarr;" && psql -d lidarr_main -f /tmp/lidarr_main_schema.sql
+
+        # Import sqlite data
+        echo "Importing SQLite databases..."
+        POSTGRES_CONN_STRING=postgres://lidarr:lidarr@localhost/lidarr_main?sslmode=disable SQLITE_CONN_STRING=/config/lidarr.db importarr
+
+        # Move sqlite files into migrated folder
+        echo "Archiving SQLite databases"
+        mkdir -p /config/migrated-to-postgres
+        mv /config/lidarr.db /config/migrated-to-postgres
+        
+        echo "Migration done, starting application..."
+    else
+        echo "Migration already done (we are bootstrapped but no sqlite DBs exist)"
+    fi
 fi
 
 #shellcheck disable=SC2086

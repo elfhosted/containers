@@ -42,6 +42,8 @@ USER 568
 
 COPY ./apps/lidarr/config.xml.tmpl /app/config.xml.tmpl
 COPY ./apps/lidarr/entrypoint.sh /entrypoint.sh
+COPY ./apps/lidar/database-backup.sh /database-backup.sh
+
 CMD ["/entrypoint.sh"]
 
 LABEL org.opencontainers.image.source="https://github.com/Lidarr/Lidarr"
