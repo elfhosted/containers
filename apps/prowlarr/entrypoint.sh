@@ -75,24 +75,21 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         psql -c "DROP DATABASE IF EXISTS prowlarr_logs;" && psql -c "CREATE DATABASE prowlarr_logs;" && psql -c "ALTER DATABASE prowlarr_logs OWNER TO prowlarr;"
   
         # Start prowlarr to force the database schemas to be created
-        timeout 60s /app/bin/Radarr \
+        timeout 20s /app/Prowlarr \
                 --nobrowser \
                 --data=/config
 
         # Dump DB schemas
         echo "Dumbing DB schemas..."
         pg_dump --schema-only -d prowlarr_main > /tmp/prowlarr_main_schema.sql
-        pg_dump --schema-only -d prowlarr_logs > /tmp/prowlarr_logs_schema.sql
 
         # Recreate database from schemas
         echo "Recreating databases..."
         psql -c "DROP DATABASE IF EXISTS prowlarr_main;" && psql -c "CREATE DATABASE prowlarr_main;" && psql -c "ALTER DATABASE prowlarr_main OWNER TO prowlarr;" && psql -d prowlarr_main -f /tmp/prowlarr_main_schema.sql
-        # psql -c "DROP DATABASE IF EXISTS prowlarr_logs;" && psql -c "CREATE DATABASE prowlarr_logs;" && psql -c "ALTER DATABASE prowlarr_logs OWNER TO prowlarr;" && psql -d prowlarr_logs -f /tmp/prowlarr_logs_schema.sql
 
         # Import sqlite data
         echo "Importing SQLite databases..."
         POSTGRES_CONN_STRING=postgres://prowlarr:prowlarr@localhost/prowlarr_main?sslmode=disable SQLITE_CONN_STRING=/config/prowlarr.db importarr
-        # POSTGRES_CONN_STRING=postgres://prowlarr:prowlarr@localhost/prowlarr_logs?sslmode=disable SQLITE_CONN_STRING=/config/logs.db importarr
 
         # Move sqlite files into migrated folder
         echo "Archiving SQLite databases"
