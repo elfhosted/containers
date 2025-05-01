@@ -77,7 +77,7 @@ if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
         psql -c "DROP DATABASE IF EXISTS lidarr_logs;" && psql -c "CREATE DATABASE lidarr_logs;" && psql -c "ALTER DATABASE lidarr_logs OWNER TO lidarr;"
   
         # Start lidarr to force the database schemas to be created
-        timeout 60s /app/bin/Readarr \
+        timeout 60s /app/bin/Lidarr \
                 --nobrowser \
                 --data=/config
 
