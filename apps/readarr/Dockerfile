@@ -31,6 +31,7 @@ RUN \
         sqlite-libs \
         tzdata \
         xmlstarlet \
+        postgresql-client \
     && \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') export ARCH='x64' ;; \
