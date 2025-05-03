@@ -23,7 +23,7 @@ COPY --from=cloner /source/store ./store
 COPY --from=cloner /source/stremio ./stremio
 COPY --from=cloner /source/*.go ./
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
+RUN CGO_ENABLED=1 GOOS=linux go build --tags 'fts5' -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
 
 FROM alpine
 
