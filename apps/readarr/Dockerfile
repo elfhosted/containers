@@ -1,5 +1,5 @@
 ############# importarr
-FROM golang:1.20-bullseye AS importarr
+FROM golang:1.24-bullseye AS importarr
 
 # Install necessary build tools and SQLite dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
