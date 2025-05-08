@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 RUN git clone https://github.com/blampe/rreading-glasses.git /source
 
 
-FROM --platform=$BUILDPLATFORM golang:1.24.2-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.24.3-alpine AS build
 
 WORKDIR /app
 COPY --from=cloner /source/go.mod /source/go.sum ./

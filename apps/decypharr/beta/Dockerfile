@@ -4,7 +4,7 @@ RUN apk add --update --no-cache git && \
     git clone -b beta https://github.com/sirrobot01/debrid-blackhole.git  /source
 
 # Stage 1: Build binaries
-FROM --platform=$BUILDPLATFORM golang:1.23-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine as builder
 
 ARG TARGETOS
 ARG TARGETARCH

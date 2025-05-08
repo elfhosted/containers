@@ -6,7 +6,7 @@ RUN apk update && apk upgrade && \
 RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
 
 ############# importarr
-FROM golang:1.20-bullseye AS importarr
+FROM golang:1.24-bullseye AS importarr
 
 # Install necessary build tools and SQLite dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,7 +30,7 @@ RUN go mod download
 RUN go build -ldflags="-linkmode external -extldflags -static" -o importarr cmd/main.go
 
 ####### and the final arr
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install git for fetching dependencies
 RUN apk add --no-cache git
