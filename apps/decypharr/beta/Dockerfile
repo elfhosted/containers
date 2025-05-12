@@ -65,7 +65,7 @@ COPY --from=dirsetup --chown=elfie:elfie /app /app
 ENV LOG_PATH=/app/logs
 EXPOSE 8282
 VOLUME ["/app"]
-USER nonroot:nonroot
+USER elfie:elfie
 
 # So that the app will start for goss tests
 COPY --chown=elfie:elfie apps/decypharr/config.json /config/
