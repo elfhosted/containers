@@ -4,7 +4,7 @@ RUN apk add --update --no-cache git && \
     git clone -b beta https://github.com/sirrobot01/debrid-blackhole.git  /source
 
 # Stage 1: Build binaries
-FROM --platform=$BUILDPLATFORM golang:1.23-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine as builder
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -63,11 +63,11 @@ COPY --from=dirsetup --chown=elfie:elfie /app /app
 
 # Metadata
 ENV LOG_PATH=/app/logs
-EXPOSE 8181 8282
+EXPOSE 8282
 VOLUME ["/app"]
-USER elfie:elfie
+USER nonroot:nonroot
 
 # So that the app will start for goss tests
 COPY --chown=elfie:elfie apps/decypharr/config.json /config/
 
-CMD ["/usr/bin/decypharr", "--config", "/config"]
+CMD ["/usr/bin/decypharr", "--config", "/app"]
