@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:9fe67d87930b27bf9f7743ac1a4fe4d6b614d3ac94420babdffe243888a3e36d 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:8c3dbccc25e349861a983e12ab7c2b2f14a6365dacbe2c500a819dd103164af6 
 
 # environment settings
 ENV XDG_DATA_HOME="/config" \
