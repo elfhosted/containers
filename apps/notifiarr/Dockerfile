@@ -1,7 +1,7 @@
 ARG VERSION
 FROM golift/notifiarr:${VERSION} as upstream
 
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:8c3dbccc25e349861a983e12ab7c2b2f14a6365dacbe2c500a819dd103164af6 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:42c34434da805c1c907c64e360538654a84379cd5bbfba10a73870c50db44a87 
 
 # Create data folder and Install needed libraries
 RUN apk add --no-cache \
