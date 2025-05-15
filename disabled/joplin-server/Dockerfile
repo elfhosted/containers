@@ -2,7 +2,7 @@
 # Build stage
 # =============================================================================
 
-FROM node:18-bullseye AS builder
+FROM node:22-bullseye AS builder
 
 ARG VERSION
 
@@ -58,7 +58,7 @@ RUN BUILD_SEQUENCIAL=1 yarn install --inline-builds \
 # # from a smaller base image.
 # # =============================================================================
 
-FROM node:18-bullseye-slim
+FROM node:22-bullseye-slim
 
 ARG user=elfie
 RUN groupadd -g 568 $user && useradd --create-home --uid 568 --gid 568 --shell /bin/bash $user
