@@ -24,8 +24,8 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
 
 # Add s5cmd
 RUN cd /tmp && \
-    curl -LO https://github.com/peak/s5cmd/releases/latest/download/s5cmd_Linux-64bit.tar.gz && \
-    tar -xzf s5cmd_Linux-64bit.tar.gz && \
+    curl -LO https://github.com/peak/s5cmd/releases/download/v2.3.0/s5cmd_2.3.0_Linux-64bit.tar.gz && \
+    tar -xzf s5cmd_2.3.0_Linux-64bit.tar.gz && \
     mv s5cmd /usr/local/bin/ && \
     chmod +x /usr/local/bin/s5cmd
 
