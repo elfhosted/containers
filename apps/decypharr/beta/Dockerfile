@@ -62,12 +62,12 @@ COPY --from=builder --chown=elfie:elfie /healthcheck /usr/bin/healthcheck
 COPY --from=dirsetup --chown=elfie:elfie /app /app
 
 # Metadata
-ENV LOG_PATH=/app/logs
+ENV LOG_PATH=/config/logs
 EXPOSE 8282
-VOLUME ["/app"]
+
 USER elfie:elfie
 
 # So that the app will start for goss tests
-COPY --chown=elfie:elfie apps/decypharr/config.json /app/
+COPY --chown=elfie:elfie apps/decypharr/config.json /config/
 
-CMD ["/usr/bin/decypharr", "--config", "/app"]
+CMD ["/usr/bin/decypharr", "--config", "/config"]
