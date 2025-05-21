@@ -6,8 +6,8 @@ process:
   java:
     running: true    
 
-http:
-  http://localhost:80:
-    status: 200
-  http://localhost:8080:
-    status: 200
+# http:
+#   http://localhost:80:
+#     status: 200
+#   http://localhost:8080:
+#     status: 200
