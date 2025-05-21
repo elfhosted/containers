@@ -23,6 +23,17 @@
         "enabled": false,
         "type": "web"
       }
-    }    
+    },
+    {
+      "name": "bridgeboard",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    }        
   ]
 }
