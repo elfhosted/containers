@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b dev https://github.com/Woahai321/SeerrBridge.git /source
+RUN git clone -b refactor https://github.com/Woahai321/SeerrBridge.git /source
 
 FROM python:3.10
 
