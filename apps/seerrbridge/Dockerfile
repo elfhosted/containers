@@ -73,7 +73,8 @@ RUN find . -type f -exec sed -i "s|'.env|'/config/.env|g" {} + && \
     find . -type f -exec sed -i 's|seerrbridge.log|/logs/seerrbridge.log|g' {} + && \
     find . -type f -exec sed -i 's|seerbridge.log|/logs/seerbridge.log|g' {} + && \
     find . -type f -exec sed -i 's|episode_discrepancies.json|/config/episode_discrepancies.json|g' {} + && \
-    find . -type f -exec sed -i 's|notification-history.json|/config/notification-history.json|g' {} +
+    find . -type f -exec sed -i 's|notification-history.json|/app/data/notification-history.json|g' {} + && \
+    find . -type f -exec sed -i 's|notifications.json|/app/data/notifications.json|g' {} +
 
 # Expose the application port (if needed)
 EXPOSE 8777
