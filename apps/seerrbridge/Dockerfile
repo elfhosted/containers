@@ -72,7 +72,9 @@ COPY --from=cloner /source/. .
 RUN  sed -i "s|'.env|'/config/.env|" seerrbridge.py && \
      sed -i 's|seerrbridge.log|/logs/seerrbridge.log|' seerrbridge.py && \
      sed -i 's|seerbridge.log|/logs/seerbridge.log|' seerrbridge.py && \
-     sed -i 's|episode_discrepancies.json|/config/episode_discrepancies.json|' seerrbridge.py
+     sed -i 's|episode_discrepancies.json|/config/episode_discrepancies.json|' seerrbridge.py && \
+     sed -i 's|notification-history.json|/config/notification-history.json|' src/lib/server-notifications.ts && \
+     sed -i 's|notification-history.json|/config/notification-history.json|' src/app/api/notifications/history/debug/route.ts
 
 # Expose the application port (if needed)
 EXPOSE 8777
