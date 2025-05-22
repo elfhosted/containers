@@ -22,6 +22,10 @@ RUN npm install
 # Copy the rest of the Node.js application code
 COPY --from=cloner /source/. .
 
+# Update for custom paths to user data
+RUN find . -type f -exec sed -i 's|notification-history.json|/app/data/notification-history.json|g' {} + && \
+    find . -type f -exec sed -i 's|notifications.json|/app/data/notifications.json|g' {} +
+
 # Build the Next.js app for production
 RUN npm run build
 

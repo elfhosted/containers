@@ -69,12 +69,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=cloner /source/. .
 
 # We store our env in /config/.env
-RUN find . -type f -exec sed -i "s|'.env|'/config/.env|g" {} + && \
-    find . -type f -exec sed -i 's|seerrbridge.log|/logs/seerrbridge.log|g' {} + && \
-    find . -type f -exec sed -i 's|seerbridge.log|/logs/seerbridge.log|g' {} + && \
-    find . -type f -exec sed -i 's|episode_discrepancies.json|/config/episode_discrepancies.json|g' {} + && \
-    find . -type f -exec sed -i 's|notification-history.json|/app/data/notification-history.json|g' {} + && \
-    find . -type f -exec sed -i 's|notifications.json|/app/data/notifications.json|g' {} +
+RUN  sed -i "s|'.env|'/config/.env|" seerrbridge.py && \
+     sed -i 's|seerrbridge.log|/logs/seerrbridge.log|' seerrbridge.py && \
+     sed -i 's|seerbridge.log|/logs/seerbridge.log|' seerrbridge.py && \
+     sed -i 's|episode_discrepancies.json|/config/episode_discrepancies.json|' seerrbridge.py
 
 # Expose the application port (if needed)
 EXPOSE 8777
