@@ -1,9 +1,9 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
 process:
-  blackhole:
+  decypharr:
     running: true
 
 http:
   http://localhost:8282:
-    status: 200        
+    status: 200
