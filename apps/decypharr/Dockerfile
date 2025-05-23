@@ -1,7 +1,7 @@
 FROM alpine as cloner
 ARG VERSION
 RUN apk add --update --no-cache tmux ttyd git && \
-    git clone -b $VERSION https://github.com/sirrobot01/debrid-blackhole.git  /source
+    git clone -b $VERSION https://github.com/sirrobot01/decypharr.git  /source
 
 # Stage 1: Build binaries
 FROM --platform=$BUILDPLATFORM golang:1.24-alpine as builder
