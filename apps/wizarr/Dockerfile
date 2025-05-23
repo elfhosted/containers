@@ -5,8 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/wizarr/wizarr.git /source
-
+RUN git clone -b $VERSION  https://github.com/wizarrrr/wizarr.git /source
 
 FROM python:3.12-alpine
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
