@@ -14,7 +14,7 @@
       }
     },
     {
-      "name": "refactor",
+      "name": "dev",
       "platforms": [
         "linux/amd64"
       ],

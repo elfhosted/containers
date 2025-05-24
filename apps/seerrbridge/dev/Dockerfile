@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b refactor https://github.com/Woahai321/SeerrBridge.git /source
+RUN git clone https://github.com/Woahai321/SeerrBridge.git /source
 
 FROM python:3.10
 
@@ -55,7 +55,7 @@ RUN chown elfie /app
 USER 568
 
 # add local files
-COPY --chown=568:568 apps/seerrbridge/seerrbridge-refactor.sh /seerbridge.sh
+COPY --chown=568:568 apps/seerrbridge/seerrbridge-dev.sh /seerbridge.sh
 COPY --chown=568:568 apps/seerrbridge/launch-tmux.sh /
 COPY --chown=568:568 apps/seerrbridge/entrypoint.sh /
 COPY --chown=568:568 apps/seerrbridge/restricted.tmux.conf /
