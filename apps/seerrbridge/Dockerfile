@@ -29,11 +29,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libdrm2 \
     libxrandr2 \
     ca-certificates \
+    curl \
+    jq \
     tmux \
     dialog
 
-# Download and install Chrome (specific version)
-RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/133.0.6943.53/linux64/chrome-linux64.zip && \
+# Download and install Chrome (latest stable version)
+RUN CHROME_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | \
+    jq -r '.channels.Stable.downloads.chrome[] | select(.platform == "linux64") | .url') && \
+    echo "Downloading Chrome from: $CHROME_URL" && \
+    wget -O /tmp/chrome-linux64.zip $CHROME_URL && \
     unzip /tmp/chrome-linux64.zip -d /opt/ && \
     mv /opt/chrome-linux64 /opt/chrome && \
     ln -sf /opt/chrome/chrome /usr/bin/google-chrome && \
@@ -70,8 +75,6 @@ COPY --from=cloner /source/. .
 
 # We store our env in /config/.env
 RUN  sed -i "s|'.env|'/config/.env|" seerrbridge.py && \
-     sed -i 's|seerrbridge.log|/logs/seerrbridge.log|' seerrbridge.py && \
-     sed -i 's|seerbridge.log|/logs/seerbridge.log|' seerrbridge.py && \
      sed -i 's|episode_discrepancies.json|/config/episode_discrepancies.json|' seerrbridge.py
 
 # Expose the application port (if needed)

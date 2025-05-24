@@ -17,7 +17,6 @@ if [[ ! -f /config/.env && ! -z "$RD_ACCESS_TOKEN" ]]; then
   env | grep RD_ACCESS_TOKEN > /config/.env
 fi
 
-.local/bin/uvicorn seerrbridge:app --host 0.0.0.0 --port 8777
-
+.local/bin/uvicorn main:app --host 0.0.0.0 --port 8777
 echo "SeerrBridge has unexpectedly exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
 read -s -n 1 -t 300
