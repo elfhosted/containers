@@ -73,7 +73,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code
 COPY --from=cloner /source/. .
 
-We store our env in /config/.env
+# We store our env in /config/.env
 RUN  sed -i "s|'.env|'/config/.env|" seerr/config.py #  && \
 #      sed -i 's|seerrbridge.log|/logs/seerrbridge.log|' seerrbridge.py && \
 #      sed -i 's|seerbridge.log|/logs/seerbridge.log|' seerrbridge.py && \
