@@ -7,6 +7,9 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/Woahai321/SeerrBridge.git /source
 
+# ElfHosted patches
+RUN  sed -i "s|'.env|'/config/.env|" /source/seerr/config.py
+
 FROM python:3.10
 
 WORKDIR /app
@@ -78,9 +81,6 @@ COPY --from=cloner /source/. .
 #      sed -i 's|seerrbridge.log|/logs/seerrbridge.log|' seerrbridge.py && \
 #      sed -i 's|seerbridge.log|/logs/seerbridge.log|' seerrbridge.py && \
 #      sed -i 's|episode_discrepancies.json|/config/episode_discrepancies.json|' seerrbridge.py
-
-RUN sed "s|'.env|'/config/.env|" seerr/config.py > /tmp/config.py \
-    && mv /tmp/config.py seerr/config.py
 
 # Expose the application port (if needed)
 EXPOSE 8777
