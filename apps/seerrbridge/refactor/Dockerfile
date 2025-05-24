@@ -29,11 +29,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libdrm2 \
     libxrandr2 \
     ca-certificates \
+    curl \
+    jq \
     tmux \
     dialog
 
-# Download and install Chrome (specific version)
-RUN wget -O /tmp/chrome-linux64.zip https://storage.googleapis.com/chrome-for-testing-public/133.0.6943.53/linux64/chrome-linux64.zip && \
+# Download and install Chrome (latest stable version)
+RUN CHROME_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | \
+    jq -r '.channels.Stable.downloads.chrome[] | select(.platform == "linux64") | .url') && \
+    echo "Downloading Chrome from: $CHROME_URL" && \
+    wget -O /tmp/chrome-linux64.zip $CHROME_URL && \
     unzip /tmp/chrome-linux64.zip -d /opt/ && \
     mv /opt/chrome-linux64 /opt/chrome && \
     ln -sf /opt/chrome/chrome /usr/bin/google-chrome && \
@@ -50,7 +55,7 @@ RUN chown elfie /app
 USER 568
 
 # add local files
-COPY --chown=568:568 apps/seerrbridge/seerrbridge.sh /
+COPY --chown=568:568 apps/seerrbridge/seerrbridge-refactor.sh /seerbridge.sh
 COPY --chown=568:568 apps/seerrbridge/launch-tmux.sh /
 COPY --chown=568:568 apps/seerrbridge/entrypoint.sh /
 COPY --chown=568:568 apps/seerrbridge/restricted.tmux.conf /

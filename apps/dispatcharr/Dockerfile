@@ -26,7 +26,7 @@ ARG REPO_NAME
 ARG BASE_TAG
 
 # --- Final image based on the dynamic base ---
-FROM ghcr.io/${REPO_OWNER}/${REPO_NAME}:${BASE_TAG} AS final
+FROM ghcr.io/${REPO_OWNER}/${REPO_NAME}:${VERSION} AS final
 ENV VIRTUAL_ENV=/dispatcharrpy
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 WORKDIR /app
