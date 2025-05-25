@@ -5,9 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-# RUN git clone -b $VERSION  https://github.com/Woahai321/SeerrBridge.git /source
-RUN git clone -b Elfman  https://github.com/Woahai321/SeerrBridge.git /source
-
+RUN git clone -b $VERSION  https://github.com/Woahai321/SeerrBridge.git /source
 
 # ElfHosted patches
 RUN  sed -i "s|'.env|'/config/.env|" /source/seerr/config.py
