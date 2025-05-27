@@ -11,7 +11,7 @@ RUN git clone https://gitlab.com/storyteller-platform/storyteller-base.git /sour
 RUN git clone https://gitlab.com/storyteller-platform/storyteller.git /source/storyteller
 
 # Build the base
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:2ba3258c7cc40330bfea13a600ca6762591d677db211a3255fbf44d4635481f0 as base
+FROM ghcr.io/elfhosted/ubuntu-jammy:rolling@sha256:f9f982e780fbad497108c83fdbc87f6a2451fff441e3687e27627b1459b527ab as base
 
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
