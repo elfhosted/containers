@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b seerrbridge-test  https://github.com/jamcalli/pulsarr.git /source
+RUN git clone -b feature/seerrbridge-test https://github.com/jamcalli/pulsarr.git /source
 
 FROM node:23.6.0-alpine AS builder
 
