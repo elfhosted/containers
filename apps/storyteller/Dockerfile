@@ -120,6 +120,11 @@ COPY --from=builder /app/web/start.sh .
 # Download word list
 RUN wget https://raw.githubusercontent.com/dwyl/english-words/master/words.txt
 
+# Required for goss
+RUN mkdir /data && chown 568 /data
+
+# Run as elfie
+USER elfie
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 CMD ["./start.sh"]
