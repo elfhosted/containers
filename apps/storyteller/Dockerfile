@@ -1,3 +1,4 @@
+ARG VERSION
 # Get the source
 FROM alpine:latest as cloner
 
@@ -71,7 +72,7 @@ RUN gcc -g -fPIC -rdynamic -shared web/sqlite/uuid.c -o web/sqlite/uuid.c.so
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG CI_COMMIT_TAG
-ENV CI_COMMIT_TAG=${CI_COMMIT_TAG}
+ENV CI_COMMIT_TAG=${VERSION}
 
 RUN yarn build:web
 
