@@ -13,6 +13,17 @@
         "enabled": true,
         "type": "cli"
       }
-    }
+    },
+    {
+      "name": "jammy",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": true,
+        "type": "cli"
+      }
+    }    
   ]
 }
