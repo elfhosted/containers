@@ -50,7 +50,6 @@ RUN CHROME_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 
-
 # Force our preferred user
 ARG user=elfie
 RUN groupadd -g 568 $user && useradd -d /app --create-home --uid 568 --gid 568 --shell /bin/bash $user
