@@ -29,10 +29,10 @@ if [ $? -eq 0 ]; then
 1️⃣ Hit enter whenever prompted for a password, it's unnecessary
 2️⃣ If prompted for it, your Overseerr URL is $OVERSEERR_URL, and you'll have to retrieve the API key from your instance yourself"
 
-    AUTOMATED_MODE=false python add.py
+    AUTOMATED_MODE=false python -m list_sync
 else
     echo "Timeout reached, running ListSync in automated mode.."
-    AUTOMATED_MODE=true python add.py 2>&1 | tee -a "$log_file"
+    AUTOMATED_MODE=true python -m list_sync 2>&1 | tee -a "$log_file"
 fi
 
 echo "ListSync has exited :( Press any key to restart, or wait 5 min... (incase you need to capture debug output)"
