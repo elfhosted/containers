@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/SebastianMorel/AIOLists.git /source
+RUN git clone https://github.com/SebastianMorel/AIOLists.git /source
 
 # Use an official Node.js runtime as a parent image
 FROM node:18-alpine As builder
