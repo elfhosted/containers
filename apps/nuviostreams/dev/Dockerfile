@@ -9,13 +9,13 @@ RUN git clone https://github.com/tapframe/NuvioStreamsAddon.git /source
 
 FROM node:20-alpine
 
-# Set working directory
-WORKDIR /app
-
 RUN addgroup -S elfie --gid 568 \
  && adduser -S elfie -G elfie --uid 568
 
 USER elfie
+
+# Set working directory
+WORKDIR /app
 
 # Copy package files and install dependencies
 COPY --from=cloner /source/package*.json ./
