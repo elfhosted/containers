@@ -12,12 +12,6 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-RUN addgroup -S elfie --gid 568 \
- && adduser -S elfie -G elfie --uid 568 \
- && chown elfie:elfie /app
-
-USER elfie
-
 # Copy package files and install dependencies
 COPY --from=cloner /source/package*.json ./
 RUN npm install --production
@@ -34,6 +28,12 @@ ENV VERCEL=true \
     SHOWBOX_PROXY_URL_VALUE="https://starlit-valkyrie-39f5ab.netlify.app/?destination=" \
     SCRAPER_MODE=proxy \
     USE_SCRAPER_API=false
+
+RUN addgroup -S elfie --gid 568 \
+ && adduser -S elfie -G elfie --uid 568 \
+ && chown elfie:elfie /app
+
+USER elfie
 
 # Start the server
 CMD ["node", "server.js"]
