@@ -23,6 +23,9 @@ COPY --from=cloner /source/packages/frontend/package*.json ./packages/frontend/
 # Install dependencies.
 RUN npm install
 
+# Update metadata
+RUN npm run metadata
+
 # Copy source files.
 COPY --from=cloner /source/tsconfig.*json ./
 
