@@ -23,9 +23,6 @@ COPY --from=cloner /source/packages/frontend/package*.json ./packages/frontend/
 # Install dependencies.
 RUN npm install
 
-# Update metadata
-RUN npm run metadata
-
 # Copy source files.
 COPY --from=cloner /source/tsconfig.*json ./
 
@@ -33,8 +30,6 @@ COPY --from=cloner /source/packages/server ./packages/server
 COPY --from=cloner /source/packages/core ./packages/core
 COPY --from=cloner /source/packages/frontend ./packages/frontend
 COPY --from=cloner /source/scripts ./scripts
-COPY --from=cloner /source/resources ./resources
-
 
 # Build the project.
 RUN npm run build
