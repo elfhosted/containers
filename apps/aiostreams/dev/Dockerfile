@@ -69,4 +69,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 
 EXPOSE $PORT
 
+# These are defaults required to goss-test, and are expected to be overridden by the user.
+ENV SECRET_KEY=712376047f57a47969bd1992bcbda764db35bd2d0d9b3ddd6b291683e6755aea \
+    BASE_URL=https://example.com
+
 ENTRYPOINT ["npm", "run", "start"]
