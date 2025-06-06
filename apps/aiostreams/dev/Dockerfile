@@ -1,11 +1,18 @@
-# Get upstream code
-FROM alpine:latest as cloner
+# Get upstream code - we use node in this case
+# we need node in this case for the metadata script
+FROM node:22-alpine as cloner
 ARG VERSION
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
 RUN git clone -b rewrite  https://github.com/Viren070/AIOStreams.git /source
+
+WORKDIR /source
+
+# Update metadata
+RUN mkdir /resources && \
+    npm run metadata
 
 FROM node:22-alpine AS builder
 
@@ -20,16 +27,13 @@ COPY --from=cloner /source/packages/server/package*.json ./packages/server/
 COPY --from=cloner /source/packages/core/package*.json ./packages/core/
 COPY --from=cloner /source/packages/frontend/package*.json ./packages/frontend/
 
-# Install dependencies.
-RUN npm install
-
 # Copy source files.
 COPY --from=cloner /source/tsconfig.*json ./
-
 COPY --from=cloner /source/packages/server ./packages/server
 COPY --from=cloner /source/packages/core ./packages/core
 COPY --from=cloner /source/packages/frontend ./packages/frontend
 COPY --from=cloner /source/scripts ./scripts
+COPY --from=cloner /source/resources ./resources
 
 # Build the project.
 RUN npm run build
