@@ -35,6 +35,9 @@ COPY --from=cloner /source/packages/frontend ./packages/frontend
 COPY --from=cloner /source/scripts ./scripts
 COPY --from=cloner /source/resources ./resources
 
+# Install dependencies.
+RUN npm install
+
 # Build the project.
 RUN npm run build
 
