@@ -9,10 +9,14 @@ process:
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
 port:
   # https://github.com/aelsabbahy/goss/issues/149
-  tcp:3001:
+  tcp:5173:
     listening: true
+  tcp:8082:
+    listening: true    
 
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
-  http://localhost:3001:
+  http://localhost:5173:
     status: 200
+  http://localhost:8082:
+    status: 200    
