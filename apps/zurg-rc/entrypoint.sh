@@ -18,7 +18,7 @@ fi
 
 if [[ "${DECYPHARR_REPLACE_ZURG:-"false"}" == "true" ]]; then
     echo "Zurg is replaced by decypharr, doing nothing.."
-    nc -l 9999
+    while true; do echo -e "HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\nZurg is replaced by decypharr, doing nothing!" | nc -l -p 9999; done
 else
     cd /config
     exec \
