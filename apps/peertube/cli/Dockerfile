@@ -24,9 +24,6 @@ COPY --chown=568:568 apps/peertube/cli/entrypoint.sh /
 
 RUN mkdir -p /home/elfie && chown -R elfie /home/elfie
 
-# Run elfie in rbash
-RUN usermod -s /bin/bash elfie
-
 USER 568
 
 WORKDIR /config
