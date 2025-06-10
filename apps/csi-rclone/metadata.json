@@ -1,5 +1,5 @@
 {
-  "app": "rapidleech",
+  "app": "csi-rclone",
   "base": false,
   "channels": [
     {
@@ -9,8 +9,8 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
-        "type": "web"
+        "enabled": false,
+        "type": "cli"
       }
     }
   ]
