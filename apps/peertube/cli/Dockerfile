@@ -15,7 +15,6 @@ RUN apk add --no-cache \
 RUN git clone https://github.com/Reseau-Canope/peertube-mass-uploader.git /opt/peertube-mass-uploader && \
     npm install -g @peertube/peertube-cli
 
-COPY --chown=568:568 apps/peertube/cli/peertube-cli.sh /
 COPY --chown=568:568 apps/peertube/cli/launch-tmux.sh /
 COPY --chown=568:568 apps/peertube/cli/entrypoint.sh /
 
