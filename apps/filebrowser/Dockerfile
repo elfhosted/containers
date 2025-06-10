@@ -25,7 +25,11 @@ ENV S6_OVERLAY_VERSION=3.2.0.0
 # Possibly useful binaries
 # RUN apk add --no-cache mlocate ncdu tree curl bash
 RUN apt-get -y update && apt-get -y install curl xz-utils git tmux tree fish pipx python3-venv nano && \
-    pipx ensurepath
+    pipx ensurepath \
+    # Install Node.js (LTS) and npm
+    && curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g @peertube/peertube-cli
 
 # Add s6
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
