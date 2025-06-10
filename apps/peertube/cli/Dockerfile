@@ -12,6 +12,10 @@ RUN apk add --no-cache \
     jq \
     git
 
+# Create user and group
+RUN addgroup -g 568 elfie && \
+    adduser -u 568 -G elfie -h /home/elfie -D elfie
+
 RUN git clone https://github.com/Reseau-Canope/peertube-mass-uploader.git /opt/peertube-mass-uploader && \
     npm install -g @peertube/peertube-cli
 
