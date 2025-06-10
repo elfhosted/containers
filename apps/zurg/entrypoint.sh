@@ -16,7 +16,12 @@ if [[ "${WAIT_FOR_WARP:-"false"}" == "true" ]]; then
     done
 fi
 
-cd /config
-#shellcheck disable=SC2086
-exec \
-    /app/zurg --config /config/config.yml
+if [[ "${DECYPHARR_REPLACE_ZURG:-"false"}" == "true" ]]; then
+    echo "Zurg is replaced by decypharr, doing nothing.."
+    nc -l 9999
+else
+    cd /config
+    exec \
+        /app/zurg --config /config/config.yml
+fi
+
