@@ -51,7 +51,7 @@ EXPOSE 5690
 COPY --from=cloner /source/wizard_steps /opt/default_wizard_steps
 
 # Copy entrypoint script and make it executable
-COPY docker-entrypoint.sh /usr/local/bin/
+COPY --from=cloner /source/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Entrypoint and default CMD
