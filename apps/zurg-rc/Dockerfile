@@ -26,7 +26,7 @@ COPY --from=builder /app/zurg .
 COPY --from=cloner /source/config.example.yml /config/config.yml
 
 # Install runtime dependencies and configure FUSE
-RUN apk add curl python3 libxml2-utils ffmpeg
+RUN apk add curl python3 libxml2-utils ffmpeg socat
 
 COPY ./apps/zurg/entrypoint.sh /entrypoint.sh
 

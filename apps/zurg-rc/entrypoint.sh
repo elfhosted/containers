@@ -18,9 +18,10 @@ fi
 
 if [[ "${DECYPHARR_REPLACE_ZURG:-"false"}" == "true" ]]; then
     echo "Zurg is replaced by decypharr, doing nothing.."
-    while true; do echo -e "HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\nZurg is replaced by decypharr, doing nothing!" | nc -l -p 9999; done
+    while true; do
+        socat TCP-LISTEN:9999,reuseaddr,fork SYSTEM:'echo -e "HTTP/1.1 200 OK\r\nContent-Length: 44\r\n\r\nZurg is replaced by decypharr, doing nothing!"'
+    done
 else
     cd /config
-    exec \
-        /app/zurg --config /config/config.yml
+    exec /app/zurg --config /config/config.yml
 fi
