@@ -18,7 +18,7 @@ fi
 
 if [[ "${DECYPHARR_REPLACE_ZURG:-"false"}" == "true" ]]; then
     while true; do
-        socat TCP-LISTEN:9999,reuseaddr,fork SYSTEM:'bash -c "printf \"HTTP/1.1 200 OK\r\nContent-Length: 44\r\n\r\nZurg is replaced by decypharr, doing nothing!\""' 
+        socat TCP-LISTEN:9998,reuseaddr,fork SYSTEM:"printf 'HTTP/1.1 200 OK\r\nContent-Length: 44\r\n\r\nZurg is replaced by decypharr, doing nothing!'"
     done
 else
     cd /config
