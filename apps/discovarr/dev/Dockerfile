@@ -93,8 +93,8 @@ ENV PUID=${PUID_BUILD}
 ENV PGID=${PGID_BUILD}
 
 # Copy the entrypoint script and make it executable
-COPY --from=cloner /source/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# COPY --from=cloner /source/entrypoint.sh /usr/local/bin/entrypoint.sh
+# RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # The entrypoint script will handle switching to the non-root user
 # USER discovarr
@@ -104,7 +104,7 @@ EXPOSE 8000
 WORKDIR /app/server/src
 
 # Set the entrypoint
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 # Command to run the FastAPI application
 # Adjust 'server.main:app' if your FastAPI app instance is named differently or located in a different file/module.
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
