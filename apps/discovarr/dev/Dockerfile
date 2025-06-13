@@ -16,7 +16,7 @@ FROM node:lts-alpine AS client-builder
 WORKDIR /app/client
 
 # Copy package.json and package-lock.json (or yarn.lock)
-COPY --from=cloner /source/client/package.json client/package-lock.json* ./
+COPY --from=cloner /source/client/package.json /source/client/package-lock.json* ./
 
 # Install client dependencies
 # Using 'npm ci' for reproducible builds if package-lock.json is present and up-to-date
