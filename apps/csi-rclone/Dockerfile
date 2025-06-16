@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/elfhosted/csi-rclone-reloaded.git /source
+RUN git clone https://github.com/dvcrn/csi-rclone-reloaded.git /source
 
 ####
 FROM golang:alpine AS builder
