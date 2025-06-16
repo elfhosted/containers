@@ -16,9 +16,20 @@ RUN make plugin
 
 ####
 FROM alpine:3.21
-RUN apk add --no-cache ca-certificates bash fuse3 rclone curl unzip tini
 
-# RUN curl https://rclone.org/install.sh | bash
+ARG RCLONE_VERSION="v1.69.3"
+ARG OS="linux"
+ARG OS_type="amd64"
+
+RUN apk add --no-cache ca-certificates bash fuse3 curl unzip tini
+
+RUN curl -OfsS "https://downloads.rclone.org/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-${OS}-${OS_type}.zip" && \
+    unzip "rclone-${RCLONE_VERSION}-${OS}-${OS_type}.zip" && \
+    cd "rclone-${RCLONE_VERSION}-${OS}-${OS_type}" && \
+    cp rclone /usr/bin/ && \
+    chown root:root /usr/bin/rclone && \
+    chmod 755 /usr/bin/rclone
+
 
 COPY --from=builder /go/src/csi-rclone-nodeplugin/_output/csi-rclone-plugin /bin/csi-rclone-plugin
 
