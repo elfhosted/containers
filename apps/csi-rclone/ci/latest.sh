@@ -7,5 +7,5 @@ version=$(curl -sX GET "https://repology.org/api/v1/projects/?search=rclone&inre
 if [[ "${version}" == "" ]]; then
     version=1.69.3
 fi
-printf "%s" "${version}"
+printf "%s" "v${version}"
 # printf "%s" "1.66.0" # the above link 403s currently
