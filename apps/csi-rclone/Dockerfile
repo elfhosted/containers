@@ -25,7 +25,7 @@ RUN apk add --no-cache ca-certificates bash fuse3 curl unzip tini
 # https://rclone.org/install/#linux
 # https://rclone.org/downloads/#older-downloads
 
-ARG RCLONE_VERSION="v1.67.0"
+ARG RCLONE_VERSION="v1.69.3"
 ARG OS="linux"
 ARG OS_type="amd64"
 
@@ -88,12 +88,6 @@ RUN OS="$(uname)" && \
     cp rclone /usr/bin/ && \
     chown root:root /usr/bin/rclone && \
     chmod 755 /usr/bin/rclone
-
-# Use pre-compiled version (with cirectory marker patch)
-# https://github.com/rclone/rclone/pull/5323
-# COPY bin/rclone /usr/bin/rclone
-# RUN chmod 755 /usr/bin/rclone \
-#     && chown root:root /usr/bin/rclone
 
 COPY --from=builder /go/src/csi-rclone-nodeplugin/_output/csi-rclone-plugin /bin/csi-rclone-plugin
 
