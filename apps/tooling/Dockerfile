@@ -63,18 +63,6 @@ RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmo
 	apt-get update && \
 	apt -y install postgresql-client-15
 
-# splash-cli unsplash client
-RUN \
-    SPLASH_CLI_VERSION=$(curl -sX GET "https://api.github.com/repos/rawnly/splash-cli/releases/latest" \
-    | jq -r .tag_name); \
-  curl -o \
-    /tmp/splash-cli.tar.gz -L \
-    "https://github.com/rawnly/splash-cli/releases/download/${SPLASH_CLI_VERSION}/splash_${SPLASH_CLI_VERSION}_linux_amd64.tar.gz" && \
-  tar zxvpf /tmp/splash-cli.tar.gz && \
-  mv splash /usr/local/bin && \
-  rm README.md
-
-
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 
