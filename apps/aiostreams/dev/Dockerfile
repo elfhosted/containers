@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b rewrite  https://github.com/Viren070/AIOStreams.git /source
+RUN git clone  https://github.com/Viren070/AIOStreams.git /source
 
 WORKDIR /source
 
