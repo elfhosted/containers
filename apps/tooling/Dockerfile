@@ -90,6 +90,8 @@ RUN { \
 COPY ./apps/tooling/scripts /scripts
 COPY --chown=568:568 --chmod=755 ./apps/tooling/.bash_profile /home/elfie/
 
+# Add render group for testing vaapi
+RUN echo 'render:x:993:' >> /etc/group
 
 # Run elfie in rbash
 RUN usermod -s /bin/rbash elfie
