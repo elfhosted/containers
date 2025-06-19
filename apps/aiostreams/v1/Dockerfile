@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/Viren070/AIOStreams.git /source
+RUN git clone -b v1.22.0  https://github.com/Viren070/AIOStreams.git /source
 
 FROM node:22-alpine AS builder
 
