@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b v1.22.0 https://github.com/Viren070/AIOStreams.git /source
+RUN git clone -b $VERSION  https://github.com/Viren070/AIOStreams.git /source
 
 FROM node:22-alpine AS builder
 
@@ -38,6 +38,8 @@ COPY --from=cloner /source/packages/types ./packages/types
 COPY --from=cloner /source/packages/wrappers ./packages/wrappers
 COPY --from=cloner /source/packages/frontend ./packages/frontend
 COPY --from=cloner /source/packages/utils ./packages/utils
+
+RUN npm run build
 
 # Remove development dependencies.
 RUN npm --workspaces prune --omit=dev
