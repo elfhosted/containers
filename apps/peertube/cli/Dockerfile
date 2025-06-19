@@ -17,7 +17,9 @@ RUN addgroup -g 568 elfie && \
     adduser -u 568 -G elfie -h /home/elfie -D elfie
 
 RUN git clone https://github.com/Reseau-Canope/peertube-mass-uploader.git /opt/peertube-mass-uploader && \
-    npm install -g @peertube/peertube-cli
+    npm install -g @peertube/peertube-cli && \
+    cd /opt/peertube-mass-uploader && \
+    npm install 
 
 COPY --chown=568:568 apps/peertube/cli/launch-tmux.sh /
 COPY --chown=568:568 apps/peertube/cli/entrypoint.sh /
