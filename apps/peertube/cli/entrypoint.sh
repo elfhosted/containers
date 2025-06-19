@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Start fish in the background
-tmux new-session -x 80 -y 24 -A -d -s peertube-cli /bin/fish
+tmux new-session -x 80 -y 24 -A -d -s peertube-cli /usr/bin/fish
 
 # Prepare a tmux entry to the already-running process, use solarized dark colors
 ttyd -p 3001 -W \
