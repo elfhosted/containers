@@ -36,7 +36,7 @@ ENV PATH="/home/mediafusion/.local/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
 # Install uv and Python dependencies
-COPY --from=ghcr.io/astral-sh/uv:0.6.3 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.7.4 /uv /uvx /bin/
 COPY --chown=mediafusion:mediafusion --from=cloner /source/uv.lock /source/pyproject.toml ./
 RUN uv sync --frozen --no-install-project --compile-bytecode
 
