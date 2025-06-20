@@ -36,7 +36,8 @@ RUN npm --prefix app/static/ install
 RUN npm --prefix app/static/ run build:css
 
 # Create directories that need to be writable
-RUN mkdir -p /.cache
+RUN mkdir -p /.cache && \
+    mkdir -p /data/database
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
