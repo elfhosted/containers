@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION  https://github.com/wizarrrr/wizarr.git /source
 
 # Start from the official Python 3.12 Alpine image
-FROM python:3.12-alpine
+FROM python:3.13-alpine
 
 # Set default environment variables for user/group IDs
 ENV PUID=568
@@ -20,10 +20,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install curl (for the HEALTHCHECK), tzdata (if you need timezones), nodejs (for npm), and su-exec for user switching
 RUN apk add --no-cache curl tzdata nodejs npm su-exec
 
+# ─── 2. Copy your application code ──────────────────────────────────────────
 
 # Set up the working directory for our code. We'll put everything under /data.
 WORKDIR /data
-COPY --from=cloner /source/. /data
+
+# Copy your source as UID 1000/GID 1000 at build time,
+# so default users never need a runtime chown.
+COPY --chown=568:568 --from=cloner /source/. /data
 
 # ─── 3. Run your build steps (still as root) ───────────────────────────────
 
@@ -37,7 +41,8 @@ RUN npm --prefix app/static/ run build:css
 
 # Create directories that need to be writable
 RUN mkdir -p /.cache && \
-    mkdir -p /data/database
+    mkdir -p /data/database && \
+    chown -R 568:568 /data/database
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
