@@ -12,7 +12,7 @@ CHECK_INTERVAL = 5  # seconds
 LOG_FILE = "/var/log/transcode-killer.log"
 
 # SMTP configuration from environment variables
-SMTP_SERVER = os.environ.get("SMTP_SERVER", "localhost")
+SMTP_HOST = os.environ.get("SMTP_HOST", "localhost")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 25))
 SMTP_USERNAME = os.environ.get("SMTP_USERNAME")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
@@ -67,12 +67,12 @@ Thanks for helping keep the system healthy! 🌱
 
     try:
         if SMTP_USERNAME and SMTP_PASSWORD:
-            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
                 server.starttls()
                 server.login(SMTP_USERNAME, SMTP_PASSWORD)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
                 server.send_message(msg)
         log("Email notification sent.")
     except Exception as e:

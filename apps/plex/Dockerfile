@@ -22,7 +22,7 @@ RUN \
     apt-get -qq update \
     && \
     apt-get -qq install -y \
-        gnupg2 python3 \
+        gnupg2 python3 xz-utils \
     && \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') \
