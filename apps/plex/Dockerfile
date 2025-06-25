@@ -4,6 +4,7 @@ ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 ARG VERSION
 ARG CHANNEL
+ENV S6_OVERLAY_VERSION=3.2.0.0
 
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility" \
     PLEX_DOWNLOAD="https://downloads.plex.tv/plex-media-server-new" \
