@@ -73,7 +73,6 @@ RUN yarn install \
 ########
 FROM ghcr.io/elfhosted/wger-base:rolling AS final
 LABEL maintainer="Roland Geider <roland@geider.net>"
-ARG DOCKER_DIR="--from=cloner /source/extras/docker/production"
 ENV PATH="/home/wger/.local/bin:$PATH"
 
 EXPOSE 8000
@@ -85,12 +84,12 @@ COPY --from=builder --chown=wger:wger /root/.local /home/wger/.local
 WORKDIR /home/wger/src
 COPY --chown=wger:wger . /home/wger/src
 COPY --from=builder --chown=wger:wger /home/wger/src/wger/core/static/yarn /home/wger/src/wger/core/static/yarn
-COPY ${DOCKER_DIR}/settings.py /home/wger/src
-COPY ${DOCKER_DIR}/settings.py /tmp/
-COPY ${DOCKER_DIR}/entrypoint.sh /home/wger/entrypoint.sh
-COPY ${DOCKER_DIR}/celery/start-beat /start-beat
-COPY ${DOCKER_DIR}/celery/start-worker /start-worker
-COPY ${DOCKER_DIR}/celery/start-flower /start-flower
+COPY --from=cloner /source/extras/docker/production/settings.py /home/wger/src
+COPY --from=cloner /source/extras/docker/production/settings.py /tmp/
+COPY --from=cloner /source/extras/docker/production/entrypoint.sh /home/wger/entrypoint.sh
+COPY --from=cloner /source/extras/docker/production/celery/start-beat /start-beat
+COPY --from=cloner /source/extras/docker/production/celery/start-worker /start-worker
+COPY --from=cloner /source/extras/docker/production/celery/start-flower /start-flower
 RUN chmod +x /home/wger/entrypoint.sh \
     && chmod +x /start-beat \
     && chmod +x /start-worker \
