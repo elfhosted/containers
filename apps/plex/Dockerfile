@@ -21,7 +21,7 @@ RUN \
     apt-get -qq update \
     && \
     apt-get -qq install -y \
-        gnupg2 \
+        gnupg2 python3 \
     && \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') \
@@ -74,7 +74,18 @@ ADD https://raw.githubusercontent.com/ChuckPa/PlexDBRepair/master/DBRepair.sh /u
 RUN sed -i "s/RootRequired=1/RootRequired=0/g" /usr/local/bin/DBRepair.sh && \
     chmod 755 /usr/local/bin/DBRepair.sh
 
+# Add s6
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
+RUN chown -R elfie:elfie /run
+
+COPY --chown=568:568 apps/plex/root /
+
 USER 568
 COPY ./apps/plex/plex-preferences.sh /scripts/plex-preferences.sh
 COPY ./apps/plex/entrypoint.sh /entrypoint.sh
-CMD ["/entrypoint.sh"]
+COPY ./apps/plex/transcode-killer.py /transcode-killer.py
+
+ENTRYPOINT [ "/init" ]

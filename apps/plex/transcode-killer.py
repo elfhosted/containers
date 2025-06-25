@@ -4,10 +4,20 @@ import time
 import signal
 import re
 import subprocess
+import smtplib
+from email.message import EmailMessage
 from datetime import datetime
 
 CHECK_INTERVAL = 5  # seconds
 LOG_FILE = "/var/log/transcode-killer.log"
+
+# SMTP configuration from environment variables
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "localhost")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 25))
+SMTP_USERNAME = os.environ.get("SMTP_USERNAME")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "noreply@elfhosted.com")
+EMAIL_TO = os.environ.get("EMAIL_TO")  # Must be set
 
 # Add your regex-based exceptions here (e.g., allow audio-only transcodes)
 EXCEPTIONS = [
@@ -20,6 +30,54 @@ def log(message):
     with open(LOG_FILE, "a") as f:
         f.write(log_line)
     print(log_line, end="")
+
+def send_email(reason, pid, command, cmdline, filename):
+    subject = f"[ElfHosted] Transcode Blocked: {reason} ({filename})"
+
+    body = f"""\
+Hi there,
+
+Just a quick heads-up — a transcoding process on your media server was automatically stopped to help prevent system resource overload.
+
+Here's what happened:
+
+• **File**: {filename}
+• **Why it was blocked**: {reason}
+• **Command**: {command}
+• **Full command line**:
+{cmdline}
+
+We block certain types of software-based or non-optimized transcodes to keep the system running smoothly for everyone. This includes:
+- Transcodes without hardware acceleration (e.g., VA-API)
+- 4K media being downscaled/transcoded
+- Processes used for thumbnailing or audio fingerprinting
+
+If this was unexpected or you believe it was blocked in error, feel free to reach out — we’re happy to help investigate or adjust the rules if needed.
+
+Thanks for helping keep the system healthy! 🌱
+
+- ElfHosted
+"""
+
+    msg = EmailMessage()
+    msg.set_content(body)
+    msg['Subject'] = subject
+    msg['From'] = EMAIL_FROM
+    msg['To'] = EMAIL_TO
+
+    try:
+        if SMTP_USERNAME and SMTP_PASSWORD:
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.send_message(msg)
+        log("Email notification sent.")
+    except Exception as e:
+        log(f"Failed to send email: {e}")
+
 
 def get_matching_processes():
     try:
@@ -39,57 +97,31 @@ def is_exception(cmdline):
     return any(re.search(pattern, cmdline) for pattern in EXCEPTIONS)
 
 def is_video_transcode(cmdline):
-    """
-    Return (True, reason) if a video transcode or subtitle extraction should be killed.
-    """
-
-    # Allow any process that includes "-c:v:0 copy", "-codec:0 copy", or "-codec:0:1 copy"
     if re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+copy', cmdline):
         return False, None
-        
-    # jellyfin sometimes calls ffmpeg and tests its version
     if "-version" in cmdline:
-        return False, None  # Allow version checks
-
-    # jellyfin skip-intro plugin uses chromaprint for "audio fingerprinting"
+        return False, None
     if "chromaprint" in cmdline:
-        return True, "Audio fingerprinting (chromaprint) detected, bandwith-wasteful, blocking"       
-
-    # jellyfin chapter detection
+        return True, "Audio fingerprinting (chromaprint) detected, bandwidth-wasteful, blocking"
     if "blackframe" in cmdline:
-        return True, "Jellyfin chapter thumbnailling detected, bandwith-wasteful, blocking"       
-
-    # Check for audio-only transcodes (no video codec or video mapping)
+        return True, "Jellyfin chapter thumbnailling detected, bandwidth-wasteful, blocking"
     if not re.search(r'-(?:c:v|codec:0|map\s+0:v)', cmdline) and re.search(r'-(?:ac|ar|acodec)', cmdline):
-        return False, None  # Allow audio-only transcodes
-
-    # Find the video codec (specific to -c:v or -codec:0)
+        return False, None
     video_codec_match = re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+(\S+)', cmdline)
     video_codec = video_codec_match.group(1).lower() if video_codec_match else None
-
-    # Allow copying/remuxing
     if video_codec == "copy":
         return False, None
-
-    # Allow subtitle transcoding (e.g., to WebVTT or ASS format)
     if re.search(r'-(?:c:s|scodec)\s+(ass|webvtt)', cmdline):
         return False, None
-
-    # Allow audio transcoding to FLAC
     if video_codec == "flac":
         return False, None
-
-    # Check if VA-API is mentioned for hardware transcoding (only for video transcodes)
     if "vaapi" not in cmdline.lower() and re.search(r'-(?:c:v|codec:0)', cmdline) and video_codec != "copy":
         return True, "No VA-API involved, blocking software transcode"
-
-    # Detect input resolution (to block transcoding from 4K)
     input_match = re.search(r'-i\s+(\S+)', cmdline)
     if input_match:
         input_path = input_match.group(1)
         if re.search(r'4k|2160', input_path, re.IGNORECASE):
             return True, f"Transcoding from 4K source ({input_path}) is not allowed"
-
     return False, None
 
 def monitor():
@@ -97,14 +129,21 @@ def monitor():
         for pid, command, cmdline in get_matching_processes():
             should_kill, reason = is_video_transcode(cmdline)
             if should_kill and not is_exception(cmdline):
+
                 try:
                     os.kill(pid, signal.SIGKILL)
-                    log(f"KILLED PID {pid} ({command}) - {reason} - {cmdline}")
-                except ProcessLookupError:
-                    continue
-                except PermissionError:
-                    log(f"Permission denied trying to kill PID {pid}")
+                    log_line = f"KILLED PID {pid} ({command}) - {reason} - {cmdline}"
+                    log(log_line)
+
+                    # Extract input filename (basename only) from -i argument
+                    input_match = re.search(r'-i\s+["\']?([^"\']+)', cmdline)
+                    input_path = input_match.group(1) if input_match else "unknown"
+                    filename = os.path.basename(input_path)
+
+                    send_email(reason, pid, command, cmdline, filename)
+
         time.sleep(CHECK_INTERVAL)
+
 
 if __name__ == "__main__":
     monitor()
