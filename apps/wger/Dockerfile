@@ -16,7 +16,7 @@ RUN apk add --update --no-cache tmux ttyd git && \
 ##########
 # Builder
 ##########
-FROM ghcr.io/elfhosted/wger-base:latest AS builder
+FROM ghcr.io/elfhosted/wger-base:rolling AS builder
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
@@ -71,7 +71,7 @@ RUN yarn install \
 ########
 # Final
 ########
-FROM ghcr.io/elfhosted/wger-base:latest AS final
+FROM ghcr.io/elfhosted/wger-base:rolling AS final
 LABEL maintainer="Roland Geider <roland@geider.net>"
 ARG DOCKER_DIR="--from=cloner /source/extras/docker/production"
 ENV PATH="/home/wger/.local/bin:$PATH"
