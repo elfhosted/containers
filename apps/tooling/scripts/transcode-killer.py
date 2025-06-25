@@ -43,10 +43,6 @@ def is_video_transcode(cmdline):
     Return (True, reason) if a video transcode or subtitle extraction should be killed.
     """
 
-    # Kill if audio is being transcoded to libopus
-    if re.search(r'-codec:1\s+libopus', cmdline):
-        return True, "Audio is being transcoded to libopus, blocking"
-
     # Allow any process that includes "-c:v:0 copy", "-codec:0 copy", or "-codec:0:1 copy"
     if re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+copy', cmdline):
         return False, None
