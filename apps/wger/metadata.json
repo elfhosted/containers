@@ -1,5 +1,5 @@
 {
-  "app": "wests-blackhole-script",
+  "app": "wger",
   "base": false,
   "channels": [
     {
@@ -14,14 +14,14 @@
       }
     },
     {
-      "name": "dev",
+      "name": "base",
       "platforms": [
         "linux/amd64"
       ],
       "stable": false,
       "tests": {
         "enabled": false,
-        "type": "web"
+        "type": "cli"
       }
     }    
   ]
