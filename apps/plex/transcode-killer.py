@@ -5,6 +5,7 @@ import signal
 import re
 import subprocess
 import smtplib
+import shlex
 import sys
 import traceback
 from email.message import EmailMessage
@@ -29,17 +30,24 @@ EXCEPTIONS = [
 def log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_line = f"{timestamp} {message}\n"
-
-    # Write to log file
     with open(LOG_FILE, "a") as f:
         f.write(log_line)
-
-    # Also write to stdout
     print(log_line, end="", file=sys.stdout, flush=True)
 
+def process_is_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except Exception:
+        return True  # Assume alive unless proven otherwise
 
 def send_email(reason, pid, command, cmdline, filename):
-    subject = f"[ElfHosted] Transcode Blocked: {reason} ({filename})"
+    # Clean subject: reason + filename (truncated if needed)
+    short_reason = reason.split('.')[0]
+    short_filename = filename if len(filename) <= 60 else filename[:57] + "..."
+    subject = f"[ElfHosted] Transcode Blocked: {short_reason} ({short_filename})"
 
     body = f"""\
 Hi there,
@@ -59,7 +67,7 @@ We block certain types of software-based or non-optimized transcodes to keep the
 - 4K media being downscaled/transcoded
 - Processes used for thumbnailing or audio fingerprinting
 
-If this was unexpected or you believe it was blocked in error, feel free to reach out — we’re happy to help investigate or adjust the rules if needed.
+If this was unexpected or you believe it was blocked in error, feel free to reach out, at https://discord.elfhosted.com — we’re happy to help investigate or adjust the rules if needed.
 
 Thanks for helping keep the system healthy! 🌱
 
@@ -130,15 +138,6 @@ def is_video_transcode(cmdline):
             return True, f"Transcoding from 4K source ({input_path}) is not allowed"
     return False, None
 
-def process_is_alive(pid):
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except Exception:
-        return True  # Assume alive unless proven otherwise
-
 def monitor():
     while True:
         for pid, command, cmdline in get_matching_processes():
@@ -147,8 +146,7 @@ def monitor():
                 try:
                     os.kill(pid, signal.SIGTERM)
                     log(f"Sent SIGTERM to PID {pid} ({command}) - {reason}")
-
-                    time.sleep(5)
+                    time.sleep(2)
                     if process_is_alive(pid):
                         os.kill(pid, signal.SIGKILL)
                         log(f"SIGKILL fallback used on PID {pid} ({command})")
@@ -156,10 +154,18 @@ def monitor():
                     log_line = f"KILLED PID {pid} ({command}) - {reason} - {cmdline}"
                     log(log_line)
 
-                    # Extract input filename (basename only) from -i argument
-                    input_match = re.search(r'-i\s+["\']?([^"\']+)', cmdline)
-                    input_path = input_match.group(1) if input_match else "unknown"
-                    filename = os.path.basename(input_path)
+                    # Extract input filename using shlex
+                    try:
+                        args = shlex.split(cmdline)
+                        input_path = None
+                        for i, arg in enumerate(args):
+                            if arg == "-i" and i + 1 < len(args):
+                                input_path = args[i + 1]
+                                break
+                        filename = os.path.basename(input_path) if input_path else "unknown"
+                    except Exception as e:
+                        log(f"Failed to parse input filename: {e}")
+                        filename = "unknown"
 
                     send_email(reason, pid, command, cmdline, filename)
 
@@ -167,14 +173,11 @@ def monitor():
                     log(f"Permission denied trying to terminate PID {pid}")
                 except Exception as e:
                     log(f"Unexpected error handling PID {pid}: {e}")
-
         time.sleep(CHECK_INTERVAL)
-
 
 if __name__ == "__main__":
     try:
         monitor()
-    except Exception as e:
+    except Exception:
         log("Fatal error occurred:\n" + traceback.format_exc())
         sys.exit(1)
-
