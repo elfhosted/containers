@@ -5,13 +5,16 @@ import signal
 import re
 import subprocess
 import smtplib
-import shlex
 import sys
 import traceback
 from email.message import EmailMessage
 from datetime import datetime
+from collections import deque
 
-CHECK_INTERVAL = 90  # seconds
+BLOCKED_RECENTLY = deque()  # stores tuples: (timestamp, filename)
+BLOCK_RECHECK_WINDOW = 30   # seconds
+
+CHECK_INTERVAL = 30  # seconds
 LOG_FILE = "/config/Library/Application Support/Plex Media Server/Logs/transcode-killer.log"
 
 # SMTP configuration from environment variables
@@ -26,6 +29,14 @@ EMAIL_TO = os.environ.get("EMAIL_TO")  # Must be set
 EXCEPTIONS = [
     r"-codec:1\s+copy",  # audio is not being transcoded
 ]
+
+def was_recently_blocked(filename):
+    now = time.time()
+    # Remove old entries
+    while BLOCKED_RECENTLY and now - BLOCKED_RECENTLY[0][0] > BLOCK_RECHECK_WINDOW:
+        BLOCKED_RECENTLY.popleft()
+    # Check if filename was recently blocked
+    return any(f == filename for _, f in BLOCKED_RECENTLY)
 
 def log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -58,8 +69,8 @@ Here's what happened:
 
 • **File**: {filename}
 • **Why it was blocked**: {reason}
-• **Command**: {command}
 • **Full command line**:
+
 {cmdline}
 
 We block certain types of software-based or non-optimized transcodes to keep the system running smoothly for everyone. This includes:
@@ -131,7 +142,7 @@ def is_video_transcode(cmdline):
         return False, None
     if "vaapi" not in cmdline.lower() and re.search(r'-(?:c:v|codec:0)', cmdline) and video_codec != "copy":
         return True, "No VA-API involved, blocking software transcode"
-    input_match = re.search(r'-i\s+(\S+)', cmdline)
+    input_match = re.search(r'-i\s+((?:[^\s\-][^-\n]+?))(?=\s+-\w|\s*$)', cmdline)
     if input_match:
         input_path = input_match.group(1)
         if re.search(r'4k|2160', input_path, re.IGNORECASE):
@@ -141,6 +152,32 @@ def is_video_transcode(cmdline):
 def monitor():
     while True:
         for pid, command, cmdline in get_matching_processes():
+
+            # --- Extract filename BEFORE evaluation ---
+            input_path = "unknown"
+            filename = "unknown"
+            try:
+                input_match = re.search(r'-i\s+((?:[^\s\-][^-\n]+?))(?=\s+-\w|\s*$)', cmdline)
+                if input_match:
+                    input_path = input_match.group(1).strip()
+                    filename = os.path.basename(input_path)
+            except Exception as e:
+                log(f"Failed to extract filename from input: {e}")
+
+            # --- Block fallback attempts for same file ---
+            if was_recently_blocked(filename):
+                log(f"Blocking fallback transcode for previously killed file: {filename}")
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(2)
+                    if process_is_alive(pid):
+                        os.kill(pid, signal.SIGKILL)
+                        log(f"SIGKILL fallback used on retry PID {pid} ({command})")
+                except Exception as e:
+                    log(f"Failed to terminate retry PID {pid}: {e}")
+                continue
+
+            # --- Evaluate for new kill decision ---
             should_kill, reason = is_video_transcode(cmdline)
             if should_kill and not is_exception(cmdline):
                 try:
@@ -154,26 +191,17 @@ def monitor():
                     log_line = f"KILLED PID {pid} ({command}) - {reason} - {cmdline}"
                     log(log_line)
 
-                    # Extract input filename using shlex
-                    try:
-                        args = shlex.split(cmdline)
-                        input_path = None
-                        for i, arg in enumerate(args):
-                            if arg == "-i" and i + 1 < len(args):
-                                input_path = args[i + 1]
-                                break
-                        filename = os.path.basename(input_path) if input_path else "unknown"
-                    except Exception as e:
-                        log(f"Failed to parse input filename: {e}")
-                        filename = "unknown"
-
                     send_email(reason, pid, command, cmdline, filename)
+                    BLOCKED_RECENTLY.append((time.time(), filename))
 
                 except PermissionError:
                     log(f"Permission denied trying to terminate PID {pid}")
                 except Exception as e:
                     log(f"Unexpected error handling PID {pid}: {e}")
+
         time.sleep(CHECK_INTERVAL)
+
+
 
 if __name__ == "__main__":
     try:
