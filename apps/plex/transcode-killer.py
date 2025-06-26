@@ -55,11 +55,14 @@ def process_is_alive(pid):
         return True  # Assume alive unless proven otherwise
 
 def send_email(reason, pid, command, cmdline, filename):
+    # Ensure we only use the file's basename (no directory path)
+    filename = os.path.basename(filename)
+
     # Clean subject: reason + filename (truncated if needed)
     short_reason = reason.split('.')[0]
     short_filename = filename if len(filename) <= 60 else filename[:57] + "..."
     subject = f"[ElfHosted] Transcode Blocked: {short_reason} ({short_filename})"
-
+    
     body = f"""\
 Hi there,
 
@@ -129,9 +132,9 @@ def is_video_transcode(cmdline):
     if "-version" in cmdline:
         return False, None
     if "chromaprint" in cmdline:
-        return True, "Audio fingerprinting (chromaprint) detected, bandwidth-wasteful, blocking"
+        return True, "Audio fingerprinting (chromaprint) detected. Bandwidth-wasteful, blocking"
     if "blackframe" in cmdline:
-        return True, "Jellyfin chapter thumbnailling detected, bandwidth-wasteful, blocking"
+        return True, "Jellyfin chapter thumbnailling detected. Bandwidth-wasteful, blocking"
     if not re.search(r'-(?:c:v|codec:0|map\s+0:v)', cmdline) and re.search(r'-(?:ac|ar|acodec)', cmdline):
         return False, None
     video_codec_match = re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+(\S+)', cmdline)
@@ -149,7 +152,7 @@ def is_video_transcode(cmdline):
         input_path = input_match.group(1).strip()
         filename = os.path.basename(input_path)
         if re.search(r'4k|2160', input_path, re.IGNORECASE):
-            return True, f"Transcoding from 4K source ({input_path}) is not supported"
+            return True, f"Transcoding from 4K source is not supported. ({input_path})"
     return False, None
 
 def monitor():
