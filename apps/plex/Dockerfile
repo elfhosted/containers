@@ -84,6 +84,14 @@ RUN chown -R elfie:elfie /run
 
 COPY --chown=568:568 apps/plex/root /
 
+# install dependencies for vaapi
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        intel-media-va-driver-non-free \
+        vainfo \
+        i965-va-driver-shaders \
+    && rm -rf /var/lib/apt/lists/*
+
 USER 568
 COPY ./apps/plex/plex-preferences.sh /scripts/plex-preferences.sh
 COPY ./apps/plex/entrypoint.sh /entrypoint.sh
