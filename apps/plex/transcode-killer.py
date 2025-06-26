@@ -123,13 +123,29 @@ def is_video_transcode(cmdline):
             return True, f"Transcoding from 4K source ({input_path}) is not allowed"
     return False, None
 
+def process_is_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except Exception:
+        return True  # Assume alive unless proven otherwise
+
 def monitor():
     while True:
         for pid, command, cmdline in get_matching_processes():
             should_kill, reason = is_video_transcode(cmdline)
             if should_kill and not is_exception(cmdline):
                 try:
-                    os.kill(pid, signal.SIGKILL)
+                    os.kill(pid, signal.SIGTERM)
+                    log(f"Sent SIGTERM to PID {pid} ({command}) - {reason}")
+
+                    time.sleep(5)
+                    if process_is_alive(pid):
+                        os.kill(pid, signal.SIGKILL)
+                        log(f"SIGKILL fallback used on PID {pid} ({command})")
+
                     log_line = f"KILLED PID {pid} ({command}) - {reason} - {cmdline}"
                     log(log_line)
 
@@ -139,12 +155,14 @@ def monitor():
                     filename = os.path.basename(input_path)
 
                     send_email(reason, pid, command, cmdline, filename)
-                except ProcessLookupError:
-                    continue
+
                 except PermissionError:
-                    log(f"Permission denied trying to kill PID {pid}")
+                    log(f"Permission denied trying to terminate PID {pid}")
+                except Exception as e:
+                    log(f"Unexpected error handling PID {pid}: {e}")
 
         time.sleep(CHECK_INTERVAL)
+
 
 if __name__ == "__main__":
     monitor()
