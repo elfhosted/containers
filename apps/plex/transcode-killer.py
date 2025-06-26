@@ -70,20 +70,23 @@ Just a quick heads-up — a transcoding process on your media server was automat
 
 Here's what happened:
 
-• **File**: {filename}
-• **Why it was blocked**: {reason}
-• **Full command line**:
-
-{cmdline}
+• File: {filename}
+• Why it was blocked: {reason}
 
 We block certain types of software-based or non-optimized transcodes to keep the system running smoothly for everyone. This includes:
 - Transcodes without hardware acceleration (e.g., VA-API)
 - 4K media being downscaled/transcoded
 - Processes used for thumbnailing or audio fingerprinting
 
-If this was unexpected or you believe it was blocked in error, feel free to reach out, at https://discord.elfhosted.com — we’re happy to help investigate or adjust the rules if needed.
+If this was unexpected or you believe it was blocked in error, feel free to reach out, at https://discord.elfhosted.com — we’re happy to help investigate or adjust if needed.
 
 Thanks for helping keep the system healthy! 🌱
+
+Here's the full process information:
+
+---
+{cmdline}
+---
 
 - ElfHosted
 """
