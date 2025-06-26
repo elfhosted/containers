@@ -89,10 +89,10 @@ Thanks for helping keep the system healthy! 🌱
     msg.set_content(body)
     msg['Subject'] = subject
     msg['From'] = EMAIL_FROM
-    msg['To'] = EMAIL_TO
-    
+
     try:
         log(f"Sending email to {EMAIL_TO}")
+        msg['To'] = EMAIL_TO.strip()
         if SMTP_USERNAME and SMTP_PASSWORD:
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
                 server.starttls()
@@ -193,9 +193,8 @@ def monitor():
 
                     log_line = f"KILLED PID {pid} ({command}) - {reason} - {cmdline}"
                     log(log_line)
-
-                    send_email(reason, pid, command, cmdline, filename)
                     BLOCKED_RECENTLY.append((time.time(), filename))
+                    send_email(reason, pid, command, cmdline, filename)
 
                 except PermissionError:
                     log(f"Permission denied trying to terminate PID {pid}")
