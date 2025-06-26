@@ -8,7 +8,7 @@ import smtplib
 from email.message import EmailMessage
 from datetime import datetime
 
-CHECK_INTERVAL = 5  # seconds
+CHECK_INTERVAL = 90  # seconds
 LOG_FILE = "/var/log/transcode-killer.log"
 
 # SMTP configuration from environment variables
@@ -78,7 +78,6 @@ Thanks for helping keep the system healthy! 🌱
     except Exception as e:
         log(f"Failed to send email: {e}")
 
-
 def get_matching_processes():
     try:
         result = subprocess.run(["ps", "axo", "pid=,comm=,args="], capture_output=True, text=True, check=True)
@@ -129,7 +128,6 @@ def monitor():
         for pid, command, cmdline in get_matching_processes():
             should_kill, reason = is_video_transcode(cmdline)
             if should_kill and not is_exception(cmdline):
-
                 try:
                     os.kill(pid, signal.SIGKILL)
                     log_line = f"KILLED PID {pid} ({command}) - {reason} - {cmdline}"
@@ -141,9 +139,12 @@ def monitor():
                     filename = os.path.basename(input_path)
 
                     send_email(reason, pid, command, cmdline, filename)
+                except ProcessLookupError:
+                    continue
+                except PermissionError:
+                    log(f"Permission denied trying to kill PID {pid}")
 
         time.sleep(CHECK_INTERVAL)
-
 
 if __name__ == "__main__":
     monitor()
