@@ -9,7 +9,7 @@ from email.message import EmailMessage
 from datetime import datetime
 
 CHECK_INTERVAL = 90  # seconds
-LOG_FILE = "/var/log/transcode-killer.log"
+LOG_FILE = "/config/Library/Application Support/Plex Media Server/Logs/transcode-killer.log"
 
 # SMTP configuration from environment variables
 SMTP_HOST = os.environ.get("SMTP_HOST", "localhost")
