@@ -1,2 +1,2 @@
 #!/command/with-contenv bash
-/transcode-killer.py
+python3 /transcode-killer.py
