@@ -14,7 +14,7 @@ from collections import deque
 BLOCKED_RECENTLY = deque()  # stores tuples: (timestamp, filename)
 BLOCK_RECHECK_WINDOW = 30   # seconds
 
-CHECK_INTERVAL = 30  # seconds
+CHECK_INTERVAL = 15  # seconds
 LOG_FILE = "/config/Library/Application Support/Plex Media Server/Logs/transcode-killer.log"
 
 # SMTP configuration from environment variables
@@ -90,8 +90,10 @@ Thanks for helping keep the system healthy! 🌱
     msg['Subject'] = subject
     msg['From'] = EMAIL_FROM
     msg['To'] = EMAIL_TO
+    msg['To'] = EMAIL_TO
 
     try:
+        log(f"Sending email to {EMAIL_TO}")
         if SMTP_USERNAME and SMTP_PASSWORD:
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
                 server.starttls()
@@ -101,6 +103,7 @@ Thanks for helping keep the system healthy! 🌱
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
                 server.send_message(msg)
         log("Email notification sent.")
+
     except Exception as e:
         log(f"Failed to send email: {e}")
 
@@ -142,11 +145,12 @@ def is_video_transcode(cmdline):
         return False, None
     if "vaapi" not in cmdline.lower() and re.search(r'-(?:c:v|codec:0)', cmdline) and video_codec != "copy":
         return True, "No VA-API involved, blocking software transcode"
-    input_match = re.search(r'-i\s+((?:[^\s\-][^-\n]+?))(?=\s+-\w|\s*$)', cmdline)
+    input_match = re.search(r'-i\s+(.+?\.(mkv|mp4|avi|ts|mov))', cmdline, re.IGNORECASE)
     if input_match:
-        input_path = input_match.group(1)
+        input_path = input_match.group(1).strip()
+        filename = os.path.basename(input_path)
         if re.search(r'4k|2160', input_path, re.IGNORECASE):
-            return True, f"Transcoding from 4K source ({input_path}) is not allowed"
+            return True, f"Transcoding from 4K source ({input_path}) is not supported"
     return False, None
 
 def monitor():
@@ -157,7 +161,7 @@ def monitor():
             input_path = "unknown"
             filename = "unknown"
             try:
-                input_match = re.search(r'-i\s+((?:[^\s\-][^-\n]+?))(?=\s+-\w|\s*$)', cmdline)
+                input_match = re.search(r'-i\s+(.+?\.(mkv|mp4|avi|ts|mov))', cmdline, re.IGNORECASE)
                 if input_match:
                     input_path = input_match.group(1).strip()
                     filename = os.path.basename(input_path)
