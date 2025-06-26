@@ -90,8 +90,7 @@ Thanks for helping keep the system healthy! 🌱
     msg['Subject'] = subject
     msg['From'] = EMAIL_FROM
     msg['To'] = EMAIL_TO
-    msg['To'] = EMAIL_TO
-
+    
     try:
         log(f"Sending email to {EMAIL_TO}")
         if SMTP_USERNAME and SMTP_PASSWORD:
