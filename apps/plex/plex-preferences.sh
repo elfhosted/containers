@@ -38,25 +38,6 @@ if [ ! -e "${prefFile}" ]; then
 EOF
 fi
 
-# If preferences file is non-empty, then create a backup
-if [ $(grep xml "${prefFile}") ]; then
-  cp "${prefFile}" "${prefFile}-backup"
-fi
-
-# If the preferences file is corrupt, and we have a backup, then restore it
-if [ ! $(grep xml "${prefFile}") ]; then
-  if [ -s "${prefFile}-backup" ]; then
-    echo "${prefFile} was empty, restoring with copy from ${prefFile}-backup..."
-    cp "${prefFile}-backup" "${prefFile}"
-  else
-  echo "${prefFile} is empty and we have no backup, so creating a new one..."
-  mkdir -p "$(dirname "${prefFile}")"
-  cat > "${prefFile}" <<-EOF
-<?xml version="1.0" encoding="utf-8"?>
-<Preferences/>
-EOF
-fi
-fi
 
 # Setup Server's client identifier
 serial="$(getPref "MachineIdentifier")"
