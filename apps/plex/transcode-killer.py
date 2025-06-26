@@ -5,6 +5,8 @@ import signal
 import re
 import subprocess
 import smtplib
+import sys
+import traceback
 from email.message import EmailMessage
 from datetime import datetime
 
@@ -27,9 +29,14 @@ EXCEPTIONS = [
 def log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_line = f"{timestamp} {message}\n"
+
+    # Write to log file
     with open(LOG_FILE, "a") as f:
         f.write(log_line)
-    print(log_line, end="")
+
+    # Also write to stdout
+    print(log_line, end="", file=sys.stdout, flush=True)
+
 
 def send_email(reason, pid, command, cmdline, filename):
     subject = f"[ElfHosted] Transcode Blocked: {reason} ({filename})"
@@ -165,4 +172,9 @@ def monitor():
 
 
 if __name__ == "__main__":
-    monitor()
+    try:
+        monitor()
+    except Exception as e:
+        log("Fatal error occurred:\n" + traceback.format_exc())
+        sys.exit(1)
+
