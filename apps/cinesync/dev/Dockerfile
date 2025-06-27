@@ -73,6 +73,7 @@ ENV PGID=568
 RUN groupadd -g ${PGID} appuser && \
     useradd -u ${PUID} -g appuser -d /app -s /bin/bash appuser
 
+
 # Copy application files
 COPY --from=cloner /source/MediaHub /app/MediaHub
 COPY --from=builder /app/WebDavHub /app/WebDavHub
@@ -83,6 +84,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set working directory
 WORKDIR /app
+
+RUN chown -R appuser:appuser /app
 
 # We don't use an entrypoint becasue we force the UID
 
