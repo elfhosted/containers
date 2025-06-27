@@ -66,8 +66,8 @@ COPY --from=cloner /source/requirements.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
 # Set default PUID and PGID
-ENV PUID=1000
-ENV PGID=1000
+ENV PUID=568
+ENV PGID=568
 
 # Create default user and group
 RUN groupadd -g ${PGID} appuser && \
@@ -84,5 +84,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Set working directory
 WORKDIR /app
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# We don't use an entrypoint becasue we force the UID
+
+# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["python3", "WebDavHub/scripts/start-prod.py"]
