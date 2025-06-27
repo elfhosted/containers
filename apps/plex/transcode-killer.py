@@ -132,6 +132,20 @@ def is_exception(cmdline):
 def is_video_transcode(cmdline):
     if re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+copy', cmdline):
         return False, None
+    # --- SAFE WHITELIST RULES ---
+
+    # 1. Metadata paths: themes, agents, trailers, etc.
+    if re.search(r'/Metadata/.*(theme|agent|trailers?|extras?)', cmdline, re.IGNORECASE):
+        return False, "Allowed: Plex metadata (theme/agent/trailer)"
+    # 2. Audio-only input (no -map 0:v or video codecs)
+    if not re.search(r'-map\s+0:v', cmdline) and re.search(r'-codec:\d+\s+(aac|mp3|flac|opus)', cmdline):
+        return False, "Allowed: audio-only transcode to common codec"
+    # 3. Specific known audio-only transforms
+    if re.search(r'-codec:\d+\s+mp3.*-codec:\d+\s+aac', cmdline):
+        return False, "Allowed: mp3→aac audio transcode"
+    # 4. Output to ssegment or manifest — often metadata audio
+    if "segment_list" in cmdline and not re.search(r'-map\s+0:v', cmdline):
+        return False, "Allowed: audio DASH segment for metadata"
     if "-version" in cmdline:
         return False, None
     if "chromaprint" in cmdline:
