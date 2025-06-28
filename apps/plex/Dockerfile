@@ -99,7 +99,7 @@ COPY ./apps/plex/transcode-killer.py /transcode-killer.py
 
 # Prepare fake analysis script
 RUN mv "/usr/lib/plexmediaserver/Plex Media Scanner" "/usr/lib/plexmediaserver/Plex Media Scanner.real"
-COPY ./apps/plex/apps/plex/fake-scanner.sh /usr/lib/plexmediaserver/
+COPY ./apps/plex/fake-scanner.sh /usr/lib/plexmediaserver/
 RUN mv /usr/lib/plexmediaserver/fake-scanner.sh "/usr/lib/plexmediaserver/Plex Media Scanner" && \
     chmod +x /usr/lib/plexmediaserver/Plex\ Media\ Scanner
 
