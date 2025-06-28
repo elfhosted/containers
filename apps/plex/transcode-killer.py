@@ -164,11 +164,11 @@ def is_video_transcode(cmdline):
         return False, None
     if "vaapi" not in cmdline.lower() and re.search(r'-(?:c:v|codec:0)', cmdline) and video_codec != "copy":
         return True, "No VA-API involved, blocking software transcode"
-    input_match = re.search(r'-i\s+(.+?\.(mkv|mp4|avi|ts|mov))', cmdline, re.IGNORECASE)
+    input_match = re.search(r'-i\s+["\']?(.+?\.(?:mkv|mp4|avi|ts|mov))["\']?', cmdline, re.IGNORECASE)
     if input_match:
         input_path = input_match.group(1).strip()
         filename = os.path.basename(input_path)
-        if re.search(r'4k|2160', input_path, re.IGNORECASE):
+        if re.search(r'4k|2160|hevc', input_path, re.IGNORECASE):
             return True, f"Transcoding from 4K source is not supported. ({input_path})"
     return False, None
 
@@ -180,7 +180,7 @@ def monitor():
             input_path = "unknown"
             filename = "unknown"
             try:
-                input_match = re.search(r'-i\s+(.+?\.(mkv|mp4|avi|ts|mov))', cmdline, re.IGNORECASE)
+                input_match = re.search(r'-i\s+["\']?(.+?\.(?:mkv|mp4|avi|ts|mov))["\']?', cmdline, re.IGNORECASE)
                 if input_match:
                     input_path = input_match.group(1).strip()
                     filename = os.path.basename(input_path)
