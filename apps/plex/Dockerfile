@@ -97,4 +97,9 @@ COPY ./apps/plex/plex-preferences.sh /scripts/plex-preferences.sh
 COPY ./apps/plex/entrypoint.sh /entrypoint.sh
 COPY ./apps/plex/transcode-killer.py /transcode-killer.py
 
+# Prepare fake analysis script
+RUN mv "/usr/lib/plexmediaserver/Plex Media Scanner" "/usr/lib/plexmediaserver/Plex Media Scanner.real"
+COPY ./apps/plex/apps/plex/fake-scanner.sh "/usr/lib/plexmediaserver/Plex Media Scanner"
+RUN chmod +x /usr/lib/plexmediaserver/Plex\ Media\ Scanner
+
 ENTRYPOINT [ "/init" ]
