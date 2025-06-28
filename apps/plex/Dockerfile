@@ -92,15 +92,16 @@ RUN apt-get update \
         i965-va-driver-shaders \
     && rm -rf /var/lib/apt/lists/*
 
-USER 568
-COPY ./apps/plex/plex-preferences.sh /scripts/plex-preferences.sh
-COPY ./apps/plex/entrypoint.sh /entrypoint.sh
-COPY ./apps/plex/transcode-killer.py /transcode-killer.py
-
 # Prepare fake analysis script
 RUN mv "/usr/lib/plexmediaserver/Plex Media Scanner" "/usr/lib/plexmediaserver/Plex Media Scanner.real"
 COPY ./apps/plex/fake-scanner.sh /usr/lib/plexmediaserver/
 RUN mv /usr/lib/plexmediaserver/fake-scanner.sh "/usr/lib/plexmediaserver/Plex Media Scanner" && \
     chmod +x /usr/lib/plexmediaserver/Plex\ Media\ Scanner
+    
+USER 568
+COPY ./apps/plex/plex-preferences.sh /scripts/plex-preferences.sh
+COPY ./apps/plex/entrypoint.sh /entrypoint.sh
+COPY ./apps/plex/transcode-killer.py /transcode-killer.py
+
 
 ENTRYPOINT [ "/init" ]
