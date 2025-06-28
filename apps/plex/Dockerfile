@@ -46,6 +46,7 @@ RUN \
         xmlstarlet \
         ca-certificates \
         pulseaudio \
+        sqlite3 \
         ${EXTRA_INSTALL_ARG} \
     && \
     echo "Using curl or wget to download the plex debian package result in a qemu failure, why? I dunno" \
@@ -97,7 +98,7 @@ RUN mv "/usr/lib/plexmediaserver/Plex Media Scanner" "/usr/lib/plexmediaserver/P
 COPY ./apps/plex/fake-scanner.sh /usr/lib/plexmediaserver/
 RUN mv /usr/lib/plexmediaserver/fake-scanner.sh "/usr/lib/plexmediaserver/Plex Media Scanner" && \
     chmod +x /usr/lib/plexmediaserver/Plex\ Media\ Scanner
-    
+
 USER 568
 COPY ./apps/plex/plex-preferences.sh /scripts/plex-preferences.sh
 COPY ./apps/plex/entrypoint.sh /entrypoint.sh
