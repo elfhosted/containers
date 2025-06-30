@@ -8,7 +8,8 @@ RUN apk update && apk upgrade && \
 # RUN git clone -b CineSync-$VERSION  https://github.com/sureshfizzy/CineSync.git /source
 
 # temporary fix
-RUN git clone -b feature  https://github.com/sureshfizzy/CineSync.git /source
+RUN git clone -b feature  https://github.com/sureshfizzy/CineSync.git /source && \
+    rm source/.env
 
 # ---- STAGE 1: Build WebDavHub ----
 FROM python:3.11-slim AS builder
