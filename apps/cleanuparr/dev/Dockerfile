@@ -13,7 +13,7 @@ FROM --platform=$BUILDPLATFORM node:18-alpine AS frontend-build
 WORKDIR /app
 
 # Copy package files first for better layer caching
-COPY frontend/package*.json ./
+COPY --from=cloner /source/frontend/package*.json ./
 RUN npm ci && npm install -g @angular/cli
 
 # Copy source code
