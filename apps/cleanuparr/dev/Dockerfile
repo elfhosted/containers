@@ -13,11 +13,11 @@ FROM --platform=$BUILDPLATFORM node:18-alpine AS frontend-build
 WORKDIR /app
 
 # Copy package files first for better layer caching
-COPY --from=cloner /source/frontend/package*.json ./
+COPY --from=cloner /source/code/frontend/package*.json ./
 RUN npm ci && npm install -g @angular/cli
 
 # Copy source code
-COPY --from=cloner /source/frontend/ .
+COPY --from=cloner /source/code/frontend/ .
 
 # Build with appropriate base-href and deploy-url
 RUN npm run build
@@ -36,10 +36,10 @@ EXPOSE 11011
 # COPY backend/*/*.csproj ./backend/*/
 
 # Copy source code
-COPY --from=cloner /source/backend/ ./backend/
+COPY --from=cloner /source/code/backend/. ./backend/
 
 # Restore dependencies
-RUN dotnet nuget add source --username ${PACKAGES_USERNAME} --password ${PACKAGES_PAT} --store-password-in-clear-text --name Cleanuparr https://nuget.pkg.github.com/Cleanuparr/index.json
+RUN dotnet nuget add source --username spanky-the-elfbot --password ${ZURG_GH_CREDS} --store-password-in-clear-text --name Cleanuparr https://nuget.pkg.github.com/Cleanuparr/index.json
 
 # Build and publish
 RUN dotnet publish ./backend/Cleanuparr.Api/Cleanuparr.Api.csproj \
