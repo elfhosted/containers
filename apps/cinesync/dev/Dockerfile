@@ -75,9 +75,9 @@ RUN groupadd -g ${PGID} appuser && \
 COPY --from=cloner /source/MediaHub /app/MediaHub
 COPY --from=builder /app/WebDavHub /app/WebDavHub
 
-# Add the entrypoint script
-COPY --from=cloner /source/entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# # Add the entrypoint script
+# COPY --from=cloner /source/entrypoint.sh /usr/local/bin/
+# RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set working directory
 WORKDIR /app
