@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-# RUN git clone -b CineSync-$VERSION  https://github.com/sureshfizzy/CineSync.git /source
+RUN git clone -b CineSync-$VERSION  https://github.com/sureshfizzy/CineSync.git /source
 
 # ---- STAGE 1: Build WebDavHub ----
 FROM python:3.11-slim AS builder
@@ -73,11 +73,11 @@ RUN groupadd -g ${PGID} appuser && \
 
 # Copy application files
 COPY --from=cloner /source/MediaHub /app/MediaHub
-# COPY --from=builder /app/WebDavHub /app/WebDavHub
+COPY --from=builder /app/WebDavHub /app/WebDavHub
 
-# # Add the entrypoint script
-# COPY --from=cloner /source/entrypoint.sh /usr/local/bin/
-# RUN chmod +x /usr/local/bin/entrypoint.sh
+# Add the entrypoint script
+COPY --from=cloner /source/entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set working directory
 WORKDIR /app
