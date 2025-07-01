@@ -73,7 +73,7 @@ RUN groupadd -g ${PGID} appuser && \
 
 # Copy application files
 COPY --from=cloner /source/MediaHub /app/MediaHub
-COPY --from=builder /app/WebDavHub /app/WebDavHub
+# COPY --from=builder /app/WebDavHub /app/WebDavHub
 
 # # Add the entrypoint script
 # COPY --from=cloner /source/entrypoint.sh /usr/local/bin/
