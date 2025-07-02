@@ -19,7 +19,6 @@ COPY --from=cloner /source/package*.json ./
 COPY --from=cloner /source/src ./src
 COPY --from=cloner /source/vite.config.js ./
 COPY --from=cloner /source/tsconfig.json ./
-COPY --from=cloner /source/tailwind.config.ts ./
 COPY --from=cloner /source/postcss.config.mjs ./
 
 # Install dependencies
