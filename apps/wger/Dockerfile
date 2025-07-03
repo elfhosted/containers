@@ -13,7 +13,7 @@ RUN groupadd -g ${PGID} elfie && \
     chown elfie:elfie /home/wger -R
 
 # Prepare for symlinks for static assets
-RUN mkdir /config/static && \
+RUN mkdir -p /config/static && \
     mkdir /config/media && \
     rm /home/wger/static && \
     rm /home/wger/media && \
