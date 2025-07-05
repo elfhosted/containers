@@ -9,8 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone  https://github.com/godver3/phalanx_db_hyperswarm.git /source
 
-## Upstream Dockerfile
-FROM node:18-slim
+FROM node:22
 
 WORKDIR /app
 
@@ -21,8 +20,7 @@ COPY --from=cloner /source/package*.json ./
 RUN npm install
 
 # Copy source files
-COPY --from=cloner /source/phalanx_db.js ./
-COPY --from=cloner /source/phalanx_db_rest.js ./
+COPY --from=cloner /source/*.js ./
 
 # Create storage directories
 RUN mkdir -p /app/p2p-db-storage /app/db_data
@@ -37,4 +35,4 @@ VOLUME ["/app/p2p-db-storage", "/app/db_data"]
 COPY .env* ./
 
 # Start the server
-CMD ["node", "phalanx_db_rest.js"] 
+CMD ["npm", "run", "start:v4"] 
