@@ -40,6 +40,7 @@ envsubst < /app/config.xml.tmpl > /config/config.xml
 [[ -z "${RADARR__POSTGRES_PASSWORD}" && -n "${current_postgres_password}" ]] && xmlstarlet edit --inplace --update //PostgresPassword -v "${current_postgres_password}" /config/config.xml
 [[ -z "${RADARR__POSTGRES_PORT}" && -n "${current_postgres_port}" ]] && xmlstarlet edit --inplace --update //PostgresPort -v "${current_postgres_port}" /config/config.xml
 [[ -z "${RADARR__POSTGRES_USER}" && -n "${current_postgres_user}" ]] && xmlstarlet edit --inplace --update //PostgresUser -v "${current_postgres_user}" /config/config.xml
+[[ -z "${RADARR__POSTGRES_HOST}" && -n "${current_postgres_host}" ]] && xmlstarlet edit --inplace --update //PostgresHost -v "${current_postgres_host}" /config/config.xml
 
 # Set the host to nothing for now
 xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
@@ -50,7 +51,7 @@ xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
 if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
     # Update the host if we're using postgres
-    xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
+    xmlstarlet edit --inplace --update //PostgresHost -v "${RADARR__POSTGRES_HOST}" /config/config.xml
 
     # Function to check PostgreSQL connection
     function pg_is_ready() {
