@@ -37,6 +37,19 @@ if [[ -z "$FILE_PATH" || ! -f "$FILE_PATH" ]]; then
   exec "$REAL_SCANNER" "${ARGS[@]}"
 fi
 
+# Check for newer files in the same directory
+FILE_DIR=$(dirname "$FILE_PATH")
+FILE_MOD_TIME=$(stat -c %Y "$FILE_PATH")
+
+# Get newest modification time among all files in the folder
+DIR_NEWEST_MOD=$(find "$FILE_DIR" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+
+if [[ -n "$DIR_NEWEST_MOD" && "$DIR_NEWEST_MOD" -gt "$FILE_MOD_TIME" ]]; then
+  echo "$(date) - [$ITEM_ID] New file(s) detected in '$FILE_DIR' (folder mod time: $DIR_NEWEST_MOD > file mod time: $FILE_MOD_TIME). Re-analyzing." | tee -a "$LOGFILE"
+  exec "$REAL_SCANNER" "${ARGS[@]}"
+fi
+
+# Check if already analyzed
 ANALYZED_STREAMS=$(sqlite3 "$DB_PATH" "
   SELECT COUNT(*)
   FROM media_streams
