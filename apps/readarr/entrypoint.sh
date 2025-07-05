@@ -54,7 +54,7 @@ xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
 if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
     # Update the host if we're using postgres
-    xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
+    xmlstarlet edit --inplace --update //PostgresHost -v "${READARR__POSTGRES_HOST}" /config/config.xml
 
     # Function to check PostgreSQL connection
     function pg_is_ready() {
