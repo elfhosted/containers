@@ -84,6 +84,9 @@ WORKDIR /app
 
 RUN chown -R appuser:appuser /app
 
+# Copy locked settings
+COPY apps/cinesync/locked_settings.json /app/MediaHub/utils/client_locked_settings.json
+
 # We don't use an entrypoint becasue we force the UID
 
 # ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

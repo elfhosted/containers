@@ -1,0 +1,12 @@
+{
+  "locked_settings": {
+    "MAX_CORES": {
+      "locked": true,
+      "value": 1
+    },
+    "MAX_PROCESSES": {
+      "locked": true,
+      "value": 15
+    }
+  }
+}
