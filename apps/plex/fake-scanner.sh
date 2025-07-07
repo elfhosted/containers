@@ -24,7 +24,31 @@ if [[ -z "$ITEM_ID" ]]; then
   exec "$REAL_SCANNER" "${ARGS[@]}"
 fi
 
-FILE_PATH=$(sqlite3 "$DB_PATH" "
+# Retry-safe SQLite wrapper
+retry_sqlite() {
+  local db="$1"
+  local sql="$2"
+  local retries=5
+  local delay=0.5
+  local attempt=0
+  local result=""
+
+  while [[ $attempt -lt $retries ]]; do
+    result=$(sqlite3 "$db" "$sql" 2>/tmp/sqlite-error.log) && break
+    if grep -q "database is locked" /tmp/sqlite-error.log; then
+      sleep "$delay"
+      attempt=$((attempt + 1))
+    else
+      cat /tmp/sqlite-error.log >&2
+      break
+    fi
+  done
+
+  echo "$result"
+}
+
+# Get file path from DB
+FILE_PATH=$(retry_sqlite "$DB_PATH" "
   SELECT mp.file
   FROM media_parts mp
   JOIN media_items mi ON mi.id = mp.media_item_id
@@ -37,6 +61,8 @@ if [[ -z "$FILE_PATH" || ! -f "$FILE_PATH" ]]; then
   exec "$REAL_SCANNER" "${ARGS[@]}"
 fi
 
+# Check for newer files in the same folder
+FILE_DIR=$(dirname "$FILE_PATH")
 FILE_MOD_TIME=$(stat -c %Y "$FILE_PATH")
 DIR_NEWEST_MOD=$(find "$FILE_DIR" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)
 
@@ -46,7 +72,7 @@ if [[ -n "$DIR_NEWEST_MOD" && "$DIR_NEWEST_MOD" -gt "$FILE_MOD_TIME" ]]; then
 fi
 
 # Check if already analyzed
-ANALYZED_STREAMS=$(sqlite3 "$DB_PATH" "
+ANALYZED_STREAMS=$(retry_sqlite "$DB_PATH" "
   SELECT COUNT(*)
   FROM media_streams
   WHERE bitrate IS NOT NULL
