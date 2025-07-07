@@ -15,9 +15,9 @@ FROM node:23.6.0-alpine AS builder
 WORKDIR /app
 
 # Copy build essentials
-COPY package*.json ./
-COPY src ./src
-COPY tsconfig.json ./
+COPY --from=cloner /source/package*.json ./
+COPY --from=cloner /source/src ./src
+COPY --from=cloner /source/tsconfig.json ./
 
 # Install dependencies
 RUN npm ci
