@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone  -b $CHANNEL https://github.com/anmol210202/rating-aggregator-.git /source
+RUN git clone https://github.com/anmol210202/rating-aggregator-.git /source
 
 # Use official Python image as the base
 FROM python:3.11-slim
