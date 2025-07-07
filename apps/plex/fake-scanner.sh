@@ -64,7 +64,9 @@ fi
 # Check for newer files in the same folder
 FILE_DIR=$(dirname "$FILE_PATH")
 FILE_MOD_TIME=$(stat -c %Y "$FILE_PATH")
-DIR_NEWEST_MOD=$(find "$FILE_DIR" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)
+DIR_NEWEST_MOD=$(find "$FILE_DIR" -type f \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" -o -iname "*.mov" \) \
+  -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)
+
 
 if [[ -n "$DIR_NEWEST_MOD" && "$DIR_NEWEST_MOD" -gt "$FILE_MOD_TIME" ]]; then
   echo "$(date) - [$ITEM_ID] New file(s) detected in '$FILE_DIR'. Re-analyzing." | tee -a "$LOGFILE"
