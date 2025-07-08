@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/anmol210202/rating-aggregator-.git /source
+RUN git clone -b $VERSION https://github.com/anmol210202/rating-aggregator-.git /source
 
 # --- frontend builder ---
 FROM node:18-alpine AS frontend-builder
