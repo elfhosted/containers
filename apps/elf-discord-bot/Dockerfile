@@ -19,6 +19,10 @@ COPY --from=cloner /source/package*.json ./
 COPY --from=cloner /source/src ./src
 COPY --from=cloner /source/tsconfig.json ./
 
+
+ARG ZURG_GH_CREDS
+RUN apk add git && git clone https://$ZURG_GH_CREDS@github.com/jamcalli/elf-discord-bot.git /source
+
 # Install dependencies
 RUN npm ci
 
@@ -42,14 +46,11 @@ RUN mkdir -p /app/data/db && \
 
 # Copy build artifacts and migrations
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src ./src
 COPY --from=cloner /source/migrations ./migrations
 COPY --from=cloner /source/docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh && \
     chown -R nodejs:nodejs /app
-
-ARG ZURG_GH_CREDS
-RUN apk add git && git clone https://$ZURG_GH_CREDS@github.com/jamcalli/elf-discord-bot.git /source
-
 # Switch to non-root user
 USER nodejs
 
