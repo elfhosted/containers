@@ -12,9 +12,6 @@ RUN git clone -b $VERSION https://github.com/anmol210202/rating-aggregator-.git 
 # --- frontend builder ---
 FROM node:18-alpine AS frontend-builder
 
-# ARG VITE_HOME_BLURB
-ENV VITE_HOME_BLURB=<img src="https://elfhosted.com/images/logo.svg" height="128px" width="128px" style="float: left; margin-right: 10px;"/><p>This is the public instance of <a href="https://github.com/anmol210202/rating-aggregator-/">Rating Aggregator</a>, sponsored by <a href="https://store.elfhosted.com/">ElfHosted</a> ❤️ <br/>See our FREE <a href="https://stremio-addons-guide.elfhosted.com">Stremio Addons Guide</a> for more great addons and features!</p>
-
 WORKDIR /app
 
 COPY --from=cloner /source/frontend/package.json /source/frontend/package-lock.json ./frontend/
