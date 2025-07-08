@@ -48,7 +48,7 @@ RUN chmod +x docker-entrypoint.sh && \
     chown -R nodejs:nodejs /app
 
 ARG ZURG_GH_CREDS
-RUN git clone https://$ZURG_GH_CREDS@github.com/jamcalli/elf-discord-bot.git /source
+RUN apk add git && git clone https://$ZURG_GH_CREDS@github.com/jamcalli/elf-discord-bot.git /source
 
 # Switch to non-root user
 USER nodejs
