@@ -9,25 +9,50 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/anmol210202/rating-aggregator-.git /source
 
-# Use official Python image as the base
-FROM python:3.11-slim
+# --- frontend builder ---
+FROM node:18-alpine AS frontend-builder
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-# Set working directory
+ARG VITE_HOME_BLURB
 WORKDIR /app
 
-# Install dependencies
-COPY --from=cloner /source/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=cloner /source/frontend/package.json /source/frontend/package-lock.json ./frontend/
+RUN cd frontend && npm ci
 
-# Copy the rest of the application code
-COPY --from=cloner /source/. .
+COPY --from=cloner /source/frontend ./frontend
 
-# Expose the port Flask runs on
-EXPOSE 5000
+# Inject VITE_HOME_BLURB into Vite
+RUN printf "VITE_HOME_BLURB=%s\n" "${VITE_HOME_BLURB}" > frontend/.env.production \
+&& echo "--- frontend/.env.production contents ---" \
+&& cat frontend/.env.production
 
-# Define default command
-CMD ["python", "app.py"]
+RUN cd frontend && npm run build
+
+# --- backend builder ---
+FROM node:18-alpine AS backend-builder
+WORKDIR /app
+
+COPY --from=cloner /source/package.json /source/package-lock.json ./
+RUN npm ci --production
+
+# --- final image ---
+FROM node:18-alpine
+WORKDIR /app
+
+RUN apk add --no-cache curl
+
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+COPY --from=backend-builder /app/node_modules ./node_modules
+
+COPY --from=cloner /source/package.json .
+COPY --from=cloner /source/src ./src
+COPY --from=cloner /source/api ./api
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+CMD curl -f http://localhost:$PORT/ || exit 1
+
+ENV NODE_ENV=production
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["npm", "start"]
+    
