@@ -1,5 +1,5 @@
 {
-  "app": "elf-discord-bot",
+  "app": "elfbot",
   "base": false,
   "channels": [
     {
