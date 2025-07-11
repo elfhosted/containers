@@ -126,15 +126,16 @@ if [[ "$ANALYZED_STREAMS" -gt 0 ]]; then
   fi
 fi
 
-# Step 6: Check for missing video stream or resolution info
+# Step 6: Check for missing video stream (which causes 'Unknown' quality in Plex)
 MISSING_QUALITY_COUNT=$(retry_sqlite "$DB_PATH" "
   SELECT COUNT(*)
   FROM media_parts mp
   JOIN media_items mi ON mi.id = mp.media_item_id
   LEFT JOIN media_streams ms ON ms.media_part_id = mp.id AND ms.stream_type = 1
   WHERE mi.metadata_item_id = $ITEM_ID
-    AND (ms.id IS NULL OR ms.width IS NULL OR ms.height IS NULL);
+    AND ms.id IS NULL;
 ")
+
 
 if [[ "$MISSING_QUALITY_COUNT" -gt 0 ]]; then
   echo "$(date) - [$ITEM_ID] Found $MISSING_QUALITY_COUNT file(s) with missing video quality info. Re-analyzing." | tee -a "$LOGFILE"
