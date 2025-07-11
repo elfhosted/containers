@@ -105,7 +105,7 @@ ANALYZED_STREAMS=$(retry_sqlite "$DB_PATH" "
     );
 ")
 
-# Step 5: Fallback scan if analysis is stale
+# Step 5: Time-based expiry of analysis
 if [[ "$ANALYZED_STREAMS" -gt 0 ]]; then
   NOW=$(date +%s)
   CUTOFF=$((NOW - SKIP_ANALYSIS_DURATION * 86400))
@@ -124,7 +124,25 @@ if [[ "$ANALYZED_STREAMS" -gt 0 ]]; then
     echo "$(date) - [$ITEM_ID] Last analysis was $(date -d @$LAST_ANALYZED). Exceeds SKIP_ANALYSIS_DURATION ($SKIP_ANALYSIS_DURATION days). Re-analyzing." | tee -a "$LOGFILE"
     exec "$REAL_SCANNER" "${ARGS[@]}"
   fi
+fi
 
+# Step 6: Check for missing video stream or resolution info
+MISSING_QUALITY_COUNT=$(retry_sqlite "$DB_PATH" "
+  SELECT COUNT(*)
+  FROM media_parts mp
+  JOIN media_items mi ON mi.id = mp.media_item_id
+  LEFT JOIN media_streams ms ON ms.media_part_id = mp.id AND ms.stream_type = 1
+  WHERE mi.metadata_item_id = $ITEM_ID
+    AND (ms.id IS NULL OR ms.width IS NULL OR ms.height IS NULL);
+")
+
+if [[ "$MISSING_QUALITY_COUNT" -gt 0 ]]; then
+  echo "$(date) - [$ITEM_ID] Found $MISSING_QUALITY_COUNT file(s) with missing video quality info. Re-analyzing." | tee -a "$LOGFILE"
+  exec "$REAL_SCANNER" "${ARGS[@]}"
+fi
+
+# Final decision
+if [[ "$ANALYZED_STREAMS" -gt 0 ]]; then
   echo "$(date) - [$ITEM_ID] Already analyzed ($ANALYZED_STREAMS stream(s) with bitrate). Skipping." | tee -a "$LOGFILE"
   exit 0
 else
