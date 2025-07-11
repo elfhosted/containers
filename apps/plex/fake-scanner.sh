@@ -9,7 +9,12 @@ ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --item)
-      ITEM_ID="$2"
+      if [[ "$2" =~ ^[0-9]+$ ]]; then
+        ITEM_ID="$2"
+      else
+        echo "$(date) - [$2] Multiple IDs detected or invalid format. Passing through to real scanner." | tee -a "$LOGFILE"
+        exec "$REAL_SCANNER" "$@"
+      fi
       ARGS+=("$1" "$2")
       shift 2
       ;;
@@ -23,6 +28,9 @@ done
 if [[ -z "$ITEM_ID" ]]; then
   exec "$REAL_SCANNER" "${ARGS[@]}"
 fi
+
+# Default SKIP_ANALYSIS_DURATION to 14 days if not set
+SKIP_ANALYSIS_DURATION="${SKIP_ANALYSIS_DURATION:-14}"
 
 # Retry-safe SQLite query helper
 retry_sqlite() {
@@ -97,7 +105,26 @@ ANALYZED_STREAMS=$(retry_sqlite "$DB_PATH" "
     );
 ")
 
+# Step 5: Fallback scan if analysis is stale
 if [[ "$ANALYZED_STREAMS" -gt 0 ]]; then
+  NOW=$(date +%s)
+  CUTOFF=$((NOW - SKIP_ANALYSIS_DURATION * 86400))
+
+  LAST_ANALYZED=$(retry_sqlite "$DB_PATH" "
+    SELECT MAX(CASE 
+      WHEN mp.updated_at > 0 THEN mp.updated_at
+      ELSE mp.created_at
+    END)
+    FROM media_parts mp
+    JOIN media_items mi ON mi.id = mp.media_item_id
+    WHERE mi.metadata_item_id = $ITEM_ID;
+  ")
+
+  if [[ -n "$LAST_ANALYZED" && "$LAST_ANALYZED" -lt "$CUTOFF" ]]; then
+    echo "$(date) - [$ITEM_ID] Last analysis was $(date -d @$LAST_ANALYZED). Exceeds SKIP_ANALYSIS_DURATION ($SKIP_ANALYSIS_DURATION days). Re-analyzing." | tee -a "$LOGFILE"
+    exec "$REAL_SCANNER" "${ARGS[@]}"
+  fi
+
   echo "$(date) - [$ITEM_ID] Already analyzed ($ANALYZED_STREAMS stream(s) with bitrate). Skipping." | tee -a "$LOGFILE"
   exit 0
 else
