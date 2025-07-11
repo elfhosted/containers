@@ -51,6 +51,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 CMD curl -f http://localhost:$PORT/ || exit 1
 
 ENV NODE_ENV=production
+ENV TMDB_API_KEY=bogus # to pass goss tests
 ENV PORT=3000
 EXPOSE 3000
 
