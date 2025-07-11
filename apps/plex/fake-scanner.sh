@@ -24,7 +24,7 @@ if [[ -z "$ITEM_ID" ]]; then
   exec "$REAL_SCANNER" "${ARGS[@]}"
 fi
 
-# Retry-safe SQLite wrapper
+# Retry-safe SQLite query helper
 retry_sqlite() {
   local db="$1"
   local sql="$2"
@@ -47,33 +47,44 @@ retry_sqlite() {
   echo "$result"
 }
 
-# Get file path from DB
-FILE_PATH=$(retry_sqlite "$DB_PATH" "
+# Step 1: Get all media file paths for the item
+MEDIA_FILES=$(retry_sqlite "$DB_PATH" "
   SELECT mp.file
   FROM media_parts mp
   JOIN media_items mi ON mi.id = mp.media_item_id
-  WHERE mi.metadata_item_id = $ITEM_ID
-  LIMIT 1;
+  WHERE mi.metadata_item_id = $ITEM_ID;
 ")
 
-if [[ -z "$FILE_PATH" || ! -f "$FILE_PATH" ]]; then
-  echo "$(date) - [$ITEM_ID] File not found on disk. Running scanner." | tee -a "$LOGFILE"
+if [[ -z "$MEDIA_FILES" ]]; then
+  echo "$(date) - [$ITEM_ID] No media files found in DB. Running scanner." | tee -a "$LOGFILE"
   exec "$REAL_SCANNER" "${ARGS[@]}"
 fi
 
-# Check for newer files in the same folder
-FILE_DIR=$(dirname "$FILE_PATH")
-FILE_MOD_TIME=$(stat -c %Y "$FILE_PATH")
-DIR_NEWEST_MOD=$(find "$FILE_DIR" -type f \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" -o -iname "*.mov" \) \
-  -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)
+# Step 2: Determine the latest mod time among known media files and collect parent dirs
+LATEST_KNOWN_MOD=0
+PARENT_DIRS=()
 
+while IFS= read -r path; do
+  [[ -f "$path" ]] || continue
+  mod_time=$(stat -c %Y "$path")
+  [[ "$mod_time" -gt "$LATEST_KNOWN_MOD" ]] && LATEST_KNOWN_MOD=$mod_time
+  dir=$(dirname "$path")
+  PARENT_DIRS+=("$dir")
+done <<< "$MEDIA_FILES"
 
-if [[ -n "$DIR_NEWEST_MOD" && "$DIR_NEWEST_MOD" -gt "$FILE_MOD_TIME" ]]; then
-  echo "$(date) - [$ITEM_ID] New file(s) detected in '$FILE_DIR'. Re-analyzing." | tee -a "$LOGFILE"
-  exec "$REAL_SCANNER" "${ARGS[@]}"
-fi
+# Step 3: Check each unique parent folder for newer video files
+UNIQUE_DIRS=($(printf "%s\n" "${PARENT_DIRS[@]}" | sort -u))
 
-# Check if already analyzed
+for dir in "${UNIQUE_DIRS[@]}"; do
+  dir_mod_time=$(find "$dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.wmv" -o -iname "*.flv" -o -iname "*.ts" \) \
+    -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)
+  if [[ -n "$dir_mod_time" && "$dir_mod_time" -gt "$LATEST_KNOWN_MOD" ]]; then
+    echo "$(date) - [$ITEM_ID] New movie file(s) found in '$dir' (folder mod $dir_mod_time > known mod $LATEST_KNOWN_MOD). Re-analyzing." | tee -a "$LOGFILE"
+    exec "$REAL_SCANNER" "${ARGS[@]}"
+  fi
+done
+
+# Step 4: Check if already analyzed
 ANALYZED_STREAMS=$(retry_sqlite "$DB_PATH" "
   SELECT COUNT(*)
   FROM media_streams
