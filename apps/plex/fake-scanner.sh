@@ -131,10 +131,12 @@ MISSING_QUALITY_COUNT=$(retry_sqlite "$DB_PATH" "
   SELECT COUNT(*)
   FROM media_parts mp
   JOIN media_items mi ON mi.id = mp.media_item_id
-  LEFT JOIN media_streams ms ON ms.media_part_id = mp.id AND ms.stream_type = 1
   WHERE mi.metadata_item_id = $ITEM_ID
-    AND ms.id IS NULL;
+    AND mp.id NOT IN (
+      SELECT DISTINCT media_part_id FROM media_streams
+    );
 ")
+
 
 
 if [[ "$MISSING_QUALITY_COUNT" -gt 0 ]]; then
