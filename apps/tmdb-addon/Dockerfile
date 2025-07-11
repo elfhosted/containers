@@ -16,7 +16,6 @@ RUN git clone  https://github.com/mrcanelas/tmdb-addon.git /source
 #     git apply /elfhosted.patch
 
 ## Upstream Dockerfile
-
 # Etapa de construção do frontend
 FROM node:20-alpine AS builder
 
