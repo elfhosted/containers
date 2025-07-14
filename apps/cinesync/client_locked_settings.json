@@ -7,6 +7,14 @@
     "MAX_PROCESSES": {
       "locked": true,
       "value": 15
+    },
+    "CINESYNC_AUTH_ENABLED": {
+      "locked": true,
+      "value": false
+    },
+    "CINESYNC_API_PORT": {
+      "locked": true,
+      "value": 8082
     }
   }
 }
