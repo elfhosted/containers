@@ -8,6 +8,10 @@
       "locked": true,
       "value": 15
     },
+    "DB_MAX_WORKERS": {
+      "locked": true,
+      "value": 15
+    },    
     "CINESYNC_AUTH_ENABLED": {
       "locked": true,
       "value": false
