@@ -40,14 +40,16 @@ WORKDIR /app
 # cache dir in final
 ENV CACHE_DIR=/app/build-cache
 
-# Copy package files and install dependencies
+# Install GNU findutils for -xtype support and copy package files
+RUN apk add --no-cache findutils
 COPY --from=cloner /source/package*.json ./
 RUN npm ci
 
 # Create necessary directories
 RUN mkdir -p /app/data/db && \
     mkdir -p /app/data/log && \
-    mkdir -p ${CACHE_DIR}
+    mkdir -p ${CACHE_DIR} && \
+    mkdir -p /storage/symlinks
 
 # Copy build artifacts, config, and cache
 COPY --from=builder /app/dist ./dist
@@ -62,6 +64,7 @@ ENV NODE_ENV=production
 # Make volumes
 VOLUME ${CACHE_DIR}
 VOLUME /app/data
+VOLUME /storage/symlinks
 EXPOSE 3000
 
 CMD ["./docker-entrypoint.sh"]
