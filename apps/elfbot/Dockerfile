@@ -41,7 +41,7 @@ WORKDIR /app
 ENV CACHE_DIR=/app/build-cache
 
 # Install GNU findutils for -xtype support and copy package files
-RUN apk add --no-cache findutils
+RUN apk add --no-cache findutils bash
 COPY --from=cloner /source/package*.json ./
 RUN npm ci
 
