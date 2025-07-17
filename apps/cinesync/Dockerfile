@@ -5,59 +5,89 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-# for now, just clone latest
-RUN git clone https://github.com/sureshfizzy/CineSync.git /source
+RUN git clone -b CineSync-$VERSION https://github.com/sureshfizzy/CineSync.git /source
 
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# ---- STAGE 1: Build WebDavHub ----
+FROM python:3.11-slim AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Install required packages
+# Install build dependencies
 RUN apt-get update && \
-    apt-get install -y inotify-tools tmux bash dialog && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y inotify-tools bash curl git gcc g++ make && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file and install dependencies
-COPY --from=cloner /source/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Go (Dynamic architecture detection)
+ENV GO_VERSION=1.21.0
+RUN ARCH=$(dpkg --print-architecture) && \
+    case "$ARCH" in \
+      amd64) GOARCH="linux-amd64";; \
+      arm64) GOARCH="linux-arm64";; \
+      armhf) GOARCH="linux-armv6l";; \
+      *) echo "Unsupported architecture: $ARCH"; exit 1;; \
+    esac && \
+    curl -fsSL https://go.dev/dl/go${GO_VERSION}.${GOARCH}.tar.gz | tar -C /usr/local -xz
 
-# Copy the entire project to the container's working directory
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH=/go
+ENV PATH="${GOPATH}/bin:${PATH}"
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Copy WebDavHub and build
+COPY --from=cloner /source/WebDavHub /app/WebDavHub
+WORKDIR /app/WebDavHub
+
+# Build using the production build script
+RUN python3 scripts/build-prod.py
+
+# ---- STAGE 2: Final Runtime Image ----
+FROM python:3.11-slim
+
+# Install required system packages
+RUN apt-get update && \
+    apt-get install -y inotify-tools bash gosu curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Copy Python dependencies and install
+COPY --from=cloner /source/requirements.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+
+# Set default PUID and PGID
+ENV PUID=568
+ENV PGID=568
+
+# Create default user and group
+RUN groupadd -g ${PGID} appuser && \
+    useradd -u ${PUID} -g appuser -d /app -s /bin/bash appuser
+
+
+# Copy application files
 COPY --from=cloner /source/MediaHub /app/MediaHub
-COPY --from=cloner /source/.env ./
+COPY --from=builder /app/WebDavHub /app/WebDavHub
 
-# Set PYTHONPATH to include the MediaHub directory
-ENV PYTHONPATH=/app/MediaHub
+# Add the entrypoint script
+COPY --from=cloner /source/entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Set environment variables from the .env file
-RUN export $(grep -v '^#' .env | xargs -d '\n' -I {} echo "ENV {}")
+# Set working directory
+WORKDIR /app
 
-# fix for goss, will be overridden in chart
-ENV DESTINATION_DIR=/tmp
-ENV SOURCE_DIR=/tmp
+RUN chown -R appuser:appuser /app
 
-# Create necessary directories
-RUN mkdir -p /app/db
+# Copy locked settings
+COPY apps/cinesync/client_locked_settings.json /app/MediaHub/utils/client_locked_settings.json
 
-# Set environment variables for PUID and PGID
-ENV PUID=1000
-ENV PGID=1000
+# We don't use an entrypoint becasue we force the UID
 
-# Add ttyd
-ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
-# add local files
-COPY --chown=568:568 apps/cinesync/cinesync.sh /
-COPY --chown=568:568 apps/cinesync/launch-tmux.sh /
-COPY --chown=568:568 apps/cinesync/entrypoint.sh /
-COPY --chown=568:568 apps/cinesync/restricted.tmux.conf /
-
-# Force our preferred user
-ARG user=elfie
-RUN groupadd -g 568 $user && useradd -d /app/db --create-home --uid 568 --gid 568 --shell /bin/bash $user
-RUN chown elfie /app/db
-USER 568
-
-# Run the application
-ENTRYPOINT ["/entrypoint.sh"]
+# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["python3", "WebDavHub/scripts/start-prod.py"]

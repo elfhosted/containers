@@ -8,7 +8,7 @@ ARG ZURG_GH_CREDS
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://$ZURG_GH_CREDS@github.com/jamcalli/elf-discord-bot.git /source
+RUN git clone -b $VERSION https://$ZURG_GH_CREDS@github.com/funkypenguin/elf-discord-bot.git /source
 
 FROM node:23.6.0-alpine AS builder
 

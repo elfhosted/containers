@@ -19,6 +19,10 @@
     "CINESYNC_API_PORT": {
       "locked": true,
       "value": 8082
-    }
+    },
+    "CINESYNC_UI_PORT": {
+      "locked": true,
+      "value": 5183
+    }    
   }
 }
