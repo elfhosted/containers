@@ -1,0 +1,2 @@
+#!/command/with-contenv sh
+exec s6-cronb -l 5 -c /etc/s6-cron/crontabs

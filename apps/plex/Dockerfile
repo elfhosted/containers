@@ -82,6 +82,7 @@ RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
 RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
 RUN chown -R elfie:elfie /run
+RUN apt-get update && apt-get install -y s6-cron execline
 
 COPY --chown=568:568 apps/plex/root /
 
