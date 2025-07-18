@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/maxdorninger/MediaManager/.git /source
+RUN git clone https://github.com/maxdorninger/MediaManager.git /source
 
 WORKDIR /source
 
