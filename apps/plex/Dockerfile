@@ -103,6 +103,7 @@ USER 568
 COPY ./apps/plex/plex-preferences.sh /scripts/plex-preferences.sh
 COPY ./apps/plex/entrypoint.sh /entrypoint.sh
 COPY ./apps/plex/transcode-killer.py /transcode-killer.py
+COPY ./apps/plex/mount-checker.sh /mount-checker.sh
 
 
 ENTRYPOINT [ "/init" ]
