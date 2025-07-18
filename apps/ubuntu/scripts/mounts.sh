@@ -55,13 +55,3 @@ else
     # Your actual script logic goes here
     echo "Proceeding with operations..."
 fi
-
-# Example: listing files in all directories
-# OLD_IFS="$IFS"
-# IFS=","
-# for dir in $WAIT_FOR_MOUNT_PATHS; do
-#     echo "Contents of $dir:"
-#     ls -la "$dir"
-#     echo ""
-# done
-# IFS="$OLD_IFS"

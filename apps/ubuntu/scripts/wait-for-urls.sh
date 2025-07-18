@@ -56,8 +56,4 @@ else
     done
 
     echo "$(date): All URLs are now returning HTTP 200!"
-
-    # Your actual script logic goes here
-    echo "Proceeding with operations in 10s... "
-    sleep 10
 fi
