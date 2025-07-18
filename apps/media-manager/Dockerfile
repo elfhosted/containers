@@ -55,6 +55,11 @@ COPY --from=cloner /source/alembic.ini .
 
 COPY --from=frontend-build /frontend/build /app/web/build
 
+# Create user and group
+RUN addgroup -g 568 elfie && \
+    adduser -u 568 -G elfie -h /config -D elfie && \
+    chown elfie /app -R
+
 HEALTHCHECK CMD curl -f http://localhost:8000${BASE_PATH}/api/v1/health || exit 1
 EXPOSE 8000
 CMD ["/app/mediamanager-backend-startup.sh"]
