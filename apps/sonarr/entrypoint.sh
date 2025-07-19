@@ -38,7 +38,7 @@ envsubst < /app/config.xml.tmpl > /config/config.xml
 [[ -z "${SONARR__POSTGRES_PORT}" && -n "${current_postgres_port}" ]] && xmlstarlet edit --inplace --update //PostgresPort -v "${current_postgres_port}" /config/config.xml
 [[ -z "${SONARR__POSTGRES_MAIN_DB}" &&  -n "${current_postgres_main_db}" ]] && xmlstarlet edit --inplace --update //PostgresMainDb -v "${current_postgres_main_db}" /config/config.xml
 [[ -z "${SONARR__POSTGRES_LOG_DB}" && -n "${current_postgres_log_db}" ]] && xmlstarlet edit --inplace --update //PostgresLogDb -v "${current_postgres_log_db}" /config/config.xml
-
+[[ -z "${SONARR__POSTGRES_HOST}" && -n "${current_postgres_host}" ]] && xmlstarlet edit --inplace --update //PostgresHost -v "${current_postgres_host}" /config/config.xml
 
 # Set the host to nothing for now
 xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
@@ -52,7 +52,7 @@ xmlstarlet edit --inplace --update //PostgresHost -v "" /config/config.xml
 
 if [[ "${USE_POSTGRESQL:-"false"}" == "true" ]]; then
 
-    xmlstarlet edit --inplace --update //PostgresHost -v "localhost" /config/config.xml
+    xmlstarlet edit --inplace --update //PostgresHost -v "${SONARR__POSTGRES_HOST}" /config/config.xml
     # Make sure config is updated for postgres
 
     # Function to check PostgreSQL connection
