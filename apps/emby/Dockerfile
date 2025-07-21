@@ -69,7 +69,7 @@ RUN \
     esac \
     && \
     apt-get update -qq && \
-    apt-get install -qqy python3 xz-utils ${EXTRA_INSTALL_ARG} \
+    apt-get install -qqy python3 xz-utils sqlite3 ${EXTRA_INSTALL_ARG} \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && apt-get autoremove -y \
     && apt-get clean \

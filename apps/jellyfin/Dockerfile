@@ -17,7 +17,7 @@ RUN \
     apt-get -qq update \
     && \
     apt-get -qq install -y \
-        gnupg2 python3 xz-utils \
+        gnupg2 python3 xz-utils sqlite3 \
     && \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') \
