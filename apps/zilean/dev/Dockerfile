@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b fix-hardcoded-zurg-suffix  https://github.com/funkypenguin/zilean.git /source 
+RUN git clone -b v3.5.0-fix-suffix https://github.com/funkypenguin/zilean.git /source 
 
 # Build Stage
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS base
