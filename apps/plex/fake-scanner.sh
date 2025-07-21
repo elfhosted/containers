@@ -29,8 +29,8 @@ if [[ -z "$ITEM_ID" ]]; then
   exec "$REAL_SCANNER" "${ARGS[@]}"
 fi
 
-# Default SKIP_ANALYSIS_DURATION to 14 days if not set
-SKIP_ANALYSIS_DURATION="${SKIP_ANALYSIS_DURATION:-14}"
+# Default SKIP_ANALYSIS_DURATION to 365 days if not set
+SKIP_ANALYSIS_DURATION="${SKIP_ANALYSIS_DURATION:-365}"
 
 # Retry-safe SQLite query helper
 retry_sqlite() {
