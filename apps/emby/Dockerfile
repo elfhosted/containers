@@ -82,17 +82,16 @@ RUN \
     && chmod -R 755 /app \
     && printf "umask %d" "${UMASK}" >> /etc/bash.bashrc
 
-USER 568
-COPY --from=builder /app/emby /app/emby
-COPY ./apps/emby/entrypoint.sh /entrypoint.sh
-
-
 # Add s6
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
 RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
 RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
 RUN chown -R elfie:elfie /run
+
+USER 568
+COPY --from=builder /app/emby /app/emby
+COPY ./apps/emby/entrypoint.sh /entrypoint.sh
 
 COPY --chown=568:568 apps/plex/root /
 
