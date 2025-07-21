@@ -40,8 +40,8 @@ COPY --from=springboot-build /springboot-app/build/libs/booklore-api-0.0.1-SNAPS
 # In ElfHosted, we can only mount a single config volume to the container, which presents a problem for 
 # Booklore's bookdrop volumes. This is a dirty workaround to avoid surprising the user..
 RUN rm -rf /bookdrop && \
-    mkdir -p /config/bookdrop && \
-    ln -s /config/* /
+    mkdir -p /app/data/bookdrop && \
+    ln -s /app/data/bookdrop /
 
 EXPOSE 8080 80
 
