@@ -37,6 +37,12 @@ COPY --from=cloner /source/nginx.conf /etc/nginx/nginx.conf
 COPY --from=angular-build /angular-app/dist/booklore/browser /usr/share/nginx/html
 COPY --from=springboot-build /springboot-app/build/libs/booklore-api-0.0.1-SNAPSHOT.jar /app/app.jar
 
+# In ElfHosted, we can only mount a single config volume to the container, which presents a problem for 
+# Booklore's bookdrop volumes. This is a dirty workaround to avoid surprising the user..
+RUN rm -rf /bookdrop && \
+    mkdir /config/bookdrop && \
+    ln -s /config/* /
+
 EXPOSE 8080 80
 
 CMD /usr/sbin/nginx -g "daemon off;" & \
