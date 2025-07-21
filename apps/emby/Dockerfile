@@ -23,7 +23,7 @@ RUN \
     && \
     apt-get update -qq \
     && \
-    apt-get install -qqy cpio rpm2cpio \
+    apt-get install -qqy cpio rpm2cpio python3 xz-utils \
     && \
     mkdir -p /app/emby \
     && \
