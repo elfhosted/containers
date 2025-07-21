@@ -66,8 +66,24 @@ RUN apt-get -qq update \
     && apt-get -qq install -y libjemalloc2 libjemalloc-dev 
 ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libjemalloc.so.2"
 
+# Add s6
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
+RUN chown -R elfie:elfie /run
+
+COPY --chown=568:568 apps/plex/root /
+
 USER 568
 COPY ./apps/jellyfin/entrypoint.sh /entrypoint.sh
-CMD ["/entrypoint.sh"]
+# CMD ["/entrypoint.sh"]
 
 LABEL org.opencontainers.image.source="https://github.com/jellyfin/jellyfin"
+
+COPY ./apps/jellyfin/entrypoint.sh /entrypoint.sh
+COPY ./apps/plex/transcode-killer.py /transcode-killer.py
+COPY ./apps/plex/mount-checker.sh /mount-checker.sh
+
+ENTRYPOINT [ "/init" ]
+
