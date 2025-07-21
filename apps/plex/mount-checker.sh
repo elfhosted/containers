@@ -6,7 +6,7 @@ while true; do
   # Run the mounts.sh script with a 2-second timeout, suppress output
   if ! timeout 2s /scripts/mounts.sh &>/dev/null; then
     echo "[mounts-check] mounts.sh failed or timed out at $(date). Restarting plex service..."
-    /command/s6-svc -r /run/service/plex
+    kill -SIGTERM 1
   else
     echo "[mounts-check] mounts.sh succeeded at $(date)"
   fi
@@ -14,7 +14,7 @@ while true; do
   # Run the wait-for-urls.sh script with a 2-second timeout, suppress output
   if ! timeout 2s /scripts/wait-for-urls.sh &>/dev/null; then
     echo "[wait-for-urls-check] wait-for-urls.sh failed or timed out at $(date). Restarting plex service..."
-    /command/s6-svc -r /run/service/plex
+    kill -SIGTERM 1
   else
     echo "[wait-for-urls-check] wait-for-urls.sh succeeded at $(date)"
   fi
