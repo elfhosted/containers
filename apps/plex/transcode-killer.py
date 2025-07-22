@@ -162,6 +162,8 @@ def is_video_transcode(cmdline):
         return False, None
     if video_codec == "flac":
         return False, None
+    if re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+hevc', cmdline):
+        return True, "HEVC decode detected (CPU-intensive), blocking"        
     if "vaapi" not in cmdline.lower() and re.search(r'-(?:c:v|codec:0)', cmdline) and video_codec != "copy":
         return True, "No VA-API involved, blocking software transcode"
     input_match = re.search(r'-i\s+["\']?(.+?\.(?:mkv|mp4|avi|ts|mov))["\']?', cmdline, re.IGNORECASE)
