@@ -1,0 +1,17 @@
+{
+  "app": "demo-terms",
+  "base": false,
+  "channels": [
+    {
+      "name": "main",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    }
+  ]
+}
