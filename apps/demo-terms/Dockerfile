@@ -8,7 +8,7 @@ ARG ZURG_GH_CREDS
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://$ZURG_GH_CREDS@github.com/funkypenguin/demo-terms.git /source
+RUN git clone https://$ZURG_GH_CREDS@github.com/elfhosted/demo-terms.git /source
 
 FROM python:3.11-slim
 
