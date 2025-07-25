@@ -26,6 +26,9 @@ RUN pip3 install -r requirements.txt
 
 COPY --from=cloner /source/. .
 
+# Debugging
+COPY apps/kapowarr/dev/getcomics.py ./backend/implementations/getcomics.py
+
 EXPOSE 5656
 
 CMD [ "python3", "/app/Kapowarr.py", "--DatabaseFolder", "/config" ]
