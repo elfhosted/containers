@@ -7,9 +7,9 @@
       "platforms": [
         "linux/amd64"
       ],
-      "stable": false,
+      "stable": true,
       "tests": {
-        "enabled": false,
+        "enabled": true,
         "type": "web"
       }
     }
