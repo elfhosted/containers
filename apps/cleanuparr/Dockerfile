@@ -12,4 +12,6 @@ RUN \
         --no-create-home \
     && chown -R elfie:elfie /app
 
+ENTRYPOINT ["./Cleanuparr"]
+CMD [""]
 USER 568
