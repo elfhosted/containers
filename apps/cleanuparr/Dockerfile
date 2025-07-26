@@ -11,3 +11,5 @@ RUN \
         --disabled-password \
         --no-create-home 
     && chown -R elfie:elfie /app \
+
+USER 568
