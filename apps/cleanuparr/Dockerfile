@@ -9,7 +9,7 @@ RUN \
         --group \
         --system \
         --disabled-password \
-        --no-create-home 
-    && chown -R elfie:elfie /app \
+        --no-create-home \
+    && chown -R elfie:elfie /app
 
 USER 568
