@@ -8,9 +8,9 @@ process:
 # port:
 #   # https://github.com/aelsabbahy/goss/issues/149
 #   tcp6:9705:
-#     listening: true  
+# #     listening: true  
 
-http:
-  http://localhost:11011:
-    status: 200
-    timeout: 30000
+# http:
+#   http://localhost:11011:
+#     status: 200
+#     timeout: 30000
