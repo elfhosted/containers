@@ -32,6 +32,9 @@ ENV PORT=5007
 ENV ACTUAL_DATA_DIR=/data
 ENV NODE_ENV=production
 
+# We need this to exist for goss testing
+ENV ACTUAL_SERVER_URL=http://bogus:1234
+
 EXPOSE ${PORT}
 
 ENTRYPOINT [ "./entrypoint.sh" ]
