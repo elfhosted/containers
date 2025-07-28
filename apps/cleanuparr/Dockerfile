@@ -9,5 +9,9 @@ RUN \
         --group \
         --system \
         --disabled-password \
-        --no-create-home 
-    && chown -R elfie:elfie /app \
+        --no-create-home \
+    && chown -R elfie:elfie /app
+
+ENTRYPOINT ["./Cleanuparr"]
+CMD [""]
+USER 568
