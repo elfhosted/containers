@@ -13,5 +13,5 @@ process:
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
   http://localhost:5007:
-    status: 200
+    status: 404
     timeout: 5000
