@@ -33,7 +33,7 @@ ENV ACTUAL_DATA_DIR=/data
 ENV NODE_ENV=production
 
 # We need this to exist for goss testing
-ENV ACTUAL_SERVER_URL=http://bogus:1234
+ENV ACTUAL_SERVER_URL=http://localhost:5006
 ENV ACTUAL_SERVER_PASSWORD=bogus
 ENV API_KEY=bogus
 
