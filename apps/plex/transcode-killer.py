@@ -164,8 +164,12 @@ def is_video_transcode(cmdline):
         return False, None
     if re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+hevc', cmdline):
         return True, "HEVC decode detected (CPU-intensive), blocking"        
-    if "vaapi" not in cmdline.lower() and re.search(r'-(?:c:v|codec:0)', cmdline) and video_codec != "copy":
-        return True, "No VA-API involved, blocking software transcode"
+    if (
+        not any(x in cmdline.lower() for x in ["vaapi", "nvenc", "nvdec", "cuda"])
+        and re.search(r'-(?:c:v|codec:0)', cmdline)
+        and video_codec != "copy"
+    ):
+        return True, "No hardware acceleration (VAAPI/NVENC/NVDEC/CUDA) involved, blocking software transcode"
     input_match = re.search(r'-i\s+["\']?(.+?\.(?:mkv|mp4|avi|ts|mov))["\']?', cmdline, re.IGNORECASE)
     if input_match:
         input_path = input_match.group(1).strip()
