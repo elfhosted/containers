@@ -12,6 +12,8 @@ RUN git clone -b V${VERSION} https://github.com/crocodilestick/Calibre-Web-Autom
 
 # syntax=docker/dockerfile:1
 
+# syntax=docker/dockerfile:1
+
 FROM ghcr.io/linuxserver/unrar:latest AS unrar
 FROM ghcr.io/linuxserver/baseimage-ubuntu:jammy
 
@@ -39,9 +41,10 @@ ARG BUILD_DATE
 ARG VERSION
 ARG CALIBREWEB_RELEASE=0.6.24
 ARG LSCW_RELEASE=0.6.24-ls304
-ARG UNIVERSAL_CALIBRE_RELEASE=7.16.0
+ARG CALIBRE_RELEASE=8.4.0
+ARG KEPUBIFY_RELEASE=v4.0.4
 LABEL build_version="Version:- ${VERSION}"
-LABEL build_date="${BUILD_DATE}" 
+LABEL build_date="${BUILD_DATE}"
 LABEL CW-Stock-version="${CALIBREWEB_RELEASE}"
 LABEL LSCW_Image_Release="${LSCW_RELEASE}"
 LABEL maintainer="CrocodileStick"
@@ -100,15 +103,21 @@ RUN \
   pip install -U --no-cache-dir --find-links https://wheel-index.linuxserver.io/ubuntu/ -r \
     requirements.txt -r \
     optional-requirements.txt && \
-  # STEP 1.8 - Installs the latest release of kepubify
-  echo "***install kepubify" && \
-  if [ -z ${KEPUBIFY_RELEASE+x} ]; then \
+  # STEP 1.8 - Installs kepubify
+  echo "**** install kepubify ****" && \
+  if [[ $KEPUBIFY_RELEASE == 'newest' ]]; then \
     KEPUBIFY_RELEASE=$(curl -sX GET "https://api.github.com/repos/pgaskin/kepubify/releases/latest" \
     | awk '/tag_name/{print $4;exit}' FS='[""]'); \
   fi && \
-  curl -o \
-    /usr/bin/kepubify -L \
-    https://github.com/pgaskin/kepubify/releases/download/${KEPUBIFY_RELEASE}/kepubify-linux-64bit && \
+  if [ "$(uname -m)" == "x86_64" ]; then \
+    curl -o \
+      /usr/bin/kepubify -L \
+      https://github.com/pgaskin/kepubify/releases/download/${KEPUBIFY_RELEASE}/kepubify-linux-64bit; \
+  elif [ "$(uname -m)" == "aarch64" ]; then \
+    curl -o \
+      /usr/bin/kepubify -L \
+      https://github.com/pgaskin/kepubify/releases/download/${KEPUBIFY_RELEASE}/kepubify-linux-arm64; \
+  fi && \
 # STEP 2 - Install Calibre-Web Automated
   echo "~~~~ CWA Install - installing additional required packages ~~~~" && \
   # STEP 2.1 - Install additional required packages
@@ -119,9 +128,28 @@ RUN \
     python3 \
     python3-pip \
     nano \
-    sqlite3 && \
+    sqlite3 \
+    zip && \
   # STEP 2.2 - Install additional required python packages
   pip install -r /app/calibre-web-automated/requirements.txt && \
+  # STEP 2.2.1 - Create koplugin.zip from KOReader plugin folder
+  echo "~~~~ Creating koplugin.zip from KOReader plugin folder... ~~~~" && \
+  if [ -d "/app/calibre-web-automated/koreader/plugins/cwasync.koplugin" ]; then \
+    cd /app/calibre-web-automated/koreader/plugins && \
+    # Calculate digest of all files in the plugin for debugging purposes
+    echo "Calculating digest of plugin files..." && \
+    PLUGIN_DIGEST=$(find cwasync.koplugin -type f -name "*.lua" -o -name "*.json" | sort | xargs sha256sum | sha256sum | cut -d' ' -f1) && \
+    echo "Plugin digest: $PLUGIN_DIGEST" && \
+    # Create a file named after the digest inside the plugin folder
+    echo "Plugin files digest: $PLUGIN_DIGEST" > cwasync.koplugin/${PLUGIN_DIGEST}.digest && \
+    echo "Build date: $(date)" >> cwasync.koplugin/${PLUGIN_DIGEST}.digest && \
+    echo "Files included:" >> cwasync.koplugin/${PLUGIN_DIGEST}.digest && \
+    find cwasync.koplugin -type f -name "*.lua" -o -name "*.json" | sort >> cwasync.koplugin/${PLUGIN_DIGEST}.digest && \
+    zip -r koplugin.zip cwasync.koplugin/ && \
+    echo "Created koplugin.zip from cwasync.koplugin folder with digest file: ${PLUGIN_DIGEST}.digest"; \
+  else \
+    echo "Warning: cwasync.koplugin folder not found, skipping zip creation"; \
+  fi && \
   # STEP 2.3 - Get required 'root' dir from the linuxserver/docker-calibre-web repo
   echo "~~~~ Getting required files from linuxserver/docker-calibre-web... ~~~~" && \
     # STEP 2.4.1 - Check the most recent release of linuxserver/docker-calibre-web and store it's tag in LSCW_RELEASE if one was not specified as an ARG
@@ -143,7 +171,15 @@ RUN \
     # STEP 2.4.5 - Move contents of 'root' dirs to root dir
   cp -R /tmp/lscw/root/* / && \
   cp -R /app/calibre-web-automated/root/* / && \
-    # STEP 2.4.6 - Remove the temp files
+    # STEP 2.4.6 - Move koplugin.zip to static directory
+  if [ -f "/app/calibre-web-automated/koreader/plugins/koplugin.zip" ]; then \
+    mkdir -p /app/calibre-web/cps/static && \
+    cp /app/calibre-web-automated/koreader/plugins/koplugin.zip /app/calibre-web/cps/static/ && \
+    echo "Moved koplugin.zip to static directory"; \
+  else \
+    echo "Warning: koplugin.zip not found, skipping move to static directory"; \
+  fi && \
+    # STEP 2.4.7 - Remove the temp files
   rm -R /app/calibre-web-automated/root/ && \
   rm -R /tmp/lscw/root/ && \
   # STEP 2.5 - ADD files referencing the versions of the installed main packages
@@ -169,28 +205,31 @@ RUN \
     libxdamage1 \
     libgl1 \
     libglx-mesa0 \
-    xz-utils && \
+    xz-utils \
+    binutils && \
   # STEP 3.2 - Make the /app/calibre directory for the installed files
   mkdir -p \
   /app/calibre && \
-  # STEP 3.3 - Download the desired version of Calibre, determined by the UNIVERSAL_CALIBRE_RELEASE variable and the architecture of the build environment
+  # STEP 3.3 - Download the desired version of Calibre, determined by the CALIBRE_RELEASE variable and the architecture of the build environment
   if [ "$(uname -m)" == "x86_64" ]; then \
     curl -o \
       /calibre.txz -L \
-      "https://download.calibre-ebook.com/${UNIVERSAL_CALIBRE_RELEASE}/calibre-${UNIVERSAL_CALIBRE_RELEASE}-x86_64.txz"; \
+      "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-x86_64.txz"; \
   elif [ "$(uname -m)" == "aarch64" ]; then \
     curl -o \
       /calibre.txz -L \
-      "https://download.calibre-ebook.com/${UNIVERSAL_CALIBRE_RELEASE}/calibre-${UNIVERSAL_CALIBRE_RELEASE}-arm64.txz"; \
+      "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-arm64.txz"; \
   fi && \
   # STEP 3.4 - Extract the downloaded file to /app/calibre
   tar xf \
       /calibre.txz -C \
       /app/calibre && \
+  # STEP 3.4.1 - Remove the ABI tag from the extracted libQt6* files to allow them to be used on older kernels
+  strip --remove-section=.note.ABI-tag /app/calibre/lib/libQt6* && \
   # STEP 3.5 - Delete the extracted calibre.txz to save space in final image
   rm /calibre.txz && \
-  # STEP 3.6 - Store the UNIVERSAL_CALIBRE_RELEASE in the root of the image in CALIBRE_RELEASE
-  echo $UNIVERSAL_CALIBRE_RELEASE > /CALIBRE_RELEASE
+  # STEP 3.6 - Store the CALIBRE_RELEASE in the root of the image in CALIBRE_RELEASE
+  echo $CALIBRE_RELEASE > /CALIBRE_RELEASE
 
 # Removes packages that are no longer required, also emptying dirs used to build the image that are no longer needed
 RUN \
@@ -220,6 +259,7 @@ RUN rm -rf /calibre-library && \
     ln -s /config/* /
 
 # ports and volumes
+WORKDIR /config
 EXPOSE 8083
 VOLUME /config
 # VOLUME /cwa-book-ingest
