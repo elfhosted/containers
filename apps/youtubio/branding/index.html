@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulio Addon</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            padding: 0;
+            color: #fff;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+        .hero {
+            background: url('../images/background.jpg') no-repeat center center fixed; /* Fixed background prevents zoom */
+            background-size: cover;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 20px;
+            position: relative;
+        }
+        .dark-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1;
+            position: fixed; /* Fixed to match the background */
+        }
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            background: rgba(29, 29, 29, 0.4);
+            padding: 30px;
+            border-radius: 30px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(3px);
+            transition: all 0.5s ease;
+            opacity: 1;
+            transform: scale(1);
+            margin: 40px 0; /* Add margin to ensure content doesn't touch edges */
+        }
+        /* Hide state for hero-content with transition effect */
+        .hero-content.hidden {
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+        }
+        /* Increase blur on hover/focus within */
+        .hero-content:hover, 
+        .hero-content:focus-within {
+            background: rgba(29, 29, 29, 0.7);
+            backdrop-filter: blur(10px);
+        }
+        .hero h1 {
+            font-size: 4em;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            font-weight: bold;
+            color: #ff3333;
+        }
+        .hero p {
+            font-size: 1.5em;
+            margin: 20px 0;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
+        }
+        .hero .content {
+            max-width: 800px;
+            margin-bottom: 20px;
+        }
+        .hero .content p {
+            font-size: 1.2em;
+            line-height: 1.6;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+        }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #f0f0f0;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+        }
+        .form-group select, .form-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background-color: rgba(60, 60, 60, 0.7);
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        .form-group select:focus, .form-group input:focus {
+            outline: none;
+            border-color: #ff3333;
+            box-shadow: 0 0 0 2px rgba(255, 51, 51, 0.25);
+        }
+        .form-group .hint {
+            font-size: 0.85em;
+            color: #ccc;
+            margin-top: 8px;
+            font-style: italic;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .radio-option input[type="radio"] {
+            width: auto;
+            margin-right: 8px;
+        }
+        .custom-url-input {
+            margin-top: 15px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease, margin 0.3s ease, opacity 0.3s ease;
+            opacity: 0;
+            width: 100%;
+        }
+        .custom-url-input.visible {
+            max-height: 60px;
+            margin-top: 15px;
+            opacity: 1;
+        }
+        .cta-button {
+            background-color: #ff3333;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 8px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .cta-button:hover {
+            background-color: #cc0000;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .disclaimer {
+            font-size: 0.85em;
+            text-align: center;
+            margin-top: 20px;
+            color: #aaa;
+            padding: 10px 0 0 0; 
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 2;
+        }
+        .section-heading {
+            border-bottom: 2px solid rgba(255, 51, 51, 0.5);
+            padding-bottom: 8px;
+            margin-top: 25px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #ff3333;
+            font-size: 1.2em;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+        }
+        .p2p-section {
+            margin-top: 40px;
+            background: rgba(40, 40, 40, 0.3);
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 3px solid rgba(100, 100, 100, 0.6);
+        }
+        .p2p-header {
+            display: flex;
+            align-items: center;
+        }
+        .p2p-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 0;
+            color: #ff3333;
+        }
+        .p2p-description {
+            text-align: left;
+            font-size: 0.85em;
+            line-height: 1.5;
+            margin: 15px 0;
+            color: #ddd;
+        }
+        .p2p-warning {
+            background-color: rgba(80, 40, 30, 0.4);
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #ffaa88;
+            margin-bottom: 20px;
+            text-align: left;
+            border-left: 3px solid #ff7755;
+        }
+        .p2p-button {
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+            display: inline-block;
+        }
+        .p2p-button:hover {
+            background-color: #666;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+        }
+        .p2p-benefits {
+            text-align: left;
+            margin: 20px 0;
+        }
+        .benefit-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .benefit-icon {
+            color: #88dd88;
+            margin-right: 10px;
+            margin-top: 3px;
+        }
+        .benefit-text {
+            color: #ddd;
+            font-size: 0.9em;
+        }
+        .step-number {
+            display: inline-block;
+            background-color: #ff3333;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 0.9em;
+        }
+        .step-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .optional-tag {
+            background-color: #666;
+            color: white;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .tooltip-icon {
+            margin-left: 10px;
+            color: #777;
+            font-size: 16px;
+            transition: color 0.3s ease;
+        }
+        .tooltip-icon:hover {
+            color: #ff3333;
+        }
+        .tooltip-text {
+            visibility: hidden;
+            width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 125%;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.9em;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+        .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        #debrid-result {
+            background: rgba(40, 40, 40, 0.5);
+            padding: 25px;
+            border-radius: 8px;
+            border-left: 3px solid #ff3333;
+            margin-top: 30px;
+            animation: fadeIn 0.5s ease-in-out;
+            display: none;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Retained public-host CSS for provider injection */
+        .public-host {
+            font-size: 0.8em;
+            margin-bottom: 15px;
+            background: rgba(40, 40, 40, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(120, 120, 120, 0.4);
+            box-shadow: none;
+            backdrop-filter: none;
+        }
+        .public-host h3 {
+            color: rgba(255, 51, 51, 0.9);
+            margin-top: 12px;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+        .public-host a {
+            color: rgba(255, 153, 153, 0.9);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .public-host a:hover {
+            color: #ff3333;
+            text-decoration: underline;
+        }
+        .public-host p {
+            margin: 8px 0;
+        }
+        .feature-list {
+            margin-top: 8px;
+            padding-left: 5px;
+        }
+        .feature-list-item {
+            margin-bottom: 4px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .feature-icon {
+            margin-right: 6px;
+            min-width: 16px;
+            display: inline-block;
+            font-size: 0.9em;
+        }
+        .community-link {
+            margin-top: 5px;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .community-link a {
+            color: #ff9999;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .community-link a:hover {
+            color: #ff3333;
+            text-decoration: underline;
+        }
+        .toggle-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.3s ease;
+            opacity: 1;
+        }
+        .toggle-button:hover {
+            background-color: rgba(0, 0, 0, 0.9);
+            transform: translateY(-2px);
+        }
+        .toggle-button.fade-out {
+            opacity: 0;
+        }
+        .toggle-button.fade-in {
+            opacity: 1;
+        }
+        .info-box {
+            background: rgba(40, 40, 40, 0.6);
+            border-left: 3px solid #ffcc00;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        .info-box-title {
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            color: #ffcc00;
+            margin-bottom: 8px;
+        }
+        .info-icon {
+            margin-right: 8px;
+            font-size: 1.1em;
+        }
+        .manual-link {
+            color: #aaa;
+            text-decoration: none;
+            font-size: 0.85em;
+            display: inline-block;
+            margin-top: 10px;
+            transition: color 0.3s ease;
+            text-align: center;
+        }
+        .manual-link:hover {
+            color: #fff;
+        }
+        
+        /* Improved visibility for important information */
+        .highlight-box {
+            background-color: rgba(255, 51, 51, 0.1);
+            border-left: 3px solid #ff3333;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        /* Smaller text for pin message */
+        .pin-message {
+            font-size: 0.9em;
+        }
+        .pin-message p {
+            margin: 5px 0;
+        }
+        .pin-message a {
+            font-size: 0.95em;
+        }
+        
+        /* Flow indicator styles */
+        .flow-arrow {
+            display: block;
+            text-align: center;
+            margin: 20px 0;
+            color: #888;
+            font-size: 1.5em;
+        }
+        
+        /* Add separation between sections */
+        .section-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 30px 0;
+        }
+        
+        /* Focus styles for better accessibility */
+        a:focus, button:focus, input:focus, select:focus {
+            outline: 2px solid #ff3333;
+            outline-offset: 2px;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #ff3333;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 600px) {
+            .hero h1 {
+                font-size: 2.5em;
+            }
+            .hero p, .hero .content p {
+                font-size: 1.1em;
+            }
+            .cta-button {
+                padding: 12px 20px;
+                font-size: 16px;
+            }
+            .section-heading {
+                font-size: 1.1em;
+            }
+            .hero-content {
+                padding: 20px;
+                margin: 20px 0;
+            }
+            .manual-link {
+                font-size: 0.8em;
+            }
+            .toggle-button {
+                bottom: 10px;
+                right: 10px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            .public-host {
+                font-size: 0.75em;
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+        }
+    </style>
+    <script>
+        window.onload = () => {
+            // Standard manifest link setup for P2P version
+            try {
+                const currentUrl = window.location.href;
+                const url = new URL(currentUrl);
+                const host = url.host;
+                const stremioUrl = `stremio://${host}/manifest.json?v=p2p`;
+                const manifestUrl = `${url.protocol}//${host}/manifest.json?v=p2p`;
+                
+                const stremioLink = document.getElementById('stremio-link');
+                const manualLink = document.getElementById('manual-p2p-link');
+                if (stremioLink) {
+                    stremioLink.href = stremioUrl;
+                } else {
+                    console.error('Element with ID "stremio-link" not found.');
+                }
+                if (manualLink) {
+                    manualLink.href = manifestUrl;
+                    manualLink.title = "Right-click to copy link address";
+                }
+            } catch (error) {
+                console.error('An error occurred:', error);
+            }
+            
+            // Setup debrid provider change handler to update input placeholder
+            const debridProvider = document.getElementById('debrid-provider');
+            const apiKeyInput = document.getElementById('api-key');
+            const apiKeyHint = document.getElementById('api-key-hint');
+            
+            function updateApiKeyPlaceholder() {
+                const provider = debridProvider.value;
+                const placeholders = {
+                    'rd': 'Enter your Real Debrid API token',
+                    'ad': 'Enter your AllDebrid API key',
+                    'dl': 'Enter your Debrid-Link API key',
+                    'ed': 'Enter your EasyDebrid API key',
+                    'oc': 'Enter your Offcloud email:password',
+                    'pp': 'Enter your PikPak email:password',
+                    'pm': 'Enter your Premiumize API key',
+                    'tb': 'Enter your TorBox API key'
+                };
+
+                const hints = {
+                    'rd': 'Your Real Debrid API token found in your account settings',
+                    'ad': 'Your AllDebrid API key from your account dashboard',
+                    'dl': 'Your Debrid-Link API key from your account settings',
+                    'ed': 'Your Paradise-Cloud EasyDebrid API key from your account page',
+                    'oc': 'Format should be email@example.com:password',
+                    'pp': 'Format should be email@example.com:password',
+                    'pm': 'Your Premiumize API key from your account settings',
+                    'tb': 'Your TorBox API key from your settings page'
+                };
+                
+                apiKeyInput.placeholder = placeholders[provider] || 'Enter your API key';
+                apiKeyHint.textContent = hints[provider] || '';
+            }
+            
+            debridProvider.addEventListener('change', updateApiKeyPlaceholder);
+            updateApiKeyPlaceholder(); // Initialize with default value
+            
+            // Setup custom URL input visibility
+            const stremthruProviderRadios = document.querySelectorAll('input[name="stremthru-provider"]');
+            const customUrlInput = document.getElementById('custom-url-input');
+            
+            stremthruProviderRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'custom') {
+                        customUrlInput.classList.add('visible');
+                    } else {
+                        customUrlInput.classList.remove('visible');
+                    }
+                });
+            });
+            
+            // Setup debrid manifest generation
+            const generateDebridLink = document.getElementById('generate-debrid-link');
+            generateDebridLink.addEventListener('click', generateDebridManifest);
+            
+            // Hide/Unhide functionality with smooth transitions
+            const hideButton = document.getElementById('hide-button');
+            const unhideButton = document.getElementById('unhide-button');
+            const heroContent = document.querySelector('.hero-content');
+            
+            hideButton.addEventListener('click', function() {
+                heroContent.classList.add('hidden');
+                hideButton.classList.add('fade-out');
+                
+                setTimeout(() => {
+                    hideButton.style.display = 'none';
+                    unhideButton.style.display = 'block';
+                    void unhideButton.offsetWidth;
+                    unhideButton.classList.add('fade-in');
+                }, 500);
+            });
+            
+            unhideButton.addEventListener('click', function() {
+                unhideButton.classList.remove('fade-in');
+                unhideButton.classList.add('fade-out');
+                
+                setTimeout(() => {
+                    unhideButton.style.display = 'none';
+                    heroContent.classList.remove('hidden');
+                    hideButton.style.display = 'block';
+                    void hideButton.offsetWidth;
+                    hideButton.classList.remove('fade-out');
+                    hideButton.classList.add('fade-in');
+                }, 300);
+            });
+            
+            // Add keyboard accessibility
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    if (!heroContent.classList.contains('hidden')) {
+                        hideButton.click();
+                    } else {
+                        unhideButton.click();
+                    }
+                }
+            });
+        };
+        
+        function generateDebridManifest() {
+            const generateBtn = document.getElementById('generate-debrid-link');
+            const btnText = generateBtn.textContent;
+            
+            // Show loading state
+            generateBtn.innerHTML = '<span class="loading"></span> Generating...';
+            generateBtn.disabled = true;
+            
+            // Get values
+            const debridProvider = document.getElementById('debrid-provider').value;
+            const apiKey = document.getElementById('api-key').value.trim();
+            const stremthruProviderValue = document.querySelector('input[name="stremthru-provider"]:checked').value;
+            
+            if (!apiKey) {
+                alert('Please enter your API key or credentials');
+                // Reset button
+                generateBtn.innerHTML = btnText;
+                generateBtn.disabled = false;
+                return;
+            }
+            
+            // Small delay to show the loading animation
+            setTimeout(() => {
+                // Get the appropriate base URL based on stremthru provider selection
+                let baseUrl;
+                if (stremthruProviderValue === 'custom') {
+                    baseUrl = document.getElementById('custom-url').value.trim();
+                    if (!baseUrl) {
+                        alert('Please enter a custom URL');
+                        generateBtn.innerHTML = btnText;
+                        generateBtn.disabled = false;
+                        return;
+                    }
+                    // Ensure URL ends with a slash
+                    if (!baseUrl.endsWith('/')) {
+                        baseUrl += '/';
+                    }
+                } else {
+                    const baseUrls = {
+                        'elfhosted': 'https://stremthru.elfhosted.com/stremio/wrap/',
+                        'mooo': 'https://stremthru.mooo.com/stremio/wrap/'
+                    };
+                    baseUrl = baseUrls[stremthruProviderValue];
+                }
+                
+                // Get current domain for the manifest URL
+                const currentUrl = window.location.href;
+                const url = new URL(currentUrl);
+                const protocol = url.protocol;
+                const host = url.host;
+                
+                // Create the configuration object with dynamic manifest URL
+                const config = {
+                    upstreams: [{
+                        u: `${protocol}//${host}/manifest.json`
+                    }],
+                    stores: [{
+                        c: debridProvider,
+                        t: apiKey
+                    }]
+                };
+                
+                // Convert to JSON string and then base64 encode
+                const jsonString = JSON.stringify(config);
+                const base64Config = btoa(jsonString);
+                
+                // Create the manifest URL
+                const manifestUrl = `${baseUrl}${base64Config}/manifest.json`;
+                const stremioUrl = `stremio://${manifestUrl.replace('https://', '')}`;
+                
+                // Update link and show it
+                const debridLink = document.getElementById('debrid-link');
+                debridLink.href = stremioUrl;
+                
+                // Show the result section and flow indicator
+                const resultSection = document.getElementById('debrid-result');
+                resultSection.style.display = 'block';
+                
+                const flowIndicator = document.getElementById('flow-indicator');
+                if (flowIndicator) {
+                    flowIndicator.style.display = 'block';
+                }
+                
+                // No scroll behavior to prevent background zoom
+                const scrollPos = resultSection.getBoundingClientRect().top + window.pageYOffset - 20;
+                window.scrollTo({
+                    top: scrollPos,
+                    behavior: 'auto'
+                });
+                
+                // Also display the URLs for reference
+                const manifestUrlDisplay = document.getElementById('manifest-url');
+                manifestUrlDisplay.href = manifestUrl;
+                manifestUrlDisplay.title = "Right-click to copy link address";
+                
+                // Reset button
+                generateBtn.innerHTML = btnText;
+                generateBtn.disabled = false;
+            }, 600);
+            
+            return false;
+        }
+    </script>
+</head>
+<body>
+    <div class="hero">
+        <div class="dark-overlay"></div>
+        <div class="hero-content">
+            <h1>Formulio Addon</h1>
+            <p>Motor racing replays on Stremio - Now with Debrid</p>
+            <div class="community-link">
+                <a href="https://www.reddit.com/r/FormulaStremio/" target="_blank">Important updates: Join the official community r/FormulaStremio</a>
+            </div>
+            
+            <div class="content">
+                <div class="public-host" id="public-host">
+                    <p>
+                        This is a free, public instance of the <a href="https://github.com/TheRaceDirector/formuliodev/">Formulio addon</a>, initially donated by <a href="https://elfhosted.com">ElfHosted</a>, but now independently maintained by <a href="https://hayd.uk">Hayduk</a> 
+                        </p>
+                        <p>
+                        ElfHosted have the best hosting setup, support, and community on the market! (ask <A HREF="https://www.trustpilot.com/review/elfhosted.com>TrustPilot</A>!) -- Stremio-Racer xxx
+                        </p>
+                        <h3>What is ElfHosted?</h3>
+                        <p><a href="https://elfhosted.com/">ElfHosted</a> is an <a href="https://elfhosted.com/open/">open-source</a> platform for <a href="https://elfhosted.com/guides/media/">"self-hosting" Plex with Real Debrid</a> (<i>using <a href="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex/">plex_debrid</a>, <a href="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-riven/">Riven</a>, or <a href="https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex-radarr-sonarr-prowlarr/">Radarr & Sonarr</a></i>), and your <a href="https://elfhosted.com/apps/">awesome self-hosted apps</a>, automatically and easily.</p>
+                        <p>Among many other <a href="https://elfhosted.com/apps/">open-source apps</a>, ElfHosted offers private, subscription instances of the <a href="https://elfhosted.com/stremio-addons/">best Stremio Addons</a>, including those which enable you to:</p>
+                        <div class="feature-list">
+                            <div class="feature-list-item">
+                                <span class="feature-icon">👨‍👩‍👦‍👦</span>
+                                <span><a href="https://elfhosted.com/app/comet/">Share your Real Debrid / Stremio from multiple locations at once</a> (<i>Comet</i>)</span>
+                            </div>
+                            <div class="feature-list-item">
+                                <span class="feature-icon">🎁</span>
+                                <span><a href="https://elfhosted.com/app/xtremio/">Watch your paid IPTV with Stremio</a> (<i>Xtremio</i>)</span>
+                            </div>
+                            <div class="feature-list-item">
+                                <span class="feature-icon">📺</span>
+                                <span><a href="https://elfhosted.com/app/mediafusion/">Install a Stremio Live TV addon</a> (<i>MediaFusion</i>)</span>
+                            </div>
+                            <div class="feature-list-item">
+                                <span class="feature-icon">🏈</span>
+                                <span><a href="https://elfhosted.com/app/mediafusion/">Watch recorded / live sports with Stremio</a> (<i>MediaFusion</i>)</span>
+                            </div>
+                    </div>
+                </div>                               
+                
+            <form onsubmit="return false;">
+                <div class="section-heading">
+                    <span><span class="step-number">1</span> Debrid Service Configuration</span>
+                </div>
+                <div class="form-group">
+                    <label for="debrid-provider">Select Debrid Provider:</label>
+                    <select id="debrid-provider">
+                        <option value="rd">Real Debrid</option>
+                        <option value="ad">All Debrid</option>
+                        <option value="dl">Debrid Link</option>
+                        <option value="ed">Easy Debrid (Paradise-Cloud)</option>
+                        <option value="oc">Offcloud</option>
+                        <option value="pp">PikPak</option>
+                        <option value="pm">Premiumize</option>
+                        <option value="tb">TorBox</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="api-key">API Key/Credentials:</label>
+                    <input type="text" id="api-key" placeholder="Enter your API key">
+                    <div id="api-key-hint" class="hint"></div>
+                </div>
+                
+                <div class="section-heading">
+                    <span class="tooltip">
+                        Stremthru Provider Configuration
+                        <span class="tooltip-icon"><i class="fas fa-info-circle"></i></span>
+                        <span class="tooltip-text">This is the wrap service that Formulio will use to leverage debrid capabilities</span>
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label>Select Stremthru Provider:</label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="stremthru-provider" value="elfhosted" checked> Elfhosted (recommended)
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="stremthru-provider" value="mooo"> Mooo
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="stremthru-provider" value="custom"> Custom
+                        </label>
+                    </div>
+                    <div id="custom-url-input" class="custom-url-input">
+                        <input type="text" id="custom-url" placeholder="https://stremthru.<domain>/stremio/wrap/" class="form-control">
+                    </div>
+                </div>
+                
+                <button id="generate-debrid-link" class="cta-button">Generate Debrid Link</button>
+            </form>
+
+            <div id="debrid-result">
+                <p>Your debrid-enabled Formulio is ready! Click below to install:</p>
+                <a id="debrid-link" href="#"><button class="cta-button">Install Debrid-Enabled Formulio</button></a>
+                <div style="text-align: center;">
+                    <a id="manifest-url" href="#" target="_blank" class="manual-link">Manual installation link</a>
+                </div>
+                
+                <!-- Added Debrid Session Information Box -->
+                <div class="info-box">
+                    <div class="info-box-title">
+                        <span class="info-icon"><i class="fas fa-info-circle"></i></span>
+                        <span>Important: About Debrid Sessions</span>
+                    </div>
+                    <p>When using debrid, after selecting a session:</p>
+                    <ul>
+                        <li><strong>⚡ visible:</strong> Content is already cached on debrid server - instant playback</li>
+                        <li><strong>No ⚡ visible:</strong> Content is not yet downloaded to the debrid server</li>
+                    </ul>
+                    <p>If you don't see the ⚡ icon, you can:</p>
+                    <ol>
+                        <li>Wait for the content to download to debrid (check back later - go back to another session to refresh)</li>
+                        <li>Use the P2P non-debrid option below which will play instantly</li>
+                    </ol>
+                </div>
+                
+                <div class="highlight-box pin-message" style="margin-top: 25px;">
+                    <p style="font-weight: bold; margin-top: 0;"><i class="fas fa-thumbtack"></i> DO THIS: Pin Formulio to The Top of Your Stremio Homepage</p>
+                    <p style="margin-bottom: 5px;">Rearrange your Stremio addons here: <a href="https://stremio-addon-manager.vercel.app/" target="_blank" style="color: #ff9999;">Stremio Addon Manager</a></p>
+                    <ul style="margin-top: 5px; text-align: left; font-size: 0.9em;">
+                        <li>Move <strong>Formulio (Stremthru)</strong> to the <strong>top</strong> of your addon list</li>
+                        <li>Move <strong>Formulio P2P</strong> to the <strong>bottom</strong> of your addon list</li>
+                    </ul>
+                </div>                
+            </div>
+            
+            <div class="flow-arrow" id="flow-indicator" style="display: none;">
+                <i class="fas fa-arrow-down"></i>
+            </div>
+            
+            <!-- P2P Option (now always visible) -->
+            <div class="p2p-section">
+                <div class="p2p-header">
+                    <span class="step-number">2</span>
+                    <span class="p2p-title">Install P2P Version <span class="step-tag optional-tag">Optional Backup</span></span>
+                </div>
+                
+                <div class="p2p-description">
+                    Backup option for instant streaming without Debrid download wait times. Includes exclusive content not in main version.
+                </div>
+                
+                <div class="p2p-warning">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i> Warning: Uses peer-to-peer connections which may be unsafe in some regions. Only use this version where legally permitted.
+                </div>
+                
+                <div class="p2p-benefits">
+                    <div class="benefit-item">
+                        <span class="benefit-icon"><i class="fas fa-bolt"></i></span>
+                        <span class="benefit-text">Streams start instantly - no Debrid download wait time</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon"><i class="fas fa-plus-circle"></i></span>
+                        <span class="benefit-text">Exclusive content not available in the main version</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon"><i class="fas fa-check-circle"></i></span>
+                        <span class="benefit-text">Can be installed alongside the Debrid version without conflicts</span>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 25px;">
+                    <a id="stremio-link" href="#"><button class="p2p-button">Install P2P Backup Version</button></a>
+                    <div>
+                        <a id="manual-p2p-link" href="#" target="_blank" class="manual-link">Manual installation link</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="disclaimer">
+            Disclaimer: This addon does not host any content. It simply provides pointers to content that is publicly available on the internet. Use only where legally permitted.
+        </div>
+    </div>
+    
+    <!-- Hide/Unhide buttons with toggle-button class for shared styles -->
+    <button id="hide-button" class="toggle-button fade-in">Hide</button>
+    <button id="unhide-button" class="toggle-button" style="display: none;">Unhide</button>
+</body>
+</html>
