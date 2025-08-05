@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b v$VERSION  https://github.com/topolvm/topolvm.git /source 
+RUN git clone -b v$VERSION https://github.com/topolvm/topolvm.git /source 
 
 # Build topolvm
 FROM --platform=$BUILDPLATFORM golang:1.23-bullseye AS build-topolvm
