@@ -3,6 +3,7 @@ import os
 import time
 import signal
 import re
+import shlex
 import subprocess
 import smtplib
 import sys
@@ -24,6 +25,8 @@ SMTP_USERNAME = os.environ.get("SMTP_USERNAME")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "noreply@elfhosted.com")
 EMAIL_TO = os.environ.get("EMAIL_TO")  # Must be set
+DEBUG_LOGGING = os.environ.get("DEBUG_LOGGING", "false").lower() in ("1", "true", "yes")
+
 
 # Add your regex-based exceptions here (e.g., allow audio-only transcodes)
 EXCEPTIONS = [
@@ -39,6 +42,9 @@ def was_recently_blocked(filename):
     return any(f == filename for _, f in BLOCKED_RECENTLY)
 
 def log(message):
+    if message.startswith("[DEBUG]") and not DEBUG_LOGGING:
+        return  # Skip debug output unless enabled
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_line = f"{timestamp} {message}\n"
     with open(LOG_FILE, "a") as f:
@@ -130,52 +136,53 @@ def is_exception(cmdline):
     return any(re.search(pattern, cmdline) for pattern in EXCEPTIONS)
 
 def is_video_transcode(cmdline):
-    if re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+copy', cmdline):
-        return False, None
-    # --- SAFE WHITELIST RULES ---
+    cmdline = ' '.join(cmdline.split())  # Normalize whitespace
+    log(f"[DEBUG] is_video_transcode() input: {cmdline[:300]}")
 
-    # 1. Metadata paths: themes, agents, trailers, etc.
+    # Exceptions: skip anything with explicit audio-only copy
+    if any(re.search(pattern, cmdline) for pattern in EXCEPTIONS):
+        log("[DEBUG] Command matches exception pattern, skipping.")
+        return False, "Matched exception"
+
+    # Short-circuit for known allowed cases
     if re.search(r'/Metadata/.*(theme|agent|trailers?|extras?)', cmdline, re.IGNORECASE):
         return False, "Allowed: Plex metadata (theme/agent/trailer)"
-    # 2. Audio-only input (no -map 0:v or video codecs)
-    if not re.search(r'-map\s+0:v', cmdline) and re.search(r'-codec:\d+\s+(aac|mp3|flac|opus)', cmdline):
-        return False, "Allowed: audio-only transcode to common codec"
-    # 3. Specific known audio-only transforms
-    if re.search(r'-codec:\d+\s+mp3.*-codec:\d+\s+aac', cmdline):
-        return False, "Allowed: mp3→aac audio transcode"
-    # 4. Output to ssegment or manifest — often metadata audio
-    if "segment_list" in cmdline and not re.search(r'-map\s+0:v', cmdline):
-        return False, "Allowed: audio DASH segment for metadata"
+
     if "-version" in cmdline:
         return False, None
+
     if "chromaprint" in cmdline:
         return True, "Audio fingerprinting (chromaprint) detected. Bandwidth-wasteful, blocking"
+
     if "blackframe" in cmdline:
         return True, "Jellyfin chapter thumbnailling detected. Bandwidth-wasteful, blocking"
-    if not re.search(r'-(?:c:v|codec:0|map\s+0:v)', cmdline) and re.search(r'-(?:ac|ar|acodec)', cmdline):
-        return False, None
+
+    # --- Detect primary video codec ---
     video_codec_match = re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+(\S+)', cmdline)
     video_codec = video_codec_match.group(1).lower() if video_codec_match else None
+    log(f"[DEBUG] Detected video codec: {video_codec}")
+
     if video_codec == "copy":
-        return False, None
-    if re.search(r'-(?:c:s|scodec)\s+(ass|webvtt)', cmdline):
-        return False, None
-    if video_codec == "flac":
-        return False, None
-    if re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+hevc', cmdline):
-        return True, "HEVC decode detected (CPU-intensive), blocking"        
+        return False, "Allowed: video is being remuxed (copy)"
+
+    # --- HEVC decode is CPU-intensive ---
+    if video_codec == "hevc":
+        return True, "HEVC decode detected (CPU-intensive), blocking"
+
+    # --- Software transcode (no hwaccel keywords) ---
     if (
-        not any(x in cmdline.lower() for x in ["vaapi", "nvenc", "nvdec", "cuda"])
-        and re.search(r'-(?:c:v|codec:0)', cmdline)
-        and video_codec != "copy"
+        video_codec
+        and not any(x in cmdline.lower() for x in ["vaapi", "nvenc", "nvdec", "cuda"])
     ):
         return True, "No hardware acceleration (VAAPI/NVENC/NVDEC/CUDA) involved, blocking software transcode"
+
+    # --- Block 4K input sources (unless hwaccel used) ---
     input_match = re.search(r'-i\s+["\']?(.+?\.(?:mkv|mp4|avi|ts|mov))["\']?', cmdline, re.IGNORECASE)
     if input_match:
         input_path = input_match.group(1).strip()
-        filename = os.path.basename(input_path)
         if re.search(r'4k|2160|hevc', input_path, re.IGNORECASE):
             return True, f"Transcoding from 4K source is not supported. ({input_path})"
+
     return False, None
 
 def monitor():
