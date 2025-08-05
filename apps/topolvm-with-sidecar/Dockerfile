@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b v$VERSION https://github.com/topolvm/topolvm.git /source
 
-COPY apps/topolvm/disable-nodepublishvolume-lock.patch /source/
+COPY apps/topolvm-with-sidecar/disable-nodepublishvolume-lock.patch /source/
 
 RUN cd /source && \
     git apply disable-nodepublishvolume-lock.patch && \
