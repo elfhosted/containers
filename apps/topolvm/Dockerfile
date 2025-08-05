@@ -7,7 +7,11 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b v$VERSION https://github.com/topolvm/topolvm.git /source 
+RUN git clone -b v$VERSION https://github.com/topolvm/topolvm.git /source && \
+    copy apps/topolvm/disable-nodepublishvolume-lock.patch /source/ && \
+    cd /source && \
+    git apply disable-nodepublishvolume-lock.patch && \
+    rm disable-nodepublishvolume-lock.patch
 
 # Build topolvm
 FROM --platform=$BUILDPLATFORM golang:1.23-bullseye AS build-topolvm

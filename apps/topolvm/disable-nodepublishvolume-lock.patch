@@ -1,0 +1,16 @@
+diff --git a/internal/driver/node.go b/internal/driver/node.go
+index ea10849a..36d11cae 100644
+--- a/internal/driver/node.go
++++ b/internal/driver/node.go
+@@ -64,8 +64,9 @@ type nodeServer struct {
+ }
+ 
+ func (s *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+-	s.mu.Lock()
+-	defer s.mu.Unlock()
++	// s.mu.Lock()
++	// defer s.mu.Unlock()
++	// ElfHosted disabled this because it significantly slows down pod rollouts
+ 
+ 	return s.server.NodePublishVolume(ctx, req)
+ }
