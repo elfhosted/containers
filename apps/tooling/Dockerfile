@@ -77,7 +77,7 @@ RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmo
 	apt -y install postgresql-client-15	
 
 # get wgcf (for generating WARP wireguard configs)
-ADD --chmod=755  https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64 /usr/local/bin/wgcf
+ADD --chmod=755  https://github.com/ViRb3/wgcf/releases/download/v2.2.27/wgcf_2.2.27_linux_amd64 /usr/local/bin/wgcf
 
 # Setup s3cmd config
 # hadolint ignore=SC2016
