@@ -139,12 +139,11 @@ def is_video_transcode(cmdline):
     cmdline = ' '.join(cmdline.split())  # Normalize whitespace
     log(f"[DEBUG] is_video_transcode() input: {cmdline[:300]}")
 
-    # Exceptions: skip anything with explicit audio-only copy
+    # Short-circuit exceptions
     if any(re.search(pattern, cmdline) for pattern in EXCEPTIONS):
         log("[DEBUG] Command matches exception pattern, skipping.")
         return False, "Matched exception"
 
-    # Short-circuit for known allowed cases
     if re.search(r'/Metadata/.*(theme|agent|trailers?|extras?)', cmdline, re.IGNORECASE):
         return False, "Allowed: Plex metadata (theme/agent/trailer)"
 
@@ -157,33 +156,25 @@ def is_video_transcode(cmdline):
     if "blackframe" in cmdline:
         return True, "Jellyfin chapter thumbnailling detected. Bandwidth-wasteful, blocking"
 
-    # --- Detect primary video codec ---
-    video_codec_match = re.search(r'-(?:c:v|codec:0)(?::\d+)?\s+(\S+)', cmdline)
-    video_codec = video_codec_match.group(1).lower() if video_codec_match else None
-    log(f"[DEBUG] Detected video codec: {video_codec}")
+    # --- Detect all video codec assignments ---
+    video_codecs = re.findall(r'-(?:c:v|codec:0)(?::\d+)?\s+(\S+)', cmdline)
+    log(f"[DEBUG] Found video codec declarations: {video_codecs}")
 
-    if video_codec == "copy":
-        return False, "Allowed: video is being remuxed (copy)"
+    if video_codecs:
+        final_video_codec = video_codecs[-1].lower()
+        log(f"[DEBUG] Final video codec used: {final_video_codec}")
 
-    # --- HEVC decode is CPU-intensive ---
-    if video_codec == "hevc":
-        return True, "HEVC decode detected (CPU-intensive), blocking"
+        if final_video_codec == "copy":
+            return False, "Allowed: video is being remuxed (copy)"
 
-    # --- Software transcode (no hwaccel keywords) ---
-    if (
-        video_codec
-        and not any(x in cmdline.lower() for x in ["vaapi", "nvenc", "nvdec", "cuda"])
-    ):
-        return True, "No hardware acceleration (VAAPI/NVENC/NVDEC/CUDA) involved, blocking software transcode"
+        if final_video_codec == "hevc":
+            return True, "HEVC decode detected (CPU-intensive), blocking"
 
-    # --- Block 4K input sources (unless hwaccel used) ---
-    input_match = re.search(r'-i\s+["\']?(.+?\.(?:mkv|mp4|avi|ts|mov))["\']?', cmdline, re.IGNORECASE)
-    if input_match:
-        input_path = input_match.group(1).strip()
-        if re.search(r'4k|2160|hevc', input_path, re.IGNORECASE):
-            return True, f"Transcoding from 4K source is not supported. ({input_path})"
+        if not any(hw in cmdline.lower() for hw in ["vaapi", "nvenc", "nvdec", "cuda"]):
+            return True, "No hardware acceleration (VAAPI/NVENC/NVDEC/CUDA) involved, blocking software transcode"
 
     return False, None
+
 
 def monitor():
     while True:
