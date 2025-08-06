@@ -1,6 +1,6 @@
 FROM mikefarah/yq:4.44.1 as yq
 
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:2ba3258c7cc40330bfea13a600ca6762591d677db211a3255fbf44d4635481f0
+FROM ghcr.io/elfhosted/ubuntu-jammy:ammy-20250714@sha256:c3e561b643b21a6d908860133e8eca3d4398bebdf8750c4f10e1c284934a6bc5
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
