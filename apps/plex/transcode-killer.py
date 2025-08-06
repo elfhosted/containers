@@ -139,7 +139,7 @@ def is_video_transcode(cmdline):
     cmdline = ' '.join(cmdline.split())  # Normalize whitespace
     log(f"[DEBUG] is_video_transcode() input: {cmdline[:300]}")
 
-    # Short-circuit exceptions
+    # Skip known exceptions
     if any(re.search(pattern, cmdline) for pattern in EXCEPTIONS):
         log("[DEBUG] Command matches exception pattern, skipping.")
         return False, "Matched exception"
@@ -160,20 +160,27 @@ def is_video_transcode(cmdline):
     video_codecs = re.findall(r'-(?:c:v|codec:0)(?::\d+)?\s+(\S+)', cmdline)
     log(f"[DEBUG] Found video codec declarations: {video_codecs}")
 
-    if video_codecs:
-        final_video_codec = video_codecs[-1].lower()
-        log(f"[DEBUG] Final video codec used: {final_video_codec}")
+    final_video_codec = video_codecs[-1].lower() if video_codecs else None
+    log(f"[DEBUG] Final video codec used: {final_video_codec}")
 
-        if final_video_codec == "copy":
-            return False, "Allowed: video is being remuxed (copy)"
+    if final_video_codec == "copy":
+        return False, "Allowed: video is being remuxed (copy)"
 
-        if final_video_codec == "hevc":
-            return True, "HEVC decode detected (CPU-intensive), blocking"
+    if final_video_codec == "hevc":
+        return True, "HEVC decode detected (CPU-intensive), blocking"
 
-        if not any(hw in cmdline.lower() for hw in ["vaapi", "nvenc", "nvdec", "cuda"]):
-            return True, "No hardware acceleration (VAAPI/NVENC/NVDEC/CUDA) involved, blocking software transcode"
+    if final_video_codec and not any(hw in cmdline.lower() for hw in ["vaapi", "nvenc", "nvdec", "cuda"]):
+        return True, "No hardware acceleration (VAAPI/NVENC/NVDEC/CUDA) involved, blocking software transcode"
+
+    # --- Block video transcode from 4K sources only ---
+    input_match = re.search(r'-i\s+["\']?(.+?\.(?:mkv|mp4|avi|ts|mov))["\']?', cmdline, re.IGNORECASE)
+    if input_match and final_video_codec != "copy":
+        input_path = input_match.group(1).strip()
+        if re.search(r'4k|2160|webdl-2160|uhd', input_path, re.IGNORECASE):
+            return True, f"Transcoding from 4K source is not allowed. ({input_path})"
 
     return False, None
+
 
 
 def monitor():
