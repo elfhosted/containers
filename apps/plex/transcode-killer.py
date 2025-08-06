@@ -157,7 +157,7 @@ def is_video_transcode(cmdline):
         return True, "Jellyfin chapter thumbnailling detected. Bandwidth-wasteful, blocking"
 
     # --- Detect all video codec assignments ---
-    video_codecs = re.findall(r'-(?:c:v|codec:0)(?::\d+)?\s+(\S+)', cmdline)
+    video_codecs = re.findall(r'-(?:c:v|codec(?::v)?)(?::\d+)?\s+(\S+)', cmdline)
     log(f"[DEBUG] Found video codec declarations: {video_codecs}")
 
     final_video_codec = video_codecs[-1].lower() if video_codecs else None
