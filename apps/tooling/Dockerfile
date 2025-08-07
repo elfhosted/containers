@@ -1,12 +1,5 @@
 FROM mikefarah/yq:4.44.1 as yq
 
-# Stage 1: Get the PostgreSQL 17 tools from Debian Bookworm
-FROM debian:bookworm as pgclient
-
-RUN apt-get update && apt-get install -y postgresql-client-17
-
-
-
 FROM ghcr.io/elfhosted/ubuntu-jammy:ammy-20250714@sha256:c3e561b643b21a6d908860133e8eca3d4398bebdf8750c4f10e1c284934a6bc5
 
 ARG TARGETPLATFORM
@@ -14,18 +7,23 @@ ARG BUILDPLATFORM
 ARG VERSION
 ARG CHANNEL
 
-# Install required libraries to run the binaries
-RUN apt-get update && apt-get install -y libedit2 libpq5
+# Install dependencies
+RUN apt-get update && apt-get install -y wget ca-certificates gnupg lsb-release
 
-# Copy over required PostgreSQL binaries and shared data
-COPY --from=pgclient /usr/bin/psql /usr/bin/
-COPY --from=pgclient /usr/bin/pg_dump /usr/bin/
-COPY --from=pgclient /usr/bin/pg_restore /usr/bin/
-COPY --from=pgclient /usr/share/postgresql/ /usr/share/postgresql/
-COPY --from=pgclient /usr/lib/postgresql/ /usr/lib/postgresql/
-COPY --from=pgclient /usr/lib/x86_64-linux-gnu/libpq.so.5 /usr/lib/x86_64-linux-gnu/
+# Add PostgreSQL's official GPG key
+RUN mkdir -p /etc/apt/keyrings && \
+    wget -qO - https://www.postgresql.org/media/keys/ACCC4CF8.asc | \
+    gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg
 
-# Confirm versions
+# Add the PostgreSQL APT repository
+RUN echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list
+
+# Update and install PostgreSQL 17 client tools
+RUN apt-get update && \
+    apt-get install -y postgresql-client-17
+
+# Optional: verify installation
 RUN psql --version && pg_dump --version && pg_restore --version
 
 
@@ -81,27 +79,8 @@ RUN apt-get update && apt-get install -y \
 	chown root:root /usr/local/bin/rclone && \
 	chmod 755 /usr/local/bin/rclone
 
-# Setup psql 17 client, which is not in ubuntu:focal/jammy yet:
-# RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /usr/share/keyrings/postgresql.gpg > /dev/null && \
-# 	echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main | tee -a /etc/apt/sources.list.d/postgresql.list && \
-# 	apt-get update && \
-# 	apt -y install postgresql-client-17
-
-RUN apt-get update && apt-get install -y wget ca-certificates gnupg
-RUN echo "deb http://deb.debian.org/debian bookworm main" >> /etc/apt/sources.list && \
-    apt-get update && apt-get install -y postgresql-client-17
-
-
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
-
-# cloudflare cli
-RUN apt -y install nodejs npm && npm install -g cloudflare-cli
-
-RUN curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /usr/share/keyrings/postgresql.gpg > /dev/null && \
-	echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main | tee -a /etc/apt/sources.list.d/postgresql.list && \
-	apt-get update && \
-	apt -y install postgresql-client-15	
 
 # get wgcf (for generating WARP wireguard configs)
 ADD --chmod=755  https://github.com/ViRb3/wgcf/releases/download/v2.2.27/wgcf_2.2.27_linux_amd64 /usr/local/bin/wgcf
