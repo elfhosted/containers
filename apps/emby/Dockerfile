@@ -102,3 +102,4 @@ COPY ./apps/plex/transcode-killer.py /transcode-killer.py
 COPY ./apps/plex/mount-checker.sh /mount-checker.sh
 
 ENTRYPOINT [ "/init" ]
+

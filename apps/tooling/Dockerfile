@@ -1,11 +1,33 @@
 FROM mikefarah/yq:4.44.1 as yq
 
+# Stage 1: Get the PostgreSQL 17 tools from Debian Bookworm
+FROM debian:bookworm as pgclient
+
+RUN apt-get update && apt-get install -y postgresql-client-17
+
+
+
 FROM ghcr.io/elfhosted/ubuntu-jammy:ammy-20250714@sha256:c3e561b643b21a6d908860133e8eca3d4398bebdf8750c4f10e1c284934a6bc5
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 ARG VERSION
 ARG CHANNEL
+
+# Install required libraries to run the binaries
+RUN apt-get update && apt-get install -y libedit2 libpq5
+
+# Copy over required PostgreSQL binaries and shared data
+COPY --from=pgclient /usr/bin/psql /usr/bin/
+COPY --from=pgclient /usr/bin/pg_dump /usr/bin/
+COPY --from=pgclient /usr/bin/pg_restore /usr/bin/
+COPY --from=pgclient /usr/share/postgresql/ /usr/share/postgresql/
+COPY --from=pgclient /usr/lib/postgresql/ /usr/lib/postgresql/
+COPY --from=pgclient /usr/lib/x86_64-linux-gnu/libpq.so.5 /usr/lib/x86_64-linux-gnu/
+
+# Confirm versions
+RUN psql --version && pg_dump --version && pg_restore --version
+
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 

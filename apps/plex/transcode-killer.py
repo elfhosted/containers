@@ -160,7 +160,14 @@ def is_video_transcode(cmdline):
     if final_video_codec == "hevc":
         return True, "HEVC decode detected (CPU-intensive), blocking"
 
+    # If a video codec is set and no hardware acceleration is used
     if final_video_codec and not any(hw in cmdline.lower() for hw in ["vaapi", "nvenc", "nvdec", "cuda"]):
+        
+        # Sanity fallback: If 'codec:0 copy' exists in raw text, trust it and allow
+        if "-codec:0 copy" in cmdline or "-c:v copy" in cmdline:
+            log("[DEBUG] Fallback: Detected '-codec:0 copy' in raw cmdline, skipping block.")
+            return False, "Allowed (fallback): video is being remuxed (copy)"
+
         return True, "No hardware acceleration (VAAPI/NVENC/NVDEC/CUDA) involved, blocking software transcode"
 
     input_match = re.search(r'-i\s+["\']?(.+?\.(?:mkv|mp4|avi|ts|mov))["\']?', cmdline, re.IGNORECASE)
