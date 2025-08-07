@@ -17,7 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --from=cloner /source/. .
 
+RUN mkdir /config/state && \
+    ln -s /config/* /
+
 VOLUME /config
-VOLUME /state
 
 CMD ["python", "app.py"]
