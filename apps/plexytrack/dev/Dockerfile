@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --from=cloner /source/. .
 
-RUN mkdir /config/state && \
+RUN mkdir -p /config/state && \
     ln -s /config/* /
 
 VOLUME /config
