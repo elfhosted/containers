@@ -89,5 +89,8 @@ COPY apps/cinesync/client_locked_settings.json /app/MediaHub/utils/client_locked
 
 # We don't use an entrypoint becasue we force the UID
 
-# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["python3", "WebDavHub/scripts/start-prod.py"]
+RUN mkdir /scripts
+COPY /apps/ubuntu/scripts/mounts.sh /scripts/mounts.sh
+COPY /apps/cinesync/entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+# CMD ["python3", "WebDavHub/scripts/start-prod.py"]
