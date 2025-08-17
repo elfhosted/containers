@@ -79,7 +79,8 @@ RUN mkdir -p /data/database
 
 # Create wizard steps config directory
 RUN mkdir -p /etc/wizarr/wizard_steps && \
-    chown -R 568:568 /etc/wizarr
+    chown -R 568:568 /etc/wizarr && \
+    chown -R 568:568 /app
 
 # Create directories that need to be writable
 RUN mkdir -p /.cache
