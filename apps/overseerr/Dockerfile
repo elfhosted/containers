@@ -11,11 +11,10 @@ RUN \
     curl \
     g++ \
     make \
-    git \
     python3 && \
   echo "**** install runtime packages ****" && \
   apk add --no-cache \
-    yarn && \
+    yarn git && \
   if [ -z ${VERSION+x} ]; then \
     VERSION=$(curl -sX GET "https://api.github.com/repos/sct/overseerr/releases/latest" \
     | awk '/tag_name/{print $4;exit}' FS='[""]'); \
