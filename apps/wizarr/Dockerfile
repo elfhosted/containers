@@ -78,7 +78,8 @@ COPY --chown=568:568 . /app
 RUN mkdir -p /data/database
 
 # Create wizard steps config directory
-RUN mkdir -p /etc/wizarr/wizard_steps
+RUN mkdir -p /etc/wizarr/wizard_steps && \
+    chown -R 568:568 /etc/wizarr
 
 # Create directories that need to be writable
 RUN mkdir -p /.cache
