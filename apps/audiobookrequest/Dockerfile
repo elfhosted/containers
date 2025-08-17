@@ -27,12 +27,14 @@ RUN apk add --no-cache curl gcompat build-base
 RUN curl https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-arm64-musl -L -o /bin/tailwindcss
 
 FROM ${TARGETOS}-${TARGETARCH}${TARGETVARIANT}
+WORKDIR /app
+
 RUN chmod +x /bin/tailwindcss
 
 COPY --from=1 /app/node_modules/ node_modules/
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-COPY --from=cloner /source/uv.lock /source/pyproject.toml /app
+COPY --from=cloner /source/uv.lock /source/pyproject.toml /app/
 RUN uv sync --frozen --no-cache
 
 COPY --from=cloner /source/alembic/ alembic/
@@ -40,6 +42,7 @@ COPY --from=cloner /source/alembic.ini alembic.ini
 COPY --from=cloner /source/static/ static/
 COPY --from=cloner /source/templates/ templates/
 COPY --from=cloner /source/app/ app/
+COPY --from=cloner /source/CHANGELOG.md CHANGELOG.md
 
 RUN /bin/tailwindcss -i static/tw.css -o static/globals.css -m
 # Fetch all the required js files
