@@ -8,41 +8,80 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION  https://github.com/wizarrrr/wizarr.git /source
 
 # Start from the official Python 3.12 Alpine image
+# ─── Stage 1: Dependencies ───────────────────────────────────────────────
+FROM ghcr.io/astral-sh/uv:python3.13-alpine AS deps
+
+# Install system dependencies
+RUN apk add --no-cache nodejs npm
+
+# Set working directory
+WORKDIR /app
+
+# Enable bytecode compilation for faster startup
+ENV UV_COMPILE_BYTECODE=1
+
+# Use copy link mode to avoid warnings with cache mounts
+ENV UV_LINK_MODE=copy
+
+# Copy dependency files first for better caching
+COPY --from=cloner /source/pyproject.toml /source/uv.lock ./
+
+# Install Python dependencies only (not project) with cache mount for speed
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project
+
+# Copy npm dependency files and install with cache
+COPY --from=cloner /source/app/static/package*.json ./app/static/
+RUN npm --prefix app/static/ ci --cache /tmp/npm-cache
+
+# ─── Stage 2: Build assets ────────────────────────────────────────────────
+FROM deps AS builder
+
+# Copy source files needed for building
+COPY --from=cloner /source/app/ ./app/
+COPY --from=cloner /source/babel.cfg ./
+
+# Install the project now that we have source code
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked
+
+# Build translations
+RUN uv run pybabel compile -d app/translations
+
+# Ensure static directories exist and build static assets
+RUN mkdir -p app/static/js app/static/css && npm --prefix app/static/ run build
+
+# ─── Stage 3: Runtime ─────────────────────────────────────────────────────
 FROM python:3.13-alpine
 
 # Set default environment variables for user/group IDs
 ENV PUID=568
 ENV PGID=568
 
-# Copy the UV binaries from the "astral-sh/uv" image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Install runtime dependencies only
+RUN apk add --no-cache curl tzdata su-exec
 
-# Install curl (for the HEALTHCHECK), tzdata (if you need timezones), nodejs (for npm), and su-exec for user switching
-RUN apk add --no-cache curl tzdata nodejs npm su-exec
+# Set application working directory
+WORKDIR /app
 
-# ─── 2. Copy your application code ──────────────────────────────────────────
+# Copy Python environment from builder stage (includes project)
+COPY --from=builder /app/.venv /app/.venv
 
-# Set up the working directory for our code. We'll put everything under /data.
-WORKDIR /data
+# Make sure we can run uv in the final image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Copy your source as UID 1000/GID 1000 at build time,
-# so default users never need a runtime chown.
-COPY --chown=568:568 --from=cloner /source/. /data
+# Copy application code and built assets
+COPY --chown=568:568 --from=builder /app/app /app/app
+COPY --chown=568:568 . /app
 
-# ─── 3. Run your build steps (still as root) ───────────────────────────────
+# Create data directory for database (backward compatibility)
+RUN mkdir -p /data/database
 
-# We run the build steps as root first, because installing packages
-# or building assets often needs root privileges.
-RUN uv sync --locked
-RUN uv run pybabel compile -d app/translations
-
-RUN npm --prefix app/static/ install
-RUN npm --prefix app/static/ run build:css
+# Create wizard steps config directory
+RUN mkdir -p /etc/wizarr/wizard_steps
 
 # Create directories that need to be writable
-RUN mkdir -p /.cache && \
-    mkdir -p /data/database && \
-    chown -R 568:568 /data/database
+RUN mkdir -p /.cache
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
@@ -66,8 +105,6 @@ ENTRYPOINT ["docker-entrypoint.sh"]
 # By default we run Gunicorn under wizarruser
 CMD ["uv", "run", "gunicorn", \
      "--config", "gunicorn.conf.py", \
-     "--preload", \
-     "--workers", "4", \
      "--bind", "0.0.0.0:5690", \
      "--umask", "007", \
      "run:app"]
