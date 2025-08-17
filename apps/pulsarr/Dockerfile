@@ -21,8 +21,8 @@ ENV CACHE_DIR=/app/build-cache
 ENV tmdbApiKey=${TMDBAPIKEY}
 
 # Copy package files first (changes less often)
-COPY package*.json ./
-COPY .npmrc ./
+COPY --from=cloner /source/package*.json ./
+COPY --from=cloner /source/.npmrc ./
 
 # Install dependencies with cache mount
 RUN --mount=type=cache,target=/root/.npm \
@@ -30,10 +30,10 @@ RUN --mount=type=cache,target=/root/.npm \
     HUSKY=0 npm ci --prefer-offline --no-audit
 
 # Copy build configuration files
-COPY vite.config.js tsconfig.json postcss.config.mjs ./
+COPY --from=cloner /source/vite.config.js /source/tsconfig.json /source/postcss.config.mjs ./
 
 # Copy source code (changes most often)
-COPY src ./src
+COPY --from=cloner /source/src ./src
 
 # Build with cache mounts
 RUN --mount=type=cache,target=/app/node_modules/.vite \
@@ -50,7 +50,7 @@ WORKDIR /app
 ENV CACHE_DIR=/app/build-cache
 
 # Copy package files (runtime typically does not need .npmrc)
-COPY package*.json ./
+COPY --from=cloner /source/package*.json ./
 # Reuse production dependencies from the builder image
 COPY --from=builder /app/node_modules ./node_modules
 
