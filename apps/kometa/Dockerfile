@@ -14,7 +14,7 @@ ENV TINI_VERSION=v0.19.0
 ENV KOMETA_DOCKER=True
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
-COPY requirements.txt requirements.txt
+COPY --from=cloner /source/requirements.txt requirements.txt
 RUN echo "**** install system packages ****" \
  && apt-get update \
  && apt-get upgrade -y --no-install-recommends \
