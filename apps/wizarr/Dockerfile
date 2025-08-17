@@ -72,7 +72,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Copy application code and built assets
 COPY --chown=568:568 --from=builder /app/app /app/app
-COPY --chown=568:568 . /app
+COPY --chown=568:568 --from=cloner /source/. /app
 
 # Create data directory for database (backward compatibility)
 RUN mkdir -p /data/database
