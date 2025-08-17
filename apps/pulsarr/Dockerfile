@@ -61,13 +61,13 @@ RUN mkdir -p /app/data/db && \
 
 # Copy build artifacts
 COPY --from=builder /app/dist ./dist
-COPY migrations ./migrations
-COPY docker-entrypoint.sh ./
+COPY --from=cloner /source/migrations ./migrations
+COPY --from=cloner /source/docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
 # Copy license and documentation files for compliance
-COPY LICENSE* ./
-COPY README.md ./
+COPY --from=cloner /source/LICENSE* ./
+COPY --from=cloner /source/README.md ./
 
 # Pass TMDB API key to runtime (GitHub Actions converts to TMDBAPIKEY)
 ARG TMDBAPIKEY
