@@ -49,7 +49,7 @@ RUN \
     /app/overseerr/.next/cache/*
 
 # Apply Plex metadata patch until it makes it into a new release
-RUN curl -L https://patch-diff.githubusercontent.com/raw/sct/overseerr/pull/4220.patch | git apply -v
+RUN cd /app/overseerr/ && curl -L https://patch-diff.githubusercontent.com/raw/sct/overseerr/pull/4220.patch | git apply -v
 COPY ./apps/overseerr/entrypoint.sh /
 
 # ports and volumes
