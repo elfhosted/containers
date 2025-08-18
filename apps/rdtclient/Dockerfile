@@ -1,3 +1,14 @@
+# Get the upstream code
+FROM alpine:latest as cloner
+ARG CHANNEL
+ARG VERSION
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone -b $VERSION https://github.com/rogerfar/rdt-client.git  /source
+
+
 # Stage 1 - Build the frontend
 FROM node:22.16.0-alpine3.22 AS node-build-env
 ARG TARGETPLATFORM
@@ -10,8 +21,8 @@ WORKDIR /appclient
 
 RUN apk add --no-cache git python3 py3-pip make g++
 
-COPY client ./client
-COPY root ./root
+COPY --from=cloner /source/client ./client
+COPY --from=cloner /source/root ./root
 RUN \
    cd client && \
    echo "**** Building Code  ****" && \
@@ -30,7 +41,7 @@ ENV BUILDPLATFORM=${BUILDPLATFORM:-linux/amd64}
 RUN mkdir /appserver
 WORKDIR /appserver
 
-COPY server ./server
+COPY --from=cloner /source/server ./server
 RUN \
    echo "**** Building Source Code for $TARGETPLATFORM on $BUILDPLATFORM ****" && \
    cd server && \
