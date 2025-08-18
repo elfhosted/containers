@@ -1,6 +1,5 @@
 # Stage 1 - Build the frontend
-FROM node:18-alpine3.18 AS node-build-env
-ARG VERSION
+FROM node:22.16.0-alpine3.22 AS node-build-env
 ARG TARGETPLATFORM
 ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
 ARG BUILDPLATFORM
@@ -11,9 +10,9 @@ WORKDIR /appclient
 
 RUN apk add --no-cache git python3 py3-pip make g++
 
+COPY client ./client
+COPY root ./root
 RUN \
-   echo "**** Cloning Source Code ****" && \
-   git clone  --branch ${VERSION} https://github.com/rogerfar/rdt-client.git . && \
    cd client && \
    echo "**** Building Code  ****" && \
    npm ci && \
@@ -22,7 +21,7 @@ RUN \
 RUN ls -FCla /appclient/root
 
 # Stage 2 - Build the backend
-FROM mcr.microsoft.com/dotnet/sdk:9.0-bookworm-slim-amd64 AS dotnet-build-env
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS dotnet-build-env
 ARG TARGETPLATFORM
 ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
 ARG BUILDPLATFORM
@@ -31,12 +30,13 @@ ENV BUILDPLATFORM=${BUILDPLATFORM:-linux/amd64}
 RUN mkdir /appserver
 WORKDIR /appserver
 
+COPY server ./server
 RUN \
-   echo "**** Cloning Source Code ****" && \
-   git clone https://github.com/rogerfar/rdt-client.git . && \
    echo "**** Building Source Code for $TARGETPLATFORM on $BUILDPLATFORM ****" && \
    cd server && \
-   dotnet restore --no-cache RdtClient.sln && dotnet publish --no-restore -c Release -o out ; 
+   dotnet restore --no-cache RdtClient.sln && \
+   dotnet test && \
+   dotnet publish --no-restore -c Release -o out ; 
 
 # Stage 3 - Build runtime image
 FROM ghcr.io/elfhosted/alpine:rolling@sha256:42c34434da805c1c907c64e360538654a84379cd5bbfba10a73870c50db44a87 
@@ -76,11 +76,14 @@ RUN \
    wget https://download.visualstudio.microsoft.com/download/pr/86d7a513-fe71-4f37-b9ec-fdcf5566cce8/e72574fc82d7496c73a61f411d967d8e/aspnetcore-runtime-9.0.0-linux-musl-x64.tar.gz && \
    tar zxf aspnetcore-runtime-9.0.0-linux-musl-x64.tar.gz -C /usr/share/dotnet ; \
    fi
-	
-RUN rm -rf \
-        /tmp/* \
-        /var/cache/apk/* \
-        /var/tmp/* || true
+
+RUN \
+   echo "**** Setting permissions ****" && \
+   chown -R abc:abc /data && \
+   rm -rf \
+   /tmp/* \
+   /var/cache/apk/* \
+   /var/tmp/* || true
 
 ENV PATH "$PATH:/usr/share/dotnet"
 
@@ -93,7 +96,6 @@ RUN mkdir db && mkdir logs
 # Copy files for app
 WORKDIR /app
 COPY --from=dotnet-build-env /appserver/server/out .
-COPY --from=node-build-env /appclient/client/out ./wwwroot
 COPY --from=node-build-env /appclient/client/out/browser ./wwwroot
 COPY --from=node-build-env /appclient/root/ /
 
