@@ -47,8 +47,6 @@ COPY --link --from=mwader/static-ffmpeg:6.1.1 /ffprobe /usr/local/bin/
 
 FROM base as builder
 
-FROM registry.gitlab.com/storyteller-platform/storyteller-base:latest AS builder
-
 WORKDIR /app
 
 COPY --from=cloner /source/storyteller/package.json /source/storyteller/yarn.lock /source/storyteller/.yarnrc.yml ./
