@@ -18,7 +18,7 @@ ARG BASE_PATH=""
 COPY --from=cloner /source/web/package*.json ./
 RUN npm ci && npm cache clean --force
 
-COPY --from=cloner /source/web/ ./
+COPY web/ ./
 RUN env PUBLIC_VERSION=${VERSION} PUBLIC_API_URL=${BASE_PATH}/api/v1 BASE_PATH=${BASE_PATH}/web npm run build
 
 FROM ghcr.io/astral-sh/uv:debian-slim
@@ -28,12 +28,8 @@ LABEL author="github.com/maxdorninger"
 LABEL version=${VERSION}
 LABEL description="Docker image for MediaManager"
 
-ENV MISC__IMAGE_DIRECTORY=/data/images \
-    MISC__TV_DIRECTORY=/data/tv \
-    MISC__MOVIE_DIRECTORY=/data/movies \
-    MISC__TORRENT_DIRECTORY=/data/torrents \
-    PUBLIC_VERSION=${VERSION} \
-    CONFIG_FILE="/app/config.toml"\
+ENV PUBLIC_VERSION=${VERSION} \
+    CONFIG_DIR="/config"\
     BASE_PATH=${BASE_PATH}\
     FRONTEND_FILES_DIR="/app/web/build"
 
@@ -41,14 +37,20 @@ ENV MISC__IMAGE_DIRECTORY=/data/images \
 WORKDIR /app
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates gcc mime-support curl gzip unzip tar 7zip bzip2 unar && \
+    apt-get install -y ca-certificates bash libtorrent21 gcc bc locales postgresql mime-support curl gzip unzip tar 7zip bzip2 unar && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+RUN locale-gen
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 COPY --from=cloner /source/pyproject.toml /source/uv.lock ./
 RUN uv sync --locked
 
-COPY --chmod=755 --from=cloner /source/mediamanager-backend-startup.sh .
+COPY --chmod=755 --from=cloner /source/mediamanager-startup.sh .
+COPY --from=cloner /source/config.example.toml .
 COPY --from=cloner /source/media_manager ./media_manager
 COPY --from=cloner /source/alembic ./alembic
 COPY --from=cloner /source/alembic.ini .
@@ -62,4 +64,4 @@ RUN addgroup -g 568 elfie && \
 
 HEALTHCHECK CMD curl -f http://localhost:8000${BASE_PATH}/api/v1/health || exit 1
 EXPOSE 8000
-CMD ["/app/mediamanager-backend-startup.sh"]
+CMD ["/app/mediamanager-startup.sh"]
