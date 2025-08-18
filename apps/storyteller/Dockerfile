@@ -49,6 +49,9 @@ FROM base as builder
 
 WORKDIR /app
 
+# Download word list
+RUN wget https://raw.githubusercontent.com/dwyl/english-words/master/words.txt
+
 COPY --from=cloner /source/storyteller/package.json /source/storyteller/yarn.lock /source/storyteller/.yarnrc.yml ./
 COPY --from=cloner /source/storyteller/.yarn/releases ./.yarn/releases
 COPY --from=cloner /source/storyteller/.yarn/cache ./.yarn/cache
