@@ -28,6 +28,7 @@ RUN \
     /tmp/overseerr.tar.gz -C \
     /app/overseerr/ --strip-components=1 && \
   cd /app/overseerr && \
+  curl -L https://patch-diff.githubusercontent.com/raw/sct/overseerr/pull/4220.patch | git apply -v && \
   export NODE_OPTIONS=--max_old_space_size=2048 && \
   CYPRESS_INSTALL_BINARY=0 yarn --frozen-lockfile --network-timeout 1000000 && \
   yarn build && \
@@ -48,8 +49,6 @@ RUN \
     /tmp/* \
     /app/overseerr/.next/cache/*
 
-# Apply Plex metadata patch until it makes it into a new release
-RUN cd /app/overseerr/ && curl -L https://patch-diff.githubusercontent.com/raw/sct/overseerr/pull/4220.patch | git apply -v
 COPY ./apps/overseerr/entrypoint.sh /
 
 # ports and volumes
