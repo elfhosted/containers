@@ -58,8 +58,10 @@ COPY --from=cloner /source/storyteller/web/package.json ./web/package.json
 
 COPY --from=cloner /source/storyteller/fs/package.json ./fs/package.json
 COPY --from=cloner /source/storyteller/epub/package.json ./epub/package.json
+COPY --from=cloner /source/storyteller/path/package.json ./path/package.json
+COPY --from=cloner /source/storyteller/audiobook/package.json ./audiobook/package.json
 
-RUN yarn workspaces focus @storyteller/web
+RUN yarn workspaces focus @storyteller/web @smoores/epub @smoores/audiobook @smoores/fs @smoores/path
 
 COPY --from=cloner /source/storyteller/docker-scripts/ ./scripts/
 
@@ -72,8 +74,14 @@ RUN gcc -g -fPIC -rdynamic -shared web/sqlite/uuid.c -o web/sqlite/uuid.c.so
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG CI_COMMIT_TAG
-ENV CI_COMMIT_TAG=${VERSION}
+ENV CI_COMMIT_TAG=${CI_COMMIT_TAG}
 
+ENV SQLITE_NATIVE_BINDING=/app/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+
+RUN yarn workspace @smoores/fs build:esm
+RUN yarn workspace @smoores/path build:esm
+RUN yarn workspace @smoores/epub build:esm
+RUN yarn workspace @smoores/audiobook build:esm
 RUN yarn build:web
 
 FROM base AS runner
@@ -86,7 +94,6 @@ COPY --from=builder /app/web/.next/static ./.next/standalone/web/.next/static
 COPY --from=builder /app/web/sqlite/uuid.c.so ./.next/standalone/web/sqlite/uuid.c.so
 
 # Copy SQL migrations
-COPY --from=builder /app/web/migrate-dist ./.next/standalone/web/migrate-dist
 COPY --from=builder /app/web/migrations ./.next/standalone/web/migrations
 
 # WASM files aren't statically imported, so esbuild doesn't find them and they need to be manually copied over
@@ -115,11 +122,7 @@ ENV STORYTELLER_WORKER=worker.cjs
 
 WORKDIR /app/.next/standalone/web
 
-# runs migration and node server
-COPY --from=builder /app/web/start.sh .
-
-# Download word list
-RUN wget https://raw.githubusercontent.com/dwyl/english-words/master/words.txt
+COPY --from=builder /app/words.txt ./words.txt
 
 # Required for goss
 RUN mkdir /data && chown 568 /data
@@ -128,4 +131,4 @@ RUN mkdir /data && chown 568 /data
 USER elfie
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-CMD ["./start.sh"]
+CMD ["node", "--enable-source-maps", "server.js"]
