@@ -19,7 +19,5 @@ COPY --from=cloner /source/. .
 
 RUN mkdir -p /config/state && \
     ln -s /config/* /
-
-VOLUME /config
-
+    
 CMD ["python", "app.py"]
