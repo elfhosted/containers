@@ -54,6 +54,18 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Checkout private repo
+        uses: actions/checkout@v3
+        with:
+          repository: elfhosted/containers-private
+          path: containers-private
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Overlay /apps/ from external repo
+        run: |
+          cp -r containers-private/apps/* apps/
+
       - name: Setup workflow Variables
         id: vars
         shell: bash
