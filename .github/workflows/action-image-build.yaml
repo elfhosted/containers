@@ -59,7 +59,7 @@ jobs:
         with:
           repository: elfhosted/containers-private
           path: containers-private
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN_CONTAINERS_PRIVATE }}
           fetch-depth: 1
 
       - name: Overlay /apps/ from external repo
