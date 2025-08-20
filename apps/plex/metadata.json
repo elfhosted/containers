@@ -3,22 +3,11 @@
   "base": false,
   "channels": [
     {
-      "name": "stable",
+      "name": "main",
       "platforms": [
         "linux/amd64"
       ],
       "stable": true,
-      "tests": {
-        "enabled": true,
-        "type": "web"
-      }
-    },
-    {
-      "name": "beta",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "stable": false,
       "tests": {
         "enabled": true,
         "type": "web"

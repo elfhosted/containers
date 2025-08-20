@@ -1,7 +1,0 @@
-#!/command/with-contenv bash
-if ! hostname | grep -qi nazgul; then
-  python3 /transcode-killer.py
-else
-  echo "[transcode-killer] Hostname contains 'nazgul' -- transcode killer is exempt on this host."
-  while true; do sleep 3600; done
-fi
