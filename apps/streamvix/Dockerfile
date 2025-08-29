@@ -1,6 +1,7 @@
 FROM node:20-slim
 
 ARG CACHE_BUST=233
+ARG VERSION
 RUN echo "Cache bust: $CACHE_BUST"
 
 # Installa git, python3, pip e dipendenze per compilazione
@@ -8,7 +9,7 @@ USER root
 RUN apt-get update && apt-get install -y git python3 python3-pip python3-dev build-essential ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
 # Imposta la directory di lavoro nell'immagine
 
-RUN git clone  https://github.com/qwertyuiop8899/streamvix.git /usr/src/app
+RUN git clone -b $VERSION  https://github.com/qwertyuiop8899/streamvix.git /usr/src/app
 
 
 WORKDIR /usr/src/app

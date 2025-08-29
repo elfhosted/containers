@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-version=$(curl -sX GET "https://api.github.com/repos/qwertyuiop8899/tvvoo/commits/main" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
-printf "%s" "${version}"
-
-
-
+channel=$1
+if [[ "${channel}" == "dev" ]]; then
+    version=$(curl -sX GET "https://api.github.com/repos/qwertyuiop8899/tvvoo/commits/main" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
+else
+    version=$(curl -sX GET https://api.github.com/repos/qwertyuiop8899/tvvoo/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
+fi
+printf "%s" "${version}"   
