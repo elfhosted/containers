@@ -16,7 +16,8 @@ FROM node:20-alpine AS build
 WORKDIR /app
 # Install deps (include dev for TypeScript)
 COPY --from=cloner /source/package*.json ./
-RUN npm install --include=dev --no-audit --no-fund
+RUN npm install --include=dev --no-audit --no-fund \
+ && npm install -D @types/luxon --no-audit --no-fund
 # Copy sources and build
 COPY --from=cloner /source ./
 RUN npm run build
