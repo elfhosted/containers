@@ -2,7 +2,7 @@
   "app": "tvvoo",
   "base": false,
   "channels": [
-v    {
+    {
       "name": "main",
       "platforms": [
         "linux/amd64"
@@ -23,6 +23,6 @@ v    {
         "enabled": true,
         "type": "web"
       }
-    }
+    }    
   ]
 }
