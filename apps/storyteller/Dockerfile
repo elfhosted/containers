@@ -8,8 +8,8 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://gitlab.com/storyteller-platform/storyteller-base.git /source/storyteller-base
-RUN git clone -b web-$VERSION https://gitlab.com/storyteller-platform/storyteller.git /source/storyteller
+RUN git clone https://gitlab.com/storyteller-platform/storyteller-base.git /source-storyteller-base
+RUN git clone -b web-$VERSION https://gitlab.com/storyteller-platform/storyteller.git /source
 
 # Build the base
 FROM ghcr.io/elfhosted/ubuntu-jammy:rolling@sha256:f9f982e780fbad497108c83fdbc87f6a2451fff441e3687e27627b1459b527ab as base
@@ -36,7 +36,7 @@ RUN apt-get update && \
   tini && \
   apt-get clean
 
-COPY --from=cloner /source/storyteller-base/scripts/install-node.sh .
+COPY --from=cloner /source-storyteller-base/scripts/install-node.sh .
 
 ARG TARGETARCH
 # Manually install node 22 from prebuilt binary
@@ -45,14 +45,14 @@ RUN ./install-node.sh
 COPY --link --from=mwader/static-ffmpeg:6.1.1 /ffmpeg /usr/local/bin/
 COPY --link --from=mwader/static-ffmpeg:6.1.1 /ffprobe /usr/local/bin/
 
-FROM base as builder
+FROM base AS builder
 
 WORKDIR /app
 
 # Download word list
 RUN wget https://raw.githubusercontent.com/dwyl/english-words/master/words.txt
 
-COPY --from=cloner /source/storyteller/package.json /source/yarn.lock .yarnrc.yml ./
+COPY --from=cloner /source/package.json /source/yarn.lock /source/.yarnrc.yml ./
 COPY --from=cloner /source/.yarn/releases ./.yarn/releases
 COPY --from=cloner /source/.yarn/cache ./.yarn/cache
 
@@ -65,7 +65,7 @@ COPY --from=cloner /source/config/tsup/package.json ./config/tsup/package.json
 
 RUN yarn install
 
-COPY docker-scripts/ ./scripts/
+COPY --from=cloner /source/docker-scripts/ ./scripts/
 
 COPY --from=cloner /source/. .
 
@@ -80,13 +80,9 @@ ENV CI_COMMIT_TAG=${CI_COMMIT_TAG}
 
 ENV SQLITE_NATIVE_BINDING=/app/node_modules/better-sqlite3/build/Release/better_sqlite3.node
 
-RUN yarn workspace @smoores/fs build:esm
-RUN yarn workspace @smoores/path build:esm
-RUN yarn workspace @smoores/epub build:esm
-RUN yarn workspace @smoores/audiobook build:esm
-RUN yarn build:web
+RUN yarn workspaces foreach -Rpt --from @storyteller-platform/web run build
 
-FROM base AS runner
+FROM registry.gitlab.com/storyteller-platform/storyteller-base:latest AS runner
 
 WORKDIR /app
 
@@ -127,11 +123,6 @@ WORKDIR /app/.next/standalone/web
 
 COPY --from=builder /app/words.txt ./words.txt
 
-# Required for goss
-RUN mkdir /data && chown 568 /data
-
-# Run as elfie
-USER elfie
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 CMD ["node", "--enable-source-maps", "server.js"]
