@@ -52,21 +52,22 @@ WORKDIR /app
 # Download word list
 RUN wget https://raw.githubusercontent.com/dwyl/english-words/master/words.txt
 
-COPY --from=cloner /source/storyteller/package.json /source/storyteller/yarn.lock /source/storyteller/.yarnrc.yml ./
-COPY --from=cloner /source/storyteller/.yarn/releases ./.yarn/releases
-COPY --from=cloner /source/storyteller/.yarn/cache ./.yarn/cache
-COPY --from=cloner /source/storyteller/web/package.json ./web/package.json
+COPY --from=cloner /source/storyteller/package.json /source/yarn.lock .yarnrc.yml ./
+COPY --from=cloner /source/.yarn/releases ./.yarn/releases
+COPY --from=cloner /source/.yarn/cache ./.yarn/cache
 
-COPY --from=cloner /source/storyteller/fs/package.json ./fs/package.json
-COPY --from=cloner /source/storyteller/epub/package.json ./epub/package.json
-COPY --from=cloner /source/storyteller/path/package.json ./path/package.json
-COPY --from=cloner /source/storyteller/audiobook/package.json ./audiobook/package.json
+COPY --from=cloner /source/web/package.json ./web/package.json
+COPY --from=cloner /source/fs/package.json ./fs/package.json
+COPY --from=cloner /source/epub/package.json ./epub/package.json
+COPY --from=cloner /source/path/package.json ./path/package.json
+COPY --from=cloner /source/audiobook/package.json ./audiobook/package.json
+COPY --from=cloner /source/config/tsup/package.json ./config/tsup/package.json
 
-RUN yarn workspaces focus @storyteller/web @smoores/epub @smoores/audiobook @smoores/fs @smoores/path
+RUN yarn install
 
-COPY --from=cloner /source/storyteller/docker-scripts/ ./scripts/
+COPY docker-scripts/ ./scripts/
 
-COPY --from=cloner /source/storyteller/. .
+COPY --from=cloner /source/. .
 
 RUN cp docker-scripts/* ./scripts/
 
@@ -120,6 +121,7 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 ENV SQLITE_NATIVE_BINDING=/app/.next/standalone/node_modules/better-sqlite3/build/Release/better_sqlite3.node
 ENV STORYTELLER_WORKER=worker.cjs
+ENV STORYTELLER_FILE_WRITE_WORKER=fileWriteWorker.cjs
 
 WORKDIR /app/.next/standalone/web
 
