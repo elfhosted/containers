@@ -11,6 +11,7 @@ env:
   TOKEN: ${{ secrets.GITHUB_TOKEN }}
   GH_PAT: ${{ secrets.GH_PAT }}
   ZURG_GH_CREDS: ${{ secrets.ZURG_GH_CREDS }}
+  PLEX_TOKEN: ${{ secrets.PLEX_TOKEN }}
 
 jobs:
   generate-build-matrix:
