@@ -12,6 +12,17 @@
         "enabled": true,
         "type": "web"
       }
-    }
+    },
+    {
+      "name": "dev",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": false,
+        "type": "web"
+      }
+    }    
   ]
 }
