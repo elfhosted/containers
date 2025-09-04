@@ -178,7 +178,37 @@ jobs:
             --retry-timeout 60s --sleep 2s --color --format documentation
           GOSS_FILES_STRATEGY: cp
         run: |
-          dgoss run ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }} ${{ steps.vars.outputs.chan_goss_args }}
+          # dgoss run ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }} ${{ steps.vars.outputs.chan_goss_args }}
+          set -euo pipefail
+
+          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }}"
+          NAME="dgoss-${{ matrix.image.app }}-${{ matrix.image.channel }}"
+
+          # Start dgoss in background, give the container a name we can log-follow.
+          ( dgoss run --name "$NAME" "$IMAGE" ${{ steps.vars.outputs.chan_goss_args }} ) & 
+          DGOSS_PID=$!
+
+          # Wait briefly until the container exists (dgoss prints ID but we want a stable name).
+          for i in {1..50}; do
+            if docker ps -a --format '{{.Names}}' | grep -q "^$NAME$"; then
+              break
+            fi
+            sleep 0.2
+          done
+
+          # Stream logs while tests run.
+          docker logs -f "$NAME" &
+          LOGS_PID=$!
+
+          # Wait for dgoss to finish; preserve exit code.
+          STATUS=0
+          wait "$DGOSS_PID" || STATUS=$?
+
+          # Always show a final log dump (useful if the log follow raced the stop).
+          docker logs "$NAME" || true
+
+          # Exit with dgoss status so the job still fails on test failures.
+          exit $STATUS
 
       - name: Build all platforms
         id: release
