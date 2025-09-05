@@ -5,8 +5,12 @@ RUN echo "Cache bust: $CACHE_BUST"
 
 # Installa git, python3, pip e dipendenze per compilazione
 USER root 
-RUN apt-get update && apt-get install -y git python3 python3-pip python3-dev build-essential ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
-# Imposta la directory di lavoro nell'immagine
+RUN apt-get update && apt-get install -y \
+    git \
+    python3 python3-pip python3-dev \
+    build-essential ca-certificates \
+    tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng \
+    --no-install-recommends && rm -rf /var/lib/apt/lists/*# Imposta la directory di lavoro nell'immagine
 
 RUN git clone  https://github.com/qwertyuiop8899/streamvix.git /usr/src/app
 
