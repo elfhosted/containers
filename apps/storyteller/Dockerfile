@@ -108,7 +108,7 @@ COPY --from=builder /app/node_modules/@echogarden/espeak-ng-emscripten/espeak-ng
 EXPOSE 8001
 
 ARG VERSION
-ENV CI_COMMIT_TAG=${VERSION}
+ENV CI_COMMIT_TAG=web-${VERSION}
 
 ENV PORT=8001
 ENV HOSTNAME=0.0.0.0
