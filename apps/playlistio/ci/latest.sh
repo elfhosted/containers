@@ -5,4 +5,4 @@ if [[ "${channel}" == "dev" ]]; then
 else
     version=$(curl -sX GET https://api.github.com/repos/xXCrash2BomberXx/Playlistio/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
 fi
-printf "%s" "${version}"   
+printf "%s" "${version#v}"   
