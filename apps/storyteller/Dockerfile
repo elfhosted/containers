@@ -128,6 +128,6 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 
 
 ARG user=elfie
-RUN groupadd -g 568 $user && useradd --create-home --uid 568 --gid 568 --shell /bin/bash $user
+RUN groupadd -g 568 $user && useradd --home /tmp --uid 568 --gid 568 --shell /bin/bash $user
 
 CMD ["node", "--enable-source-maps", "server.js"]
