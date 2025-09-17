@@ -51,10 +51,4 @@ RUN pnpm add undici@6.19.8
 # Esegui il build dell'applicazione TypeScript
 RUN pnpm run build
 
-# Wrapper: alcune piattaforme avviano forzatamente `node /start`, quindi includiamo script start nella root
-USER root
-COPY --from=cloner /source/start /start
-RUN chown node:node /start
-USER node
-
 ENTRYPOINT ["node", "/start"]
