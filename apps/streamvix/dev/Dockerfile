@@ -1,3 +1,14 @@
+# Get the upstream code
+FROM alpine:latest as cloner
+
+ARG CHANNEL
+ARG VERSION
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone https://github.com/qwertyuiop8899/StreamViX /source 
+
 # Scegli un'immagine Node.js di base
 FROM node:20-slim
 ARG CACHE_BUST=23
@@ -27,7 +38,7 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 RUN npm install -g pnpm@8.15.5
 
 # Copia i file del progetto nella directory di lavoro
-COPY . .
+COPY --from=cloner /source/. .
 
 # Assicura che l'utente node sia proprietario della directory dell'app e del suo contenuto
 RUN chown -R node:node /usr/src/app
@@ -50,11 +61,5 @@ RUN pnpm add undici@6.19.8
 
 # Esegui il build dell'applicazione TypeScript
 RUN pnpm run build
-
-# Wrapper: alcune piattaforme avviano forzatamente `node /start`, quindi includiamo script start nella root
-USER root
-COPY start /start
-RUN chown node:node /start
-USER node
 
 ENTRYPOINT ["node", "/start"]

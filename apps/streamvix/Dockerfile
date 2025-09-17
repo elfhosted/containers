@@ -1,3 +1,14 @@
+# Get the upstream code
+FROM alpine:latest as cloner
+
+ARG CHANNEL
+ARG VERSION
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache git
+
+RUN git clone -b $VERSION  https://github.com/qwertyuiop8899/StreamViX /source 
+
 # Scegli un'immagine Node.js di base
 FROM node:20-slim
 ARG CACHE_BUST=23
