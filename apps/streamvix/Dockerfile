@@ -27,7 +27,7 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 RUN npm install -g pnpm@8.15.5
 
 # Copia i file del progetto nella directory di lavoro
-COPY . .
+COPY --from=cloner /source/. .
 
 # Assicura che l'utente node sia proprietario della directory dell'app e del suo contenuto
 RUN chown -R node:node /usr/src/app
@@ -53,7 +53,7 @@ RUN pnpm run build
 
 # Wrapper: alcune piattaforme avviano forzatamente `node /start`, quindi includiamo script start nella root
 USER root
-COPY start /start
+COPY --from=cloner /source/start /start
 RUN chown node:node /start
 USER node
 
