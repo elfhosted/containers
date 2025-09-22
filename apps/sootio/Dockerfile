@@ -9,6 +9,12 @@ RUN apk update && apk upgrade && \
 
 RUN git clone  https://github.com/sooti/stremio-addon-debrid-search.git /source
 
+# Apply ElfHosted tweaks
+COPY apps/sootio/elfhosted-branding.patch /source/elfhosted-branding.patch
+RUN cd /source && \
+    git apply elfhosted-branding.patch
+
+
 # Use an official Node.js image
 FROM node:20
 

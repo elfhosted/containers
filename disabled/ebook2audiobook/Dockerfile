@@ -6,11 +6,6 @@ ARG VERSION
 RUN apk add --update --no-cache tmux ttyd git && \
     git clone -b $VERSION https://github.com/DrewThomasson/ebook2audiobook.git  /source
 
-# Apply ElfHosted tweaks
-COPY apps/sootio/elfhosted-branding.patch /source/elfhosted-branding.patch
-RUN cd /source && \
-    git apply elfhosted-branding.patch
-
 FROM ${BASE} AS base
 
 # Set environment PATH for local installations
