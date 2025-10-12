@@ -5,5 +5,6 @@ if [[ "${channel}" == "dev" ]]; then
     version=$(curl -sX GET "https://api.github.com/repos/cedya77/aiometadata/tags" --header "Authorization: Bearer ${TOKEN}" jq -r '.[].name | select(test("beta"))' | head -n 1)
 else
     version=$(curl -sX GET https://api.github.com/repos/cedya77/aiometadata/tags --header "Authorization: Bearer ${TOKEN}" | jq -r '.[].name | select((test("beta") | not) and (test("^v5") | not))' | head -n 1)
+    version="v1.0.0" # hard code for now
 fi
 printf "%s" "${version}"   
