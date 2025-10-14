@@ -1,5 +1,5 @@
 {
-  "app": "aiostreams",
+  "app": "au-iptv",
   "base": false,
   "channels": [
     {
@@ -9,7 +9,7 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
     },
@@ -20,9 +20,9 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
-    }   
+    }    
   ]
 }

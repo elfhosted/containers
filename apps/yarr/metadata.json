@@ -1,13 +1,13 @@
 {
-  "app": "calibre-web-automated",
+  "app": "yarr",
   "base": false,
   "channels": [
     {
-      "name": "main",
+      "name": "dev",
       "platforms": [
         "linux/amd64"
       ],
-      "stable": true,
+      "stable": false,
       "tests": {
         "enabled": true,
         "type": "web"

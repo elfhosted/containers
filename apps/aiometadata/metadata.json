@@ -1,5 +1,5 @@
 {
-  "app": "aiostreams",
+  "app": "aiometadata",
   "base": false,
   "channels": [
     {
@@ -9,10 +9,10 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
-    },
+    },    
     {
       "name": "dev",
       "platforms": [
@@ -20,9 +20,9 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
-    }   
+    }     
   ]
 }

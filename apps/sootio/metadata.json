@@ -1,5 +1,5 @@
 {
-  "app": "calibre-web-automated",
+  "app": "sootio",
   "base": false,
   "channels": [
     {
@@ -9,9 +9,9 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
-    }
+    }  
   ]
 }

@@ -62,4 +62,4 @@ RUN pnpm add undici@6.19.8
 # Esegui il build dell'applicazione TypeScript
 RUN pnpm run build
 
-ENTRYPOINT ["node", "/start"]
+ENTRYPOINT ["node", "dist/addon.js"]
