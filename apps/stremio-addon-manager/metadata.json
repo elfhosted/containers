@@ -9,7 +9,8 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
-    }    
+        "enabled": true
+      }
+    }
   ]
 }
