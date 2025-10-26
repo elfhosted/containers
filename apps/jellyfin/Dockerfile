@@ -17,7 +17,7 @@ RUN \
     apt-get -qq update \
     && \
     apt-get -qq install -y \
-        gnupg2 python3 xz-utils sqlite3 \
+        gnupg2 python3 xz-utils sqlite3 libjemalloc2 libjemalloc-dev \
     && \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') \
@@ -62,10 +62,10 @@ RUN \
         /var/tmp/ \
     && printf "umask %d" "${UMASK}" >> /etc/bash.bashrc
 
-# Replace malloc with jemalloc
-RUN apt-get -qq update \
-    && apt-get -qq install -y libjemalloc2 libjemalloc-dev 
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libjemalloc.so.2"
+# # Replace malloc with jemalloc
+# RUN apt-get -qq update \
+#     && apt-get -qq install -y libjemalloc2 libjemalloc-dev 
+# ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libjemalloc.so.2"
 
 # Add s6
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
