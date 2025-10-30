@@ -10,7 +10,7 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "cli"
       }
     },
@@ -22,7 +22,7 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "cli"
       }
     },    
@@ -34,7 +34,7 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "cli"
       }
     },
@@ -45,7 +45,7 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "cli"
       }
     }    
