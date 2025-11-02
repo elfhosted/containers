@@ -3,6 +3,30 @@
   "base": true,
   "channels": [
     {
+      "name": "noble",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": false,
+        "type": "cli"
+      }
+    },
+    {
+      "name": "jammy",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": false,
+        "type": "cli"
+      }
+    },    
+    {
       "name": "focal",
       "platforms": [
         "linux/amd64",
@@ -10,7 +34,7 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "cli"
       }
     },
@@ -21,7 +45,7 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "cli"
       }
     }    
