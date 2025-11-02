@@ -31,7 +31,7 @@ WORKDIR /usr/src/app
 COPY --from=cloner /source/package*.json ./
 
 # Install app dependencies
-RUN npm install
+RUN npm install --omit=dev
 
 # Bundle app source
 # Copy the rest of your app's source code from your host to your image filesystem.
