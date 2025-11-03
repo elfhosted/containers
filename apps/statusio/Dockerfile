@@ -7,24 +7,25 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/ARandomAddonDev/Statusio.git /source
 
-FROM node:20-slim
+FROM node:24-slim
 
-RUN mkdir -p /home/node/app && chown -R node:node /home/node/app \
-  && mkdir -p /data && chown -R node:node /data
+# Set the working directory
+WORKDIR /usr/src/app
 
-WORKDIR /home/node/app
+# Copy package.json and package-lock.json
+COPY --from=cloner /source/package*.json ./
 
-COPY --chown=node:node --from=cloner /source/package*.json ./
-
-USER node
-
+# Install dependencies
 RUN npm install
 
-COPY --chown=node:node --from=cloner /source/src ./src
+# Copy the rest of the application files
+COPY --from=cloner /source/. .
 
-EXPOSE 7010
+# Build the TypeScript files
+RUN npm run build
 
-COPY ./apps/ubuntu/scripts/vpn.sh /scripts/vpn.sh
-COPY ./apps/davdebrid/entrypoint.sh /entrypoint.sh
+# Expose the port the app runs on
+EXPOSE 7042
 
-CMD ["/entrypoint.sh"]
+# Command to run the application
+CMD ["node", "dist/app.js"]

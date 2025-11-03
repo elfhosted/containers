@@ -13,13 +13,13 @@ FROM node:24-slim
 WORKDIR /usr/src/app
 
 # Copy package.json and package-lock.json
-COPY --from=/source/package*.json ./
+COPY --from=cloner /source/package*.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy the rest of the application files
-COPY --from=/source/. .
+COPY --from=cloner /source/. .
 
 # Build the TypeScript files
 RUN npm run build
