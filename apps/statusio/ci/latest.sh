@@ -2,7 +2,7 @@
 
 channel=$1
 if [[ "${channel}" == "dev" ]]; then
-    version=$(curl -sX GET "https://api.github.com/repos/ARandomAddonDev/Statusio/commits/master" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
+    version=$(curl -sX GET "https://api.github.com/repos/ARandomAddonDev/Statusio/commits/main" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
 else
     version=$(curl -sX GET https://api.github.com/repos/ARandomAddonDev/Statusio/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
 fi
