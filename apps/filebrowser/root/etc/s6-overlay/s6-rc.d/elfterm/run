@@ -1,6 +1,0 @@
-#!/command/with-contenv bash
-
-ln -s /storage/config/plextraktsync /home/elfie/.config
-
-# Launch elfterm
-/elfterm.sh
