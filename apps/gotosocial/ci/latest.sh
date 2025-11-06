@@ -1,4 +1,3 @@
 #!/usr/bin/env bash
-version=$(curl -sX GET https://api.github.com/repos/superseriousbusiness/gotosocial/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
-version="${version#*v}"
+version=$(curl -s -S "https://registry.hub.docker.com/v2/repositories/superseriousbusiness/gotosocial/tags/" | jq -r '."results"[]["name"]' | grep -v latest | head -1)
 printf "%s" "${version}"
