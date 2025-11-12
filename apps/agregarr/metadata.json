@@ -1,5 +1,5 @@
 {
-  "app": "jellyseerr",
+  "app": "agregarr",
   "base": false,
   "channels": [
     {
@@ -12,6 +12,6 @@
         "enabled": true,
         "type": "web"
       }
-    }
+    }       
   ]
 }

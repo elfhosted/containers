@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
     apk add --no-cache git
 
 RUN git clone https://gitlab.com/storyteller-platform/storyteller-base.git /source-storyteller-base
-RUN git clone -b web-$VERSION https://gitlab.com/storyteller-platform/storyteller.git /source
+RUN git clone -b web-v$VERSION https://gitlab.com/storyteller-platform/storyteller.git /source
 
 # # Build the base
 # FROM ghcr.io/elfhosted/ubuntu-jammy:rolling@sha256:f9f982e780fbad497108c83fdbc87f6a2451fff441e3687e27627b1459b527ab as base
