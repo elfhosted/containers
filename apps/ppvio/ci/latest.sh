@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 channel=$1
 
-version=$(curl -sX GET https://api.github.com/repos/xXCrash2BomberXx/ppvio/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
-printf "%s" "${version}
+version=$(curl -sX GET "https://api.github.com/repos/xXCrash2BomberXx/ppvio/commits/main" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
+printf "%s" "${version}-${LATEST_YTDLP}"   
