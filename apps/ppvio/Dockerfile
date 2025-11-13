@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone  https://github.com/xXCrash2BomberXx/ppvio.git /source
+RUN git clone -b $VERSION https://github.com/xXCrash2BomberXx/ppvio.git /source
 
 # Use an official Node.js runtime as a parent image
 # Using the Long-Term Support (LTS) version is a good practice
