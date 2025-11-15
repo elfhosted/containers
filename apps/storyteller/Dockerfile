@@ -46,7 +46,7 @@ RUN git clone -b web-v$VERSION https://gitlab.com/storyteller-platform/storytell
 # COPY --link --from=mwader/static-ffmpeg:6.1.1 /ffprobe /usr/local/bin/
 
 # FROM base AS builder
-FROM registry.gitlab.com/storyteller-platform/storyteller-base:latest AS builder
+FROM registry.gitlab.com/storyteller-platform/storyteller-base:main AS builder
 
 WORKDIR /app
 
