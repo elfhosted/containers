@@ -1,7 +1,3 @@
 #!/usr/bin/env bash
-version=$(curl -sL --header "Authorization: Bearer ${TOKEN}" "https://ghcr.io/v2/sanket9225/usenetstreamer/tags/list" | 
-          jq -r '.tags[]' | 
-          grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | 
-          sort -V | 
-          tail -n 1)
+version=$(curl -sX GET "https://api.github.com/repos/sanket9225/usenetstreamer/commits/master" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
 printf "%s" "${version}"
