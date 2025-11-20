@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/jamcalli/pulsarr.git /source
 
-FROM node:24.11.0-trixie AS builder
+FROM node:24.11.1-trixie AS builder
 
 WORKDIR /app
 
