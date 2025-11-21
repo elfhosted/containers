@@ -1,14 +1,17 @@
 # Get upstream code
 FROM alpine:latest as cloner
 ARG VERSION
+ARG CACHE_BUST=1
 
 RUN apk update && apk upgrade && \
-    apk add --no-cache git
+    apk add --no-cache git && \
+    echo "cache bust: ${CACHE_BUST}"
 
 RUN git clone -b $VERSION  https://github.com/TimilsinaBimal/Watchly.git /source
 
 # Use Python 3.11 slim image as base
 FROM python:3.11-slim
+ARG CACHE_BUST=1
 
 # Set working directory
 WORKDIR /app
@@ -22,7 +25,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "cache bust: ${CACHE_BUST}"
 
 # Copy requirements first for better caching
 COPY --from=cloner /source/requirements.txt .
