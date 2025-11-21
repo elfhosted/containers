@@ -5,7 +5,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/TimilsinaBimal/Watchly.git /source
+RUN git clone https://github.com/elfhosted/Watchly.git /source
 
 # Use Python 3.11 slim image as base
 FROM python:3.11-slim
