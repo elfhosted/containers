@@ -1,7 +1,7 @@
 # Get upstream code
 FROM alpine:latest as cloner
 ARG VERSION
-ARG CACHE_BUST=1
+ARG CACHE_BUST=2
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git && \
@@ -11,7 +11,7 @@ RUN git clone -b $VERSION  https://github.com/TimilsinaBimal/Watchly.git /source
 
 # Use Python 3.11 slim image as base
 FROM python:3.11-slim
-ARG CACHE_BUST=1
+ARG CACHE_BUST=2
 
 # Set working directory
 WORKDIR /app
