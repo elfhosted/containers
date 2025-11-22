@@ -1,17 +1,16 @@
 # Get upstream code
 FROM alpine:latest as cloner
 ARG VERSION
-ARG CACHE_BUST=2
+ARG CACHE_BUST=1
 
 RUN apk update && apk upgrade && \
     apk add --no-cache git && \
     echo "cache bust: ${CACHE_BUST}"
 
-RUN git clone -b $VERSION  https://github.com/TimilsinaBimal/Watchly.git /source
+RUN git clone -b $VERSION https://github.com/TimilsinaBimal/Watchly.git /source
 
 # Use Python 3.11 slim image as base
 FROM python:3.11-slim
-ARG CACHE_BUST=2
 
 # Set working directory
 WORKDIR /app
@@ -25,8 +24,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
-    && rm -rf /var/lib/apt/lists/* \
-    && echo "cache bust: ${CACHE_BUST}"
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
 COPY --from=cloner /source/requirements.txt .
@@ -40,8 +38,4 @@ COPY --from=cloner /source/static/ ./static/
 COPY --from=cloner /source/main.py .
 COPY --from=cloner /source/pyproject.toml .
 
-# Expose port
-EXPOSE 8000
-
-# Run the application
-ENTRYPOINT ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["python", "main.py"]
