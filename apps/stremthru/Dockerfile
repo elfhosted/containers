@@ -9,6 +9,23 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION https://github.com/MunifTanjim/stremthru.git /source
 
+FROM node:24-alpine AS node-builder
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+WORKDIR /workspace
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/dash/package.json ./apps/dash/
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+
+COPY apps ./apps
+
+RUN pnpm run -r build
+
 FROM golang:1.24 AS builder
 
 WORKDIR /workspace
@@ -23,6 +40,8 @@ COPY --from=cloner /source/store ./store
 COPY --from=cloner /source/stremio ./stremio
 COPY --from=cloner /source/*.go ./
 
+COPY --from=node-builder /workspace/apps/dash/.output/public/ ./internal/dash/fs/
+
 RUN CGO_ENABLED=1 GOOS=linux go build --tags 'fts5' -o ./stremthru -a -ldflags '-linkmode external -extldflags "-static"'
 
 FROM alpine
@@ -34,6 +53,8 @@ WORKDIR /app
 COPY --from=builder /workspace/stremthru ./stremthru
 
 VOLUME ["/app/data"]
+
+ENV STREMTHRU_ENV=prod
 
 EXPOSE 8080
 
