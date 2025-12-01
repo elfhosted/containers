@@ -17,12 +17,12 @@ RUN corepack enable
 
 WORKDIR /workspace
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/dash/package.json ./apps/dash/
+COPY --from=cloner /source/package.json /source/pnpm-lock.yaml /source/pnpm-workspace.yaml ./
+COPY --from=cloner /source/apps/dash/package.json ./apps/dash/
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
-COPY apps ./apps
+COPY --from=cloner /source/apps ./apps
 
 RUN pnpm run -r build
 
