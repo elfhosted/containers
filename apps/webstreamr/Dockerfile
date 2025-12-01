@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/webstreamr/webstreamr /source
 
-FROM node:24-alpine AS builder
+FROM node:24 AS builder
 WORKDIR /app
 
 COPY --from=cloner /source/package*.json ./
@@ -21,7 +21,7 @@ RUN npm run build
 
 RUN npm ci --only=production
 
-FROM node:24-alpine
+FROM node:24
 WORKDIR /app
 
 COPY --from=builder /app/dist ./dist
