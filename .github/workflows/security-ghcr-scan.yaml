@@ -1,0 +1,98 @@
+---
+name: "Security: GHCR Scan"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: read
+  security-events: write
+  packages: read
+
+env:
+  TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  generate-scan-matrix:
+    name: Generate matrix for GHCR scans
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          token: ${{ env.TOKEN }}
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install moreutils jo
+
+      - name: Collect images to scan
+        id: collect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          declare -a records=()
+
+          while IFS= read -r metadata; do
+            app_name="$(basename "$(dirname "$metadata")")"
+
+            while IFS= read -r channel; do
+              stable=$(jq --arg name "$channel" '.channels[] | select(.name == $name) | .stable' "$metadata")
+              if [[ "$stable" == "true" ]]; then
+                tag="ghcr.io/${GITHUB_REPOSITORY_OWNER}/${app_name}:rolling"
+              else
+                tag="ghcr.io/${GITHUB_REPOSITORY_OWNER}/${app_name}-${channel}:rolling"
+              fi
+
+              records+=("$(jo app="$app_name" channel="$channel" imageRef="$tag")")
+            done < <(jq -r '.channels[].name' "$metadata")
+          done < <(find apps -mindepth 2 -maxdepth 2 -path '*/metadata.json' -print | sort)
+
+          if [[ ${#records[@]} -eq 0 ]]; then
+            matrix='[]'
+          else
+            matrix=$(jo -a "${records[@]}")
+          fi
+
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
+  trivy-scan:
+    name: Scan GHCR images with Trivy
+    needs:
+      - generate-scan-matrix
+    if: needs.generate-scan-matrix.outputs.matrix != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.generate-scan-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy image scan
+        id: trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ matrix.image.imageRef }}
+          format: sarif
+          output: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload SARIF report
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
+          category: scheduled-ghcr/${{ matrix.image.app }}-${{ matrix.image.channel }}

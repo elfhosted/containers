@@ -210,6 +210,32 @@ jobs:
           # Exit with dgoss status so the job still fails on test failures.
           exit $STATUS
 
+      - name: Scan container image for CVEs
+        id: trivy_scan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }}
+          format: sarif
+          output: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan report
+        if: ${{ always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
+          category: containers/${{ matrix.image.app }}-${{ matrix.image.channel }}
+
+      - name: Fail on detected vulnerabilities
+        id: trivy_gate
+        if: ${{ steps.trivy_scan.outcome == 'failure' }}
+        run: |
+          echo "Trivy reported CRITICAL/HIGH vulnerabilities. See SARIF artifact for specifics."
+          exit 1
+
       - name: Build all platforms
         id: release
         uses: docker/build-push-action@v5
@@ -247,7 +273,7 @@ jobs:
 
       - name: Build failed
         id: build-failed
-        if: ${{ always() && (steps.release.outcome == 'failure' || steps.dgoss.outcome == 'failure') }}
+        if: ${{ always() && (steps.release.outcome == 'failure' || steps.dgoss.outcome == 'failure' || steps.trivy_gate.outcome == 'failure') }}
         run: |-
           echo "::set-output name=message::💥 ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
           echo "::set-output name=color::0xFF0000"
