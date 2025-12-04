@@ -31,36 +31,55 @@ jobs:
           sudo apt-get update
           sudo apt-get -y install moreutils jo
 
-      - name: Collect images to scan
+      - name: Fetch image metadata
+        id: fetch
+        shell: bash
+        run: ./.github/scripts/fetch.sh
+
+      - name: Build scan matrix
         id: collect
         shell: bash
         run: |
           set -euo pipefail
 
+          data='${{ steps.fetch.outputs.latestVersions }}'
+
+          if [[ -z "${data}" || "${data}" == "[]" ]]; then
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           declare -a records=()
 
-          while IFS= read -r metadata; do
-            app_name="$(basename "$(dirname "$metadata")")"
+          while IFS= read -r item; do
+            version=$(jq -r '.publishedVersion // empty' <<< "${item}")
+            app_name=$(jq -r '.app' <<< "${item}")
+            channel=$(jq -r '.channel' <<< "${item}")
+            stable=$(jq -r '.stable' <<< "${item}")
 
-            while IFS= read -r channel; do
-              stable=$(jq --arg name "$channel" '.channels[] | select(.name == $name) | .stable' "$metadata")
-              if [[ "$stable" == "true" ]]; then
+            if [[ -n "${version}" ]]; then
+              if [[ "${stable}" == "true" ]]; then
+                tag="ghcr.io/${GITHUB_REPOSITORY_OWNER}/${app_name}:${version}"
+              else
+                tag="ghcr.io/${GITHUB_REPOSITORY_OWNER}/${app_name}-${channel}:${version}"
+              fi
+            else
+              if [[ "${stable}" == "true" ]]; then
                 tag="ghcr.io/${GITHUB_REPOSITORY_OWNER}/${app_name}:rolling"
               else
                 tag="ghcr.io/${GITHUB_REPOSITORY_OWNER}/${app_name}-${channel}:rolling"
               fi
+            fi
 
-              records+=("$(jo app="$app_name" channel="$channel" imageRef="$tag")")
-            done < <(jq -r '.channels[].name' "$metadata")
-          done < <(find apps -mindepth 2 -maxdepth 2 -path '*/metadata.json' -print | sort)
+            records+=("$(jo app="${app_name}" channel="${channel}" imageRef="${tag}" version="${version}")")
+          done < <(jq -c '.[]' <<< "${data}")
 
           if [[ ${#records[@]} -eq 0 ]]; then
-            matrix='[]'
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
           else
-            matrix=$(jo -a "${records[@]}")
+            #shellcheck disable=SC2048,SC2086
+            echo "matrix=$(jo -a ${records[*]})" >> "$GITHUB_OUTPUT"
           fi
-
-          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
 
   trivy-scan:
     name: Scan GHCR images with Trivy

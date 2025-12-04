@@ -13,6 +13,7 @@
 shopt -s lastpipe
 
 declare -A app_channel_array
+declare -a latest_records=()
 find ./apps -name metadata.json | while read -r metadata; do
     declare -a __channels=()
     app="$(jq --raw-output '.app' "${metadata}")"
@@ -21,6 +22,8 @@ find ./apps -name metadata.json | while read -r metadata; do
         stable="$(jq --raw-output '.stable' <<< "${channels}")"
         published_version=$(./.github/scripts/published.sh "${app}" "${channel}" "${stable}")
         upstream_version=$(./.github/scripts/upstream.sh "${app}" "${channel}" "${stable}")
+
+        latest_records+=("$(jo app="${app}" channel="${channel}" stable="${stable}" publishedVersion="${published_version}")")
         if [[ "${published_version}" != "${upstream_version}" ]]; then
             echo "${app}$([[ ! ${stable} == false ]] || echo "-${channel}"):${published_version:-<NOTFOUND>} -> ${upstream_version}"
             __channels+=("${channel}")
@@ -47,3 +50,11 @@ if [[ "${#app_channel_array[@]}" -gt 0 ]]; then
 fi
 
 echo "::set-output name=changes::${output}"
+
+latest_output="[]"
+if [[ "${#latest_records[@]}" -gt 0 ]]; then
+    #shellcheck disable=SC2048,SC2086
+    latest_output="$(jo -a ${latest_records[*]})"
+fi
+
+echo "::set-output name=latestVersions::${latest_output}"
