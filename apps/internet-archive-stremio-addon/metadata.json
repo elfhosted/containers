@@ -1,0 +1,17 @@
+{
+  "app": "inernet-archive-stremio-addon",
+  "base": false,
+  "channels": [
+    {
+      "name": "main",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": false,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    }    
+  ]
+}
