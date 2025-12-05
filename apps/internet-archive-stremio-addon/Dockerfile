@@ -14,7 +14,7 @@ FROM node:20-slim
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=cloner /sourcepackage*.json ./
+COPY --from=cloner /source/package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=cloner /source/ .
