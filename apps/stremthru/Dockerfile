@@ -26,7 +26,7 @@ COPY --from=cloner /source/apps ./apps
 
 RUN pnpm run -r build
 
-FROM golang:1.24 AS builder
+FROM golang:1.25 AS builder
 
 WORKDIR /workspace
 
