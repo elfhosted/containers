@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
     apk add --no-cache git && \
     echo "cache bust: ${CACHE_BUST}"
 
-RUN git clone https://github.com/funkypenguin/stremio-internet-archive-addon.git /source
+RUN git clone https://github.com/Dj-Frixz/stremio-internet-archive-addon.git /source
 
 FROM node:20-slim
 
