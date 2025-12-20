@@ -25,7 +25,7 @@
       }
     },
     {
-      "name": "nzb-external-storage",
+      "name": "catalog-storage-offload",
       "platforms": [
         "linux/amd64"
       ],
