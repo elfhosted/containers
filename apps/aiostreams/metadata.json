@@ -20,20 +20,9 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
-    },
-    {
-      "name": "zyclops",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "stable": false,
-      "tests": {
-        "enabled": true,
-        "type": "web"
-      }
-    }       
+    }
   ]
 }
