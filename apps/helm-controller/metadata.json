@@ -1,0 +1,17 @@
+{
+  "app": "helm-controller",
+  "base": false,
+  "channels": [
+    {
+      "name": "focal",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": false,
+        "type": "cli"
+      }
+    }
+  ]
+}
