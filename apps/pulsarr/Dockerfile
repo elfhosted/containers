@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/jamcalli/pulsarr.git /source
 
-FROM node:24.12.0-alpine@sha256:c921b97d4b74f51744057454b306b418cf693865e73b8100559189605f6955b8 AS builder
+FROM node:24.13.0-alpine@sha256:931d7d57f8c1fd0e2179dbff7cc7da4c9dd100998bc2b32afc85142d8efbc213 AS builder
 
 WORKDIR /app
 
@@ -42,7 +42,7 @@ RUN --mount=type=cache,target=/app/node_modules/.vite \
 # Prune dev dependencies to produce production node_modules for runtime image
 RUN npm prune --omit=dev && mkdir -p ${CACHE_DIR}
 
-FROM node:24.11.0-trixie
+FROM node:24.13.0-alpine@sha256:931d7d57f8c1fd0e2179dbff7cc7da4c9dd100998bc2b32afc85142d8efbc213
 
 WORKDIR /app
 
