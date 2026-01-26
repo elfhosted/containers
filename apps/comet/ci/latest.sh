@@ -1,10 +1,36 @@
 #!/usr/bin/env bash
-channel=$1
-if [[ "${channel}" == "dev" ]]; then
-    version=$(curl -sX GET "https://api.github.com/repos/g0ldyy/comet/commits/main" --header "Authorization: Bearer ${ZURG_GH_CREDS}" | jq --raw-output '.sha')
-if [[ "${channel}" == "cometnet" ]]; then
-    version=$(curl -sX GET "https://api.github.com/repos/g0ldyy/comet/commits/feat/cometnet" --header "Authorization: Bearer ${ZURG_GH_CREDS}" | jq --raw-output '.sha')
-else
-    version=$(curl -sX GET https://api.github.com/repos/g0ldyy/comet/releases/latest --header "Authorization: Bearer ${ZURG_GH_CREDS}" | jq --raw-output '. | .tag_name')
-fi
-printf "%s" "${version}"   
+set -euo pipefail
+
+channel="${1:-stable}"
+repo="g0ldyy/comet"
+auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
+
+get_commit_sha() {
+  local ref="$1"
+  local encoded_ref
+  encoded_ref="$(printf '%s' "$ref" | jq -sRr @uri)"
+
+  curl -fsSL \
+    -H "$auth_header" \
+    "https://api.github.com/repos/${repo}/commits?sha=${encoded_ref}" \
+  | jq -r '.[0].sha'
+}
+
+case "$channel" in
+  dev)
+    version="$(get_commit_sha main)"
+    ;;
+  cometnet)
+    version="$(get_commit_sha feat/cometnet)"
+    ;;
+  *)
+    version="$(
+      curl -fsSL \
+        -H "$auth_header" \
+        "https://api.github.com/repos/${repo}/releases/latest" \
+      | jq -r '.tag_name'
+    )"
+    ;;
+esac
+
+printf '%s\n' "$version"
