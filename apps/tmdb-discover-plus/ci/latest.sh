@@ -3,15 +3,21 @@ set -euo pipefail
 
 channel="${1:-stable}"
 repo="semi-column/tmdb-discover-plus"
-auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
+
+gh_curl() {
+  if [[ -n "${TOKEN-}" ]]; then
+    curl -fsSL -H "Authorization: Bearer ${TOKEN}" "$@"
+  else
+    curl -fsSL "$@"
+  fi
+}
 
 get_commit_sha() {
   local ref="$1"
   local encoded_ref
   encoded_ref="$(printf '%s' "$ref" | jq -sRr @uri)"
 
-  curl -fsSL \
-    -H "$auth_header" \
+  gh_curl \
     "https://api.github.com/repos/${repo}/commits?sha=${encoded_ref}" \
   | jq -r '.[0].sha'
 }
@@ -22,8 +28,7 @@ case "$channel" in
     ;;
   *)
     version="$(
-      curl -fsSL \
-        -H "$auth_header" \
+      gh_curl \
         "https://api.github.com/repos/${repo}/releases/latest" \
       | jq -r '.tag_name'
     )"
