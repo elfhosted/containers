@@ -2,7 +2,7 @@
 set -euo pipefail
 
 channel="${1:-stable}"
-repo="moltbot/moltbot"
+repo="openclaw/openclaw"
 
 gh_curl() {
   if [[ -n "${TOKEN-}" ]]; then
