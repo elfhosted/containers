@@ -4,7 +4,7 @@ channel=$1
 if [ "$channel" == "main" ]; then
     # For main channel, get the latest stable release
     version=$(curl -sX GET "https://api.github.com/repos/mhdzumair/MediaFusion/releases/latest" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.tag_name')
-elif [ "$channel" == "develop" ]; then
+elif [ "$channel" == "dev" ]; then
     # For develop channel, get the latest release (including pre-releases)
     latest_release=$(curl -sX GET "https://api.github.com/repos/mhdzumair/MediaFusion/releases" --header "Authorization: Bearer ${TOKEN}" | jq '.[0]')
     
