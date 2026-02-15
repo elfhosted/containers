@@ -23,17 +23,6 @@
         "enabled": false,
         "type": "web"
       }
-    },
-    {
-      "name": "v5",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "stable": false,
-      "tests": {
-        "enabled": false,
-        "type": "web"
-      }
-    }    
+    }  
   ]
 }
