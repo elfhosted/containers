@@ -1,4 +1,33 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-version=$(curl -sX GET https://api.github.com/repos/pickles4evaaaa/mybibliotheca/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
-printf "%s" "${version}"   
+channel="${1:-stable}"
+repo="pickles4evaaaa/mybibliotheca"
+auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
+
+get_commit_sha() {
+  local ref="$1"
+  local encoded_ref
+  encoded_ref="$(printf '%s' "$ref" | jq -sRr @uri)"
+
+  curl -fsSL \
+    -H "$auth_header" \
+    "https://api.github.com/repos/${repo}/commits?sha=${encoded_ref}" \
+  | jq -r '.[0].sha'
+}
+
+case "$channel" in
+  dev)
+    version="$(get_commit_sha main)"
+    ;;
+  *)
+    version="$(
+      curl -fsSL \
+        -H "$auth_header" \
+        "https://api.github.com/repos/${repo}/releases/latest" \
+      | jq -r '.tag_name'
+    )"
+    ;;
+esac
+
+printf '%s\n' "$version"
