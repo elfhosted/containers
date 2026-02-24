@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b b8-05 https://github.com/plexguide/Huntarr.io /source
+RUN git clone -b $VERSION  https://github.com/elfhotsed/newtarr /source
 
 FROM python:3.9-slim
 
