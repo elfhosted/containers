@@ -6,7 +6,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/elfhotsed/newtarr /source
+RUN git clone -b $VERSION  https://github.com/elfhosted/newtarr /source
 
 FROM python:3.9-slim
 
