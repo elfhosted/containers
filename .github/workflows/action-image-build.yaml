@@ -105,14 +105,15 @@ jobs:
               echo "::set-output name=chan_goss_config::./apps/${{ matrix.image.app }}/ci/goss.yaml"
           fi
 
+          chan_tag_version="${chan_upstream_version//+/-}"
           if [[ "${chan_stable}" == true ]]; then
               echo "::set-output name=chan_tag_testing::${{ matrix.image.app }}:testingz"
               echo "::set-output name=chan_tag_rolling::${{ matrix.image.app }}:rolling"
-              echo "::set-output name=chan_tag_version::${{ matrix.image.app }}:${chan_upstream_version}"
+              echo "::set-output name=chan_tag_version::${{ matrix.image.app }}:${chan_tag_version}"
           else
               echo "::set-output name=chan_tag_testing::${{ matrix.image.app }}-${{ matrix.image.channel }}:testingz"
               echo "::set-output name=chan_tag_rolling::${{ matrix.image.app }}-${{ matrix.image.channel }}:rolling"
-              echo "::set-output name=chan_tag_version::${{ matrix.image.app }}-${{ matrix.image.channel }}:${chan_upstream_version}"
+              echo "::set-output name=chan_tag_version::${{ matrix.image.app }}-${{ matrix.image.channel }}:${chan_tag_version}"
           fi
 
       - name: Setup cli tools
