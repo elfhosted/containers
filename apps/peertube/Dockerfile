@@ -1,6 +1,6 @@
 # Get the elfhosted code
 ARG VERSION
-FROM chocobozzz/peertube:${VERSION}-bookworm
+FROM chocobozzz/peertube:${VERSION}-trixie
 
 # per https://github.com/Chocobozzz/PeerTube/issues/4622
 
