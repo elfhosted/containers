@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM louislam/uptime-kuma:${VERSION}-alpine as upstream
+FROM louislam/uptime-kuma:${VERSION} as upstream
 
 FROM ghcr.io/elfhosted/alpine:3.19.1@sha256:dfb0a18161228f317ed4c96630d70d7855d546a522c0017cbe76b907dabae8ec
 
