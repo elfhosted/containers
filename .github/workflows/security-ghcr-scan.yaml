@@ -101,7 +101,7 @@ jobs:
 
       - name: Run Trivy image scan
         id: trivy
-        uses: aquasecurity/trivy-action@v0.34.0
+        uses: aquasecurity/trivy-action@v0.24.0
         with:
           image-ref: ${{ matrix.image.imageRef }}
           format: sarif
