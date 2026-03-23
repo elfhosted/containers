@@ -1,0 +1,67 @@
+diff --git a/app/core/app.py b/app/core/app.py
+index c65f885..a76787b 100644
+--- a/app/core/app.py
++++ b/app/core/app.py
+@@ -68,6 +68,8 @@ IP_FAILURE_THRESHOLD = 8
+ 
+ @app.middleware("http")
+ async def block_missing_token_middleware(request: Request, call_next):
++    if not settings.ENABLE_TOKEN_RATE_LIMIT:
++        return await call_next(request)
+     # Extract first path segment which is commonly the token in addon routes
+     path = request.url.path.lstrip("/")
+     seg = path.split("/", 1)[0] if path else ""
+diff --git a/app/core/config.py b/app/core/config.py
+index 5ee7d29..1c250d6 100644
+--- a/app/core/config.py
++++ b/app/core/config.py
+@@ -38,6 +38,9 @@ class Settings(BaseSettings):
+     RECOMMENDATION_SOURCE_ITEMS_LIMIT: int = 10
+     LIBRARY_ITEMS_LIMIT: int = 20
+ 
++    ENABLE_TOKEN_NEGATIVE_CACHE: bool = True
++    ENABLE_TOKEN_RATE_LIMIT: bool = True
++
+     CATALOG_CACHE_TTL: int = 43200  # 12 hours
+     CATALOG_STALE_TTL: int = 604800  # 7 days (soft expiration fallback)
+ 
+diff --git a/app/services/token_store.py b/app/services/token_store.py
+index ced5a16..2f486c3 100644
+--- a/app/services/token_store.py
++++ b/app/services/token_store.py
+@@ -230,12 +230,13 @@ class TokenStore:
+     @alru_cache(maxsize=2000, ttl=43200)
+     async def get_user_data(self, token: str) -> dict[str, Any] | None:
+         # Short-circuit for tokens known to be missing
+-        try:
+-            if token in self._missing_tokens:
+-                logger.debug(f"[REDIS] Negative cache hit for missing token {token}")
+-                return None
+-        except Exception as e:
+-            logger.debug(f"Failed to check negative cache for {token}: {e}")
++        if settings.ENABLE_TOKEN_NEGATIVE_CACHE:
++            try:
++                if token in self._missing_tokens:
++                    logger.debug(f"[REDIS] Negative cache hit for missing token {token}")
++                    return None
++            except Exception as e:
++                logger.debug(f"Failed to check negative cache for {token}: {e}")
+ 
+         logger.debug(f"[REDIS] Cache miss. Fetching data from redis for {token}")
+         key = self._format_key(token)
+@@ -243,10 +244,11 @@ class TokenStore:
+ 
+         if not data_raw:
+             # remember negative result briefly
+-            try:
+-                self._missing_tokens[token] = True
+-            except Exception as e:
+-                logger.debug(f"Failed to set negative cache for missing token {token}: {e}")
++            if settings.ENABLE_TOKEN_NEGATIVE_CACHE:
++                try:
++                    self._missing_tokens[token] = True
++                except Exception as e:
++                    logger.debug(f"Failed to set negative cache for missing token {token}: {e}")
+             return None
+ 
+         try:
