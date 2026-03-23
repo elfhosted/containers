@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
 channel=$1
-if [[ "${channel}" == "quantum" ]]; then
-    version=$(curl -sX GET https://api.github.com/repos/gtsteffaniak/filebrowser/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
-else
-    version=$(curl -sX GET https://api.github.com/repos/filebrowser/filebrowser/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
-fi
-version="${version%-stable}"
+version=$(curl -sX GET "https://api.github.com/repos/gtsteffaniak/filebrowser/releases?per_page=1" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.[0].tag_name')
 printf "%s" "${version}"

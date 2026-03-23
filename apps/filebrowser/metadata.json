@@ -3,7 +3,7 @@
   "base": false,
   "channels": [
     {
-      "name": "quantum",
+      "name": "main",
       "platforms": [
         "linux/amd64"
       ],
