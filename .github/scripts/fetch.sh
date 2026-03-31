@@ -21,6 +21,7 @@ while read -r metadata; do
         stable="$(jq --raw-output '.stable' <<< "${channels}")"
         published_version=$(./.github/scripts/published.sh "${app}" "${channel}" "${stable}")
         upstream_version=$(./.github/scripts/upstream.sh "${app}" "${channel}" "${stable}")
+        upstream_version="${upstream_version//+/-}"
 
         latest_records+=("$(jo app="${app}" channel="${channel}" stable="${stable}" publishedVersion="${published_version}")")
         if [[ "${published_version}" != "${upstream_version}" ]]; then
