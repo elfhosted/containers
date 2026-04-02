@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-version=$(curl -sX GET https://api.github.com/repos/fluxcd/helm-controller/releases | jq -r '.[].tag_name' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+version=$(curl -sX GET https://api.github.com/repos/fluxcd/helm-controller/releases -H "Authorization: Bearer ${TOKEN}" | jq -r '.[].tag_name' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
 printf "%s" "${version}"

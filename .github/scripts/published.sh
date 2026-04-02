@@ -12,7 +12,7 @@ tags=$( \
     curl -fsSL \
         -H "Accept: application/vnd.github.v3+json" \
         -H "Authorization: Bearer ${TOKEN}" \
-        "https://api.github.com/orgs/elfhosted/packages/container/${APP}/versions" \
+        "https://api.github.com/orgs/elfhosted/packages/container/${APP}/versions?per_page=100" \
         2>/dev/null
 )
 
