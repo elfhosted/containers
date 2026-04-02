@@ -20,6 +20,19 @@ if [[ -z "${tags}" ]]; then
     exit 0
 fi
 
+# Try channel-specific tag first (e.g. ubuntu channels: noble-*, jammy-*, focal-*)
+channel_tag=$( \
+    jq --raw-output --arg ch "${CHANNEL}" \
+        '[.[] | .metadata.container.tags[] | select(startswith($ch))] | .[0] // empty' \
+            <<< "${tags}" \
+)
+
+if [[ -n "${channel_tag}" ]]; then
+    printf "%s" "${channel_tag}"
+    exit 0
+fi
+
+# Fall back to rolling-based lookup
 current_tags=$( \
     jq --compact-output \
         'map( select( .metadata.container.tags[] | contains("rolling") ) | .metadata.container.tags[] )' \
