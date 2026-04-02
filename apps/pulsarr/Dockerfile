@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b ${VERSION} https://github.com/jamcalli/pulsarr.git /source
 
-FROM oven/bun:1.3.6-alpine AS base
+FROM oven/bun:1.3.11-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS base
 WORKDIR /app
 
 # Install production dependencies in a temp directory (cached independently)
@@ -18,7 +18,10 @@ RUN mkdir -p /temp/prod && \
     cp package.json bun.lock /temp/prod/ && \
     cp -r packages /temp/prod/packages && \
     cd /temp/prod && \
-    bun install --frozen-lockfile --production --ignore-scripts
+    bun install --frozen-lockfile --production --ignore-scripts && \
+    rm -rf node_modules/vite node_modules/rollup node_modules/esbuild \
+           node_modules/@rollup node_modules/@esbuild \
+           node_modules/rolldown node_modules/@rolldown
 
 # Build stage: full install + compile
 FROM base AS builder
@@ -44,6 +47,12 @@ FROM base
 RUN apk add --no-cache wget
 
 ENV CACHE_DIR=/app/build-cache
+
+# Remove bun user from base image (occupies UID 1000) and create pulsarr user
+RUN deluser --remove-home bun && \
+    delgroup bun; \
+    addgroup -g 568 -S pulsarr && \
+    adduser -u 568 -G pulsarr -D -H -s /sbin/nologin pulsarr
 
 # Copy package files
 COPY --from=cloner /source/package.json /source/bun.lock ./
@@ -83,4 +92,5 @@ EXPOSE 3003
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD ./docker-healthcheck.sh
 
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["./docker-entrypoint.sh"]
