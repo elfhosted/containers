@@ -7,7 +7,7 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION  https://github.com/webstreamr/webstreamr /source
+RUN git clone -b $VERSION  https://gitlab.com/webstreamr/webstreamr /source
 
 FROM node:24 AS builder
 WORKDIR /app
