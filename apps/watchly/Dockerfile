@@ -8,8 +8,6 @@ RUN apk update && apk upgrade && \
     echo "cache bust: ${CACHE_BUST}"
 
 RUN git clone -b $VERSION https://github.com/TimilsinaBimal/Watchly.git /source
-COPY apps/watchly/disable-token-cache.patch /tmp/disable-token-cache.patch
-RUN cd /source && git apply /tmp/disable-token-cache.patch
 
 FROM python:3.12-slim
 
