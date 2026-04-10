@@ -43,10 +43,8 @@ RUN --mount=type=cache,target=/app/node_modules/.vite \
 # Final runtime image
 FROM base
 
-# wget for healthcheck
-RUN apk add --no-cache wget
-
-ENV CACHE_DIR=/app/build-cache
+# tini for proper PID 1 zombie reaping, wget for healthcheck, su-exec for privilege drop
+RUN apk add --no-cache tini wget su-exec
 
 # Remove bun user from base image (occupies UID 1000) and create pulsarr user
 RUN deluser --remove-home bun && \
@@ -60,10 +58,9 @@ COPY --from=cloner /source/packages ./packages
 # Production-only dependencies from the install stage
 COPY --from=install /temp/prod/node_modules ./node_modules
 
-# Create necessary directories
 RUN mkdir -p /app/data/db && \
-    mkdir -p /app/data/log && \
-    mkdir -p ${CACHE_DIR}
+    mkdir -p /app/data/logs && \
+    chown -R pulsarr:pulsarr /app/data
 
 # Copy build artifacts
 COPY --from=builder /app/dist ./dist
@@ -84,8 +81,6 @@ ARG TMDBAPIKEY
 ENV NODE_ENV=production
 ENV tmdbApiKey=${TMDBAPIKEY}
 
-# Make volumes
-VOLUME ["/app/build-cache"]
 VOLUME ["/app/data"]
 EXPOSE 3003
 
