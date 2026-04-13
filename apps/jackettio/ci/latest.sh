@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-version=$(curl -sX GET https://api.github.com/repos/Telkaoss/jackettio/releases/latest --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '. | .tag_name')
+version=$(curl -sX GET "https://api.github.com/repos/elfhosted/jackettio-internal/commits/main" --header "Authorization: Bearer ${ZURG_GH_CREDS}" | jq --raw-output '.sha')
 printf "%s" "${version}"
