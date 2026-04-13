@@ -33,12 +33,6 @@ RUN cp -r .next/standalone/* . && \
 
 RUN npm prune --production
 
-# Install static ffmpeg
-ADD https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz /tmp/ffmpeg.tar.xz
-RUN cd /tmp && tar xf ffmpeg.tar.xz && \
-    cp ffmpeg-*-static/ffmpeg ffmpeg-*-static/ffprobe /usr/local/bin/ && \
-    rm -rf /tmp/ffmpeg*
-
 # Runtime stage
 FROM node:20-bookworm-slim
 
@@ -46,6 +40,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     openssl \
     tini \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Create elfie user
@@ -54,8 +49,6 @@ RUN groupadd -g 568 elfie && useradd -d /home/elfie --create-home --uid 568 --gi
 WORKDIR /app
 
 COPY --from=builder /app /app
-COPY --from=builder /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg
-COPY --from=builder /usr/local/bin/ffprobe /usr/local/bin/ffprobe
 
 RUN mkdir -p /config /app/.next/cache && \
     chown -R elfie:elfie /app /config
