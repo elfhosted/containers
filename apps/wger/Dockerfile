@@ -1,5 +1,5 @@
 ARG VERSION
-FROM wger/server:${VERSION}-dev
+FROM wger/server:${VERSION}
 USER root
 
 # Set default PUID and PGID
