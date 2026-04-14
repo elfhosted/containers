@@ -64,5 +64,7 @@ ENV NODE_ENV=production \
 
 EXPOSE 3030
 
+COPY --chmod=755 ./apps/readmeabook/entrypoint.sh /app/entrypoint.sh
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "server.js"]
+CMD ["/app/entrypoint.sh"]
