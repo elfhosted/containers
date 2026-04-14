@@ -4,8 +4,7 @@ process:
   node:
     running: true
 
-# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
-http:
-  http://127.0.0.1:3030:
-    status: 307
-    timeout: 10000
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+port:
+  tcp:3030:
+    listening: true
