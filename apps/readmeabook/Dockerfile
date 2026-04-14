@@ -58,7 +58,9 @@ USER 568
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
-    PORT=3030
+    PORT=3030 \
+    DATABASE_URL="postgresql://readmeabook:readmeabook@localhost:5432/readmeabook?schema=public" \
+    REDIS_URL="redis://localhost:6379"
 
 EXPOSE 3030
 
