@@ -1,50 +1,45 @@
-# Get the elfhosted code
-FROM alpine:latest as cloner
+# Downloader stage: grab the architecture-appropriate prebuilt binary from
+# the upstream GitHub release. mediaflow-proxy-light is a Rust binary;
+# using the release artifacts avoids running the Rust toolchain under QEMU.
+FROM alpine:3.21 AS downloader
 
 ARG CHANNEL
 ARG VERSION
+ARG TARGETPLATFORM
 
-RUN apk update && apk upgrade && \
-    apk add --no-cache git
+RUN apk add --no-cache curl ca-certificates
 
-RUN git clone -b $VERSION  https://github.com/mhdzumair/mediaflow-proxy.git /source
+WORKDIR /tmp
 
-# Now based on the upstream Dockerfile
-FROM python:3.12-slim
+RUN case "${TARGETPLATFORM:-linux/amd64}" in \
+        "linux/amd64") BINARY_NAME="mediaflow-proxy-light-linux-x86_64" ;; \
+        "linux/arm64") BINARY_NAME="mediaflow-proxy-light-linux-aarch64" ;; \
+        *) echo "Unsupported platform: $TARGETPLATFORM" >&2; exit 1 ;; \
+    esac && \
+    curl -fL --retry 3 --retry-delay 2 \
+        -o mediaflow-proxy-light \
+        "https://github.com/mhdzumair/mediaflow-proxy-light/releases/download/${VERSION}/${BINARY_NAME}" && \
+    chmod +x mediaflow-proxy-light
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE="1"
-ENV PYTHONUNBUFFERED="1"
-ENV PORT="8888"
+# Fetch the example config at the same version (upstream bakes it into the image)
+RUN curl -fL --retry 3 --retry-delay 2 \
+        -o config.toml \
+        "https://raw.githubusercontent.com/mhdzumair/mediaflow-proxy-light/${VERSION}/config-example.toml"
 
-# Set work directory
-WORKDIR /mediaflow_proxy
+# Runtime stage: distroless/cc-debian12 provides glibc + libgcc required by
+# the Rust binary (links libstdc++ via rquest's boring-sys). ~20 MB total.
+FROM gcr.io/distroless/cc-debian12
 
-# Create a non-root user
-RUN useradd -m mediaflow_proxy
-RUN chown -R mediaflow_proxy:mediaflow_proxy /mediaflow_proxy
+WORKDIR /app
 
-# Set up the PATH to include the user's local bin
-ENV PATH="/home/mediaflow_proxy/.local/bin:$PATH"
+COPY --from=downloader --chown=568:568 /tmp/mediaflow-proxy-light /app/
+COPY --from=downloader --chown=568:568 /tmp/config.toml /app/config.toml
 
-# Switch to non-root user
-USER mediaflow_proxy
+ENV RUST_LOG=info
+ENV CONFIG_PATH=/app/config.toml
 
-# Install Poetry
-RUN pip install --user --no-cache-dir poetry
+USER 568:568
 
-# Copy only requirements to cache them in docker layer
-COPY --from=cloner --chown=mediaflow_proxy:mediaflow_proxy /source/pyproject.toml /source/poetry.lock* /mediaflow_proxy/
-
-# Project initialization:
-RUN poetry config virtualenvs.in-project true \
-    && poetry install --no-interaction --no-ansi --no-root --only main
-
-# Copy project files
-COPY --from=cloner --chown=mediaflow_proxy:mediaflow_proxy /source/. /mediaflow_proxy
-
-# Expose the port the app runs on
 EXPOSE 8888
 
-# Activate virtual environment and run the application with Gunicorn
-CMD ["poetry", "run", "gunicorn", "mediaflow_proxy.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8888", "--timeout", "120", "--max-requests", "500", "--max-requests-jitter", "200", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info"]
+ENTRYPOINT ["/app/mediaflow-proxy-light"]
