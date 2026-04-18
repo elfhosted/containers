@@ -121,6 +121,25 @@ COPY --from=builder /app/node_modules/@echogarden/icu-segmentation-wasm/wasm/*.w
 COPY --from=builder --chown=568:568 /root/.local/share/ghost-story /home/elfie/.local/share/ghost-story
 COPY --from=builder --chown=568:568 /root/.local/share/ghost-story /opt/storyteller-seed/ghost-story
 
+# Pre-create /data so the app (running as 568) can mkdir children even when
+# no volume is mounted there (e.g. during goss CI tests).
+RUN mkdir -p /data && chown 568:568 /data
+
+# Generate an ephemeral STORYTELLER_SECRET_KEY if the caller didn't supply one,
+# so the app can boot for CI smoke tests. In production the Helm chart injects
+# a stable sealed-secret-backed key which takes precedence.
+RUN printf '%s\n' \
+      '#!/bin/sh' \
+      'set -e' \
+      'if [ -z "$STORYTELLER_SECRET_KEY" ] && [ -z "$STORYTELLER_SECRET_KEY_FILE" ]; then' \
+      '  echo "storyteller: STORYTELLER_SECRET_KEY not set, generating ephemeral key" >&2' \
+      '  STORYTELLER_SECRET_KEY="$(od -An -N32 -tx1 /dev/urandom | tr -d " \n")"' \
+      '  export STORYTELLER_SECRET_KEY' \
+      'fi' \
+      'exec /usr/bin/tini -- "$@"' \
+      > /usr/local/bin/storyteller-entrypoint.sh \
+    && chmod +x /usr/local/bin/storyteller-entrypoint.sh
+
 EXPOSE 8001
 
 ARG VERSION
@@ -147,6 +166,6 @@ WORKDIR /app/.next/standalone/web
 
 USER 568
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/usr/local/bin/storyteller-entrypoint.sh"]
 
 CMD ["node", "--enable-source-maps", "server.js"]
