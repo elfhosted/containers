@@ -114,8 +114,12 @@ COPY --from=builder /app/align/prebuilds/linux-arm64 ./.next/standalone/web/work
 # Echogarden tries to naively resolve its own wasm builds
 COPY --from=builder /app/node_modules/@echogarden/icu-segmentation-wasm/wasm/*.wasm ./.next/standalone/web/work-dist/
 
-# Copy pre-installed whisper binaries and models from builder
+# Copy pre-installed whisper binaries and models from builder.
+# Bake twice: once at the XDG path ghost-story actually reads from, and once
+# at an unshadowed path the Helm chart's init container seeds from (the
+# chart mounts emptyDir at /home/elfie, which would otherwise hide these).
 COPY --from=builder --chown=568:568 /root/.local/share/ghost-story /home/elfie/.local/share/ghost-story
+COPY --from=builder --chown=568:568 /root/.local/share/ghost-story /opt/storyteller-seed/ghost-story
 
 EXPOSE 8001
 

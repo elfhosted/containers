@@ -1,5 +1,5 @@
 {
-  "app": "mediaflow-proxy",
+  "app": "mediaflow-proxy-light",
   "base": false,
   "channels": [
     {
