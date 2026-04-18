@@ -38,7 +38,7 @@ COPY --from=cloner /source/ghost-story/package.json ./ghost-story/package.json
 COPY --from=cloner /source/config/tsup/package.json ./config/tsup/package.json
 COPY --from=cloner /source/config/eslint/package.json ./config/eslint/package.json
 
-RUN yarn install
+RUN yarn install || (echo "=== BUILD LOGS ===" && find /tmp -name build.log 2>/dev/null | xargs -I{} sh -c 'echo "--- {} ---"; cat {}' && exit 1)
 
 COPY --from=cloner /source/docker-scripts/ ./scripts/
 
