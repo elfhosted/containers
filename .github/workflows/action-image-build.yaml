@@ -222,6 +222,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
+          timeout: '20m'
 
       - name: Upload Trivy scan report
         if: ${{ always() }}
