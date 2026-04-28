@@ -9,6 +9,10 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/0xConstant1/stremio-addon-manager.git /source
 
+# Apply our patches
+COPY apps/stremio-addon-manager/patches/ /patches/
+RUN cd /source && for p in /patches/*.patch; do echo "Applying $p" && git apply "$p"; done
+
 FROM node:lts-alpine as builder
 
 WORKDIR /app

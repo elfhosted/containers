@@ -1,0 +1,189 @@
+From 01e44056bebfe84386dd688078f5910384763951 Mon Sep 17 00:00:00 2001
+From: David Young <davidy@funkypenguin.co.nz>
+Date: Tue, 28 Apr 2026 23:10:55 +1200
+Subject: [PATCH] ElfHosted: add sponsorship banner and footer link
+
+---
+ src/App.vue               | 121 ++++++++++++++++++++++++++++++++++++++
+ src/components/Footer.vue |  22 +++++++
+ 2 files changed, 143 insertions(+)
+
+diff --git a/src/App.vue b/src/App.vue
+index 1165760..d2ef3d8 100644
+--- a/src/App.vue
++++ b/src/App.vue
+@@ -13,6 +13,41 @@ import Footer from './components/Footer.vue'
+       </div>
+       <Header addonName="Cinebye"
+         addonSummary="Effortlessly get rid of Cinemeta, as much as you decide to." addonLogo="logo.png" />
++      <aside
++        class="elf-cta theme-dark"
++        role="complementary"
++        aria-labelledby="elf-cta-heading"
++      >
++        <div class="container">
++          <div class="elf-cta-card">
++            <img
++              src="https://elfhosted.com/images/logo.svg"
++              alt="ElfHosted"
++              width="44"
++              height="44"
++              class="elf-cta-logo"
++            />
++            <div class="elf-cta-text">
++              <h2 id="elf-cta-heading" class="elf-cta-heading">Want a fully managed Stremio stack?</h2>
++              <p class="elf-cta-body">If you'd rather skip ongoing maintenance, explore ElfHosted's managed Stremio options.</p>
++            </div>
++            <div class="elf-cta-actions">
++              <a
++                class="elf-cta-link primary"
++                href="https://store.elfhosted.com/product-category/stremio-addons/?utm_source=cinebye&amp;utm_medium=web&amp;utm_campaign=banner_cta"
++                target="_blank"
++                rel="noopener"
++              >Explore managed Stremio options</a>
++              <a
++                class="elf-cta-link ghost"
++                href="https://stremio-addons-guide.elfhosted.com/?utm_source=cinebye&amp;utm_medium=web&amp;utm_campaign=banner_cta"
++                target="_blank"
++                rel="noopener"
++              >See the Stremio Addons Guide</a>
++            </div>
++          </div>
++        </div>
++      </aside>
+     </header>
+     <main class="app-main">
+       <Configuration />
+@@ -23,3 +58,89 @@ import Footer from './components/Footer.vue'
+     </footer>
+   </div>
+ </template>
++
++<style scoped>
++.elf-cta.theme-dark {
++  --panel-2: #2d2d30;
++  --border: #3c3c3c;
++  --text: #d4d4d4;
++  --muted: #9da0a6;
++  --accent: #007acc;
++  --accent-2: #0e639c;
++  --focus: #3794ff;
++}
++.elf-cta {
++  display: block;
++  padding: 0 16px 8px;
++  color: var(--text);
++}
++.elf-cta .container { max-width: 960px; margin: 0 auto; }
++.elf-cta-card {
++  display: flex;
++  align-items: center;
++  gap: 16px;
++  padding: 10px 14px;
++  background: var(--panel-2);
++  border: 1px solid var(--border);
++  border-left: 3px solid var(--accent);
++  border-radius: 8px;
++  flex-wrap: wrap;
++}
++.elf-cta-logo {
++  width: 44px;
++  height: 44px;
++  flex-shrink: 0;
++  object-fit: contain;
++}
++.elf-cta-text { flex: 1 1 280px; min-width: 0; }
++.elf-cta-heading {
++  margin: 0 0 2px 0;
++  font-size: 13.5px;
++  font-weight: 600;
++  color: var(--text);
++  line-height: 1.3;
++}
++.elf-cta-body {
++  margin: 0;
++  color: var(--muted);
++  font-size: 12.5px;
++  line-height: 1.45;
++}
++.elf-cta-actions {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 8px;
++  flex-shrink: 0;
++}
++.elf-cta-link {
++  display: inline-flex;
++  align-items: center;
++  padding: 6px 12px;
++  border-radius: 6px;
++  border: 1px solid var(--border);
++  font-size: 12.5px;
++  text-decoration: none;
++  white-space: nowrap;
++  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
++}
++.elf-cta-link.primary {
++  background: linear-gradient(180deg, var(--accent), var(--accent-2));
++  border-color: transparent;
++  color: #fff;
++}
++.elf-cta-link.primary:hover { filter: brightness(1.08); }
++.elf-cta-link.ghost {
++  background: transparent;
++  color: #d4d4d4;
++}
++.elf-cta-link.ghost:hover { background: rgba(255, 255, 255, 0.04); border-color: #4b4b4b; }
++.elf-cta-link:focus-visible {
++  outline: 2px solid var(--focus);
++  outline-offset: 2px;
++}
++@media (max-width: 560px) {
++  .elf-cta-card { flex-direction: column; align-items: center; text-align: center; }
++  .elf-cta-actions { justify-content: stretch; align-self: stretch; }
++  .elf-cta-link { flex: 1 1 auto; justify-content: center; }
++}
++</style>
+diff --git a/src/components/Footer.vue b/src/components/Footer.vue
+index 7db357b..7de7e0e 100644
+--- a/src/components/Footer.vue
++++ b/src/components/Footer.vue
+@@ -15,6 +15,15 @@
+             <a href="https://github.com/Viren070/stremio-addon-manager" target="_blank" rel="noopener">Viren070</a>.
+             Thanks also to Sleeyax &amp; &lt;Code/&gt;.
+           </p>
++          <p class="muted elf-footer-cta">
++            Need managed hosting?
++            <a
++              class="elf-footer-link"
++              href="https://store.elfhosted.com/product-category/stremio-addons/?utm_source=cinebye&amp;utm_medium=web&amp;utm_campaign=footer_cta"
++              target="_blank"
++              rel="noopener"
++            >See ElfHosted Stremio options</a>
++          </p>
+         </div>
+         <div class="right">
+           <a class="btn-link" href="https://github.com/0xConstant1/stremio-addon-manager" target="_blank" rel="noopener">Source Code</a>
+@@ -62,6 +71,19 @@
+ .credits a { color: #8fc7ff; text-decoration: underline; text-underline-offset: 2px; }
+ .credits a:hover { color: #b6dbff; }
+ 
++.elf-footer-cta { font-size: 0.95em; }
++.elf-footer-link {
++  color: #8fc7ff;
++  text-decoration: underline;
++  text-underline-offset: 2px;
++}
++.elf-footer-link:hover { color: #b6dbff; }
++.elf-footer-link:focus-visible {
++  outline: 2px solid #3794ff;
++  outline-offset: 2px;
++  border-radius: 2px;
++}
++
+ .btn-link {
+   display: inline-flex;
+   align-items: center;
+-- 
+2.52.0
+
