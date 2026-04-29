@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
-version=$(curl -sX GET "https://api.github.com/repos/TheIndieArmy/placeholdarr/commits/main" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.sha')
+version=$(curl -sX GET "https://api.github.com/repos/TheIndieArmy/placeholdarr/releases/latest" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.tag_name')
+version="${version#*v}"
 printf "%s" "${version}"
