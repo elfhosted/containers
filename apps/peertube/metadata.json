@@ -14,17 +14,6 @@
       }
     },
     {
-      "name": "nonroot",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "stable": false,
-      "tests": {
-        "enabled": false,
-        "type": "web"
-      }
-    },
-    {
       "name": "cli",
       "platforms": [
         "linux/amd64"

@@ -1,3 +1,0 @@
-#!/command/with-contenv bash
-cd /app/cli_battery
-python /app/cli_battery/main.py
