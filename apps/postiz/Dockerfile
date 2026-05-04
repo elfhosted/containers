@@ -26,7 +26,7 @@ COPY --from=cloner /source/. /app
 COPY --from=cloner /source/var/docker/nginx.conf /etc/nginx/nginx.conf
 
 RUN pnpm install
-RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
+RUN NODE_OPTIONS="--max-old-space-size=4096 --experimental-require-module" pnpm run build
 
 EXPOSE 4200
 
