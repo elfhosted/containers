@@ -34,7 +34,22 @@
       "platformAutomerge": true,
       "ignoreTests": true,
       "matchPackageNames": ["!alpine", "!ubuntu"]
-    }, 
+    },
+    {
+      // Auto-cascade ElfHosted-internal base bumps. When ubuntu/alpine/etc.
+      // get a new date stamp or new digest, child Dockerfiles that pin those
+      // bases should follow without manual review — otherwise security
+      // updates sit in PR queues for weeks. Major bumps (e.g. focal→jammy)
+      // are intentionally excluded; those still need a human eye.
+      "description": "Auto-merge ElfHosted base-image bumps in child Dockerfiles",
+      "matchDatasources": ["docker"],
+      "matchPackagePrefixes": ["ghcr.io/elfhosted/"],
+      "matchUpdateTypes": ["digest", "pinDigest", "patch", "minor"],
+      "automerge": true,
+      "automergeType": "branch",
+      "platformAutomerge": true,
+      "ignoreTests": true
+    },
     {
       "matchDatasources": ["docker"],
       "commitMessagePrefix": "📣 "
