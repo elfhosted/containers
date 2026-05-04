@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/Kometa-Team/ImageMaid.git /source
 
-FROM python:3.11-slim-buster
+FROM python:3.11-slim-bookworm
 ARG BRANCH_NAME=master
 ENV BRANCH_NAME ${BRANCH_NAME}
 ENV TINI_VERSION v0.19.0
