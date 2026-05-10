@@ -151,6 +151,11 @@ jobs:
         run: |-
           cue vet --schema '#Spec' ./apps/${{ matrix.image.app }}/metadata.json ./metadata.rules.cue
 
+      # SOURCE_CACHE_BUSTER: passed to every build; only used by Dockerfiles
+      # whose stages source-clone a moving branch (currently radarr, planned:
+      # prowlarr — both in containers-private). Including run_attempt invalidates
+      # the layer on workflow reruns too. Dockerfiles that don't declare the ARG
+      # ignore it harmlessly.
       - name: Build container image for testing
         uses: docker/build-push-action@v5
         with:
@@ -158,6 +163,7 @@ jobs:
             VERSION=${{ steps.vars.outputs.chan_upstream_version }}
             CHANNEL=${{ matrix.image.channel }}
             ZURG_GH_CREDS=${{ secrets.ZURG_GH_CREDS }}
+            SOURCE_CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
           context: .
           platforms: linux/amd64 # load does not support muti-arch https://github.com/docker/buildx/issues/290
           file: ${{ steps.vars.outputs.chan_dockerfile }}
@@ -246,6 +252,7 @@ jobs:
             VERSION=${{ steps.vars.outputs.chan_upstream_version }}
             CHANNEL=${{ matrix.image.channel }}
             ZURG_GH_CREDS=${{ secrets.ZURG_GH_CREDS }}
+            SOURCE_CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
           labels: |-
             ${{ steps.vars.outputs.chan_label_type }}.created="${{ steps.vars.outputs.chan_build_date }}"
             ${{ steps.vars.outputs.chan_label_type }}.title="${{ matrix.image.app }} (${{ matrix.image.channel }})"
