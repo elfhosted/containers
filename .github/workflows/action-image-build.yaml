@@ -310,7 +310,10 @@ jobs:
           # git apply: "error: patch failed: path/file:NN" / "error: <name>: patch does not apply"
           # git am:    "Apply failure on:" / "Patch failed at NNNN"
           # patch(1):  "Hunk #N FAILED" / "patching file ... FAILED"
-          if echo "$LOG" | grep -qE "error: patch failed|patch does not apply|^Apply failure on:|^Patch failed at |Hunk #[0-9]+ FAILED|patching file .* FAILED"; then
+          # Patterns are deliberately unanchored: `gh run view --log-failed`
+          # prefixes every line with `<job>\t<step>\t<timestamp> ` so any ^
+          # anchor would silently never match in the real log stream.
+          if echo "$LOG" | grep -qE "error: patch failed|patch does not apply|Apply failure on:|Patch failed at |Hunk #[0-9]+ FAILED|patching file .* FAILED"; then
             # Best-effort: pull the offending patch filename out of the log so the
             # Discord message names the patch directly.
             NAME=$(echo "$LOG" \
