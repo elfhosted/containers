@@ -157,6 +157,7 @@ jobs:
       # the layer on workflow reruns too. Dockerfiles that don't declare the ARG
       # ignore it harmlessly.
       - name: Build container image for testing
+        id: testing-build
         uses: docker/build-push-action@v5
         with:
           build-args: |-
@@ -273,6 +274,58 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # If the testing or full build failed, look at the failed step's log
+      # and decide whether the failure looks like a patch-apply failure
+      # (git apply / git am / patch). When patches stop applying, that
+      # almost always means upstream changed and we need to regenerate
+      # them, so it's worth surfacing distinctly in Discord.
+      - name: Detect patch failure
+        id: patch-check
+        if: ${{ always() && (steps.release.outcome == 'failure' || steps.testing-build.outcome == 'failure') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set +e
+
+          # Scope log fetch to *this* matrix job — RUNNER_NAME is unique per
+          # concurrent runner, which is the cheapest way to disambiguate.
+          JOB_ID=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
+            --paginate \
+            --jq ".jobs[] | select(.runner_name == \"$RUNNER_NAME\") | .id" \
+            | head -1)
+
+          if [[ -n "$JOB_ID" ]]; then
+            LOG=$(gh run view "$GITHUB_RUN_ID" --job "$JOB_ID" --log-failed 2>/dev/null)
+          else
+            LOG=$(gh run view "$GITHUB_RUN_ID" --log-failed 2>/dev/null)
+          fi
+
+          if [[ -z "$LOG" ]]; then
+            echo "could not fetch failed-step log; falling back to generic failure message"
+            exit 0
+          fi
+
+          # git apply: "error: patch failed: path/file:NN" / "error: <name>: patch does not apply"
+          # git am:    "Apply failure on:" / "Patch failed at NNNN"
+          # patch(1):  "Hunk #N FAILED" / "patching file ... FAILED"
+          # Patterns are deliberately unanchored: `gh run view --log-failed`
+          # prefixes every line with `<job>\t<step>\t<timestamp> ` so any ^
+          # anchor would silently never match in the real log stream.
+          if echo "$LOG" | grep -qE "error: patch failed|patch does not apply|Apply failure on:|Patch failed at |Hunk #[0-9]+ FAILED|patching file .* FAILED"; then
+            # Best-effort: pull the offending patch filename out of the log so the
+            # Discord message names the patch directly.
+            NAME=$(echo "$LOG" \
+              | grep -oE "[A-Za-z0-9._/-]+\.patch" \
+              | head -1)
+            echo "patch_failed=true" >> "$GITHUB_OUTPUT"
+            echo "failed_patch=${NAME:-unknown.patch}" >> "$GITHUB_OUTPUT"
+            echo "detected patch failure (patch: ${NAME:-unknown.patch})"
+          else
+            echo "no patch-failure signature found in failed step logs"
+          fi
+
       - name: Build successful
         id: build-success
         if: ${{ always() && steps.release.outcome == 'success' }}
@@ -280,9 +333,17 @@ jobs:
           echo "::set-output name=message::🎉 ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
           echo "::set-output name=color::0x00FF00"
 
+      - name: Patch failed
+        id: build-failed-patch
+        if: ${{ always() && steps.patch-check.outputs.patch_failed == 'true' }}
+        run: |-
+          echo "::set-output name=message::🩹 Patch needs rebasing: ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
+          echo "::set-output name=description::\`${{ steps.patch-check.outputs.failed_patch }}\` no longer applies — upstream has likely changed. Regenerate the patch against the current source."
+          echo "::set-output name=color::0xFFA500"
+
       - name: Build failed
         id: build-failed
-        if: ${{ always() && (steps.release.outcome == 'failure' || steps.dgoss.outcome == 'failure' || steps.trivy_gate.outcome == 'failure') }}
+        if: ${{ always() && (steps.release.outcome == 'failure' || steps.dgoss.outcome == 'failure' || steps.trivy_gate.outcome == 'failure') && steps.patch-check.outputs.patch_failed != 'true' }}
         run: |-
           echo "::set-output name=message::💥 ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
           echo "::set-output name=color::0xFF0000"
@@ -292,10 +353,15 @@ jobs:
         if: ${{ always() && inputs.sendNotification == 'true' }}
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          title: ${{ steps.build-failed.outputs.message || steps.build-success.outputs.message }}
-          # description: "Build and deploy to GitHub Pages"
+          # Role-mention only on patch failures — generic build breaks shouldn't
+          # ping anyone (most are transient). Role ID lives in a repo variable
+          # so it can be rotated without a PR. If the variable isn't set, the
+          # ping is simply omitted (Discord ignores empty content).
+          content: ${{ steps.patch-check.outputs.patch_failed == 'true' && vars.DISCORD_PATCH_ROLE_ID != '' && format('<@&{0}>', vars.DISCORD_PATCH_ROLE_ID) || '' }}
+          title: ${{ steps.build-failed-patch.outputs.message || steps.build-failed.outputs.message || steps.build-success.outputs.message }}
+          description: ${{ steps.build-failed-patch.outputs.description }}
           # image: ${{ secrets.EMBED_IMAGE }}
-          color: ${{ steps.build-failed.outputs.color }}
+          color: ${{ steps.build-failed-patch.outputs.color || steps.build-failed.outputs.color }}
           username: GitHub Actions
           # avatar_url: ${{ secrets.AVATAR_URL }}
 
