@@ -350,6 +350,11 @@ jobs:
         if: ${{ always() && inputs.sendNotification == 'true' }}
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          # Role-mention only on patch failures — generic build breaks shouldn't
+          # ping anyone (most are transient). Role ID lives in a repo variable
+          # so it can be rotated without a PR. If the variable isn't set, the
+          # ping is simply omitted (Discord ignores empty content).
+          content: ${{ steps.patch-check.outputs.patch_failed == 'true' && vars.DISCORD_PATCH_ROLE_ID != '' && format('<@&{0}>', vars.DISCORD_PATCH_ROLE_ID) || '' }}
           title: ${{ steps.build-failed-patch.outputs.message || steps.build-failed.outputs.message || steps.build-success.outputs.message }}
           description: ${{ steps.build-failed-patch.outputs.description }}
           # image: ${{ secrets.EMBED_IMAGE }}
