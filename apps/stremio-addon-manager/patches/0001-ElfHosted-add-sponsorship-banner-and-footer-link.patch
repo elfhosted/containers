@@ -1,21 +1,45 @@
-From 01e44056bebfe84386dd688078f5910384763951 Mon Sep 17 00:00:00 2001
-From: David Young <davidy@funkypenguin.co.nz>
-Date: Tue, 28 Apr 2026 23:10:55 +1200
-Subject: [PATCH] ElfHosted: add sponsorship banner and footer link
+From f3721cd269eafe5230f942d41f00a5dff73ab68f Mon Sep 17 00:00:00 2001
+From: Chloe <chloe@funkypenguin.co.nz>
+Date: Thu, 21 May 2026 10:33:04 +0000
+Subject: [PATCH] ElfHosted: improve Cinebye SEO and add sponsorship links
 
 ---
- src/App.vue               | 121 ++++++++++++++++++++++++++++++++++++++
+ index.html                |   9 ++-
+ src/App.vue               | 124 +++++++++++++++++++++++++++++++++++++-
  src/components/Footer.vue |  22 +++++++
- 2 files changed, 143 insertions(+)
+ 3 files changed, 152 insertions(+), 3 deletions(-)
 
+diff --git a/index.html b/index.html
+index a5a2795..79f1aef 100644
+--- a/index.html
++++ b/index.html
+@@ -4,9 +4,14 @@
+ <head>
+   <meta charset="UTF-8">
+   <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+-  <meta name="description" content="Cinebye - Effortlessly get rid of Cinemeta, as much as you decide to.">
++  <title>Cinebye - Stremio Cinemeta Replacement &amp; Catalog Cleaner</title>
++  <meta name="description" content="Use Cinebye to replace or reduce Cinemeta in Stremio, clean up discovery rows, and build a sharper movie and series catalog experience.">
++  <link rel="canonical" href="https://cinebye.elfhosted.com/">
++  <meta property="og:title" content="Cinebye - Stremio Cinemeta Replacement &amp; Catalog Cleaner">
++  <meta property="og:description" content="Replace or reduce Cinemeta in Stremio and clean up your movie and series catalog discovery experience.">
++  <meta property="og:url" content="https://cinebye.elfhosted.com/">
++  <meta name="twitter:card" content="summary">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-  <title>Cinebye</title>
+   <link rel="stylesheet" href="https://unpkg.com/chota@latest">
+   <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.0/css/line.css">
+ </head>
 diff --git a/src/App.vue b/src/App.vue
-index 1165760..d2ef3d8 100644
+index 1165760..6235bd0 100644
 --- a/src/App.vue
 +++ b/src/App.vue
-@@ -13,6 +13,41 @@ import Footer from './components/Footer.vue'
+@@ -12,7 +12,42 @@ import Footer from './components/Footer.vue'
+       <div class="container">
        </div>
        <Header addonName="Cinebye"
-         addonSummary="Effortlessly get rid of Cinemeta, as much as you decide to." addonLogo="logo.png" />
+-        addonSummary="Effortlessly get rid of Cinemeta, as much as you decide to." addonLogo="logo.png" />
++        addonSummary="Replace or reduce Cinemeta in Stremio and clean up your movie and series catalog discovery rows." addonLogo="logo.png" />
 +      <aside
 +        class="elf-cta theme-dark"
 +        role="complementary"
@@ -54,10 +78,11 @@ index 1165760..d2ef3d8 100644
      </header>
      <main class="app-main">
        <Configuration />
-@@ -23,3 +58,89 @@ import Footer from './components/Footer.vue'
+@@ -23,3 +58,90 @@ import Footer from './components/Footer.vue'
      </footer>
    </div>
  </template>
++
 +
 +<style scoped>
 +.elf-cta.theme-dark {
@@ -185,5 +210,5 @@ index 7db357b..7de7e0e 100644
    display: inline-flex;
    align-items: center;
 -- 
-2.52.0
+2.39.5
 
