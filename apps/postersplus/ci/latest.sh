@@ -8,10 +8,12 @@
 # threads this through for cross-app use (same pattern as aioratings,
 # comet, elfbot). The default TOKEN doesn't have access to private repos.
 #
-# Channel:
-#   main  →  full sha of the latest commit on the fork's main branch.
-#            The fork doesn't tag releases yet; once it does, this can
-#            switch to /releases/latest for a stable channel.
+# Channels:
+#   main    →  full sha of the latest commit on the fork's main branch.
+#              Tracks rolling. HelmReleases shouldn't pin to this.
+#   stable  →  tag_name of the latest release-please-cut GitHub Release
+#              (e.g. v0.1.0). Stable image tag suitable for HelmRelease
+#              pinning.
 
 set -euo pipefail
 
@@ -19,11 +21,23 @@ channel="${1:-main}"
 repo="elfhosted/PostersPlus"
 auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
 
-version="$(
-  curl -fsSL \
-    -H "$auth_header" \
-    "https://api.github.com/repos/${repo}/commits/main" \
-  | jq -r '.sha'
-)"
+case "$channel" in
+  stable)
+    version="$(
+      curl -fsSL \
+        -H "$auth_header" \
+        "https://api.github.com/repos/${repo}/releases/latest" \
+      | jq -r '.tag_name'
+    )"
+    ;;
+  *)
+    version="$(
+      curl -fsSL \
+        -H "$auth_header" \
+        "https://api.github.com/repos/${repo}/commits/main" \
+      | jq -r '.sha'
+    )"
+    ;;
+esac
 
 printf '%s' "${version}"
