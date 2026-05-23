@@ -1,20 +1,29 @@
 #!/usr/bin/env bash
 # Fetch the latest version identifier for the postersplus image.
 #
-# We track the elfhosted/PostersPlus fork (not UmbraProjects upstream)
-# because the fork holds our hosting-mode commits — env-var-gated
-# backends for Postgres/Redis/S3, multi-replica leader election, the
-# Prometheus /metrics endpoint, etc. Upstream gets these via PR; the
-# fork rebases on upstream periodically.
+# Source: https://github.com/elfhosted/PostersPlus (private fork of
+# UmbraProjects/PostersPlus with hosting-mode opt-in backends).
+#
+# Credentials come from ZURG_GH_CREDS — action-image-build.yaml already
+# threads this through for cross-app use (same pattern as aioratings,
+# comet, elfbot). The default TOKEN doesn't have access to private repos.
 #
 # Channel:
-#   main  →  latest commit on the fork's main branch (short SHA).
+#   main  →  full sha of the latest commit on the fork's main branch.
 #            The fork doesn't tag releases yet; once it does, this can
 #            switch to /releases/latest for a stable channel.
-channel=$1
 
-version=$(curl -sX GET "https://api.github.com/repos/elfhosted/PostersPlus/commits/main" \
-  --header "Authorization: Bearer ${TOKEN}" \
-  | jq --raw-output '.sha[0:7]')
+set -euo pipefail
 
-printf "%s" "${version}"
+channel="${1:-main}"
+repo="elfhosted/PostersPlus"
+auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
+
+version="$(
+  curl -fsSL \
+    -H "$auth_header" \
+    "https://api.github.com/repos/${repo}/commits/main" \
+  | jq -r '.sha'
+)"
+
+printf '%s' "${version}"
