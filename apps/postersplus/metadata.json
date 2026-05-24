@@ -7,6 +7,17 @@
       "platforms": [
         "linux/amd64"
       ],
+      "stable": false,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    },
+    {
+      "name": "stable",
+      "platforms": [
+        "linux/amd64"
+      ],
       "stable": true,
       "tests": {
         "enabled": true,
