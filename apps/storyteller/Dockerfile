@@ -101,6 +101,10 @@ COPY --from=builder /app/web/public ./.next/standalone/web/public
 COPY --from=builder /app/web/.next/static ./.next/standalone/web/.next/static
 COPY --from=builder /app/web/sqlite/uuid.c.so ./.next/standalone/web/sqlite/uuid.c.so
 
+# next.js writes its runtime cache here; standalone copy is root-owned so create + chown.
+RUN mkdir -p ./.next/standalone/web/.next/cache \
+    && chown 568:568 ./.next/standalone/web/.next/cache
+
 # Copy SQL migrations
 COPY --from=builder /app/web/migrations ./.next/standalone/web/migrations
 
@@ -117,6 +121,14 @@ COPY --from=builder /app/align/prebuilds/linux-arm64 ./.next/standalone/web/work
 
 # Echogarden tries to naively resolve its own wasm builds
 COPY --from=builder /app/node_modules/@echogarden/icu-segmentation-wasm/wasm/*.wasm ./.next/standalone/web/work-dist/
+
+# @parcel/watcher native binaries are loaded dynamically at runtime and
+# not traced by next.js into the standalone output
+COPY --from=builder /app/node_modules/@parcel ./.next/standalone/node_modules/@parcel
+
+# kuroshiro-analyzer-kuromoji calls require.resolve("kuromoji") at runtime to
+# locate its dict/ dir, so the package must exist on disk under standalone.
+COPY --from=builder /app/node_modules/kuromoji ./.next/standalone/node_modules/kuromoji
 
 # Copy pre-installed whisper binaries and models from builder.
 # Bake twice: once at the XDG path ghost-story actually reads from, and once
