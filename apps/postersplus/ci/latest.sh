@@ -8,36 +8,21 @@
 # threads this through for cross-app use (same pattern as aioratings,
 # comet, elfbot). The default TOKEN doesn't have access to private repos.
 #
-# Channels:
-#   main    →  full sha of the latest commit on the fork's main branch.
-#              Tracks rolling. HelmReleases shouldn't pin to this.
-#   stable  →  tag_name of the latest release-please-cut GitHub Release
-#              (e.g. v0.1.0). Stable image tag suitable for HelmRelease
-#              pinning.
+# Returns the tag_name of the latest release-please-cut GitHub Release
+# (e.g. v0.1.0). The Dockerfile's `git checkout "${VERSION}"` accepts
+# both tags and shas, so if a rolling-sha channel is ever re-introduced
+# the only change needed is to switch this endpoint.
 
 set -euo pipefail
 
-channel="${1:-main}"
 repo="elfhosted/PostersPlus"
 auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
 
-case "$channel" in
-  main)
-    version="$(
-      curl -fsSL \
-        -H "$auth_header" \
-        "https://api.github.com/repos/${repo}/releases/latest" \
-      | jq -r '.tag_name'
-    )"
-    ;;
-  *)
-    version="$(
-      curl -fsSL \
-        -H "$auth_header" \
-        "https://api.github.com/repos/${repo}/commits/main" \
-      | jq -r '.sha'
-    )"
-    ;;
-esac
+version="$(
+  curl -fsSL \
+    -H "$auth_header" \
+    "https://api.github.com/repos/${repo}/releases/latest" \
+  | jq -r '.tag_name'
+)"
 
 printf '%s' "${version}"
