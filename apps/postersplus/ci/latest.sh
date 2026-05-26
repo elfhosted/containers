@@ -22,7 +22,7 @@ repo="elfhosted/PostersPlus"
 auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
 
 case "$channel" in
-  stable)
+  main)
     version="$(
       curl -fsSL \
         -H "$auth_header" \
