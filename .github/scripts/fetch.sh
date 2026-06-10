@@ -24,7 +24,12 @@ while read -r metadata; do
         upstream_version="${upstream_version//+/-}"
 
         latest_records+=("$(jo app="${app}" channel="${channel}" stable="${stable}" publishedVersion="${published_version}")")
-        if [[ "${published_version}" != "${upstream_version}" ]]; then
+        # An empty/null upstream version means the lookup failed (timeout, rate-limit,
+        # API error), not that a new version exists. Rebuilding anyway re-pushes the
+        # same tag with a new digest, churning renovate PRs and tenant clusters.
+        if [[ -z "${upstream_version}" || "${upstream_version}" == "null" ]]; then
+            echo "${app}$([[ ! ${stable} == false ]] || echo "-${channel}"): upstream version lookup failed, skipping" >&2
+        elif [[ "${published_version}" != "${upstream_version}" ]]; then
             echo "${app}$([[ ! ${stable} == false ]] || echo "-${channel}"):${published_version:-<NOTFOUND>} -> ${upstream_version}"
             changes_array+=("$(jo app="${app}" channel="${channel}")")
         fi
