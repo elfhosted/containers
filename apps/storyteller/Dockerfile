@@ -21,8 +21,10 @@ FROM registry.gitlab.com/storyteller-platform/storyteller/storyteller-base:${BAS
 
 WORKDIR /app
 
+# Note: upstream dropped the vendored .yarn/releases in web-v2.14.x — yarn is
+# now resolved via corepack from package.json's packageManager field (the
+# storyteller-base image has corepack enabled), so only cache + patches remain.
 COPY --from=cloner /source/package.json /source/yarn.lock /source/.yarnrc.yml ./
-COPY --from=cloner /source/.yarn/releases ./.yarn/releases
 COPY --from=cloner /source/.yarn/cache ./.yarn/cache
 COPY --from=cloner /source/.yarn/patches ./.yarn/patches
 
