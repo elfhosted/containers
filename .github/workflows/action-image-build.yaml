@@ -84,8 +84,16 @@ jobs:
           chan_tests_type=$(jq --raw-output '.tests.type' <<< "${chan_config}") && \
               echo "::set-output name=chan_tests_type::${chan_tests_type}"
 
-          chan_upstream_version=$(bash ./.github/scripts/upstream.sh "${{ matrix.image.app }}" "${{ matrix.image.channel }}") && \
-              echo "::set-output name=chan_upstream_version::${chan_upstream_version}"
+          chan_upstream_version=$(bash ./.github/scripts/upstream.sh "${{ matrix.image.app }}" "${{ matrix.image.channel }}")
+          # Never tag an image with an empty/null version: a bogus label can
+          # never match the published version on the next schedule run, which
+          # forces a rebuild every tick and churns the :rolling digest. Fail
+          # the build loudly instead so the broken latest.sh is fixed.
+          if [[ -z "${chan_upstream_version}" || "${chan_upstream_version}" == "null" ]]; then
+              echo "::error::upstream version for ${{ matrix.image.app }}/${{ matrix.image.channel }} resolved empty/null — refusing to build a null-tagged image"
+              exit 1
+          fi
+          echo "::set-output name=chan_upstream_version::${chan_upstream_version}"
 
           if [[ "${chan_tests_enabled}" == true && "${chan_tests_type}" == "cli" ]]; then
               echo "::set-output name=chan_goss_args::tail -f /dev/null"
