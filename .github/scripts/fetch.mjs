@@ -20,7 +20,7 @@ for (const path of await glob(['apps/*/metadata.json'])) {
     // throwing (which would abort the whole matrix) or building an image
     // tagged with a null/empty version. A null version label can never match
     // `publishedVersion`, which otherwise forces a rebuild every run and
-    // churns the :rolling digest. See apps/{decluttarr,plex-debrid}/ci/latest.sh.
+    // churns the :rolling digest. See apps/plex-debrid/ci/latest.sh.
     let upstreamVersion = await $`./.github/scripts/upstream.sh ${app} ${channel.name}`.nothrow()
     if (upstreamVersion.exitCode !== 0) {
       console.error(`skip ${app}/${channel.name}: upstream version lookup failed (exit ${upstreamVersion.exitCode})`)
