@@ -1,0 +1,110 @@
+From 8b92ba4651fe0b44e9512f208a533c43d904c564 Mon Sep 17 00:00:00 2001
+From: David Young <davidy@funkypenguin.co.nz>
+Date: Wed, 8 Jul 2026 20:29:03 +1200
+Subject: [PATCH] fix: handle list-valued imdb_id from Fribb/anime-lists
+
+Fribb/anime-lists (fetched at startup) now emits some entries whose
+imdb_id is a list of IMDb IDs (a title with multiple IDs). load_imdb_map
+used imdb_id directly as a dict key (if imdb_id not in map / map[imdb_id]),
+raising TypeError: unhashable type: 'list' during app startup -> crashloop.
+
+Normalize imdb_id to a list via _imdb_ids() and map each id. Also apply the
+same normalization in load_kitsu_map/load_mal_map, which previously matched
+'tt' in imdb_id and silently dropped list-valued entries.
+---
+ anime/anime_mapping.py | 53 ++++++++++++++++++++++++------------------
+ 1 file changed, 31 insertions(+), 22 deletions(-)
+
+diff --git a/anime/anime_mapping.py b/anime/anime_mapping.py
+index ab015e0..b421135 100644
+--- a/anime/anime_mapping.py
++++ b/anime/anime_mapping.py
+@@ -31,6 +31,15 @@ async def download_maps():
+         anime_season_map = {**results[1].json(), **anidb_extension}
+         
+ 
++def _imdb_ids(imdb_id):
++    """Fribb/anime-lists may provide imdb_id as a single string or a list of
++    strings (a title with multiple IMDb IDs). Normalize to a list of ids so
++    callers can key/iterate safely instead of crashing on the unhashable list."""
++    if isinstance(imdb_id, list):
++        return [i for i in imdb_id if i]
++    return [imdb_id] if imdb_id else []
++
++
+ def load_kitsu_map() -> dict:
+     """
+     Mappa per convertire un id kitsu in un id imdb
+@@ -40,8 +49,8 @@ def load_kitsu_map() -> dict:
+ 
+     for item in raw_map:
+         kitsu_id = item.get('kitsu_id', None)
+-        imdb_id = item.get('imdb_id', None)
+-        if kitsu_id != None and imdb_id != None and 'tt' in imdb_id:
++        imdb_id = next((i for i in _imdb_ids(item.get('imdb_id')) if 'tt' in i), None)
++        if kitsu_id != None and imdb_id != None:
+             mapping_list[kitsu_id] = imdb_id
+ 
+     return mapping_list
+@@ -56,8 +65,8 @@ def load_mal_map() -> dict:
+ 
+     for item in raw_map:
+         mal_id = item.get('mal_id', None)
+-        imdb_id = item.get('imdb_id', None)
+-        if mal_id != None and imdb_id != None and 'tt' in imdb_id:
++        imdb_id = next((i for i in _imdb_ids(item.get('imdb_id')) if 'tt' in i), None)
++        if mal_id != None and imdb_id != None:
+             mapping_list[mal_id] = imdb_id
+ 
+     return mapping_list
+@@ -78,29 +87,29 @@ def load_imdb_map() -> dict:
+ 
+     for item in raw_map:
+ 
+-        imdb_id: str | None = item.get('imdb_id')
++        imdb_ids = _imdb_ids(item.get('imdb_id'))
+ 
+-        if imdb_id != None:
++        if imdb_ids:
+             kitsu_id: str | None = item.get('kitsu_id')
+             anidb_id: str | None  = item.get('anidb_id')
+             mal_id: str | None  = item.get('mal_id')
+ 
+-            # Create
+-            if imdb_id not in map:
+-                map[imdb_id] = {
+-                    "kitsu_ids": [],
+-                    "anidb_ids": [],
+-                    "mal_ids": []
+-                }
+-                
+-            # Update
+-            if kitsu_id != None and anidb_id != None:
+-                kitsu_id, anidb_id = str(kitsu_id), str(anidb_id)
+-                map[imdb_id]['anidb_ids'].append(anidb_id)
+-                insert_sorted_kitsu_insort(map[imdb_id]['kitsu_ids'], kitsu_id, anidb_map[anidb_id].get('tvdb_season'), anidb_map[anidb_id].get('tvdb_epoffset'))
+-            if mal_id != None:
+-                mal_id = str(mal_id)
+-                map[imdb_id]['mal_ids'].append(mal_id)
++            for imdb_id in imdb_ids:
++                # Create
++                if imdb_id not in map:
++                    map[imdb_id] = {
++                        "kitsu_ids": [],
++                        "anidb_ids": [],
++                        "mal_ids": []
++                    }
++
++                # Update
++                if kitsu_id != None and anidb_id != None:
++                    kitsu_id_s, anidb_id_s = str(kitsu_id), str(anidb_id)
++                    map[imdb_id]['anidb_ids'].append(anidb_id_s)
++                    insert_sorted_kitsu_insort(map[imdb_id]['kitsu_ids'], kitsu_id_s, anidb_map[anidb_id_s].get('tvdb_season'), anidb_map[anidb_id_s].get('tvdb_epoffset'))
++                if mal_id != None:
++                    map[imdb_id]['mal_ids'].append(str(mal_id))
+ 
+     return map
+ 
+-- 
+2.54.0
+
