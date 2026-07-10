@@ -146,7 +146,15 @@ jobs:
       - name: Setup Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v3
-        
+
+      # Exposes ACTIONS_RUNTIME_TOKEN / ACTIONS_CACHE_URL to the environment so a
+      # raw `docker buildx build` (the testing build below, which we run directly
+      # instead of via build-push-action so we can tee its output for reliable
+      # patch-failure detection) can read/write the type=gha layer cache — this is
+      # what docker/build-push-action does internally.
+      - name: Expose GitHub Actions runtime for buildx gha cache
+        uses: crazy-max/ghaction-github-runtime@v3
+
       - name: Setup GHCR
         uses: docker/login-action@v3
         with:
@@ -164,23 +172,35 @@ jobs:
       # prowlarr — both in containers-private). Including run_attempt invalidates
       # the layer on workflow reruns too. Dockerfiles that don't declare the ARG
       # ignore it harmlessly.
+      # Run buildx directly (rather than via build-push-action) and tee the full
+      # output to a file. Patches are applied inside the Dockerfile's cloner stage,
+      # so a patch-apply failure surfaces here first (release build is skipped when
+      # this fails). Teeing to a local file lets the "Detect patch failure" step
+      # below grep the real build output reliably — the previous approach fetched
+      # this job's own log via the GitHub API mid-run, which is racy (a job's log
+      # isn't available through the API until the job finishes), so patch failures
+      # were silently misclassified as generic build failures with no role ping.
+      # linux/amd64 only — `--load` does not support multi-arch (buildx#290).
       - name: Build container image for testing
         id: testing-build
-        uses: docker/build-push-action@v5
-        with:
-          build-args: |-
-            VERSION=${{ steps.vars.outputs.chan_upstream_version }}
-            CHANNEL=${{ matrix.image.channel }}
-            ZURG_GH_CREDS=${{ secrets.ZURG_GH_CREDS }}
-            SOURCE_CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
-          context: .
-          platforms: linux/amd64 # load does not support muti-arch https://github.com/docker/buildx/issues/290
-          file: ${{ steps.vars.outputs.chan_dockerfile }}
-          load: true
-          tags: |-
-            ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        shell: bash
+        env:
+          ZURG_GH_CREDS: ${{ secrets.ZURG_GH_CREDS }}
+        run: |
+          set -o pipefail
+          docker buildx build \
+            --build-arg VERSION="${{ steps.vars.outputs.chan_upstream_version }}" \
+            --build-arg CHANNEL="${{ matrix.image.channel }}" \
+            --build-arg ZURG_GH_CREDS="${ZURG_GH_CREDS}" \
+            --build-arg SOURCE_CACHE_BUSTER="${{ github.run_id }}-${{ github.run_attempt }}" \
+            --platform linux/amd64 \
+            --file "${{ steps.vars.outputs.chan_dockerfile }}" \
+            --load \
+            --tag "ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }}" \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --progress plain \
+            . 2>&1 | tee "${RUNNER_TEMP}/testing-build.log"
 
       - name: Run Goss tests
         id: dgoss
@@ -296,22 +316,33 @@ jobs:
         run: |
           set +e
 
-          # Scope log fetch to *this* matrix job — RUNNER_NAME is unique per
-          # concurrent runner, which is the cheapest way to disambiguate.
-          JOB_ID=$(gh api \
-            "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
-            --paginate \
-            --jq ".jobs[] | select(.runner_name == \"$RUNNER_NAME\") | .id" \
-            | head -1)
-
-          if [[ -n "$JOB_ID" ]]; then
-            LOG=$(gh run view "$GITHUB_RUN_ID" --job "$JOB_ID" --log-failed 2>/dev/null)
+          # Primary source: the teed testing-build log written this job (reliable,
+          # no API/timing dependency). Patch failures always surface in the testing
+          # build, so this covers them. Fall back to the API only for the rare case
+          # where the testing build succeeded but a later step failed and no local
+          # log exists (that path stays best-effort — the API log may be empty
+          # mid-run, in which case we degrade to a generic failure notice).
+          LOG_FILE="${RUNNER_TEMP}/testing-build.log"
+          if [[ -f "$LOG_FILE" ]]; then
+            LOG=$(cat "$LOG_FILE")
           else
-            LOG=$(gh run view "$GITHUB_RUN_ID" --log-failed 2>/dev/null)
+            # Scope log fetch to *this* matrix job — RUNNER_NAME is unique per
+            # concurrent runner, which is the cheapest way to disambiguate.
+            JOB_ID=$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
+              --paginate \
+              --jq ".jobs[] | select(.runner_name == \"$RUNNER_NAME\") | .id" \
+              | head -1)
+
+            if [[ -n "$JOB_ID" ]]; then
+              LOG=$(gh run view "$GITHUB_RUN_ID" --job "$JOB_ID" --log-failed 2>/dev/null)
+            else
+              LOG=$(gh run view "$GITHUB_RUN_ID" --log-failed 2>/dev/null)
+            fi
           fi
 
           if [[ -z "$LOG" ]]; then
-            echo "could not fetch failed-step log; falling back to generic failure message"
+            echo "could not obtain build log; falling back to generic failure message"
             exit 0
           fi
 
@@ -322,11 +353,23 @@ jobs:
           # prefixes every line with `<job>\t<step>\t<timestamp> ` so any ^
           # anchor would silently never match in the real log stream.
           if echo "$LOG" | grep -qE "error: patch failed|patch does not apply|Apply failure on:|Patch failed at |Hunk #[0-9]+ FAILED|patching file .* FAILED"; then
-            # Best-effort: pull the offending patch filename out of the log so the
-            # Discord message names the patch directly.
+            # Best-effort: name the offending patch. Both `git am` and the
+            # `git apply` for-loops echo "Applying <patch>..." before each patch
+            # and halt at the first failure, so the LAST "Applying" line is the
+            # one that failed. Fall back to the last .patch token seen (excluding
+            # the trailing `/patches/*.patch` glob echoed in the RUN error line).
             NAME=$(echo "$LOG" \
-              | grep -oE "[A-Za-z0-9._/-]+\.patch" \
-              | head -1)
+              | grep -oE "Applying [A-Za-z0-9._/-]+\.patch" \
+              | tail -1 \
+              | awk '{print $2}' \
+              | xargs -r basename)
+            if [[ -z "$NAME" ]]; then
+              NAME=$(echo "$LOG" \
+                | grep -oE "[A-Za-z0-9._/-]+\.patch" \
+                | grep -vF '*' \
+                | tail -1 \
+                | xargs -r basename)
+            fi
             echo "patch_failed=true" >> "$GITHUB_OUTPUT"
             echo "failed_patch=${NAME:-unknown.patch}" >> "$GITHUB_OUTPUT"
             echo "detected patch failure (patch: ${NAME:-unknown.patch})"
