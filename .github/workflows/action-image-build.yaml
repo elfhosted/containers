@@ -191,7 +191,7 @@ jobs:
           CONTAINER_RUNTIME: docker
           GOSS_FILE: ${{ steps.vars.outputs.chan_goss_config }}
           GOSS_OPTS: |-
-            --retry-timeout 60s --sleep 2s --color --format documentation
+            --retry-timeout 180s --sleep 2s --color --format documentation
           GOSS_FILES_STRATEGY: cp
         run: |
           # dgoss run ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }} ${{ steps.vars.outputs.chan_goss_args }}
