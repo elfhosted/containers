@@ -416,15 +416,15 @@ instance-deliver-to-shared-inboxes: true
 # Default: false
 instance-inject-mastodon-version: false
 
-# String. 24hr time of day formatted as hh:mm.
-# Examples: ["14:30", "00:00", "04:00"]
-# Default: "23:00" (11pm).
-instance-subscriptions-process-from: "23:00"
-
-# Duration. Period between subscription updates.
-# Examples: ["24h", "72h", "12h"]
-# Default: "24h" (once per day).
-instance-subscriptions-process-every: "24h"
+# String. Cron expression defining instance subscription processing job scheduling.
+# Replaces the deprecated instance-subscriptions-process-from and
+# instance-subscriptions-process-every fields, which now cause a startup panic
+# if set (as of GoToSocial 0.22.0). Uses gorhill/cronexpr syntax; a 5-field
+# expression is "minute hour day-of-month month day-of-week". The @midnight
+# macro is NOT supported. The value below runs once daily at 23:00, matching
+# the old default.
+# Examples: ["0 23 * * *", "@daily", "0 0 * * *"]
+instance-subscriptions-process-cron: "0 23 * * *"
 
 # String. Allows you to customize if and how stats are served to
 # crawlers at the /api/v1|v2/instance and /nodeinfo endpoints.
@@ -636,23 +636,21 @@ media-ffmpeg-pool-size: 1
 #
 # If this is set to 0, then media from remote instances will be cached indefinitely.
 #
-# Examples: [30, 60, 7, 0]
-# Default: 7
-media-remote-cache-days: 7
+# Duration. Length of time to cache media from remote instances before it is
+# removed from the cache. Replaces the deprecated media-remote-cache-days field,
+# which now causes a startup panic if set (as of GoToSocial 0.22.0).
+# Examples: ["168h", "336h", "0s"]
+# Default: "168h" (7 days)
+media-remote-cache-duration: "168h"
 
-# String. 24hr time of day formatted as hh:mm.
-# Examples: ["14:30", "00:00", "04:00"]
-# Default: "00:00" (midnight).
-media-cleanup-from: "00:00"
-
-# Duration. Period between media cleanup runs.
-# More than once per 24h is not recommended
-# is likely overkill. Setting this to something
-# very low like once every 10 minutes will probably
-# cause lag and possibly other issues.
-# Examples: ["24h", "72h", "12h"]
-# Default: "24h" (once per day).
-media-cleanup-every: "24h"
+# String. Cron expression defining media cleanup task scheduling.
+# Replaces the deprecated media-cleanup-from and media-cleanup-every fields,
+# which now cause a startup panic if set (as of GoToSocial 0.22.0). Uses
+# gorhill/cronexpr syntax; a 5-field expression is "minute hour day-of-month
+# month day-of-week". The @midnight macro is NOT supported. The value below
+# runs daily at midnight.
+# Examples: ["0 0 * * *", "@daily"]
+media-cleanup-cron: "0 0 * * *"
 
 ##########################
 ##### STORAGE CONFIG #####
