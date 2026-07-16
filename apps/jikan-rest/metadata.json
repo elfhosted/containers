@@ -1,5 +1,5 @@
 {
-  "app": "jikan",
+  "app": "jikan-rest",
   "base": false,
   "channels": [
     {
