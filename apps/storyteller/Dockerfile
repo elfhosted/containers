@@ -45,6 +45,10 @@ COPY --from=cloner /source/libraries/ghost-story/package.json ./libraries/ghost-
 # web now depends on @storyteller-platform/opds (workspace:*), so its manifest
 # must be present for `yarn install` to resolve the graph.
 COPY --from=cloner /source/libraries/opds/package.json ./libraries/opds/package.json
+# align depends on @storyteller-platform/mapping (workspace:*), added upstream in
+# web-v2.14.17, so its manifest must be present too or `yarn install` fails with
+# "Workspace not found (@storyteller-platform/mapping@workspace:*)".
+COPY --from=cloner /source/libraries/mapping/package.json ./libraries/mapping/package.json
 COPY --from=cloner /source/config/tsup/package.json ./config/tsup/package.json
 COPY --from=cloner /source/config/eslint/package.json ./config/eslint/package.json
 
