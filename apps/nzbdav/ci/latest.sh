@@ -10,6 +10,6 @@ else
     # lockstep with that pin — NOT taken from the fork's latest release,
     # which would mislabel images the moment the fork tags a release we
     # haven't rebased onto yet.
-    version="v0.8.1"
+    version="v0.9.0"
 fi
 printf "%s" "${version}"
