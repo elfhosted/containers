@@ -325,10 +325,17 @@ jobs:
             rc=1
           fi
 
-          # --- Socket.dev: behavioral supply-chain gate ---
+          # --- Socket.dev: behavioral supply-chain scan (report-only for now) ---
+          # `socket ci` fails on the org's FULL security policy, which on a fresh
+          # account gates on non-malware alerts (CVEs, obfuscatedFile) and can
+          # block legitimate builds. Keep it REPORT-ONLY (uploads the scan to the
+          # Socket dashboard, warns) until the org policy is tuned to block only
+          # malware. The build gate here is OSV's precise MAL-* check above; flip
+          # `socket ci` back to `|| rc=$?` once the policy warns on non-malware.
           if [ -n "${SOCKET_SECURITY_API_TOKEN:-}" ]; then
             echo "::group::Socket.dev"
-            ( cd "$dir" && npx -y socket ci ) || rc=$?
+            ( cd "$dir" && npx -y socket scan create . --org funky-penguin ) \
+              || echo "::warning::Socket scan reported issues (report-only; see Socket dashboard). Tune the org policy, then re-enable gating."
             echo "::endgroup::"
           else
             echo "::warning::SOCKET_SECURITY_API_TOKEN not set — skipping Socket.dev behavioral scan"
