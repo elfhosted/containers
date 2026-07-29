@@ -273,6 +273,72 @@ jobs:
           echo "Trivy reported CRITICAL/HIGH vulnerabilities. See SARIF artifact for specifics."
           exit 1
 
+      # Supply-chain MALWARE scan for Node apps. Trivy (above) only finds
+      # DISCLOSED CVEs in known package versions; it cannot see an obfuscated,
+      # gated backdoor bundled into a dependency (e.g. the debrid-vault
+      # http.Server.emit SEO-cloaking backdoor found 2026-07). This step adds:
+      #   - OSV-Scanner: fails ONLY on OSV "MAL-*" malicious-package advisories
+      #     (ordinary CVEs are reported, not gated, to avoid breaking builds).
+      #   - Socket.dev: behavioral analysis (obfuscation, install scripts,
+      #     network/child_process usage, malware) — gates per the Socket org
+      #     policy. Requires the SOCKET_SECURITY_API_TOKEN repo secret; set the
+      #     Socket policy to BLOCK malware and WARN on lower-severity alerts so
+      #     existing builds are not broken by non-malware findings.
+      # No JS manifest in the image => not a Node app => this step is a no-op.
+      - name: Supply-chain malware scan (Socket.dev + OSV)
+        id: supplychain
+        shell: bash
+        env:
+          SOCKET_SECURITY_API_TOKEN: ${{ secrets.SOCKET_SECURITY_API_TOKEN }}
+        run: |
+          set -uo pipefail
+          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }}"
+          rc=0
+
+          cid="$(docker create "$IMAGE")"
+          dir="$(mktemp -d)"
+          got=0
+          for base in /app /upstream-source /source; do
+            if docker cp "$cid:$base/package.json" "$dir/package.json" 2>/dev/null; then
+              docker cp "$cid:$base/package-lock.json" "$dir/" 2>/dev/null \
+                || docker cp "$cid:$base/pnpm-lock.yaml" "$dir/" 2>/dev/null \
+                || docker cp "$cid:$base/yarn.lock" "$dir/" 2>/dev/null || true
+              got=1; break
+            fi
+          done
+          docker rm -f "$cid" >/dev/null 2>&1 || true
+
+          if [ "$got" = "0" ]; then
+            echo "No JS manifest in image — not a Node app, skipping supply-chain scan."
+            exit 0
+          fi
+
+          # --- OSV-Scanner: gate on malicious packages (MAL-*) only ---
+          curl -sSfL "https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64" -o /tmp/osv-scanner
+          chmod +x /tmp/osv-scanner
+          echo "::group::OSV-Scanner"
+          /tmp/osv-scanner scan source --recursive --format json "$dir" > /tmp/osv.json 2>/dev/null || true
+          /tmp/osv-scanner scan source --recursive "$dir" || true   # human-readable log; not gated on CVEs
+          echo "::endgroup::"
+          if grep -q '"id"[[:space:]]*:[[:space:]]*"MAL-' /tmp/osv.json 2>/dev/null; then
+            echo "::error::OSV flagged a MALICIOUS package (MAL-*) in ${{ matrix.image.app }}."
+            rc=1
+          fi
+
+          # --- Socket.dev: behavioral supply-chain gate ---
+          if [ -n "${SOCKET_SECURITY_API_TOKEN:-}" ]; then
+            echo "::group::Socket.dev"
+            ( cd "$dir" && npx -y socket ci ) || rc=$?
+            echo "::endgroup::"
+          else
+            echo "::warning::SOCKET_SECURITY_API_TOKEN not set — skipping Socket.dev behavioral scan"
+          fi
+
+          if [ "$rc" != "0" ]; then
+            echo "::error::Supply-chain scan flagged malware/policy issues for ${{ matrix.image.app }}. Failing before push."
+          fi
+          exit "$rc"
+
       - name: Build all platforms
         id: release
         uses: docker/build-push-action@v5
