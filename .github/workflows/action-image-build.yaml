@@ -31,10 +31,6 @@ on:
         default: 'false'
         type: string
 
-      sendNotification:
-        required: false
-        default: 'false'
-        type: string
 
 env:
   TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -448,44 +444,6 @@ jobs:
             echo "no patch-failure signature found in failed step logs"
           fi
 
-      - name: Build successful
-        id: build-success
-        if: ${{ always() && steps.release.outcome == 'success' }}
-        run: |-
-          echo "::set-output name=message::🎉 ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
-          echo "::set-output name=color::0x00FF00"
-
-      - name: Patch failed
-        id: build-failed-patch
-        if: ${{ always() && steps.patch-check.outputs.patch_failed == 'true' }}
-        run: |-
-          echo "::set-output name=message::🩹 Patch needs rebasing: ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
-          echo "::set-output name=description::\`${{ steps.patch-check.outputs.failed_patch }}\` no longer applies — upstream has likely changed. Regenerate the patch against the current source."
-          echo "::set-output name=color::0xFFA500"
-
-      - name: Build failed
-        id: build-failed
-        if: ${{ always() && (steps.release.outcome == 'failure' || steps.dgoss.outcome == 'failure' || steps.trivy_gate.outcome == 'failure') && steps.patch-check.outputs.patch_failed != 'true' }}
-        run: |-
-          echo "::set-output name=message::💥 ${{ matrix.image.app }}-${{ matrix.image.channel }} (${{ steps.vars.outputs.chan_upstream_version }})"
-          echo "::set-output name=color::0xFF0000"
-
-      - name: Send Discord Webhook
-        uses: sarisia/actions-status-discord@v1
-        if: ${{ always() && inputs.sendNotification == 'true' }}
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          # Role-mention only on patch failures — generic build breaks shouldn't
-          # ping anyone (most are transient). Role ID lives in a repo variable
-          # so it can be rotated without a PR. If the variable isn't set, the
-          # ping is simply omitted (Discord ignores empty content).
-          content: ${{ steps.patch-check.outputs.patch_failed == 'true' && vars.DISCORD_PATCH_ROLE_ID != '' && format('<@&{0}>', vars.DISCORD_PATCH_ROLE_ID) || '' }}
-          title: ${{ steps.build-failed-patch.outputs.message || steps.build-failed.outputs.message || steps.build-success.outputs.message }}
-          description: ${{ steps.build-failed-patch.outputs.description }}
-          # image: ${{ secrets.EMBED_IMAGE }}
-          color: ${{ steps.build-failed-patch.outputs.color || steps.build-failed.outputs.color }}
-          username: GitHub Actions
-          # avatar_url: ${{ secrets.AVATAR_URL }}
 
   # Summarize matrix https://github.community/t/status-check-for-a-matrix-jobs/127354/7
   build_success:
