@@ -5,7 +5,7 @@
 
 # If we get no result from upstream, just fake it
 if [[ "${version}" == "" ]]; then
-    version=1.69.3
+    version=1.74.4
 fi
 printf "%s" "v${version}"
 # printf "%s" "1.66.0" # the above link 403s currently

@@ -5,7 +5,9 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone https://github.com/dvcrn/csi-rclone-reloaded.git /source
+# elfhosted fork carries mount-hardening patches (dir-cache-time, backend timeouts,
+# removed legacy cache flags) on top of dvcrn/csi-rclone-reloaded. See branch.
+RUN git clone -b elf-mount-hardening https://github.com/funkypenguin/csi-rclone-reloaded.git /source
 
 ####
 FROM golang:alpine AS builder
@@ -17,7 +19,7 @@ RUN make plugin
 ####
 FROM alpine:3.21
 
-ARG RCLONE_VERSION="v1.69.3"
+ARG RCLONE_VERSION="v1.74.4"
 ARG OS="linux"
 ARG OS_type="amd64"
 
