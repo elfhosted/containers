@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-# nzbdav has a single channel, main, which builds the community fork
-# (nzbdav/nzbdav) from a pinned FORK_REF in the Dockerfile. The version is
-# maintained here in lockstep with that pin — NOT taken from the fork's latest
-# release, which would mislabel images the moment the fork tags a release we
-# have not rebased onto yet.
-printf "%s" "v0.9.0"
+# Track the latest stable release from the nzbdav community fork.
+# The private Dockerfile/patch stack must be kept current with this output;
+# release-schedule should surface drift instead of silently staying pinned.
+curl -fsSL \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/nzbdav/nzbdav/releases/latest \
+  | jq -r '.tag_name'
