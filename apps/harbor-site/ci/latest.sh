@@ -20,8 +20,28 @@
 #
 # The same pattern is used by apps/dante and apps/tinyproxy, for the same reason.
 #
+# A NOTE ON WHAT ACTUALLY SHIPPED UNDER 1.0.0, because the comment above
+# overstates its own mechanism. Several changes reached production without a bump
+# -- the /updates/ channel routing and key fix, the harbor.site redirect block,
+# and the default_server correction. They deployed anyway because Renovate tracks
+# this image BY DIGEST, and the digest moves whether or not the tag does.
+#
+# That makes the bump a versioning discipline rather than the sole delivery
+# mechanism, which is a weaker claim than the paragraph above makes. Bump it
+# regardless: the digest tells you something changed, and only this line tells
+# you what.
+#
 # CHANGELOG
 #   1.0.0  initial: apex site at /, /api/curated/ and /api/hero/ from B2
+#          (also carried, unversioned: /updates/ channel routing, the
+#          harbor.site -> harbor.elfhosted.com redirect, default_server fix)
+#   1.1.0  serve /robots.txt and /sitemap.xml from the image instead of the
+#          bucket. The mirrored copies point at a third domain that redirects
+#          back to this host, and the bucket re-syncs from the VPS, so the
+#          correction only holds in the image. Also ALLOWS AI CRAWLERS, dropping
+#          the nine Disallow rules and ai-train=no that Cloudflare's managed
+#          robots.txt published for harbor.site -- a deliberate policy change,
+#          not an omission. See harbor-site.conf.
 set -uo pipefail
 
-printf '%s' "1.0.0"
+printf '%s' "1.1.0"

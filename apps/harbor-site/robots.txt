@@ -1,0 +1,8 @@
+# Crawler rules for harbor.elfhosted.com.
+# Rationale for serving this from the image lives in harbor-site.conf.
+
+User-agent: *
+Content-Signal: search=yes,ai-input=yes,ai-train=yes
+Allow: /
+
+Sitemap: https://harbor.elfhosted.com/sitemap.xml

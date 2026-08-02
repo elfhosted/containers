@@ -1,0 +1,100 @@
+---
+# harbor-site smoke test.
+#
+# READ THIS BEFORE ADDING A CHECK. goss runs INSIDE the container's own network
+# namespace, so an http check against localhost:8080 passes whether or not the
+# server is reachable from outside the pod. That is how eight of the nine
+# harbor-* images shipped green and completely unroutable. The `command` check
+# below is the one that catches it: it reads the listening sockets straight out
+# of /proc and requires a WILDCARD bind, which is a property localhost:8080
+# cannot distinguish.
+#
+# The second thing this file cannot do is exercise the origin. There are no
+# Backblaze credentials in CI, and there must not be, so every path that reaches
+# object storage answers 500 here by design (njs throws on the missing
+# AWS_ACCESS_KEY_ID). /healthz is answered by nginx itself precisely so that
+# something meaningful is still assertable.
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+process:
+  nginx:
+    running: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#command
+command:
+  # 1F90 is hex for 8080. A wildcard bind is 00000000 in /proc/net/tcp and
+  # 32 zeroes (or the v4-mapped 0000000000000000FFFF0000 form) in
+  # /proc/net/tcp6; 0100007F would be 127.0.0.1 and is exactly what must fail.
+  # st 0A is LISTEN.
+  #
+  # grep -q exits 1 when nothing matches, so the assertion is the exit status.
+  "grep -qE '^ *[0-9]+: (00000000|0{32}):1F90 [0-9A-F]{8,32}:0000 0A ' /proc/net/tcp /proc/net/tcp6":
+    exit-status: 0
+
+  # The entire reason these two files are baked in is that the bucket's copies
+  # name a third domain which redirects back to this host. Asserting the correct
+  # domain is present does NOT catch a file that names both; only absence does,
+  # and an http body check cannot express absence. grep exits 1 on no match, so
+  # the negation is the assertion.
+  "! grep -rqi harborstremio /usr/share/nginx/seo/":
+    exit-status: 0
+
+  # "AI crawlers are allowed" is an ABSENCE -- no Disallow line anywhere. That
+  # cannot be expressed as an http body match, and asserting `Allow: /` would
+  # still pass on a file that allows everyone and then disallows GPTBot four
+  # lines later. So: no Disallow at all, or this fails.
+  #
+  # It doubles as the check that the bucket's copy is not being served, since
+  # that one carries nine of them.
+  "! grep -qi '^[[:space:]]*Disallow' /usr/share/nginx/seo/robots.txt":
+    exit-status: 0
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
+http:
+  # Answered by nginx itself, never by the origin, so this is green with no
+  # credentials present.
+  http://localhost:8080/healthz:
+    status: 200
+    timeout: 5000
+    body:
+      - "ok"
+
+  # The write methods are refused before anything is signed. Cheap to assert and
+  # it fails loudly if the server-level `if` is ever moved into a location, where
+  # it would stop applying to the whole vhost.
+  http://localhost:8080/:
+    method: PUT
+    status: 405
+    timeout: 5000
+
+  # Served from the image, so unlike every other path these are assertable with
+  # no Backblaze credentials -- which is also the property being asserted. If
+  # either ever falls through to the origin it 500s here, and that is the signal
+  # that the bucket's wrong copy is being served again.
+  http://localhost:8080/robots.txt:
+    status: 200
+    timeout: 5000
+    body:
+      - "Sitemap: https://harbor.elfhosted.com/sitemap.xml"
+
+  http://localhost:8080/sitemap.xml:
+    status: 200
+    timeout: 5000
+    body:
+      - "<loc>https://harbor.elfhosted.com/</loc>"
+
+file:
+  # The resolver include is what makes proxy_pass with a variable host work. If
+  # /docker-entrypoint.d/05-harbor-site-resolver.sh silently did nothing, nginx
+  # would still start and every request would 502 at runtime.
+  /tmp/nginx/resolver.conf:
+    exists: true
+    filetype: file
+    # `contains`, NOT `contents`. action-image-build.yaml pins goss v0.3.18,
+    # which does not know the `contents` spelling that 0.4.x renamed it to and
+    # rejects the whole file rather than the one key. 0.4.x still accepts
+    # `contains` with a deprecation warning, so this spelling works on both;
+    # the other only works on one, and not the one that runs here. Confirmed by
+    # running v0.3.18 against this file inside the image.
+    contains:
+      - "/resolver .*valid=30s/"
