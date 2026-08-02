@@ -49,6 +49,27 @@ command:
   "! grep -qi '^[[:space:]]*Disallow' /usr/share/nginx/seo/robots.txt":
     exit-status: 0
 
+  # THE UPDATER PATH MUST NOT REDIRECT ON harbor.site, and this is the half of that
+  # assertion goss cannot make over HTTP (see the note in the http section: it has
+  # no way to send a Host header). So it is asserted against the config instead.
+  #
+  # Why it matters more than the other routes: every installed binary has
+  # https://harbor.site/updates/latest.json compiled into tauri.conf.json and cannot
+  # be repointed. If this became a redirect again, working clients would depend on
+  # their HTTP library following it -- and if it did not, they would be unreachable
+  # permanently.
+  #
+  # The awk range is the harbor.site server block: from its server_name to the first
+  # line that is a bare closing brace.
+  "awk '/server_name harbor.site/,/^}/' /etc/nginx/conf.d/harbor-site.conf | grep -q 'include /etc/nginx/snippets/harbor-updates.conf'":
+    exit-status: 0
+
+  # And the negative: no redirect of any kind on /updates/ within that same block.
+  # Asserting the include is present would still pass if a 308 were reintroduced
+  # above it, because the first matching location wins.
+  "! awk '/server_name harbor.site/,/^}/' /etc/nginx/conf.d/harbor-site.conf | grep -qE '/updates/.*(301|302|307|308)'":
+    exit-status: 0
+
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
   # Answered by nginx itself, never by the origin, so this is green with no
@@ -80,18 +101,16 @@ http:
   # credentials in CI, so the origin fetch throws. What is being asserted is that
   # the request REACHED the origin rather than being answered with a redirect.
   # 301/302/307/308 would all fail this check.
-  # NOTE THE TWO DIFFERENT SPELLINGS OF LOOPBACK BELOW. They are one host and one
-  # port; the difference exists only because goss keys http resources by URL, so
-  # writing the same URL twice would be a duplicate YAML key -- the second silently
-  # replacing the first, and the harbor.site case never running at all.
-  http://localhost:8080/updates/latest.json:
-    headers:
-      Host: harbor.site
-    status: 500
-    timeout: 10000
-
-  # The same path on the default host, which must behave identically. Both server
-  # blocks include the one snippet, and this pair is what proves it.
+  # This exercises the DEFAULT host only. goss cannot vary the Host header here:
+  # `headers` on an http resource is a list of expected RESPONSE headers, not a map
+  # of request headers to send, so the obvious spelling
+  #
+  #     headers:
+  #       Host: harbor.site
+  #
+  # is valid YAML that goss rejects outright -- `cannot unmarshal !!map into
+  # []string`, which fails the WHOLE file rather than the one key. The harbor.site
+  # half of this assertion is a command check instead, further down.
   http://127.0.0.1:8080/updates/latest.json:
     status: 500
     timeout: 10000
