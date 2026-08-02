@@ -71,6 +71,31 @@ http:
   # no Backblaze credentials -- which is also the property being asserted. If
   # either ever falls through to the origin it 500s here, and that is the signal
   # that the bucket's wrong copy is being served again.
+  # THE UPDATER PATH MUST NOT REDIRECT ON harbor.site. Every installed binary has
+  # https://harbor.site/updates/latest.json compiled in and cannot be repointed,
+  # so if this ever becomes a 3xx again, clients depend on their HTTP library
+  # following it -- and if it does not, they are unreachable forever.
+  #
+  # 500 is the expected status here, not a failure: there are no Backblaze
+  # credentials in CI, so the origin fetch throws. What is being asserted is that
+  # the request REACHED the origin rather than being answered with a redirect.
+  # 301/302/307/308 would all fail this check.
+  # NOTE THE TWO DIFFERENT SPELLINGS OF LOOPBACK BELOW. They are one host and one
+  # port; the difference exists only because goss keys http resources by URL, so
+  # writing the same URL twice would be a duplicate YAML key -- the second silently
+  # replacing the first, and the harbor.site case never running at all.
+  http://localhost:8080/updates/latest.json:
+    headers:
+      Host: harbor.site
+    status: 500
+    timeout: 10000
+
+  # The same path on the default host, which must behave identically. Both server
+  # blocks include the one snippet, and this pair is what proves it.
+  http://127.0.0.1:8080/updates/latest.json:
+    status: 500
+    timeout: 10000
+
   http://localhost:8080/robots.txt:
     status: 200
     timeout: 5000
