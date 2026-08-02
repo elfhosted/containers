@@ -31,6 +31,8 @@ RUN rm -f /etc/nginx/conf.d/default.conf
 COPY apps/harbor-site/nginx.conf                   /etc/nginx/nginx.conf
 COPY apps/harbor-site/harbor-site.conf             /etc/nginx/conf.d/harbor-site.conf
 COPY apps/harbor-site/harbor-origin.conf           /etc/nginx/snippets/harbor-origin.conf
+COPY apps/harbor-site/harbor-updates.conf          /etc/nginx/snippets/harbor-updates.conf
+COPY apps/harbor-site/harbor-notfound.conf         /etc/nginx/snippets/harbor-notfound.conf
 COPY apps/harbor-site/harbor-site.js               /etc/nginx/njs/harbor-site.js
 COPY apps/harbor-site/05-harbor-site-resolver.sh   /docker-entrypoint.d/05-harbor-site-resolver.sh
 
@@ -45,6 +47,8 @@ RUN chmod 0755 /docker-entrypoint.d/05-harbor-site-resolver.sh \
  && chmod 0644 /etc/nginx/nginx.conf \
                /etc/nginx/conf.d/harbor-site.conf \
                /etc/nginx/snippets/harbor-origin.conf \
+               /etc/nginx/snippets/harbor-updates.conf \
+               /etc/nginx/snippets/harbor-notfound.conf \
                /etc/nginx/njs/harbor-site.js \
                /usr/share/nginx/seo/robots.txt \
                /usr/share/nginx/seo/sitemap.xml

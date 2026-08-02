@@ -42,6 +42,11 @@
 #          the nine Disallow rules and ai-train=no that Cloudflare's managed
 #          robots.txt published for harbor.site -- a deliberate policy change,
 #          not an omission. See harbor-site.conf.
+#   1.2.0  serve /updates/ DIRECTLY on harbor.site instead of 308-ing it. Every
+#          installed binary has that URL compiled in and cannot be repointed, so
+#          a redirect the updater failed to follow would strand every client with
+#          no way to reach them. Both hostnames now include one shared snippet,
+#          so they cannot drift.
 set -uo pipefail
 
-printf '%s' "1.1.0"
+printf '%s' "1.2.0"
