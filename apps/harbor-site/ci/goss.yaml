@@ -39,6 +39,16 @@ command:
   "! grep -rqi harborstremio /usr/share/nginx/seo/":
     exit-status: 0
 
+  # "AI crawlers are allowed" is an ABSENCE -- no Disallow line anywhere. That
+  # cannot be expressed as an http body match, and asserting `Allow: /` would
+  # still pass on a file that allows everyone and then disallows GPTBot four
+  # lines later. So: no Disallow at all, or this fails.
+  #
+  # It doubles as the check that the bucket's copy is not being served, since
+  # that one carries nine of them.
+  "! grep -qi '^[[:space:]]*Disallow' /usr/share/nginx/seo/robots.txt":
+    exit-status: 0
+
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#http
 http:
   # Answered by nginx itself, never by the origin, so this is green with no

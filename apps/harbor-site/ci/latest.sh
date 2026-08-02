@@ -38,7 +38,10 @@
 #   1.1.0  serve /robots.txt and /sitemap.xml from the image instead of the
 #          bucket. The mirrored copies point at a third domain that redirects
 #          back to this host, and the bucket re-syncs from the VPS, so the
-#          correction only holds in the image.
+#          correction only holds in the image. Also ALLOWS AI CRAWLERS, dropping
+#          the nine Disallow rules and ai-train=no that Cloudflare's managed
+#          robots.txt published for harbor.site -- a deliberate policy change,
+#          not an omission. See harbor-site.conf.
 set -uo pipefail
 
 printf '%s' "1.1.0"
