@@ -47,6 +47,10 @@
 #          a redirect the updater failed to follow would strand every client with
 #          no way to reach them. Both hostnames now include one shared snippet,
 #          so they cannot drift.
+#   1.3.0  answer CORS preflight at the harbor.site edge instead of redirecting
+#          it. Browsers do not follow a 3xx on an OPTIONS preflight, so the 308
+#          broke every preflighted request -- writes -- while leaving simple
+#          GETs working. Found in production after the cutover.
 set -uo pipefail
 
-printf '%s' "1.2.0"
+printf '%s' "1.3.0"
