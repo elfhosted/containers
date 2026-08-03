@@ -51,6 +51,11 @@
 #          it. Browsers do not follow a 3xx on an OPTIONS preflight, so the 308
 #          broke every preflighted request -- writes -- while leaving simple
 #          GETs working. Found in production after the cutover.
+#   1.4.0  serve /api/curated/, /api/hero/, /feed/ and /badges/ on harbor.site
+#          instead of redirecting them. Completes the same fix: a cross-origin
+#          redirect strips Authorization and fails a preflight, so anything the
+#          app fetches must be answered on the host it was called on. The
+#          authenticated paths were fixed at Traefik; these four reach nginx.
 set -uo pipefail
 
-printf '%s' "1.3.0"
+printf '%s' "1.4.0"
