@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# harbor-imdb: one of the nine Harbor backend services.
+# harbor-relay: one of the nine Harbor backend services.
 #
 # Source: https://github.com/harborstremio/harbor-hosted (PRIVATE), at
-# services/harbor-imdb/src. These images integrate with ElfHosted-internal
+# services/harbor-relay/src. These images integrate with ElfHosted-internal
 # services (EMDB, ElfCache), so they are ElfHosted artifacts and are not
 # self-hostable.
 #
@@ -21,10 +21,10 @@
 #
 # PREFERRED: the newest per-component release-please tag. harbor-hosted's
 # release-please-config.json sets include-component-in-tag, include-v-in-tag and
-# tag-separator "-", so tags read harbor-imdb-v0.1.0. That form is a valid git ref
+# tag-separator "-", so tags read harbor-relay-v0.1.0. That form is a valid git ref
 # and a valid Docker tag, so it is emitted verbatim.
 #
-# FALLBACK: no harbor-imdb-v* tag exists yet, because the vendoring PR (#1) is
+# FALLBACK: no harbor-relay-v* tag exists yet, because the vendoring PR (#1) is
 # unmerged and release-please has never run against this repo. So the fallback
 # is the SHORT SHA of the vendoring branch head. Two more obvious fallbacks were
 # rejected:
@@ -43,18 +43,12 @@
 # merges and before the first release-please run.
 set -uo pipefail
 
-# harbor-relay was built from harborstremio/pub.harbor.site until 2026-07-31 and
-# emitted v9-stale-<sha7>, because that repo's HEAD is v9, carries no tags, and the
-# VPS runs v10. The source is now vendored into harbor-hosted at v10, so this reads
-# component tags like every other vendored service and the stale marker is gone.
-# If this ever returns a bare sha again, the tag lookup failed -- do not ship it.
-
 repo="harborstremio/harbor-hosted"
 component="harbor-relay"
 branch="feat/vendored-services-and-deployment"
 auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
 
-# Newest harbor-imdb-v* tag. Sorted by version rather than trusting the API's
+# Newest harbor-relay-v* tag. Sorted by version rather than trusting the API's
 # ordering, and filtered to x.y.z so a stray tag cannot win.
 version="$(
   curl -fsSL -H "${auth_header}" \
