@@ -361,9 +361,35 @@ jobs:
             # document, so there is no "find the JSON in mixed output" step for
             # report content to interfere with.
             sock_json="$(mktemp)"; sock_err="$(mktemp)"
+
+            # PINNED, AND WITH form-data SUPPLIED EXPLICITLY.
+            #
+            # `npx -y socket` fetched whatever was tagged latest at build time --
+            # unpinned third-party code executing in a job that pushes production
+            # images, which is the very thing this step exists to guard against.
+            # It also meant one bad upstream release broke every Node build here
+            # at once, which is exactly what happened.
+            #
+            # socket@1.1.152 declares only @socketsecurity/socket-patch, yet its
+            # bundle require()s form-data when it uploads a manifest, so the scan
+            # dies with "Cannot find module 'form-data'" the moment it has
+            # something to send. Apps whose scan finds zero files never upload and
+            # never see it. Installing form-data as a SIBLING of socket lets node
+            # resolve it by walking up from socket/dist/, which is verified to
+            # work. Upstream bug; drop the extra package once it is fixed.
+            #
+            # 2.x is published but deprecated upstream as "bad build", so 1.1.152
+            # is the only usable release and the pin has to be bumped by hand.
+            # That is the intended trade: a deliberate bump beats a silent break.
+            socket_home="$(mktemp -d)"
+            if ! npm i --silent --no-audit --no-fund --prefix "$socket_home" socket@1.1.152 form-data >"$sock_err" 2>&1; then
+              cat "$sock_err"
+              socket_class="unclassified"
+              echo "Could not install the Socket CLI; not treating that as a scan result."
+            else
             for attempt in 1 2 3; do
               socket_rc=0
-              ( cd "$dir" && npx -y socket scan create --report --json --org funky-penguin . ) >"$sock_json" 2>"$sock_err" || socket_rc=$?
+              ( cd "$dir" && "$socket_home/node_modules/.bin/socket" scan create --report --json --org funky-penguin . ) >"$sock_json" 2>"$sock_err" || socket_rc=$?
               cat "$sock_err"; cat "$sock_json"
               [ "$socket_rc" = "0" ] && { socket_class="pass"; break; }
 
@@ -397,6 +423,7 @@ jobs:
               fi
               [ "$attempt" != "3" ] && { echo "Socket transport failure (attempt $attempt/3), retrying..."; sleep $(( attempt * 10 )); }
             done
+            fi
             echo "::endgroup::"
 
             case "$socket_class" in
