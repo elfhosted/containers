@@ -289,7 +289,8 @@ jobs:
         run: |
           set -uo pipefail
           IMAGE="ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }}"
-          rc=0
+          osv_rc=0
+          socket_rc=0
 
           cid="$(docker create "$IMAGE")"
           dir="$(mktemp -d)"
@@ -318,7 +319,7 @@ jobs:
           echo "::endgroup::"
           if grep -q '"id"[[:space:]]*:[[:space:]]*"MAL-' /tmp/osv.json 2>/dev/null; then
             echo "::error::OSV flagged a MALICIOUS package (MAL-*) in ${{ matrix.image.app }}."
-            rc=1
+            osv_rc=1
           fi
 
           # --- Socket.dev: behavioral supply-chain gate ---
@@ -327,18 +328,96 @@ jobs:
           # (plus OSV's precise MAL-* check above). --org is required so the CLI
           # runs non-interactively in CI; the token needs org security-policy read
           # scope (otherwise socket ci 403s).
+          #
+          # A SCANNER THAT COULD NOT RUN IS NOT A FINDING. Previously every
+          # non-zero exit was reported as "flagged malware/policy issues" and
+          # blocked the push, so a Socket API outage or a broken CLI release
+          # failed builds behind a security-shaped error nobody could act on.
+          # That is not hypothetical: the CLI crashed inside its own lazily
+          # fetched bundle ("Cannot find module 'form-data'") and harbor-relay's
+          # builds failed reporting malware that had never been looked for.
+          #
+          # `socket ci` is an alias for `scan create --report`; we call that
+          # directly to add --json, which wraps every outcome in the CLI's own
+          # envelope: {"ok":..,"message":..,"data":{"code":..}}.
+          #
+          # CLASSIFY ON THAT ENVELOPE ONLY, NEVER BY SEARCHING THE REPORT.
+          # The report body contains attacker-controlled text -- package names,
+          # versions, paths, descriptions. Grepping it for error signatures means
+          # a package named `econnreset` could downgrade a genuine malware
+          # verdict to a warning and ship the image. `.message` is CLI-generated
+          # and no dependency can reach it.
+          #
+          # FAIL CLOSED BY DEFAULT: only an outcome positively identified as a
+          # transport failure continues. Anything unrecognised blocks, and says
+          # it could not be classified rather than claiming malware.
           if [ -n "${SOCKET_SECURITY_API_TOKEN:-}" ]; then
             echo "::group::Socket.dev"
-            ( cd "$dir" && npx -y socket ci --org funky-penguin ) || rc=$?
+            socket_class="unclassified"
+            s_code=""
+            # --json puts the envelope alone on STDOUT and every spinner, log and
+            # progress line on STDERR. Keeping them in separate files is what
+            # makes the classification safe: jq only ever sees the CLI's own
+            # document, so there is no "find the JSON in mixed output" step for
+            # report content to interfere with.
+            sock_json="$(mktemp)"; sock_err="$(mktemp)"
+            for attempt in 1 2 3; do
+              socket_rc=0
+              ( cd "$dir" && npx -y socket scan create --report --json --org funky-penguin . ) >"$sock_json" 2>"$sock_err" || socket_rc=$?
+              cat "$sock_err"; cat "$sock_json"
+              [ "$socket_rc" = "0" ] && { socket_class="pass"; break; }
+
+              # jq absent => cannot classify safely => fail closed rather than guess.
+              if ! command -v jq >/dev/null 2>&1; then
+                socket_class="unclassified"; break
+              fi
+              s_ok="$(   jq -r 'if type=="object" then (.ok|tostring) else "x" end'              "$sock_json" 2>/dev/null || echo x  )"
+              s_msg="$(  jq -r 'if type=="object" then (.message // "") else "" end'             "$sock_json" 2>/dev/null || echo "" )"
+              s_code="$( jq -r 'if type=="object" then ((.data.code // "")|tostring) else "" end' "$sock_json" 2>/dev/null || echo "" )"
+
+              if [ "$s_ok" = "false" ] && [ "$s_msg" = "Socket API error" ]; then
+                case "$s_code" in
+                  # ALLOWLIST, not a wildcard. Only statuses that a dependency
+                  # cannot provoke are treated as "the scanner was unavailable".
+                  # A wildcard here is a bypass: a deliberately oversized or
+                  # malformed manifest draws a 413 or 422, and every fail-open
+                  # branch is reachable by an attacker who can make the scan
+                  # fail rather than pass. 400/404/413/422 and a missing status
+                  # are therefore NOT transient -- 404 is also what a wrong org
+                  # slug returns, which would otherwise disable scanning
+                  # permanently and silently.
+                  408|429|500|502|503|504) socket_class="infra" ;;
+                  # A revoked or under-scoped token must NOT fail open either:
+                  # doing so disables scanning for every build.
+                  401|403) socket_class="auth"; break ;;
+                  *)       socket_class="unclassified"; break ;;
+                esac
+              else
+                socket_class="unclassified"; break
+              fi
+              [ "$attempt" != "3" ] && { echo "Socket transport failure (attempt $attempt/3), retrying..."; sleep $(( attempt * 10 )); }
+            done
             echo "::endgroup::"
+
+            case "$socket_class" in
+              pass)  socket_rc=0 ;;
+              infra) echo "::warning::Socket.dev could not complete a scan for ${{ matrix.image.app }} after 3 attempts (transport failure, NOT a finding). Continuing; the OSV MAL-* gate still blocks."
+                     socket_rc=0 ;;
+              auth)  echo "::error::Socket.dev rejected the API token (${s_code}) for ${{ matrix.image.app }}. Scanning is DISABLED until this is fixed; failing closed rather than shipping unscanned."
+                     socket_rc=1 ;;
+              *)     echo "::error::Socket.dev failed for ${{ matrix.image.app }} and the outcome could not be classified. This is either a policy/malware verdict or an unrecognised failure; failing closed. See the Socket.dev group above. If the Socket CLI is broken repo-wide rather than this app being at fault, unset the SOCKET_SECURITY_API_TOKEN secret to skip the behavioral scan deliberately and visibly, rather than widening the transient allowlist."
+                     socket_rc=1 ;;
+            esac
           else
             echo "::warning::SOCKET_SECURITY_API_TOKEN not set — skipping Socket.dev behavioral scan"
           fi
 
-          if [ "$rc" != "0" ]; then
-            echo "::error::Supply-chain scan flagged malware/policy issues for ${{ matrix.image.app }}. Failing before push."
+          # Kept separate on purpose: clearing a Socket transport failure must
+          # never clear a real OSV malware finding, which one shared rc would.
+          if [ "$osv_rc" != "0" ]; then
+            echo "::error::OSV flagged a malicious package in ${{ matrix.image.app }}. Failing before push."
           fi
-          exit "$rc"
+          [ "$osv_rc" = "0" ] && [ "$socket_rc" = "0" ]
 
       - name: Build all platforms
         id: release
