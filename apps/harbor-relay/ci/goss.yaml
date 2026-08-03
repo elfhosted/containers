@@ -1,0 +1,24 @@
+---
+# harbor-relay smoke test.
+#
+# /health is answered from memory and needs no upstream, so it is meaningful with
+# no credentials and no network -- unlike most services here.
+process:
+  node:
+    running: true
+
+http:
+  http://localhost:8080/health:
+    status: 200
+    timeout: 5000
+    body:
+      - '"service":"harbor-together-relay"'
+
+# The relay must bind the WILDCARD, not loopback. Eight of the nine vendored
+# harbor services shipped bound to 127.0.0.1 and were unroutable from their own
+# Service while every probe passed, because goss runs inside the container's
+# network namespace and cannot tell the difference. 1F90 is hex 8080; 00000000
+# is the v4 wildcard and 32 zeroes the v6 form. st 0A is LISTEN.
+command:
+  "grep -qE '^ *[0-9]+: (00000000|0{32}):1F90 [0-9A-F]{8,32}:0000 0A ' /proc/net/tcp /proc/net/tcp6":
+    exit-status: 0
