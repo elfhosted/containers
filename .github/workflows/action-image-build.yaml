@@ -378,11 +378,18 @@ jobs:
             # resolve it by walking up from socket/dist/, which is verified to
             # work. Upstream bug; drop the extra package once it is fixed.
             #
-            # 2.x is published but deprecated upstream as "bad build", so 1.1.152
-            # is the only usable release and the pin has to be bumped by hand.
-            # That is the intended trade: a deliberate bump beats a silent break.
+            # BOTH are pinned exactly, form-data included. A bare specifier there
+            # would have left the very hole this commit closes: the Socket bundle
+            # require()s it directly, so any newer release would execute
+            # unreviewed code in the job that pushes production images, and an
+            # incompatible one would break every Node build again.
+            #
+            # 2.x of socket is published but deprecated upstream as "bad build",
+            # so 1.1.152 is the only usable release and both pins have to be
+            # bumped by hand. That is the intended trade: a deliberate bump beats
+            # a silent break.
             socket_home="$(mktemp -d)"
-            if ! npm i --silent --no-audit --no-fund --prefix "$socket_home" socket@1.1.152 form-data >"$sock_err" 2>&1; then
+            if ! npm i --silent --no-audit --no-fund --prefix "$socket_home" socket@1.1.152 form-data@4.0.6 >"$sock_err" 2>&1; then
               cat "$sock_err"
               socket_class="unclassified"
               echo "Could not install the Socket CLI; not treating that as a scan result."
