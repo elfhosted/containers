@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Track the latest stable release from the nzbdav community fork.
-# The private Dockerfile/patch stack must be kept current with this output;
-# release-schedule should surface drift instead of silently staying pinned.
-curl -fsSL \
-  -H "Accept: application/vnd.github.v3+json" \
-  https://api.github.com/repos/nzbdav/nzbdav/releases/latest \
-  | jq -r '.tag_name'
+# Track latest stable Infinidysk (formerly nzbdav) release, while keeping the
+# ElfHosted container/app name `nzbdav`.
+headers=(-H "Accept: application/vnd.github+json")
+if [[ -n "${TOKEN:-${GITHUB_TOKEN:-}}" ]]; then
+  headers+=(-H "Authorization: Bearer ${TOKEN:-${GITHUB_TOKEN:-}}")
+fi
+version=$(curl -fsSL "${headers[@]}" \
+  https://api.github.com/repos/infinidysk/infinidysk/releases/latest \
+  | jq -r '.tag_name')
+if [[ -z "${version}" || "${version}" == "null" ]]; then
+  echo "ERROR: nzbdav/infinidysk latest release resolved empty/null" >&2
+  exit 1
+fi
+printf "%s" "${version}"
