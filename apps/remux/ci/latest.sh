@@ -11,4 +11,4 @@
 # Lineage: v0.23.1 + 10 upstream commits (648d8c6). The trailing -N is the
 # ElfHosted patch-series revision at that ref (bump it when patches change
 # without a ref change, so pinned deployments repull).
-printf "%s" "0.23.1-648d8c6-4"
+printf "%s" "0.23.1-648d8c6-5"
