@@ -8,10 +8,10 @@
 # version from upstream's latest release would trigger rebuilds the patch
 # cannot survive.
 #
-# Lineage: v0.23.1 + 10 upstream commits (648d8c6). This version string only
-# changes when the ref pin moves (patches re-anchored). Patch-series tweaks at
-# the same ref rebuild the SAME tag with a fresh digest — myprecious pins
-# tag@digest (jellyfin-style), so bumping the digest there is what rolls
-# deployments. Read the digest from the Release Manual run log (GHCR is
-# private to anonymous inspect).
-printf "%s" "0.23.1-648d8c6"
+# Tracks the upstream release tag the patch series is anchored on (REMUX_REF
+# in the private Dockerfile) — bump both together when re-anchoring onto a new
+# upstream release. Patch-series tweaks at the same ref rebuild the SAME tag
+# with a fresh digest — myprecious pins tag@digest (jellyfin-style), so
+# bumping the digest there is what rolls deployments. Read the digest from
+# the Release Manual run log (GHCR is private to anonymous inspect).
+printf "%s" "0.23.1"
