@@ -8,10 +8,12 @@
 # version from upstream's latest release would trigger rebuilds the patch
 # cannot survive.
 #
-# Tracks the upstream release tag the patch series is anchored on (REMUX_REF
-# in the private Dockerfile) — bump both together when re-anchoring onto a new
-# upstream release. Patch-series tweaks at the same ref rebuild the SAME tag
-# with a fresh digest — myprecious pins tag@digest (jellyfin-style), so
-# bumping the digest there is what rolls deployments. Read the digest from
-# the Release Manual run log (GHCR is private to anonymous inspect).
-printf "%s" "0.23.1"
+# Tracks upstream's latest release. The private Dockerfile builds v${VERSION}
+# and hard-fails if the ElfHosted patch series doesn't apply against it —
+# that failure is the signal for the automated hermes re-anchor job, which
+# rebases the patches (each carries RE-ANCHORING NOTES) onto the new tag.
+# Patch tweaks at the same version rebuild the SAME tag with a fresh digest;
+# myprecious pins tag@digest, so digest bumps roll deployments.
+version=$(curl -sX GET "https://api.github.com/repos/lostb1t/remux/releases/latest" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.tag_name')
+version="${version#*v}"
+printf "%s" "${version}"
