@@ -127,7 +127,7 @@ jobs:
           sudo apt-get -y install moreutils jo
 
       - name: Setup CUE
-        uses: cue-lang/setup-cue@v1.0.0-alpha.2
+        uses: cue-lang/setup-cue@v1.0.1
 
       - name: Setup Goss
         if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' }}
