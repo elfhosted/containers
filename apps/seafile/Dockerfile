@@ -1,4 +1,4 @@
-ARG VERSION=11.0.2
+ARG VERSION=13.0.25
 FROM seafileltd/seafile-mc:${VERSION} as upstream
 
 # Deal with requirement to run as user 568
