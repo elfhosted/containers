@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone  https://github.com/cmj2002/warp-docker.git /source
 
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:2ba3258c7cc40330bfea13a600ca6762591d677db211a3255fbf44d4635481f0 
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:b6f74509fc1f31dfb5808f261f6187a9597e17a0359c962090366d9649aa62e0 
 
 ARG GOST_VERSION
 ARG TARGETPLATFORM=linux/amd64
