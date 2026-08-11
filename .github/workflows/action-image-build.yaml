@@ -131,7 +131,7 @@ jobs:
 
       - name: Setup Goss
         if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' }}
-        uses: e1himself/goss-installation-action@v1.1.0
+        uses: e1himself/goss-installation-action@v1.3.0
         with:
           # renovate: datasource=github-releases depName=aelsabbahy/goss
           version: v0.3.18
