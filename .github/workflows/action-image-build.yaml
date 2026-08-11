@@ -257,7 +257,7 @@ jobs:
 
       - name: Upload Trivy scan report
         if: ${{ always() }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
           category: containers/${{ matrix.image.app }}-${{ matrix.image.channel }}
