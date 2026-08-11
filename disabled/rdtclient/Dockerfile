@@ -10,7 +10,7 @@ RUN git clone -b $VERSION https://github.com/rogerfar/rdt-client.git  /source
 
 
 # Stage 1 - Build the frontend
-FROM node:22.16.0-alpine3.22 AS node-build-env
+FROM node:22.22.3-alpine3.22 AS node-build-env
 ARG TARGETPLATFORM
 ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
 ARG BUILDPLATFORM
