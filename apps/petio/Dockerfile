@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION https://github.com/petio-team/petio.git  /source
 
-FROM node:16.3.0-alpine3.13 as builder
+FROM node:16.13.1-alpine3.13 as builder
 
 RUN apk add --no-cache git
 COPY --from=cloner /source/ /source/

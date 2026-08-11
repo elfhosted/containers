@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 # for now, just clone latest
 RUN git clone https://github.com/nightscout/cgm-remote-monitor.git /source
 
-FROM node:16.16.0-alpine
+FROM node:16.20.2-alpine
 
 LABEL maintainer="Nightscout Contributors"
 
