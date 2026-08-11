@@ -15,7 +15,7 @@ COPY --from=cloner /source/. .
 RUN make plugin
 
 ####
-FROM alpine:3.21
+FROM alpine:3.24
 
 ARG RCLONE_VERSION="v1.69.3"
 ARG OS="linux"
