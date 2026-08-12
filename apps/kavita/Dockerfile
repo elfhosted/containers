@@ -1,7 +1,7 @@
 ARG VERSION
 
 FROM jvmilazz0/kavita:nightly-${VERSION} as upstream
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:b6f74509fc1f31dfb5808f261f6187a9597e17a0359c962090366d9649aa62e0  
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:dd5112a70dbae5ae5c53126969b9168c7ef2141576938272f7bff8d194be4823  
 
 # for initial install
 USER root
