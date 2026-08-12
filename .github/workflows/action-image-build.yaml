@@ -235,12 +235,24 @@ jobs:
               sleep 1
             done
             DGOSS_RUN_ARGS+=(--network "$NET" -e DATABASE_URL="postgres://mediastorm:mediastorm@$PG:5432/mediastorm?sslmode=disable")
+          elif [[ "${{ matrix.image.app }}" == "m3ueditor" ]]; then
+            CONFIG_DIR="${RUNNER_TEMP}/${NAME}-config"
+            mkdir -p "$CONFIG_DIR"
+            DGOSS_RUN_ARGS+=(
+              -v "$CONFIG_DIR:/var/www/config"
+              -e ENABLE_POSTGRES=true
+              -e REDIS_ENABLED=true
+              -e M3U_PROXY_INTEGRATION_ENABLED=false
+              -e M3U_PROXY_ENABLED=false
+            )
           fi
 
           cleanup() {
             if [[ "${{ matrix.image.app }}" == "mediastorm" ]]; then
               docker rm -f "${NAME}-postgres" >/dev/null 2>&1 || true
               docker network rm "${NAME}-net" >/dev/null 2>&1 || true
+            elif [[ "${{ matrix.image.app }}" == "m3ueditor" ]]; then
+              rm -rf "${RUNNER_TEMP:?}/${NAME}-config" >/dev/null 2>&1 || true
             fi
           }
           trap cleanup EXIT
