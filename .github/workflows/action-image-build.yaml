@@ -215,9 +215,38 @@ jobs:
 
           IMAGE="ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_testing }}"
           NAME="dgoss-${{ matrix.image.app }}-${{ matrix.image.channel }}"
+          DGOSS_RUN_ARGS=(--name "$NAME")
+
+          # Some upstream apps require a database before they expose a health endpoint.
+          # Keep this scoped to mediastorm so normal web/cli goss behaviour is unchanged.
+          if [[ "${{ matrix.image.app }}" == "mediastorm" ]]; then
+            NET="${NAME}-net"
+            PG="${NAME}-postgres"
+            docker network create "$NET"
+            docker run -d --name "$PG" --network "$NET" \
+              -e POSTGRES_DB=mediastorm \
+              -e POSTGRES_USER=mediastorm \
+              -e POSTGRES_PASSWORD=mediastorm \
+              postgres:16-alpine
+            for i in {1..60}; do
+              if docker exec "$PG" pg_isready -U mediastorm -d mediastorm >/dev/null 2>&1; then
+                break
+              fi
+              sleep 1
+            done
+            DGOSS_RUN_ARGS+=(--network "$NET" -e DATABASE_URL="postgres://mediastorm:mediastorm@$PG:5432/mediastorm?sslmode=disable")
+          fi
+
+          cleanup() {
+            if [[ "${{ matrix.image.app }}" == "mediastorm" ]]; then
+              docker rm -f "${NAME}-postgres" >/dev/null 2>&1 || true
+              docker network rm "${NAME}-net" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
 
           # Start dgoss in background, give the container a name we can log-follow.
-          ( dgoss run --name "$NAME" "$IMAGE" ${{ steps.vars.outputs.chan_goss_args }} ) & 
+          ( dgoss run "${DGOSS_RUN_ARGS[@]}" "$IMAGE" ${{ steps.vars.outputs.chan_goss_args }} ) &
           DGOSS_PID=$!
 
           # Wait briefly until the container exists (dgoss prints ID but we want a stable name).
