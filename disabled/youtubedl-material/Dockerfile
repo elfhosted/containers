@@ -1,5 +1,5 @@
 # Fetching our utils
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:dd5112a70dbae5ae5c53126969b9168c7ef2141576938272f7bff8d194be4823 AS utils
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:7d06c5e6e4f39b2d7b88a0a439207bfd6d7c31474c75ad8969f621cabddcd96a AS utils
 ENV DEBIAN_FRONTEND=noninteractive
 # Use script due local build compability
 COPY docker-utils/*.sh .
@@ -10,7 +10,7 @@ RUN sh ./fetch-twitchdownloader.sh
 
 # Create our Ubuntu 22.04 with node 16.14.2 (that specific version is required as per: https://stackoverflow.com/a/72855258/8088021)
 # Go to 20.04
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:dd5112a70dbae5ae5c53126969b9168c7ef2141576938272f7bff8d194be4823 AS base
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:7d06c5e6e4f39b2d7b88a0a439207bfd6d7c31474c75ad8969f621cabddcd96a AS base
 ARG TARGETPLATFORM
 ARG DEBIAN_FRONTEND=noninteractive
 ENV UID=1000
