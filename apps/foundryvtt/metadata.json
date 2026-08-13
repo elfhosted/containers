@@ -1,0 +1,17 @@
+{
+  "app": "foundryvtt",
+  "base": false,
+  "channels": [
+    {
+      "name": "main",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "cli"
+      }
+    }
+  ]
+}
