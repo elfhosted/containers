@@ -110,9 +110,36 @@ jobs:
           fi
 
           chan_tag_version="${chan_upstream_version//+/-}"
+
+          # An app's stable channels all share one package — ubuntu publishes
+          # noble, jammy and focal as `ubuntu:` — so when every one of them
+          # writes the floating `:rolling` tag it is last-build-wins, and
+          # `ubuntu:rolling` flips between OS releases behind consumers' backs
+          # (it silently went 24.04 -> 20.04 on 2026-08-12). A stable channel
+          # now owns `:rolling` only when it claims it with "rolling": true, or
+          # when it is the app's only stable channel. Non-stable channels each
+          # get their own `${app}-${channel}` package, so they cannot collide.
+          #
+          # Moving ownership between channels needs a manual rebuild of the new
+          # owner ("Release: Manual", app + channel, push=true). image-rebuild
+          # deliberately ignores apps/**/metadata.json — the build writes
+          # publishedVersion back into it, so triggering on it would loop — and
+          # the scheduled fetch only builds on a version change, so a
+          # metadata-only ownership commit leaves `:rolling` on the old owner's
+          # image until the new owner next builds.
+          chan_stable_total=$(jq '[.channels[] | select(.stable == true)] | length' ./apps/${{ matrix.image.app }}/metadata.json)
+          chan_rolling_total=$(jq '[.channels[] | select(.stable == true and .rolling == true)] | length' ./apps/${{ matrix.image.app }}/metadata.json)
+          chan_rolling=$(jq --raw-output '.rolling // false' <<< "${chan_config}")
+
           if [[ "${chan_stable}" == true ]]; then
+              if (( chan_stable_total > 1 )) && (( chan_rolling_total != 1 )); then
+                  echo "::error::${{ matrix.image.app }} has ${chan_stable_total} stable channels but ${chan_rolling_total} marked \"rolling\": true — exactly one must own the floating :rolling tag"
+                  exit 1
+              fi
               echo "::set-output name=chan_tag_testing::${{ matrix.image.app }}:testingz"
-              echo "::set-output name=chan_tag_rolling::${{ matrix.image.app }}:rolling"
+              if (( chan_stable_total == 1 )) || [[ "${chan_rolling}" == true ]]; then
+                  echo "::set-output name=chan_tag_rolling::${{ matrix.image.app }}:rolling"
+              fi
               echo "::set-output name=chan_tag_version::${{ matrix.image.app }}:${chan_tag_version}"
           else
               echo "::set-output name=chan_tag_testing::${{ matrix.image.app }}-${{ matrix.image.channel }}:testingz"
@@ -517,9 +544,11 @@ jobs:
           platforms: ${{ steps.vars.outputs.chan_platforms }}
           file: ${{ steps.vars.outputs.chan_dockerfile }}
           push: ${{ inputs.pushImages == 'true' }}
+          # chan_tag_rolling is unset for a stable channel that doesn't own the
+          # floating tag; build-push-action skips the resulting empty line.
           tags: |-
-            ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_rolling }}
             ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.chan_tag_version }}
+            ${{ steps.vars.outputs.chan_tag_rolling && format('ghcr.io/{0}/{1}', github.repository_owner, steps.vars.outputs.chan_tag_rolling) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

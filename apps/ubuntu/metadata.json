@@ -9,6 +9,7 @@
         "linux/arm64"
       ],
       "stable": true,
+      "rolling": true,
       "tests": {
         "enabled": false,
         "type": "cli"

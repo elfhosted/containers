@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:dd5112a70dbae5ae5c53126969b9168c7ef2141576938272f7bff8d194be4823 
+FROM ghcr.io/elfhosted/ubuntu:noble-20260730.1@sha256:7d06c5e6e4f39b2d7b88a0a439207bfd6d7c31474c75ad8969f621cabddcd96a 
 
 # set version label
 ARG BUILD_DATE
