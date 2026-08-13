@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/qwertyuiop8899/streailer.git /source
 
-FROM node:22-slim
+FROM node:24-slim
 
 # Set the working directory in the container
 WORKDIR /app

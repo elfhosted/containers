@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $VERSION https://github.com/anmol210202/rating-aggregator-.git /source
 
 # --- frontend builder ---
-FROM node:18-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app
 
@@ -28,14 +28,14 @@ COPY apps/rating-aggregator/blurb.env frontend/.env.production
 RUN cd frontend && npm run build
 
 # --- backend builder ---
-FROM node:18-alpine AS backend-builder
+FROM node:24-alpine AS backend-builder
 WORKDIR /app
 
 COPY --from=cloner /source/package.json /source/package-lock.json ./
 RUN npm ci --production
 
 # --- final image ---
-FROM node:18-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 RUN apk add --no-cache curl
