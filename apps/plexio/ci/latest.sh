@@ -10,8 +10,8 @@
 channel=$1
 creds="${ZURG_GH_CREDS:-${TOKEN}}"
 if [[ "${channel}" == "dev" ]]; then
-    version=$(curl -sfX GET "https://${creds}@api.github.com/repos/elfhosted/plexio/commits/main" | jq --raw-output '.sha')
+    version=$(curl -L -sfX GET "https://${creds}@api.github.com/repos/elfhosted/plexio/commits/main" | jq --raw-output '.sha')
 else
-    version=$(curl -sfX GET "https://${creds}@api.github.com/repos/elfhosted/plexio/releases/latest" | jq --raw-output '.tag_name')
+    version=$(curl -L -sfX GET "https://${creds}@api.github.com/repos/elfhosted/plexio/releases/latest" | jq --raw-output '.tag_name')
 fi
 printf "%s" "${version}"

@@ -11,7 +11,7 @@
 set -o pipefail
 
 creds="${ZURG_GH_CREDS:-${TOKEN}}"
-version=$(curl -sfX GET "https://${creds}@api.github.com/repos/elfhosted/plex_debrid/commits/main" \
+version=$(curl -L -sfX GET "https://${creds}@api.github.com/repos/elfhosted/plex_debrid/commits/main" \
     | jq --raw-output '.sha // empty')
 
 if [[ -z "${version}" ]]; then
