@@ -237,6 +237,7 @@ jobs:
               -e POSTGRES_URI="postgresql://mediafusion:mediafusion@$PG:5432/mediafusion"
               -e REDIS_URL="redis://$REDIS:6379/0"
               -e MEDIAFUSION_AUTO_MIGRATE=true
+              -e SECRET_KEY="mediafusion-goss-secret-key-32b"
             )
           elif [[ "${{ matrix.image.app }}" == "mediastorm" ]]; then
             NET="${NAME}-net"
