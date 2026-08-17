@@ -6,4 +6,4 @@
 # stays put across rebuilds and imagePullPolicy: IfNotPresent leaves nodes that
 # already cached it running the OLD build forever. The chart pins the digest for
 # exactly that reason, but a moving tag is still the clearer signal.
-printf "%s" "1.5.1"
+printf "%s" "1.6.0"
