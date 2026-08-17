@@ -26,7 +26,7 @@ RUN echo "harbor-hosted @ ${VERSION}" \
  && git clone "https://${ZURG_GH_CREDS}@github.com/harborstremio/harbor-hosted.git" /source \
  && git -C /source checkout --detach "${VERSION}"
 
-FROM node:20-bookworm-slim AS build
+FROM node:24-bookworm-slim AS build
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates python3 build-essential \
  && rm -rf /var/lib/apt/lists/*
@@ -37,7 +37,7 @@ COPY --from=cloner /source/services/harbor-relay/src/package.json /source/servic
 RUN npm ci --omit=dev
 COPY --from=cloner /source/services/harbor-relay/src/src ./src
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production
 # TCP rather than the unix socket the VPS used. Both are supported and they are
 # mutually exclusive, so RELAY_UNIX_SOCKET stays unset.
