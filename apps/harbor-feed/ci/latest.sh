@@ -26,15 +26,39 @@ repo="harborstremio/harbor-hosted"
 component="harbor-feed"
 auth_header="Authorization: Bearer ${ZURG_GH_CREDS}"
 
+# PAGINATED. harbor-hosted is a release-please monorepo cutting one tag per
+# component, and tag order is neither date- nor semver-guaranteed, so a single
+# per_page=100 page will eventually stop containing harbor-feed's tags and this
+# would silently pin a stale version.
+tags=""
+page=1
+while [ "${page}" -le 10 ]; do
+  chunk="$(
+    curl -fsSL -H "${auth_header}" \
+      "https://api.github.com/repos/${repo}/tags?per_page=100&page=${page}" \
+    | jq -r '.[].name' 2>/dev/null
+  )"
+  [ -z "${chunk}" ] && break
+  tags="${tags}${chunk}
+"
+  page=$((page + 1))
+done
+
 version="$(
-  curl -fsSL -H "${auth_header}" \
-    "https://api.github.com/repos/${repo}/tags?per_page=100" \
-  | jq -r --arg c "${component}-v" '.[].name | select(startswith($c))' \
+  printf '%s' "${tags}" \
+  | grep -E "^${component}-v[0-9]+\.[0-9]+\.[0-9]+$" \
   | sed "s/^${component}-v//" \
-  | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
   | sort -V \
   | tail -n1 \
   | sed "s/^/${component}-v/"
 )"
+
+# FAIL LOUDLY. Without this the pipeline's failure is invisible: a bad
+# credential or an API blip prints nothing and exits 0. The build workflow does
+# refuse a null tag, but its message says only "resolved empty" and not why.
+if [ -z "${version}" ]; then
+  echo "no ${component}-v* tag found in ${repo} (credential, API, or genuinely none)" >&2
+  exit 1
+fi
 
 printf '%s' "${version}"
