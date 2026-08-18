@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:7d06c5e6e4f39b2d7b88a0a439207bfd6d7c31474c75ad8969f621cabddcd96a 
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:3bec23a37ebd13b84a1362e5b76bc5c6fc639dc2383b4841f848b81fee0f25bf 
 
 RUN apt-get -y update && apt-get -y install curl tmux pipx python3.8-venv
 
