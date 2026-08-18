@@ -1,6 +1,6 @@
 ARG VERSION
 FROM ghcr.io/evan-buss/openbooks:${VERSION} as upstream
-FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:3bec23a37ebd13b84a1362e5b76bc5c6fc639dc2383b4841f848b81fee0f25bf 
+FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:bb9a70388f6b6be4fd43cb34aa6abe15595323e76cd989c7e5cac04bb2193e5d 
 
 # default to ephemeral storage
 ENV DATA_DIR=/config
