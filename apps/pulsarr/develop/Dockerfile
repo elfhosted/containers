@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b develop https://github.com/jamcalli/pulsarr.git /source
 
-FROM oven/bun:1.3.6-alpine AS base
+FROM oven/bun:1.4.0-alpine AS base
 WORKDIR /app
 
 # Install production dependencies in a temp directory (cached independently)
