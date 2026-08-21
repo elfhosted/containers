@@ -255,6 +255,31 @@ jobs:
               sleep 1
             done
             DGOSS_RUN_ARGS+=(--network "$NET" -e DATABASE_URL="postgres://mediastorm:mediastorm@$PG:5432/mediastorm?sslmode=disable")
+          elif [[ "${{ matrix.image.app }}" == "hound" ]]; then
+            NET="${NAME}-net"
+            PG="${NAME}-postgres"
+            docker network create "$NET"
+            docker run -d --name "$PG" --network "$NET" \
+              -e POSTGRES_DB=hound_db \
+              -e POSTGRES_USER=hound \
+              -e POSTGRES_PASSWORD=password \
+              postgres:16-alpine
+            for i in {1..60}; do
+              if docker exec "$PG" pg_isready -U hound -d hound_db >/dev/null 2>&1; then
+                break
+              fi
+              sleep 1
+            done
+            DGOSS_RUN_ARGS+=(
+              --network "$NET"
+              -e POSTGRES_HOST="$PG"
+              -e POSTGRES_PORT="5432"
+              -e POSTGRES_USER="hound"
+              -e POSTGRES_PASSWORD="password"
+              -e POSTGRES_DB="hound_db"
+              -e HOUND_SECRET="hound-goss-secret"
+              -e ENABLE_EXTERNAL_LIBRARY=false
+            )
           elif [[ "${{ matrix.image.app }}" == "m3ueditor" ]]; then
             CONFIG_DIR="${RUNNER_TEMP}/${NAME}-config"
             mkdir -p "$CONFIG_DIR"
@@ -272,6 +297,9 @@ jobs:
               docker rm -f "${NAME}-postgres" "${NAME}-redis" >/dev/null 2>&1 || true
               docker network rm "${NAME}-net" >/dev/null 2>&1 || true
             elif [[ "${{ matrix.image.app }}" == "mediastorm" ]]; then
+              docker rm -f "${NAME}-postgres" >/dev/null 2>&1 || true
+              docker network rm "${NAME}-net" >/dev/null 2>&1 || true
+            elif [[ "${{ matrix.image.app }}" == "hound" ]]; then
               docker rm -f "${NAME}-postgres" >/dev/null 2>&1 || true
               docker network rm "${NAME}-net" >/dev/null 2>&1 || true
             elif [[ "${{ matrix.image.app }}" == "m3ueditor" ]]; then
