@@ -9,7 +9,7 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": false,
+        "enabled": true,
         "type": "web"
       }
     },
@@ -20,9 +20,9 @@
       ],
       "stable": false,
       "tests": {
-        "enabled": false,
+        "enabled": true,
         "type": "web"
       }
-    }        
+    }
   ]
 }

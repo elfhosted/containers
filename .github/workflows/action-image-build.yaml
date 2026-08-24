@@ -290,6 +290,11 @@ jobs:
               -e M3U_PROXY_INTEGRATION_ENABLED=false
               -e M3U_PROXY_ENABLED=false
             )
+          elif [[ "${{ matrix.image.app }}" == "stremio-submaker" ]]; then
+            DGOSS_RUN_ARGS+=(
+              -e STORAGE_TYPE=filesystem
+              -e ENCRYPTION_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            )
           fi
 
           cleanup() {

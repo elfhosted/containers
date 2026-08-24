@@ -1,6 +1,6 @@
 FROM ghcr.io/elfhosted/ubuntu:rolling@sha256:bb9a70388f6b6be4fd43cb34aa6abe15595323e76cd989c7e5cac04bb2193e5d 
 
-RUN apt-get -y update && apt-get -y install curl tmux pipx python3.8-venv
+RUN apt-get -y update && apt-get -y install curl tmux pipx python3-venv
 
 # Add ttyd
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
