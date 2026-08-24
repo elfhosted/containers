@@ -1,5 +1,8 @@
-# Maloja is GPL-3.0, and THAT IS WHY THIS FILE LIVES IN THE PUBLIC REPO while
-# every other app's Dockerfile lives in containers-private.
+# THE RULE: app builds live in containers-private. This repo carries a Dockerfile
+# or a patch series ONLY where the licence or collaborative work requires it.
+# Other public copies you may find here are historical drift, not permission.
+#
+# Maloja meets the test: it is GPL-3.0 AND we patch it.
 #
 # The image is built from upstream's tree at ${VERSION} plus the patch series in
 # ./patches/. Distributing a modified GPL work means offering the Corresponding
@@ -7,10 +10,10 @@
 # these patches, plus this Dockerfile, is the complete recipe. Keeping the
 # Dockerfile private while shipping a patched binary would not satisfy that.
 #
-# So, unlike everywhere else in this estate: patches here are FINE, and both
-# they and this file must stay public. If you move this back to
-# containers-private, you must also drop ./patches/ and rebuild from an
-# unmodified tree.
+# So for THIS app, patches are fine and both they and this file must stay public.
+# That licence is the whole justification: drop ./patches/ and rebuild from an
+# unmodified tree and this belongs back in containers-private. Do not cite this
+# file as a precedent for making some other app's build public.
 #
 # ci/goss.yaml stays in containers-private, matching the usual split (ci/latest.sh
 # public, ci/goss.yaml private). It is test configuration, not part of the
