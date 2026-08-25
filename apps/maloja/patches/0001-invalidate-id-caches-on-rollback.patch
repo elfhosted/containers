@@ -1,0 +1,37 @@
+diff --git a/maloja/database/sqldb.py b/maloja/database/sqldb.py
+index cb5e274..96d0df3 100644
+--- a/maloja/database/sqldb.py
++++ b/maloja/database/sqldb.py
+@@ -154,9 +154,29 @@ def connection_provider(func):
+ 			return func(*args,**kwargs)
+ 		else:
+ 			with engine.connect() as connection:
+-				with connection.begin():
+-					kwargs['dbconn'] = connection
+-					return func(*args,**kwargs)
++				try:
++					with connection.begin():
++						kwargs['dbconn'] = connection
++						return func(*args,**kwargs)
++				except Exception:
++					# The transaction has just rolled back, so every row it
++					# created is gone -- but the caches do not know that.
++					# get_track_id, get_artist_id and get_album_id are all
++					# @cached_wrapper, so an id that was allocated inside the
++					# failed transaction keeps being served to later calls.
++					#
++					# Writing a scrobble against such an id produces a row
++					# pointing at a track that does not exist, which makes
++					# count_scrobbles_by_track raise KeyError. Worse, SQLite
++					# hands that same rowid to the next entity created, so the
++					# orphaned scrobble is silently reattributed to an unrelated
++					# track.
++					#
++					# add_scrobble reaches this path on every rejected duplicate
++					# timestamp, which is routine for clients that retry.
++					invalidate_caches()
++					invalidate_entity_cache()
++					raise
+ 
+ 	wrapper.__innerfunc__ = func
+ 	wrapper.__name__ = f"CONPR_{func.__name__}"
