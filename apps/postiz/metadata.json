@@ -9,9 +9,9 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": false,
+        "enabled": true,
         "type": "web"
       }
-    }   
+    }
   ]
 }
