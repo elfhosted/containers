@@ -339,6 +339,34 @@ jobs:
           # Exit with dgoss status so the job still fails on test failures.
           exit $STATUS
 
+      # Trivy extracts every layer UNCOMPRESSED to scan it, so peak disk is far
+      # larger than the image. whisperx (CUDA runtime + torch CUDA libs + 3GB of
+      # baked model weights) exhausted the runner and died after 14 minutes with
+      # "write /tmp/fanal-...: no space left on device". The scan then produced
+      # no SARIF, the upload step failed, and — because later steps are gated on
+      # it — "Build all platforms" was SKIPPED, so a perfectly good image that
+      # had already passed goss was never pushed.
+      #
+      # Reclaimed inline rather than via a third-party free-disk action: this
+      # runs on every image in the repo, and an unpinned action at @main is a
+      # supply-chain surface we would rather not add to a build that pushes to
+      # ghcr. These paths are GitHub-managed toolchains no build here uses.
+      #
+      # Runs before the scan rather than before the build, so ordinary builds
+      # pay nothing extra beyond the one rm.
+      - name: Free runner disk before scanning
+        shell: bash
+        run: |
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/share/boost \
+            /usr/share/swift \
+            /opt/hostedtoolcache/CodeQL 2>/dev/null || true
+          echo "after:"; df -h / | tail -1
+
       - name: Scan container image for CVEs
         id: trivy_scan
         continue-on-error: true
