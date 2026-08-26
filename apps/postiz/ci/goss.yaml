@@ -1,36 +1,44 @@
 ---
-# Postiz runs three pm2 children: frontend (4200), backend (3000) and
-# orchestrator (3002). dgoss starts the container with NO Postgres and NO Redis,
-# so the backend and orchestrator cannot reach a listening state here even on a
-# good image -- the port check below therefore covers the frontend only, and the
-# real correctness guard is the command check.
+# dgoss starts this container with NO environment: no DATABASE_URL, no
+# REDIS_URL, no NEXT_PUBLIC_*. (The build workflow injects per-app env only for
+# apps that opt in, e.g. mediafusion and hound.) Postiz's three pm2 children --
+# frontend 4200, backend 3000, orchestrator 3002 -- therefore never reach a
+# listening state here even on a perfectly good image.
+#
+# So: NO port or http checks. An earlier revision asserted `tcp6:4200` on the
+# strength of it being listening on the live pod, and that failed the build --
+# the live pod has full env, dgoss does not. Everything below is deliberately
+# environment-independent.
 
 command:
   # REGRESSION GUARD -- do not delete without reading this.
   #
   # @temporalio/core-bridge (via @temporalio/worker) is a prebuilt Rust addon
   # published ONLY for x86_64-unknown-linux-gnu. Built on a musl base (alpine)
-  # it cannot dlopen ld-linux-x86-64.so.2, and that takes down BOTH the backend
-  # and the orchestrator:
+  # it cannot dlopen ld-linux-x86-64.so.2, which takes down BOTH the backend and
+  # the orchestrator:
   #
   #   Error: Error loading shared library ld-linux-x86-64.so.2: No such file or
   #   directory (needed by .../core-bridge/releases/
   #   x86_64-unknown-linux-gnu/index.node)
   #
-  # This is invisible to a port or HTTP check: pm2 restarts the dead children
-  # forever, so the container stays Running and 1/1 Ready while nginx and the
-  # frontend serve 500s. It shipped undetected for months because tests were
-  # disabled for this app.
+  # That failure is invisible to port and HTTP checks: pm2 restarts the dead
+  # children forever, so the container stays Running and 1/1 Ready while the
+  # frontend serves 500s. It shipped undetected for months because tests were
+  # disabled for this app. require() reproduces it directly, with no services.
   #
-  # require() reproduces it directly and needs no external services. If this
-  # starts failing, the base image has drifted back to musl -- see the Dockerfile.
+  # If this fails, the base image has drifted back to musl -- see the Dockerfile.
   temporalio-core-bridge-loads:
     exec: node -e "require('/app/node_modules/@temporalio/core-bridge')"
     exit-status: 0
     timeout: 60000
 
-port:
-  # tcp6, NOT tcp -- the Next.js frontend binds v6 only. `tcp:4200` reports
-  # not-listening against a perfectly healthy container.
-  tcp6:4200:
-    listening: true
+file:
+  # Proves `pnpm run build` actually emitted artifacts, rather than the image
+  # merely containing sources.
+  /app/apps/frontend/.next:
+    exists: true
+    filetype: directory
+  /app/apps/backend/dist:
+    exists: true
+    filetype: directory
