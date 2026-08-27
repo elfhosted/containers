@@ -33,6 +33,19 @@ command:
     exit-status: 0
     timeout: 60000
 
+  # REGRESSION GUARD for bluesky-link-cards.patch.
+  #
+  # A failed `git apply` fails the build outright, so this does not guard the
+  # obvious case. It guards the quiet ones: a future upstream refactor that lets
+  # the patch apply at the wrong place, or someone softening the Dockerfile step
+  # to --3way or `|| true` to get a version bump through. In both the image
+  # builds fine and Bluesky link posts silently go back to rendering as bare
+  # text, which nothing else would catch.
+  bluesky-link-card-patch-compiled:
+    exec: grep -q "app.bsky.embed.external" /app/apps/backend/dist/libraries/nestjs-libraries/src/integrations/social/bluesky.provider.js
+    exit-status: 0
+    timeout: 30000
+
 file:
   # Proves `pnpm run build` actually emitted artifacts, rather than the image
   # merely containing sources.
