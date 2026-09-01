@@ -295,6 +295,14 @@ jobs:
               -e STORAGE_TYPE=filesystem
               -e ENCRYPTION_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
             )
+          elif [[ "${{ matrix.image.app }}" == "zurg" ]]; then
+            # zurg-public ships no config.yml (the chart seeds one from a
+            # ConfigMap at runtime). Started bare, zurg writes a default config
+            # and then EXITS, telling you to add a token -- which would fail the
+            # process.zurg goss check. Given a token it writes the same default
+            # config and stays up retrying auth, so feed it a well-formed dummy.
+            # Real-Debrid still rejects it, which is what we want in CI.
+            DGOSS_RUN_ARGS+=(-e TOKEN="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
           fi
 
           cleanup() {
