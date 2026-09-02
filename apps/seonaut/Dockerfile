@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/StJudeWasHere/seonaut.git /source
 
-FROM golang:1.21-alpine3.18 AS builder
+FROM golang:1.22-alpine3.18 AS builder
 
 RUN mkdir /app
 COPY --from=cloner /source/. /app
