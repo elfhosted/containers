@@ -20,3 +20,5 @@ http:
       - "var VERSION = 'v"
   http://localhost:8080/og.png:
     status: 200
+  http://localhost:8080/favicon.ico:
+    status: 200
