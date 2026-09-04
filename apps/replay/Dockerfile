@@ -18,7 +18,7 @@ RUN git clone -b $VERSION https://github.com/elfhosted/replay /source
 
 # ---
 
-FROM alpine:3.22
+FROM alpine:3.24
 
 ARG VERSION
 ARG user=elfie
