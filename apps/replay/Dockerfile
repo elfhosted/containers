@@ -29,7 +29,7 @@ RUN apk add --no-cache tini busybox-extras && \
 
 WORKDIR /app
 
-COPY --from=cloner /source/index.html /source/og.png /source/LICENSE /app/
+COPY --from=cloner /source/index.html /source/og.png /source/favicon.ico /source/LICENSE /app/
 
 # Stamp the release into the page so the footer reports what is deployed.
 # Fail the build rather than ship a page claiming to be a dev build.
