@@ -5,10 +5,9 @@ process:
   httpd:
     running: true
 
-port:
-  tcp:8080:
-    listening: true
-
+# No `port` block on purpose. busybox binds 0.0.0.0:8080, which goss does not
+# match against a bare `tcp:8080` key (goss#149), and the HTTP checks below
+# already prove the port is both listening and serving.
 http:
   http://localhost:8080/:
     status: 200
