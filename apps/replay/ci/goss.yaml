@@ -13,11 +13,11 @@ http:
   http://localhost:8080/:
     status: 200
     body:
-      # the page rendered, and the build stamped a version into it
       - "RePlay"
       - "Your activity, and who can see it"
-    # a placeholder here means the version substitution silently failed
-    "!body":
-      - "__REPLAY_VERSION__"
+      # Only matches once the build has stamped a real tag over
+      # __REPLAY_VERSION__, so a silent substitution failure fails the test.
+      # (The Dockerfile also refuses to build if the placeholder survives.)
+      - "var VERSION = 'v"
   http://localhost:8080/og.png:
     status: 200
