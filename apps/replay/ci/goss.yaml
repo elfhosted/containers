@@ -22,3 +22,6 @@ http:
     status: 200
   http://localhost:8080/favicon.ico:
     status: 200
+    # busybox serves .ico with no Content-Type unless httpd.conf maps it.
+    headers:
+      - "Content-Type: image/x-icon"

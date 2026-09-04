@@ -31,6 +31,11 @@ WORKDIR /app
 
 COPY --from=cloner /source/index.html /source/og.png /source/favicon.ico /source/LICENSE /app/
 
+# busybox httpd has no .ico in its MIME table and would otherwise serve the
+# favicon with no Content-Type at all. httpd.conf is read from the -h directory
+# and httpd refuses to serve it (403), so it adds no exposure.
+RUN printf '.ico:image/x-icon\n' > /app/httpd.conf
+
 # Stamp the release into the page so the footer reports what is deployed.
 # Fail the build rather than ship a page claiming to be a dev build.
 RUN sed -i "s/__REPLAY_VERSION__/${VERSION}/" /app/index.html && \
