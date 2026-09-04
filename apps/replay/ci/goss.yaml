@@ -1,0 +1,23 @@
+---
+# RePlay is a static page served by busybox httpd, so there is no application
+# process to assert on beyond the server itself.
+process:
+  httpd:
+    running: true
+
+port:
+  tcp:8080:
+    listening: true
+
+http:
+  http://localhost:8080/:
+    status: 200
+    body:
+      # the page rendered, and the build stamped a version into it
+      - "RePlay"
+      - "Your activity, and who can see it"
+    # a placeholder here means the version substitution silently failed
+    "!body":
+      - "__REPLAY_VERSION__"
+  http://localhost:8080/og.png:
+    status: 200
