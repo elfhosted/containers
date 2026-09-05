@@ -1,6 +1,6 @@
 # Get upstream code - we use node in this case
 # we need node in this case for the metadata script
-FROM node:22-alpine as cloner
+FROM node:24-alpine as cloner
 ARG VERSION
 
 RUN apk update && apk upgrade && \
@@ -23,7 +23,7 @@ WORKDIR /source
 RUN mkdir /resources && \
     npm run metadata
 
-FROM node:24.18.1-slim AS base
+FROM node:24.20.0-slim AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
