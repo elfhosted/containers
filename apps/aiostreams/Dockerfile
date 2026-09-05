@@ -131,8 +131,8 @@ LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 
 WORKDIR /app
 
-COPY --from=busybox:1.36.0-uclibc /bin/wget /bin/wget
-COPY --from=busybox:1.36.0-uclibc /bin/sh /bin/sh
+COPY --from=busybox:1.38.0-uclibc /bin/wget /bin/wget
+COPY --from=busybox:1.38.0-uclibc /bin/sh /bin/sh
 # mimalloc replaces glibc's allocator: the native usenet engine churns large
 # yEnc decode buffers at high throughput, which fragments the default malloc and
 # balloons RSS. LD_PRELOAD keeps memory bounded without touching app code.
