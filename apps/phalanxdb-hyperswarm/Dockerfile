@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone  https://github.com/godver3/phalanx_db_hyperswarm.git /source
 
-FROM node:22
+FROM node:24
 
 WORKDIR /app
 

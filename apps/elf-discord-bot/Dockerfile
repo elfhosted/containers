@@ -10,7 +10,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION https://$ZURG_GH_CREDS@github.com/funkypenguin/elf-discord-bot.git /source
 
-FROM node:23.6.0-alpine AS builder
+FROM node:24.20.0-alpine AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ RUN npm ci
 # Build
 RUN npm run build
 
-FROM node:23.6.0-alpine
+FROM node:24.20.0-alpine
 
 WORKDIR /app
 

@@ -11,7 +11,7 @@ RUN git clone -b $VERSION https://github.com/josharghhh/AU-IPTV_StremioAddon.git
 
 # Use an official Node.js runtime as a parent image
 # Using the Long-Term Support (LTS) version is a good practice
-FROM node:22-slim
+FROM node:24-slim
 
 # Set the working directory in the container
 WORKDIR /app
