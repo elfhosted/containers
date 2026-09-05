@@ -239,6 +239,23 @@ jobs:
               -e MEDIAFUSION_AUTO_MIGRATE=true
               -e SECRET_KEY="mediafusion-goss-secret-key-32b"
             )
+          elif [[ "${{ matrix.image.app }}" == "nightscout" ]]; then
+            NET="${NAME}-net"
+            MONGO="${NAME}-mongo"
+            docker network create "$NET"
+            docker run -d --name "$MONGO" --network "$NET" mongo:4.4
+            for i in {1..60}; do
+              if docker exec "$MONGO" mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' >/dev/null 2>&1; then
+                break
+              fi
+              sleep 1
+            done
+            DGOSS_RUN_ARGS+=(
+              --network "$NET"
+              -e MONGO_CONNECTION="mongodb://$MONGO:27017/nightscout"
+              -e API_SECRET="nightscout-goss-secret-123"
+              -e INSECURE_USE_HTTP=true
+            )
           elif [[ "${{ matrix.image.app }}" == "mediastorm" ]]; then
             NET="${NAME}-net"
             PG="${NAME}-postgres"
@@ -308,6 +325,9 @@ jobs:
           cleanup() {
             if [[ "${{ matrix.image.app }}" == "mediafusion" ]]; then
               docker rm -f "${NAME}-postgres" "${NAME}-redis" >/dev/null 2>&1 || true
+              docker network rm "${NAME}-net" >/dev/null 2>&1 || true
+            elif [[ "${{ matrix.image.app }}" == "nightscout" ]]; then
+              docker rm -f "${NAME}-mongo" >/dev/null 2>&1 || true
               docker network rm "${NAME}-net" >/dev/null 2>&1 || true
             elif [[ "${{ matrix.image.app }}" == "mediastorm" ]]; then
               docker rm -f "${NAME}-postgres" >/dev/null 2>&1 || true
