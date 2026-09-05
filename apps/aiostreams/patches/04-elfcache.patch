@@ -1,0 +1,226 @@
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index c8f7d8cc..d38d10e0 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -698,6 +698,26 @@ export const builtinsSchema = {
+       secret: false,
+     },
+   },
++  elfcache: {
++    url: {
++      schema: nullableUrl,
++      default: null,
++      label: 'ElfCache URL',
++      env: 'BUILTIN_ELFCACHE_URL',
++      description: 'Base URL for the ElfCache built-in addon.',
++      requiresRestart: false,
++      secret: false,
++    },
++    timeout: {
++      schema: optionalPositiveInt,
++      default: null,
++      label: 'ElfCache timeout (ms)',
++      env: 'BUILTIN_DEFAULT_ELFCACHE_TIMEOUT',
++      description: 'Timeout for ElfCache requests.',
++      requiresRestart: false,
++      secret: false,
++    },
++  },
+   animetosho: {
+     url: {
+       schema: urlString,
+diff --git a/packages/core/src/presets/elfcache.ts b/packages/core/src/presets/elfcache.ts
+new file mode 100644
+index 00000000..33edd38b
+--- /dev/null
++++ b/packages/core/src/presets/elfcache.ts
+@@ -0,0 +1,98 @@
++import { Option, UserData } from '../db/index.js';
++import { appConfig, constants } from '../utils/index.js';
++import { baseOptions } from './preset.js';
++import { StremThruPreset } from './stremthru.js';
++import { TorznabPreset } from './torznab.js';
++
++export class ElfCachePreset extends TorznabPreset {
++  static override get METADATA() {
++    const supportedResources = [constants.STREAM_RESOURCE];
++    const options: Option[] = [
++      ...baseOptions(
++        'ElfCache',
++        supportedResources,
++        appConfig.builtins.elfcache.timeout ?? appConfig.presets.defaultTimeout
++      ).filter((option) => option.id !== 'url' && option.id !== 'resources'),
++      {
++        id: 'mediaTypes',
++        name: 'Media Types',
++        description:
++          'Limits this addon to the selected media types for streams. For example, selecting "Movie" means this addon will only be used for movie streams (if the addon supports them). Leave empty to allow all.',
++        type: 'multi-select',
++        required: false,
++        showInSimpleMode: false,
++        options: [
++          { label: 'Movie', value: 'movie' },
++          { label: 'Series', value: 'series' },
++          { label: 'Anime', value: 'anime' },
++        ],
++        default: [],
++      },
++      {
++        id: 'services',
++        name: 'Services',
++        description:
++          'Optionally override the services that are used. If not specified, then the services that are enabled and supported will be used.',
++        type: 'multi-select',
++        required: false,
++        showInSimpleMode: false,
++        options: StremThruPreset.supportedServices.map((service) => ({
++          value: service,
++          label: constants.SERVICE_DETAILS[service].name,
++        })),
++        default: undefined,
++        emptyIsUndefined: true,
++      },
++      {
++        id: 'useMultipleInstances',
++        name: 'Use Multiple Instances',
++        description:
++          'ElfCache supports multiple services in one instance of the addon - which is used by default. If this is enabled, then the addon will be created for each service.',
++        type: 'boolean',
++        default: false,
++        showInSimpleMode: false,
++      },
++    ];
++
++    return {
++      ID: 'elfcache',
++      NAME: 'ElfCache',
++      LOGO: 'https://docs.elfhosted.com/images/logo.png',
++      URL: [`${appConfig.bootstrap.internalUrl}/builtins/torznab`],
++      TIMEOUT:
++        appConfig.builtins.elfcache.timeout ?? appConfig.presets.defaultTimeout,
++      USER_AGENT: appConfig.http.defaultUserAgent,
++      SUPPORTED_SERVICES: StremThruPreset.supportedServices,
++      DESCRIPTION: "ElfHosted's exclusive crowdsourced cache",
++      OPTIONS: options,
++      SUPPORTED_STREAM_TYPES: [constants.DEBRID_STREAM_TYPE],
++      SUPPORTED_RESOURCES: supportedResources,
++      BUILTIN: true,
++      DISABLED: !appConfig.builtins.elfcache.url
++        ? {
++            reason: 'Not configured',
++            disabled: true,
++          }
++        : undefined,
++    };
++  }
++
++  protected static override generateManifestUrl(
++    userData: UserData,
++    services: constants.ServiceId[],
++    options: Record<string, any>
++  ): string {
++    if (!appConfig.builtins.elfcache.url) {
++      throw new Error('The ElfCache URL is not set');
++    }
++
++    const config = {
++      ...this.getBaseConfig(userData, services),
++      url: `${appConfig.builtins.elfcache.url.replace(/\/$/, '')}/torznab`,
++      apiPath: '/api',
++    };
++
++    const configString = this.base64EncodeJSON(config, 'urlSafe');
++    return `${appConfig.bootstrap.internalUrl}/builtins/torznab/${configString}/manifest.json`;
++  }
++}
+diff --git a/packages/core/src/presets/presetManager.ts b/packages/core/src/presets/presetManager.ts
+index 00573ebb..74251d0c 100644
+--- a/packages/core/src/presets/presetManager.ts
++++ b/packages/core/src/presets/presetManager.ts
+@@ -60,6 +60,7 @@ import { TorBoxSearchPreset } from './torboxSearch.js';
+ import { TorznabPreset } from './torznab.js';
+ import { AStreamPreset } from './aStream.js';
+ import { ZileanPreset } from './zilean.js';
++import { ElfCachePreset } from './elfcache.js';
+ import { AnimeToshoPreset } from './animetosho.js';
+ import { AnimeToshoNewPreset } from './animeToshoNew.js';
+ import { NewznabPreset } from './newznab.js';
+@@ -87,6 +88,7 @@ import { Preset } from './index.js';
+ 
+ let PRESET_LIST: string[] = [
+   'custom',
++  'elfcache',
+   'torznab',
+   'newznab',
+   'aiostreams',
+@@ -313,6 +315,8 @@ export class PresetManager {
+         return NewznabPreset;
+       case 'zilean':
+         return ZileanPreset;
++      case 'elfcache':
++        return ElfCachePreset;
+       case 'animetosho':
+         return AnimeToshoPreset;
+       case 'anime-tosho-new':
+diff --git a/packages/core/src/streams/deduplicator.ts b/packages/core/src/streams/deduplicator.ts
+index 8fad618c..15f31935 100644
+--- a/packages/core/src/streams/deduplicator.ts
++++ b/packages/core/src/streams/deduplicator.ts
+@@ -436,6 +436,15 @@ class StreamDeduplicator {
+     const lc = libraryCmp(a, b);
+     if (lc !== 0) return lc;
+ 
++    // ElfHosted: elfcache results always win ties immediately after the
++    // library-preference check and ahead of service/tiebreaker ordering, so a
++    // cache hit is surfaced first. Centralised here since upstream routed every
++    // sort site through compareByPriority.
++    const aIsElfCache = a.addon?.preset?.type === 'elfcache';
++    const bIsElfCache = b.addon?.preset?.type === 'elfcache';
++    if (aIsElfCache && !bIsElfCache) return -1;
++    if (!aIsElfCache && bIsElfCache) return 1;
++
+     let aServiceIndex =
+       this.userData.services
+         ?.filter((service) => service.enabled)
+diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
+index 43c0c733..ec1f35a9 100644
+--- a/packages/frontend/src/components/menu/save-install.tsx
++++ b/packages/frontend/src/components/menu/save-install.tsx
+@@ -1,7 +1,11 @@
+ import React from 'react';
+ import { Button } from '@/components/ui/button';
+ import { TextInput } from '@/components/ui/text-input';
+-import { applyMigrations, useUserData } from '@/context/userData';
++import {
++  applyMigrations,
++  removeInvalidPresetReferences,
++  useUserData,
++} from '@/context/userData';
+ import {
+   createUserConfig,
+   deleteUserConfig,
+@@ -1628,9 +1632,23 @@ function Content() {
+ 
+   const handleExport = () => {
+     try {
+-      const exportData = filterCredentialsInExport
++      let exportData = filterCredentialsInExport
+         ? filterCredentials(userData)
+         : structuredClone(userData);
++      // Strip elfhosted-only presets (elfcache, elfsymlinks) so the export is
++      // portable to vanilla AIOStreams. Cross-references (proxy/groupings/etc.)
++      // are cleaned up by removeInvalidPresetReferences.
++      exportData.presets = exportData.presets?.filter(
++        (preset) => preset.type !== 'elfcache' && preset.type !== 'elfsymlinks'
++      );
++      exportData = removeInvalidPresetReferences(exportData);
++      // Drop groupings whose addons[] became empty after stripping — vanilla
++      // import validation rejects "Every group must have at least one addon".
++      if (exportData.groups?.groupings) {
++        exportData.groups.groupings = exportData.groups.groupings.filter(
++          (group) => (group.addons?.length ?? 0) > 0
++        );
++      }
+       const dataStr = JSON.stringify(exportData, null, 2);
+       const blob = new Blob([dataStr], { type: 'application/json' });
+       const url = URL.createObjectURL(blob);

@@ -1,0 +1,323 @@
+diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
+index 5fcf56e3..c3b17312 100644
+--- a/packages/core/src/utils/env.ts
++++ b/packages/core/src/utils/env.ts
+@@ -275,4 +275,16 @@ export const Env = cleanEnv(process.env, {
+     default: false,
+     desc: 'Allow the dashboard System page to restart/stop the AIOStreams process.',
+   }),
++  // Slate error-video service (operator-configured). When both are set, the
++  // playback/proxy/refresh redirects that today point at bundled static MP4s
++  // instead point at a signed slate.m3u8 URL rendering a custom message. If
++  // either is empty, slate is disabled and the static MP4s are used.
++  SLATE_URL: str({
++    default: undefined,
++    desc: 'Base URL of the slate error-video service, e.g. https://slate.elfhosted.com. Leave empty to fall back to bundled static error videos.',
++  }),
++  SLATE_SECRET: str({
++    default: undefined,
++    desc: "Shared HMAC-SHA256 key for signing slate URLs. Must equal the slate service's SLATE_SECRET. Leave empty to disable slate.",
++  }),
+ });
+diff --git a/packages/server/src/routes/api/debrid.ts b/packages/server/src/routes/api/debrid.ts
+index 402b9cc2..4ea0ee7c 100644
+--- a/packages/server/src/routes/api/debrid.ts
++++ b/packages/server/src/routes/api/debrid.ts
+@@ -25,6 +25,7 @@ import {
+   StaticFiles,
+   mapDebridErrorToStaticFile,
+ } from '../../utils/static-errors.js';
++import { slateRedirect } from '../../utils/slate.js';
+ import { corsMiddleware } from '../../middlewares/cors.js';
+ const router: Router = Router();
+ const logger = createLogger('server');
+@@ -236,19 +237,19 @@ router.get(
+             return;
+           }
+           logger.error({ err }, `error during debrid resolve: ${err.message}`);
+-          res.redirect(307, `/static/${mapDebridErrorToStaticFile(err.code)}`);
++          slateRedirect(res, mapDebridErrorToStaticFile(err.code), 307);
+           return;
+         }
+         logger.error(
+           { err },
+           `got unknown error during debrid resolve: ${err.message}`
+         );
+-        res.redirect(307, `/static/${StaticFiles.INTERNAL_SERVER_ERROR}`);
++        slateRedirect(res, StaticFiles.INTERNAL_SERVER_ERROR, 307);
+         return;
+       }
+ 
+       if (!result.url) {
+-        res.redirect(307, `/static/${StaticFiles.DOWNLOADING}`);
++        slateRedirect(res, StaticFiles.DOWNLOADING, 307);
+         return;
+       }
+ 
+diff --git a/packages/server/src/routes/api/proxy.ts b/packages/server/src/routes/api/proxy.ts
+index 86585525..0e480491 100644
+--- a/packages/server/src/routes/api/proxy.ts
++++ b/packages/server/src/routes/api/proxy.ts
+@@ -31,6 +31,7 @@ import { Transform } from 'stream';
+ import { requireAdmin } from '../../middlewares/auth.js';
+ import { corsMiddleware } from '../../middlewares/cors.js';
+ import { StaticFiles } from '../../utils/static-errors.js';
++import { slateRedirect } from '../../utils/slate.js';
+ 
+ const logger = createLogger('server');
+ const router: Router = Router();
+@@ -424,9 +425,7 @@ router.all(
+             clientIp,
+             reason: session.verdict.reason,
+           });
+-          res
+-            .status(302)
+-            .redirect(`/static/${StaticFiles.CONTENT_PROXY_LIMIT_REACHED}`);
++          slateRedirect(res, StaticFiles.CONTENT_PROXY_LIMIT_REACHED, 302);
+           return;
+         }
+         // A full-buffered player never notices a clean FIN.
+diff --git a/packages/server/src/routes/builtins/library.ts b/packages/server/src/routes/builtins/library.ts
+index 819c1b5f..113b78c1 100644
+--- a/packages/server/src/routes/builtins/library.ts
++++ b/packages/server/src/routes/builtins/library.ts
+@@ -12,6 +12,7 @@ import {
+ } from '@aiostreams/core';
+ import { createLogger } from '@aiostreams/core';
+ import { StaticFiles } from '../../utils/static-errors.js';
++import { slateRedirect } from '../../utils/slate.js';
+ const router: Router = Router();
+ 
+ const logger = createLogger('server');
+@@ -167,7 +168,7 @@ router.get(
+     try {
+       const decrypted = decryptString(decodeURIComponent(encryptedCredential));
+       if (!decrypted.data) {
+-        return res.redirect(307, `/static/${StaticFiles.UNAUTHORIZED}`);
++        return slateRedirect(res, StaticFiles.UNAUTHORIZED, 307);
+       }
+ 
+       const parsed = JSON.parse(decrypted.data);
+@@ -179,7 +180,7 @@ router.get(
+         svcId !== serviceId ||
+         !constants.BUILTIN_SUPPORTED_SERVICES.includes(svcId as any)
+       ) {
+-        return res.redirect(307, `/static/${StaticFiles.UNAUTHORIZED}`);
++        return slateRedirect(res, StaticFiles.UNAUTHORIZED, 307);
+       }
+ 
+       // Rate limit: max once per 5 minutes per service+credential
+@@ -195,9 +196,9 @@ router.get(
+           `Refresh rate limited for ${svcId}, ${remaining}s remaining`
+         );
+         if (timeElapsed < 30) {
+-          return res.redirect(307, `/static/${StaticFiles.OK}`);
++          return slateRedirect(res, StaticFiles.OK, 307);
+         }
+-        return res.redirect(307, `/static/${StaticFiles.TOO_MANY_REQUESTS}`);
++        return slateRedirect(res, StaticFiles.TOO_MANY_REQUESTS, 307);
+       }
+ 
+       await lastRefreshMap.set(rateKey, now, REFRESH_COOLDOWN_MS);
+@@ -215,10 +216,10 @@ router.get(
+         })
+       );
+ 
+-      return res.redirect(307, `/static/${StaticFiles.OK}`);
++      return slateRedirect(res, StaticFiles.OK, 307);
+     } catch (error) {
+       logger.error('Refresh endpoint error', { error });
+-      return res.redirect(307, `/static/${StaticFiles.INTERNAL_SERVER_ERROR}`);
++      return slateRedirect(res, StaticFiles.INTERNAL_SERVER_ERROR, 307);
+     }
+   }
+ );
+diff --git a/packages/server/src/utils/slate.ts b/packages/server/src/utils/slate.ts
+new file mode 100644
+index 00000000..73f5f1db
+--- /dev/null
++++ b/packages/server/src/utils/slate.ts
+@@ -0,0 +1,183 @@
++import crypto from 'crypto';
++import { Response } from 'express';
++import { Env } from '@aiostreams/core';
++
++/**
++ * Slate error-video integration.
++ *
++ * A Stremio client cannot show an error dialog — it can only *play a URL*. So
++ * when playback / proxy / library-refresh fails, AIOStreams redirects the
++ * player at a short looping video. By default that's a bundled static MP4
++ * under /static (e.g. 401.mp4, downloading.mp4). When the operator configures
++ * SLATE_URL + SLATE_SECRET, we instead redirect to a signed slate.m3u8 URL
++ * that renders a *custom* message (title + body + QR code) as the video.
++ *
++ * This is purely URL construction — we build a signed URL and redirect to it.
++ * slate owns rendering, caching and HLS/MP4 muxing. The contract (canonical
++ * string, HMAC, ts freshness) is documented in slate's src/index.ts
++ * (themeVersion:1).
++ */
++
++const SLATE_W = '1280';
++const SLATE_H = '720';
++
++// Per-static-file message catalog, keyed by the StaticFiles enum *values* (the
++// .mp4 filenames). Keying on the string values means this module needn't import
++// app.ts, which would create a circular import (app.ts pulls in the route
++// modules that call us). Any static file not listed here falls back to its
++// bundled MP4.
++const SLATE_MESSAGES: Record<string, { title: string; body: string }> = {
++  '500.mp4': {
++    title: 'Something went wrong',
++    body: 'AIOStreams hit an unexpected error resolving this stream. If this keeps happening, contact support.',
++  },
++  '401.mp4': {
++    title: 'Authorisation failed',
++    body: 'Your debrid credentials were rejected. Re-check your API key in the add-on configuration.',
++  },
++  '403.mp4': {
++    title: 'Access forbidden',
++    body: 'The debrid service refused this request. Your account may not have access to this content.',
++  },
++  '429.mp4': {
++    title: 'Too many requests',
++    body: 'The service is rate-limiting requests right now. Wait a moment and press play again.',
++  },
++  'download_failed.mp4': {
++    title: 'Download failed',
++    body: 'This file could not be resolved from the debrid service. Try a different source.',
++  },
++  'no_matching_file.mp4': {
++    title: 'No matching file',
++    body: 'No file in this torrent matched the requested title or episode. Try a different source.',
++  },
++  'downloading.mp4': {
++    title: 'Still caching',
++    body: 'This stream is still being downloaded to your debrid service. Press play again in a moment.',
++  },
++  'store_limit_exceeded.mp4': {
++    title: 'Debrid limit reached',
++    body: 'Your debrid service reported that its active download or store limit has been exceeded.',
++  },
++  'payment_required.mp4': {
++    title: 'Payment required',
++    body: 'Your debrid subscription has expired or requires payment. Renew it to keep streaming.',
++  },
++  'unavailable_for_legal_reasons.mp4': {
++    title: 'Unavailable',
++    body: 'This content has been blocked by the debrid service for legal reasons.',
++  },
++  'content_proxy_limit_reached.mp4': {
++    title: 'Proxy limit reached',
++    body: 'You have reached your content-proxy connection limit. Stop another stream and try again.',
++  },
++  '200.mp4': {
++    title: 'Done',
++    body: 'Library refresh completed successfully.',
++  },
++};
++
++/** Clamp to maxLen UTF-16 code units — matches slate's Node .slice(0, maxLen). */
++const clamp = (s: string, maxLen: number): string =>
++  s.length > maxLen ? s.slice(0, maxLen) : s;
++
++/**
++ * Mirror slate's title/body normalization, then clamp. slate re-normalizes
++ * whatever it receives and recomputes the signature from that, so we must sign
++ * the *already-normalized* value (it's a fixed point — slate's re-normalization
++ * is then a no-op and the signatures match).
++ */
++const normalize = (s: string, maxLen: number): string => {
++  let out = '';
++  for (const ch of s) {
++    if (ch === '\t' || ch === '\n') {
++      out += ch; // keep tab / newline
++      continue;
++    }
++    const code = ch.codePointAt(0)!;
++    if (code < 0x20 || code === 0x7f) continue; // drop other ASCII control chars
++    out += ch;
++  }
++  out = out
++    .replace(/\r\n/g, '\n')
++    .replace(/\r/g, '\n')
++    .replace(/\\n/g, '\n') // literal backslash-n -> real newline
++    .trim();
++  return clamp(out, maxLen);
++};
++
++/**
++ * Build a signed slate.m3u8 URL for an error/status message, or '' if slate is
++ * not configured. `now` is unix *seconds*; slate rejects |now - ts| > 300s, so
++ * this must be called (and signed) per request — never cache the result.
++ */
++export const buildSlateUrl = (
++  title: string,
++  body: string,
++  link: string,
++  background: string,
++  now: number
++): string => {
++  if (!Env.SLATE_URL || !Env.SLATE_SECRET) return '';
++
++  const t = normalize(title, 120);
++  const b = normalize(body, 800);
++  const u = clamp(link.trim(), 2048);
++  const bg = clamp(background.trim(), 2048);
++
++  // Canonical string: exactly 8 lines, joined by \n, no trailing newline,
++  // background_url last. Sign the normalized values.
++  const canonical =
++    `ts=${now}` +
++    `\npreset=default\nw=${SLATE_W}\nh=${SLATE_H}` +
++    `\ntitle=${t}\nbody=${b}` +
++    `\nurl=${u}\nbackground_url=${bg}`;
++
++  const sig = crypto
++    .createHmac('sha256', Env.SLATE_SECRET)
++    .update(canonical, 'utf8')
++    .digest('base64url'); // unpadded base64url, == Go base64.RawURLEncoding
++
++  const q = new URLSearchParams();
++  q.set('preset', 'default');
++  q.set('w', SLATE_W);
++  q.set('h', SLATE_H);
++  q.set('title', t);
++  q.set('body', b);
++  q.set('url', u);
++  if (bg) q.set('background_url', bg); // omit when empty
++  q.set('ts', String(now));
++  q.set('sig', sig);
++  q.set('format', 'auto'); // let slate sniff user-agent for HLS vs MP4
++
++  return Env.SLATE_URL.replace(/\/+$/, '') + '/slate.m3u8?' + q.toString();
++};
++
++/**
++ * Redirect the player at an error/status video for the given static file. When
++ * slate is configured and we have a message for this file, redirect to a signed
++ * slate.m3u8 rendering a custom message; otherwise fall back to the bundled
++ * /static/<file> MP4 (today's behaviour). An error condition never produces a
++ * dead stream.
++ */
++export const slateRedirect = (
++  res: Response,
++  staticFile: string,
++  statusCode: number = 307
++): void => {
++  const msg = SLATE_MESSAGES[staticFile];
++  if (msg) {
++    const url = buildSlateUrl(
++      msg.title,
++      msg.body,
++      Env.BASE_URL, // QR target — the add-on's own base / configure page
++      '',
++      Math.floor(Date.now() / 1000)
++    );
++    if (url) {
++      res.redirect(statusCode, url);
++      return;
++    }
++  }
++  res.redirect(statusCode, `/static/${staticFile}`);
++};

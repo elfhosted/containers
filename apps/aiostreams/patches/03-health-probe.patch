@@ -1,0 +1,24 @@
+diff --git a/packages/server/src/routes/api/health.ts b/packages/server/src/routes/api/health.ts
+index a30d4676..c5642d03 100644
+--- a/packages/server/src/routes/api/health.ts
++++ b/packages/server/src/routes/api/health.ts
+@@ -4,14 +4,17 @@ import {
+   APIError,
+   constants,
+   createLogger,
+-  UserRepository,
++  getDb,
+ } from '@aiostreams/core';
+ const router: Router = Router();
+ const logger = createLogger('server');
+ 
+ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+   try {
+-    await UserRepository.getUserCount();
++    // ElfHosted: replaced UserRepository.getUserCount() (full SELECT COUNT(*)
++    // on users — 258ms/call, >98% of total DB time) with a SELECT 1 round-trip
++    // via the v2.30 getDb().ping() pattern. Sufficient for a liveness check.
++    await getDb().ping();
+     res.status(200).json(createResponse({ success: true, detail: 'OK' }));
+   } catch (error: any) {
+     logger.error(`Health check failed: ${error.message}`);

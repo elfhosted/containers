@@ -1,0 +1,83 @@
+diff --git a/packages/core/src/builtins/eztv/addon.ts b/packages/core/src/builtins/eztv/addon.ts
+index b9a6b56f..b27b2f3c 100644
+--- a/packages/core/src/builtins/eztv/addon.ts
++++ b/packages/core/src/builtins/eztv/addon.ts
+@@ -11,7 +11,8 @@ import {
+ } from '../../utils/index.js';
+ import { config as appConfig } from '../../config/index.js';
+ import { createQueryLimit, titleContainsAirDate } from '../utils/general.js';
+-import EztvAPI from './api.js';
++import { parseTorrentTitle } from '@viren070/parse-torrent-title';
++import EztvAPI, { type EztvTorrent } from './api.js';
+ import { NZB, UnprocessedTorrent } from '../../debrid/utils.js';
+ import {
+   extractInfoHashFromMagnet,
+@@ -142,16 +143,37 @@ export class EztvAddon extends BaseDebridAddon<EztvAddonConfig> {
+     // date-named uploads carry season/episode "0" on EZTV; match them by air date.
+     // season packs also carry episode "0", but with the requested season set.
+     const airDates = metadata.airDates;
+-    const matchingTorrents = allTorrents.filter(
+-      (t) =>
+-        (t.season === seasonStr &&
+-          (t.episode === episodeStr || t.episode === '0')) ||
+-        (!!airDates?.length && titleContainsAirDate(t.title, airDates))
+-    );
++    const matchingTorrents: EztvTorrent[] = [];
++    let matchedByReleaseName = 0;
++    for (const t of allTorrents) {
++      if (t.season === seasonStr && t.episode === episodeStr) {
++        matchingTorrents.push(t);
++        continue;
++      }
++      if (!!airDates?.length && titleContainsAirDate(t.title, airDates)) {
++        matchingTorrents.push(t);
++        continue;
++      }
++      // EZTV also reports season/episode "0" for ordinary SxxEyy uploads whose
++      // metadata it simply failed to parse — those carry no air date either, so
++      // the fallback above can't reach them and they were silently unreachable.
++      // As of 2026-08, 27 of the 101 results for tt2149175 are Season 6 files
++      // tagged season "0". Parse the release name for those.
++      if (
++        requestedSeason !== undefined &&
++        requestedEpisode !== undefined &&
++        (t.season === '0' || t.episode === '0') &&
++        this.releaseNameMatchesEpisode(t, requestedSeason, requestedEpisode)
++      ) {
++        matchingTorrents.push(t);
++        matchedByReleaseName++;
++      }
++    }
+ 
+     logger.info(`EZTV search took ${getTimeTakenSincePoint(start)}`, {
+       total: allTorrents.length,
+       matching: matchingTorrents.length,
++      matchedByReleaseName,
+       pages: Math.min(
+         Math.ceil(initialResponse.torrentsCount / initialResponse.limit),
+         maxPages
+@@ -206,4 +228,24 @@ export class EztvAddon extends BaseDebridAddon<EztvAddonConfig> {
+ 
+     return torrents;
+   }
++
++  /**
++   * Last-resort match for EZTV items whose season/episode metadata is "0":
++   * parse the release name and compare. Only called for such items, so a
++   * torrent EZTV has labelled correctly is never second-guessed.
++   */
++  private releaseNameMatchesEpisode(
++    torrent: EztvTorrent,
++    season: number,
++    episode: number
++  ): boolean {
++    const releaseName = torrent.filename || torrent.title;
++    if (!releaseName) return false;
++
++    const parsed = parseTorrentTitle(releaseName);
++    return (
++      (parsed.seasons?.includes(season) ?? false) &&
++      (parsed.episodes?.includes(episode) ?? false)
++    );
++  }
+ }

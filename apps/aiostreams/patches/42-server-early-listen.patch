@@ -1,0 +1,591 @@
+diff --git a/packages/core/src/anime-database/storage/streaming.test.ts b/packages/core/src/anime-database/storage/streaming.test.ts
+new file mode 100644
+index 00000000..2574738d
+--- /dev/null
++++ b/packages/core/src/anime-database/storage/streaming.test.ts
+@@ -0,0 +1,90 @@
++import { describe, it } from 'node:test';
++import assert from 'node:assert/strict';
++import fs from 'node:fs/promises';
++import os from 'node:os';
++import path from 'node:path';
++import { streamJsonArray, streamJsonLines } from './streaming.js';
++
++async function withTempFile<T>(
++  contents: string,
++  fn: (filePath: string) => Promise<T>
++): Promise<T> {
++  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'aios-streaming-'));
++  const filePath = path.join(dir, 'data');
++  try {
++    await fs.writeFile(filePath, contents);
++    return await fn(filePath);
++  } finally {
++    await fs.rm(dir, { recursive: true, force: true });
++  }
++}
++
++async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
++  const out: T[] = [];
++  for await (const value of it) out.push(value);
++  return out;
++}
++
++describe('streamJsonArray', () => {
++  it('yields every element of a top-level array in order', async () => {
++    const values = [
++      { id: 1, title: 'one' },
++      { id: 2, title: 'two' },
++      { id: 3, title: 'three' },
++    ];
++    await withTempFile(JSON.stringify(values), async (filePath) => {
++      assert.deepEqual(await collect(streamJsonArray(filePath)), values);
++    });
++  });
++
++  it('handles an empty array', async () => {
++    await withTempFile('[]', async (filePath) => {
++      assert.deepEqual(await collect(streamJsonArray(filePath)), []);
++    });
++  });
++
++  it('preserves nulls and nested structures', async () => {
++    const values = [null, { a: { b: [1, 2, { c: 'd' }] } }, 'plain', 7];
++    await withTempFile(JSON.stringify(values), async (filePath) => {
++      assert.deepEqual(await collect(streamJsonArray(filePath)), values);
++    });
++  });
++
++  it('tolerates leading whitespace and pretty printing', async () => {
++    const values = [{ id: 1 }, { id: 2 }];
++    await withTempFile(
++      `\n  ${JSON.stringify(values, null, 2)}\n`,
++      async (f) => {
++        assert.deepEqual(await collect(streamJsonArray(f)), values);
++      }
++    );
++  });
++
++  it('rejects a document that is not a top-level array', async () => {
++    await withTempFile('{"data": []}', async (filePath) => {
++      await assert.rejects(
++        () => collect(streamJsonArray(filePath)),
++        /Expected a top-level JSON array/
++      );
++    });
++  });
++
++  it('rejects malformed JSON so a corrupt cache is caught', async () => {
++    await withTempFile('[{"id": 1},', async (filePath) => {
++      await assert.rejects(() => collect(streamJsonArray(filePath)));
++    });
++  });
++});
++
++describe('streamJsonLines', () => {
++  it('parses one record per line and skips blank lines', async () => {
++    const body = '{"id":1}\n\n{"id":2}\n   \n{"id":3}\n';
++    await withTempFile(body, async (filePath) => {
++      assert.deepEqual(await collect(streamJsonLines(filePath)), [
++        { id: 1 },
++        { id: 2 },
++        { id: 3 },
++      ]);
++    });
++  });
++});
+diff --git a/packages/server/src/app.ts b/packages/server/src/app.ts
+index d1525bed..0d06d37e 100644
+--- a/packages/server/src/app.ts
++++ b/packages/server/src/app.ts
+@@ -84,6 +84,8 @@ import {
+   VARIANT_PATH_ROUTE,
+ } from '@aiostreams/core';
+ import { StremioTransformer } from '@aiostreams/core';
++import { datasetReadinessMiddleware } from './utils/readiness.js';
++import { isValidSpaRoute } from './utils/served-paths.js';
+ import { createResponse } from './utils/responses.js';
+ import path from 'path';
+ import fs from 'fs';
+@@ -108,6 +110,13 @@ app.use((req, res, next) => {
+ });
+ app.use(express.urlencoded({ extended: true }));
+ 
++// Holds requests until the lookup datasets have built, exempting the probe
++// paths and anything the SPA/static handlers serve (see readiness.ts).
++// Mounted globally and by exception: a route that reads a dataset indirectly —
++// anything constructing AIOStreams — must not answer from a half-built store
++// just because nobody remembered to gate it.
++app.use(datasetReadinessMiddleware);
++
+ // Allow all origins in development for easier testing
+ if (appConfig.bootstrap.nodeEnv === 'development') {
+   logger.info('CORS enabled for all origins in development');
+@@ -317,26 +326,8 @@ app.get('/configure', (req, res) => {
+   res.redirect('/stremio/configure');
+ });
+ 
+-// SPA route validation: returns true for paths that exist in the client-side router.
+-const SPA_STATIC_ROUTES = [
+-  '/',
+-  '/login',
+-  '/oauth/callback/gdrive',
+-  '/splashscreen',
+-  '/stremio/configure',
+-];
+-
+-const SPA_DYNAMIC_PATTERNS: RegExp[] = [
+-  /^\/stremio\/[^/]+\/[^/]+\/configure$/,
+-  /^\/dashboard(\/.*)?$/,
+-];
+-
+-function isValidSpaRoute(routePath: string): boolean {
+-  if (SPA_STATIC_ROUTES.includes(routePath)) {
+-    return true;
+-  }
+-  return SPA_DYNAMIC_PATTERNS.some((pattern) => pattern.test(routePath));
+-}
++// SPA route validation lives in utils/served-paths.js, shared with the
++// startup readiness gate so the two cannot disagree about what is servable.
+ 
+ // SPA fallback.
+ app.get('*splat', staticRateLimiter, (req, res, next) => {
+diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
+index 2f1b97e4..b6397185 100644
+--- a/packages/server/src/server.ts
++++ b/packages/server/src/server.ts
+@@ -7,6 +7,10 @@ import {
+ import { startNfsShare, stopNfsShare } from './nfs.js';
+ import { startFuseMount, stopFuseMount } from './fuse.js';
+ import { startMetricsServer, stopMetricsServer } from './metrics.js';
++import {
++  markDatasetsReady,
++  onDatasetWaitTimeout,
++} from './utils/readiness.js';
+ 
+ import {
+   Env,
+@@ -361,10 +365,6 @@ async function start() {
+     await initialiseTemplates();
+     logStartupInfo();
+     await initialiseRedis();
+-    await initialiseAnimeDatabase();
+-    await initialiseSeaDexDataset();
+-    await initialiseSceneMappingDataset();
+-    await initialiseIdMappingDataset();
+     RegexAccess.initialise();
+     SelAccess.initialise();
+     await initialiseProwlarr();
+@@ -394,6 +394,33 @@ async function start() {
+       );
+       settleMetricsHistory();
+     });
++
++    // Deliberately after listen(). These take tens of seconds to build from
++    // cold, and blocking the socket on them made every restart look like an
++    // outage to startup and readiness probes. Probes, the SPA and static
++    // assets answer now; everything else waits on datasetReadinessMiddleware.
++    onDatasetWaitTimeout(() =>
++      logger.warn(
++        'Requests gave up waiting on the lookup datasets; serving without them'
++      )
++    );
++    void (async () => {
++      const datasetStart = Date.now();
++      try {
++        await initialiseAnimeDatabase();
++        await initialiseSeaDexDataset();
++        await initialiseSceneMappingDataset();
++        await initialiseIdMappingDataset();
++        logger.info(`Lookup datasets ready in ${Date.now() - datasetStart}ms`);
++      } catch (error) {
++        // Each initialiser already logs and swallows its own failure, so
++        // reaching here means something unforeseen. Open the gate anyway:
++        // degraded lookups beat an addon that never answers.
++        logger.error('Failed to initialise lookup datasets:', error);
++      } finally {
++        markDatasetsReady();
++      }
++    })();
+   } catch (error) {
+     if (error instanceof ConfigStartupError) throw error;
+     logger.error('Failed to start server:', error);
+diff --git a/packages/server/src/utils/readiness.test.ts b/packages/server/src/utils/readiness.test.ts
+new file mode 100644
+index 00000000..b615cb9f
+--- /dev/null
++++ b/packages/server/src/utils/readiness.test.ts
+@@ -0,0 +1,172 @@
++import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
++
++async function loadModule() {
++  vi.resetModules();
++  return import('./readiness.js');
++}
++
++const call = (handler: any, path = '/stremio/x/y/stream/movie/tt1.json') =>
++  new Promise<void>((resolve, reject) => {
++    handler({ path } as any, {} as any, (err?: unknown) =>
++      err ? reject(err) : resolve()
++    );
++  });
++
++describe('dataset readiness gate', () => {
++  beforeEach(() => vi.useFakeTimers());
++  afterEach(() => vi.useRealTimers());
++
++  it('holds requests until the datasets are marked ready', async () => {
++    const { datasetReadinessMiddleware, markDatasetsReady, datasetGateIsOpen } =
++      await loadModule();
++
++    expect(datasetGateIsOpen()).toBe(false);
++
++    let passed = false;
++    const inFlight = call(datasetReadinessMiddleware).then(() => {
++      passed = true;
++    });
++
++    await Promise.resolve();
++    expect(passed).toBe(false);
++
++    markDatasetsReady();
++    await inFlight;
++    expect(passed).toBe(true);
++    expect(datasetGateIsOpen()).toBe(true);
++  });
++
++  it('passes straight through once open', async () => {
++    const { datasetReadinessMiddleware, markDatasetsReady } =
++      await loadModule();
++    markDatasetsReady();
++    await expect(call(datasetReadinessMiddleware)).resolves.toBeUndefined();
++  });
++
++  it('is safe to mark ready more than once', async () => {
++    const { markDatasetsReady, datasetGateIsOpen } = await loadModule();
++    markDatasetsReady();
++    markDatasetsReady();
++    expect(datasetGateIsOpen()).toBe(true);
++  });
++
++  it.each([
++    // probes — the reason the socket opens early
++    '/api/v1/health',
++    '/api/v1/status',
++    // static assets
++    '/assets/index-abc.js',
++    '/static/logo.png',
++    '/favicon.ico',
++    '/manifest.json',
++    '/logo.png',
++    '/icon0.svg',
++    '/apple-icon.png',
++    '/web-app-manifest-512x512.png',
++    // SPA documents: the shell touches no dataset, and the pod now reports
++    // ready during the window, so holding these would hang a browser that
++    // previously got a fast connection-refused
++    '/',
++    '/login',
++    '/splashscreen',
++    '/stremio/configure',
++    '/stremio/uuid/pw/configure',
++    '/dashboard',
++    '/dashboard/settings',
++  ])('serves %s without waiting', async (path) => {
++    const { datasetReadinessMiddleware } = await loadModule();
++    await expect(
++      call(datasetReadinessMiddleware, path)
++    ).resolves.toBeUndefined();
++  });
++
++  it.each([
++    '/stremio/uuid/pw/stream/movie/tt1.json',
++    '/chilllink/uuid/pw/streams/movie/tt1.json',
++    '/api/v1/search',
++    '/api/v1/catalogs',
++    '/api/v1/anime/mapping',
++    '/api/v1/newznab/api',
++    '/builtins/torznab/search',
++  ])('holds %s', async (path) => {
++    const { datasetReadinessMiddleware } = await loadModule();
++    let passed = false;
++    void call(datasetReadinessMiddleware, path).then(() => {
++      passed = true;
++    });
++    await Promise.resolve();
++    expect(passed).toBe(false);
++  });
++
++  it('releases waiters if the build never finishes', async () => {
++    const { datasetReadinessMiddleware } = await loadModule();
++
++    let passed = false;
++    const inFlight = call(datasetReadinessMiddleware).then(() => {
++      passed = true;
++    });
++
++    await vi.advanceTimersByTimeAsync(119_000);
++    expect(passed).toBe(false);
++
++    await vi.advanceTimersByTimeAsync(2_000);
++    await inFlight;
++    expect(passed).toBe(true);
++  });
++
++  it('warns once, not once per waiting request', async () => {
++    const { datasetReadinessMiddleware, onDatasetWaitTimeout } =
++      await loadModule();
++    const warn = vi.fn();
++    onDatasetWaitTimeout(warn);
++
++    const inFlight = Promise.all(
++      Array.from({ length: 5 }, () => call(datasetReadinessMiddleware))
++    );
++
++    await vi.advanceTimersByTimeAsync(121_000);
++    await inFlight;
++    expect(warn).toHaveBeenCalledTimes(1);
++  });
++
++  it('does not warn when the datasets win the race', async () => {
++    const {
++      datasetReadinessMiddleware,
++      onDatasetWaitTimeout,
++      markDatasetsReady,
++    } = await loadModule();
++    const warn = vi.fn();
++    onDatasetWaitTimeout(warn);
++
++    const inFlight = call(datasetReadinessMiddleware);
++    await vi.advanceTimersByTimeAsync(1_000);
++    markDatasetsReady();
++    await inFlight;
++
++    // The losing timer must be cleared, or it fires later and cries wolf.
++    await vi.advanceTimersByTimeAsync(300_000);
++    expect(warn).not.toHaveBeenCalled();
++  });
++
++  it('does not restart the wait after a timeout has latched it open', async () => {
++    const { datasetReadinessMiddleware, onDatasetWaitTimeout } =
++      await loadModule();
++    const warn = vi.fn();
++    onDatasetWaitTimeout(warn);
++
++    await vi.advanceTimersByTimeAsync(0);
++    const first = call(datasetReadinessMiddleware);
++    await vi.advanceTimersByTimeAsync(121_000);
++    await first;
++
++    // A second pass through the gate (a request matching two mounts, say)
++    // must not begin another 120s window.
++    let passed = false;
++    const second = call(datasetReadinessMiddleware).then(() => {
++      passed = true;
++    });
++    await second;
++    expect(passed).toBe(true);
++    expect(warn).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/packages/server/src/utils/readiness.ts b/packages/server/src/utils/readiness.ts
+new file mode 100644
+index 00000000..44691997
+--- /dev/null
++++ b/packages/server/src/utils/readiness.ts
+@@ -0,0 +1,127 @@
++/**
++ * Startup readiness gate for the lookup datasets (anime database, SeaDex,
++ * scene mappings, id mappings).
++ *
++ * Those four take tens of seconds to build on a cold start, and the server
++ * used to bind its socket only after all of them had finished. Nothing was
++ * listening in the meantime, so orchestrator startup and readiness probes
++ * failed with connection-refused for the whole window and the pod counted as
++ * down on every restart.
++ *
++ * The socket now opens first and the datasets load behind this gate.
++ *
++ * The gate holds *everything* except an explicit exemption list. Gating by
++ * exception rather than by enumerating the routes that read a dataset is
++ * deliberate: a request that waits behaves exactly as it did before this
++ * change (when it could not connect at all), whereas a route that should have
++ * waited and did not would silently answer from a half-built store. Several
++ * routes reach the datasets indirectly by constructing AIOStreams — /stremio,
++ * /chilllink, /api/*\/search, /api/*\/catalogs, /api/*\/{newznab,torznab} —
++ * and /api/*\/anime reads AnimeDatabase directly, so an allow-list is the only
++ * form of this that stays correct as routes are added.
++ *
++ * Deliberately free of runtime imports: this sits on the boot path, and
++ * pulling in the core barrel would drag environment validation (and a possible
++ * import cycle) into a module whose whole job is to be available early.
++ */
++import type { NextFunction, Request, RequestHandler, Response } from 'express';
++import { isStaticOrSpaPath } from './served-paths.js';
++
++/**
++ * Probe paths. These are the reason the socket opens early at all, so they
++ * must never wait.
++ */
++const PROBE_PATH = /^\/api\/v\d+\/(health|status)(\/|$)/;
++
++/**
++ * Served during the cold-start window: the probes, plus the SPA documents and
++ * static files, which touch no dataset. The static list is shared with the
++ * handlers in app.ts so the gate cannot end up holding a document the SPA
++ * fallback would happily serve.
++ *
++ * Note the pod now reports ready during this window, so an un-exempt request
++ * *hangs* where it previously got a fast connection-refused. Serving the shell
++ * immediately matters more than it looks: its API calls are still gated, so
++ * the page loads and then waits, rather than the browser spinning on a dead
++ * socket.
++ */
++function isExempt(routePath: string): boolean {
++  return PROBE_PATH.test(routePath) || isStaticOrSpaPath(routePath);
++}
++
++/**
++ * Upper bound on how long a request will wait. A dataset build that hangs
++ * should degrade results, never wedge the addon: past this point the gate
++ * latches open and requests proceed with whatever has loaded, exactly as they
++ * would if a refresh were still in flight later in the process's life.
++ */
++const MAX_WAIT_MS = 120_000;
++
++let openGate: () => void = () => {};
++let open = false;
++let timeoutHandler: (() => void) | undefined;
++let timer: ReturnType<typeof setTimeout> | undefined;
++
++const openPromise = new Promise<void>((resolve) => {
++  openGate = () => {
++    if (open) return;
++    open = true;
++    if (timer) {
++      clearTimeout(timer);
++      timer = undefined;
++    }
++    resolve();
++  };
++});
++
++/** Open the gate. Safe to call more than once. */
++export function markDatasetsReady(): void {
++  openGate();
++}
++
++/**
++ * Whether the gate is open — because the datasets finished, or because the
++ * wait timed out and we chose to serve degraded. Not a claim that every
++ * dataset loaded successfully.
++ */
++export function datasetGateIsOpen(): boolean {
++  return open;
++}
++
++/** Called once if the wait times out; the caller owns the logging. */
++export function onDatasetWaitTimeout(handler: () => void): void {
++  timeoutHandler = handler;
++}
++
++/** Resolves once the gate opens, or after {@link MAX_WAIT_MS}. */
++export function whenDatasetsReady(): Promise<void> {
++  if (open) return Promise.resolve();
++  // One timer for the whole process, armed on the first wait. A timer per
++  // call would leave the losers of the race armed, so every request that
++  // waited would later fire a spurious "gave up waiting" warning.
++  if (!timer) {
++    timer = setTimeout(() => {
++      timer = undefined;
++      timeoutHandler?.();
++      // Latch open rather than letting each subsequent wait start its own
++      // 120s window — a request can pass through the gate more than once,
++      // and a build this slow will not be worth waiting on again.
++      openGate();
++    }, MAX_WAIT_MS);
++    timer.unref?.();
++  }
++  return openPromise;
++}
++
++/** Hold a request until the datasets it may read have loaded. */
++export const datasetReadinessMiddleware: RequestHandler = (
++  req: Request,
++  _res: Response,
++  next: NextFunction
++) => {
++  if (open || isExempt(req.path)) {
++    next();
++    return;
++  }
++  whenDatasetsReady().then(() => next(), next);
++};
+diff --git a/packages/server/src/utils/served-paths.ts b/packages/server/src/utils/served-paths.ts
+new file mode 100644
+index 00000000..a308d55a
+--- /dev/null
++++ b/packages/server/src/utils/served-paths.ts
+@@ -0,0 +1,62 @@
++/**
++ * Paths the server can answer without touching the lookup datasets: the SPA's
++ * own routes, and the static files those pages pull in.
++ *
++ * Shared by the SPA fallback in app.ts and the startup readiness gate, so the
++ * two cannot drift. If they did, the gate would hold a document the fallback
++ * is willing to serve — which is exactly the bug this module exists to stop.
++ *
++ * No imports: the readiness gate consumes this on the boot path.
++ */
++
++/** Paths that exist in the client-side router. */
++export const SPA_STATIC_ROUTES = [
++  '/',
++  '/login',
++  '/oauth/callback/gdrive',
++  '/splashscreen',
++  '/stremio/configure',
++];
++
++export const SPA_DYNAMIC_PATTERNS: RegExp[] = [
++  /^\/stremio\/[^/]+\/[^/]+\/configure$/,
++  /^\/dashboard(\/.*)?$/,
++];
++
++export function isValidSpaRoute(routePath: string): boolean {
++  if (SPA_STATIC_ROUTES.includes(routePath)) {
++    return true;
++  }
++  return SPA_DYNAMIC_PATTERNS.some((pattern) => pattern.test(routePath));
++}
++
++/**
++ * Root-level static files served straight from the frontend build, plus the
++ * hashed-asset and static prefixes. Mirrors the handlers in app.ts.
++ */
++const ROOT_STATIC_FILES = [
++  '/logo.png',
++  '/logo_alt.png',
++  '/favicon.ico',
++  '/manifest.json',
++  '/robots.txt',
++  '/icon0.svg',
++  '/icon1.png',
++  '/apple-icon.png',
++  '/apple-touch-icon.png',
++  '/web-app-manifest-192x192.png',
++  '/web-app-manifest-512x512.png',
++  '/mini-nightly-white.png',
++  '/mini-stable-white.png',
++];
++
++const STATIC_PREFIXES = ['/assets/', '/static/', '/_next/'];
++
++/** True for a request that is a static asset or an SPA document. */
++export function isStaticOrSpaPath(routePath: string): boolean {
++  return (
++    ROOT_STATIC_FILES.includes(routePath) ||
++    STATIC_PREFIXES.some((prefix) => routePath.startsWith(prefix)) ||
++    isValidSpaRoute(routePath)
++  );
++}

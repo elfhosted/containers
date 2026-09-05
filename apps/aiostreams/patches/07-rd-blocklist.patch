@@ -1,0 +1,146 @@
+diff --git a/packages/core/src/debrid/rdBlocklist.ts b/packages/core/src/debrid/rdBlocklist.ts
+new file mode 100644
+index 00000000..3a66963f
+--- /dev/null
++++ b/packages/core/src/debrid/rdBlocklist.ts
+@@ -0,0 +1,58 @@
++/**
++ * RealDebrid filename blocklist (operator-configured band-aid).
++ *
++ * Downgrades cached DebridDownload entries to status='unknown' if the torrent
++ * name or any file name matches RD_BLOCKED_FILENAME_REGEX. Applied at the
++ * StremThru check-cache layer so stale 'cached' entries (cached locally for
++ * up to BUILTIN_DEBRID_INSTANT_AVAILABILITY_CACHE_TTL) don't keep claiming
++ * instant-play for content RD will refuse at unrestrict time.
++ *
++ * Empty/unset env var disables the feature (no overhead). Invalid regex
++ * throws at module load — silent no-op would be worse than a startup crash.
++ *
++ * RD only — other debrids have different policies.
++ */
++
++import type { DebridDownload } from './base.js';
++
++const _raw = (process.env.RD_BLOCKED_FILENAME_REGEX || '').trim();
++let _pattern: RegExp | null = null;
++if (_raw) {
++  try {
++    _pattern = new RegExp(_raw, 'i');
++    console.log(`rdBlocklist: RD filename blocklist active: ${_raw}`);
++  } catch (err) {
++    throw new Error(
++      `rdBlocklist: invalid RD_BLOCKED_FILENAME_REGEX: ${
++        err instanceof Error ? err.message : String(err)
++      }`
++    );
++  }
++}
++
++export function isEnabled(): boolean {
++  return _pattern !== null;
++}
++
++function matchesString(s: string | undefined | null): boolean {
++  if (!_pattern || !s || typeof s !== 'string') return false;
++  return _pattern.test(s);
++}
++
++/**
++ * If the item is marked cached and any of its name fields matches the
++ * configured regex, return a shallow copy with status='unknown'. Otherwise
++ * returns the item unchanged. Safe with undefined/null inputs.
++ */
++export function downgradeIfBlocked(
++  item: DebridDownload | undefined,
++  serviceName: string
++): DebridDownload | undefined {
++  if (!item || !_pattern) return item;
++  if (serviceName !== 'realdebrid') return item;
++  if (item.status !== 'cached') return item;
++  const nameMatches = matchesString(item.name);
++  const fileMatches = (item.files ?? []).some((f) => matchesString(f.name));
++  if (!nameMatches && !fileMatches) return item;
++  return { ...item, status: 'unknown' };
++}
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 6b7df158..49fa0c02 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -17,6 +17,7 @@ import {
+   buildResolveKey,
+   removeDownloadOnAbort,
+ } from './utils.js';
++import { downgradeIfBlocked as rdBlocklistDowngrade } from './rdBlocklist.js';
+ import {
+   DebridServiceConfig,
+   DebridDownload,
+@@ -137,9 +138,13 @@ export class StremThruService
+   private async checkCacheGet(
+     hash: string
+   ): Promise<DebridDownload | undefined> {
+-    return await StremThruService.checkCache.get(
++    const cached = await StremThruService.checkCache.get(
+       `${this.serviceName}:${getSimpleTextHash(hash)}`
+     );
++    // Downgrade stale 'cached' entries that match the RD filename blocklist.
++    // Cache TTL is up to 30min by default, so without this a freshly-deployed
++    // server-side filter wouldn't take effect on already-cached lookups.
++    return rdBlocklistDowngrade(cached, this.serviceName);
+   }
+ 
+   private async checkCacheSet(debridDownload: DebridDownload): Promise<void> {
+diff --git a/packages/core/src/streams/filterer.ts b/packages/core/src/streams/filterer.ts
+index dc4820a9..576bc767 100644
+--- a/packages/core/src/streams/filterer.ts
++++ b/packages/core/src/streams/filterer.ts
+@@ -33,6 +33,25 @@ import { StreamContext, ExtendedMetadata } from './context.js';
+ 
+ const logger = createLogger('filterer');
+ 
++// Operator-configured filename blocklist for content RD is known to refuse at
++// unrestrict time. Per-stream gated on stream.service?.id === 'realdebrid' so
++// multi-debrid users still see AllDebrid / TorBox / etc. entries for the same
++// torrent. Streams without a service binding (raw P2P, direct HTTP) aren't
++// affected. Compiled once at module load; empty env disables with zero cost.
++const RD_BLOCKLIST_REGEX: RegExp | null = (() => {
++  const raw = (process.env.RD_BLOCKED_FILENAME_REGEX || '').trim();
++  if (!raw) return null;
++  try {
++    return new RegExp(raw, 'i');
++  } catch (err) {
++    throw new Error(
++      `filterer: invalid RD_BLOCKED_FILENAME_REGEX: ${
++        err instanceof Error ? err.message : String(err)
++      }`
++    );
++  }
++})();
++
+ interface Reason {
+   total: number;
+   details: Record<string, number>;
+@@ -1446,6 +1465,24 @@ class StreamFilterer {
+     const shouldKeepStream = (stream: ParsedStream): boolean => {
+       const file = stream.parsedFile;
+ 
++      // RD blocklist band-aid: drop ONLY the RD-routed entry for streams whose
++      // filename or folder name matches RD's known-blocked patterns. Each
++      // ParsedStream is bound to a specific debrid via stream.service.id, so
++      // gating per-stream (not per-user) leaves AllDebrid / TorBox / etc.
++      // entries for the same torrent intact. Streams without a service binding
++      // (raw P2P, direct HTTP) are unaffected — they don't route through RD.
++      // Runs before passthrough/include checks because the content cannot play
++      // on RD regardless of user include rules.
++      if (
++        RD_BLOCKLIST_REGEX &&
++        stream.service?.id === 'realdebrid' &&
++        ((stream.filename && RD_BLOCKLIST_REGEX.test(stream.filename)) ||
++          (stream.folderName && RD_BLOCKLIST_REGEX.test(stream.folderName)))
++      ) {
++        this.incrementRemovalReason('excludedFilterCondition', 'RD Blacklist');
++        return false;
++      }
++
+       const isPendingServiceWrapResolution = isServiceWrapEligibleP2PStream(
+         stream,
+         this.userData

@@ -1,0 +1,48 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 27394766..d6b5143a 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -138,6 +138,13 @@ export class StremThruService
+   private async checkCacheGet(
+     hash: string
+   ): Promise<DebridDownload | undefined> {
++    // Debridge availability is per-tenant: it depends on the individual user's
++    // own debridge backends/preferences and can change at any time. The cache
++    // key is only serviceName+hash (no token), so caching would leak one user's
++    // result to another and serve it stale — never cache debridge checks.
++    if (this.serviceName === 'debridge') {
++      return undefined;
++    }
+     const cached = await StremThruService.checkCache.get(
+       `${this.serviceName}:${getSimpleTextHash(hash)}`
+     );
+@@ -148,6 +155,9 @@ export class StremThruService
+   }
+ 
+   private async checkCacheSet(debridDownload: DebridDownload): Promise<void> {
++    if (this.serviceName === 'debridge') {
++      return;
++    }
+     try {
+       await StremThruService.checkCache.set(
+         `${this.serviceName}:${getSimpleTextHash(debridDownload.hash!)}`,
+diff --git a/packages/core/src/debrid/usenet-stream-base.ts b/packages/core/src/debrid/usenet-stream-base.ts
+index cc227a72..9e9545e8 100644
+--- a/packages/core/src/debrid/usenet-stream-base.ts
++++ b/packages/core/src/debrid/usenet-stream-base.ts
+@@ -473,8 +473,14 @@ export abstract class UsenetStreamService implements UsenetDebridService {
+   protected static resolveCache = Cache.getInstance<string, string>(
+     'usenet-stream:link'
+   );
++  // Held in per-process memory rather than Redis: the usenet library list is a
++  // large blob keyed per tenant, and pushing it through the
++  // shared Redis write buffer saturated Redis (5s flush timeouts) without any
++  // cross-replica benefit worth that cost. Memory keeps the lookup off Redis.
+   protected static libraryCache = Cache.getInstance<string, DebridDownload[]>(
+-    'usenet-stream:library'
++    'usenet-stream:library',
++    undefined,
++    'memory'
+   );
+   protected static categoriesCache = Cache.getInstance<string, string[]>(
+     'usenet-stream:categories'

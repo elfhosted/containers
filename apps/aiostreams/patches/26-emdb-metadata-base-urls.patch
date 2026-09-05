@@ -1,0 +1,158 @@
+diff --git a/packages/core/src/metadata/imdb.ts b/packages/core/src/metadata/imdb.ts
+index 4ebad4b1..64e7559e 100644
+--- a/packages/core/src/metadata/imdb.ts
++++ b/packages/core/src/metadata/imdb.ts
+@@ -1,5 +1,5 @@
+ ﻿import { z } from 'zod';
+-import { Cache, makeRequest, TYPES } from '../utils/index.js';
++import { Cache, Env, makeRequest, TYPES } from '../utils/index.js';
+ import { Metadata } from './utils.js';
+ import { Meta, MetaSchema } from '../db/schemas.js';
+ 
+@@ -32,9 +32,8 @@ export class IMDBMetadata {
+   private readonly cinemetaCache: Cache<string, Meta>;
+   private readonly titleCacheTTL = 7 * 24 * 60 * 60;
+   private readonly cinemetaCacheTTL = 7 * 24 * 60 * 60;
+-  private readonly IMDB_SUGGESTION_API =
+-    'https://v3.sg.media-imdb.com/suggestion/a/';
+-  private readonly CINEMETA_URL = 'https://v3-cinemeta.strem.io';
++  private readonly IMDB_SUGGESTION_API = `${Env.IMDB_SUGGESTION_API_URL.replace(/\/+$/, '')}/suggestion/a/`;
++  private readonly CINEMETA_URL = Env.CINEMETA_API_URL.replace(/\/+$/, '');
+   public constructor() {
+     this.titleCache = Cache.getInstance('imdb-title');
+     this.cinemetaCache = Cache.getInstance('cinemeta');
+diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
+index 0c0bb20d..6ce37169 100644
+--- a/packages/core/src/metadata/tmdb.ts
++++ b/packages/core/src/metadata/tmdb.ts
+@@ -2,6 +2,7 @@
+ import {
+   appConfig,
+   Cache,
++  Env,
+   makeRequest,
+   ParsedId,
+   IdType,
+@@ -18,7 +19,7 @@ export type TMDBIdType = 'imdb_id' | 'tmdb_id' | 'tvdb_id';
+ //   value: string;
+ // }
+ 
+-const API_BASE_URL = 'https://api.themoviedb.org/3';
++const API_BASE_URL = `${Env.TMDB_API_URL.replace(/\/+$/, '')}/3`;
+ const FIND_BY_ID_PATH = '/find';
+ const MOVIE_DETAILS_PATH = '/movie';
+ const MOVIE_TRANSLATIONS_PATH = (id: string) => `/movie/${id}/translations`;
+diff --git a/packages/core/src/metadata/trakt.ts b/packages/core/src/metadata/trakt.ts
+index 844ff16f..60d9cad6 100644
+--- a/packages/core/src/metadata/trakt.ts
++++ b/packages/core/src/metadata/trakt.ts
+@@ -23,7 +23,7 @@ const TraktAliasSchema = z.array(
+     country: z.string(), // 2 letter country code
+   })
+ );
+-const TRAKT_API_BASE_URL = 'https://api.trakt.tv';
++const TRAKT_API_BASE_URL = Env.TRAKT_API_URL.replace(/\/+$/, '');
+ 
+ const logger = createLogger('trakt');
+ 
+diff --git a/packages/core/src/metadata/tvdb.ts b/packages/core/src/metadata/tvdb.ts
+index fa39dbdb..1e4f7548 100644
+--- a/packages/core/src/metadata/tvdb.ts
++++ b/packages/core/src/metadata/tvdb.ts
+@@ -1,5 +1,11 @@
+ ﻿import { createLogger } from '../logging/logger.js';
+-import { Cache, appConfig, formatZodError, ParsedId } from '../utils/index.js';
++import {
++  Cache,
++  appConfig,
++  Env,
++  formatZodError,
++  ParsedId,
++} from '../utils/index.js';
+ import { Metadata, MetadataTitle } from './utils.js';
+ import { iso6392ToIso6391 } from '../utils/languages.js';
+ import { normaliseCountryCode } from '../utils/countries.js';
+@@ -13,7 +19,7 @@ interface TVDBMetadataConfig {
+ }
+ 
+ const API_VERSION = '4';
+-const API_BASE_URL = `https://api${API_VERSION}.thetvdb.com`;
++const API_BASE_URL = Env.TVDB_API_URL.replace(/\/+$/, '');
+ const TVDBAliasSchema = z.object({
+   language: z.string(), // A 3-4 character string indicating the language of the alias, as defined in Language
+   name: z.string(),
+@@ -654,7 +660,10 @@ class TVDBApi {
+   ): Promise<T> {
+     const { schema, body, method = 'GET' } = options;
+     const path = `/v${API_VERSION}/${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}`;
+-    const url = new URL(path, API_BASE_URL);
++    // Concatenate rather than `new URL(path, base)`: an absolute path as the
++    // first argument would discard any path prefix on the base URL (which a
++    // caching proxy base like http://host/tvdb relies on).
++    const url = new URL(`${API_BASE_URL}${path}`);
+ 
+     logger.debug(`Making ${method} request to ${path}`);
+ 
+diff --git a/packages/core/src/poster/rpdb.ts b/packages/core/src/poster/rpdb.ts
+index fd5d3158..875a591d 100644
+--- a/packages/core/src/poster/rpdb.ts
++++ b/packages/core/src/poster/rpdb.ts
+@@ -1,4 +1,5 @@
+ import { BasePosterService } from './base.js';
++import { Env } from '../utils/env.js';
+ import { makeRequest } from '../utils/http.js';
+ import { RPDBIsValidResponse } from '../db/schemas.js';
+ import { config } from '../config/index.js';
+@@ -18,8 +19,11 @@ export class RPDB extends BasePosterService {
+       return cached;
+     }
+ 
++    // Env-overridable for server-side key validation only; buildPosterUrl
++    // below stays on the public host because its URLs are fetched by
++    // end-user clients (via the poster redirect route).
+     const response = await makeRequest(
+-      `https://api.ratingposterdb.com/${this.apiKey}/isValid`,
++      `${Env.RPDB_API_URL.replace(/\/+$/, '')}/${this.apiKey}/isValid`,
+       {
+         timeout: 10000,
+         ignoreRecursion: true,
+diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
+index f055b8f4..394d8fb2 100644
+--- a/packages/core/src/utils/env.ts
++++ b/packages/core/src/utils/env.ts
+@@ -219,6 +219,35 @@ export const Env = cleanEnv(process.env, {
+     default: randomBytes(32).toString('hex'),
+     desc: 'Internal secret for the addon, used for internal communication between built-in addons and the server',
+   }),
++  // Metadata upstream base URLs. These cover server-side lookups only —
++  // URLs that are handed to end-user clients (poster images, artwork CDNs)
++  // deliberately keep their public hosts. Defaults match the public
++  // upstreams; point them at a caching passthrough proxy to share lookups
++  // across instances.
++  TMDB_API_URL: url({
++    default: 'https://api.themoviedb.org',
++    desc: 'Base URL of the TMDB API, used for server-side metadata lookups. The /3 version path is appended by the client.',
++  }),
++  TVDB_API_URL: url({
++    default: 'https://api4.thetvdb.com',
++    desc: 'Base URL of the TheTVDB API, used for server-side metadata lookups. The /v4 version path is appended by the client.',
++  }),
++  TRAKT_API_URL: url({
++    default: 'https://api.trakt.tv',
++    desc: 'Base URL of the Trakt API, used for server-side alias lookups.',
++  }),
++  IMDB_SUGGESTION_API_URL: url({
++    default: 'https://v3.sg.media-imdb.com',
++    desc: 'Base URL of the IMDB suggestion API, used for server-side title/year lookups. The /suggestion path is appended by the client.',
++  }),
++  CINEMETA_API_URL: url({
++    default: 'https://v3-cinemeta.strem.io',
++    desc: 'Base URL of the Cinemeta addon, used as a server-side metadata fallback.',
++  }),
++  RPDB_API_URL: url({
++    default: 'https://api.ratingposterdb.com',
++    desc: 'Base URL of the RPDB API, used for server-side API key validation only. Poster image URLs emitted to clients always use the public host.',
++  }),
+   PORT: port({
+     default: 3000,
+     desc: 'Port to run the addon on',

@@ -1,0 +1,568 @@
+diff --git a/packages/core/src/builtins/base/debrid.ts b/packages/core/src/builtins/base/debrid.ts
+index 6b139526..f2e9324b 100644
+--- a/packages/core/src/builtins/base/debrid.ts
++++ b/packages/core/src/builtins/base/debrid.ts
+@@ -309,6 +309,7 @@ export abstract class BaseDebridAddon<T extends BaseDebridConfig> {
+         'torbox',
+         'stremio_nntp',
+         'stremthru_newz',
++        'debridge',
+         'aiostreams',
+       ].includes(s.id)
+     );
+diff --git a/packages/core/src/builtins/easynews-search/addon.ts b/packages/core/src/builtins/easynews-search/addon.ts
+index aefe1585..aabb5790 100644
+--- a/packages/core/src/builtins/easynews-search/addon.ts
++++ b/packages/core/src/builtins/easynews-search/addon.ts
+@@ -92,6 +92,7 @@ export class EasynewsSearchAddon extends BaseDebridAddon<EasynewsSearchAddonConf
+             constants.EASYNEWS_SERVICE,
+             constants.STREMTHRU_NEWZ_SERVICE,
+             constants.AIOSTREAMS_SERVICE,
++            constants.DEBRIDGE_SERVICE,
+           ].includes(s.id)
+       )
+     ) {
+diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
+index 2b7800ab..41ddd8cf 100644
+--- a/packages/core/src/builtins/newznab/addon.ts
++++ b/packages/core/src/builtins/newznab/addon.ts
+@@ -109,7 +109,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+       )
+     ) {
+       throw new Error(
+-        'The Newznab addon only supports TorBox and NZB DAV services'
++        'The Newznab addon only supports usenet-capable services (TorBox, NZBDAV, AltMount, Stremio NNTP, StremThru Newz, Debridge, AIOStreams)'
+       );
+     }
+     const zyclopsHealthProxyConfig = this.buildZyclopsHealthProxyConfig();
+diff --git a/packages/core/src/db/schemas.ts b/packages/core/src/db/schemas.ts
+index 087d5986..3b0d1feb 100644
+--- a/packages/core/src/db/schemas.ts
++++ b/packages/core/src/db/schemas.ts
+@@ -203,6 +203,14 @@ const AddonSchema = z.object({
+   // forceToTop: z.boolean().optional(),
+   pinPosition: z.enum(['top', 'bottom']).optional(),
+   serviceWrapped: z.boolean().optional(),
++  // True when this serviceWrapped addon was created by the implicit-debridge
++  // wrap path (user has DG but the source preset doesn't natively support
++  // it), as distinct from the user explicitly toggling Service Wrap in the
++  // dashboard. Suppresses the per-addon scrape summary so the user doesn't
++  // see "[<Preset> DG] fetched 782 streams" rows where the post-wrap survivor
++  // count is much lower (PROHIBIT_P2P_STREAMS drops unresolved torrents).
++  // See packages/core/src/streams/fetcher.ts and packages/core/src/main/setup.ts.
++  implicitlyWrapped: z.boolean().optional(),
+   headers: z.record(z.string().min(1), z.string().min(1)).optional(),
+   ip: z.string().optional(),
+ });
+diff --git a/packages/core/src/debrid/index.ts b/packages/core/src/debrid/index.ts
+index 6fc1149b..56d16570 100644
+--- a/packages/core/src/debrid/index.ts
++++ b/packages/core/src/debrid/index.ts
+@@ -80,6 +80,26 @@ export function getDebridService(
+       return new EasynewsService(config);
+     case 'stremthru_newz':
+       return createStremThruNewzService(config, pollInterval, maxWaitTime);
++    case 'debridge':
++      return new StremThruService({
++        serviceName: 'debridge',
++        clientIp: config.clientIp,
++        stremthru: {
++          baseUrl: appConfig.builtins.stremthru.url,
++          store: 'debridge',
++          token: config.token,
++        },
++        capabilities: { torrents: true, usenet: true },
++        usenetOptions: {
++          alwaysCacheAndPlay: true,
++          neverAutoRemove: true,
++          treatUnknownAsCached: true,
++        },
++        cacheAndPlayOptions: {
++          pollingInterval: pollInterval,
++          maxWaitTime: maxWaitTime,
++        },
++      });
+     case constants.AIOSTREAMS_SERVICE:
+       return new NativeUsenetService(config);
+     default:
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 49fa0c02..27394766 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -221,6 +221,12 @@ export class StremThruService
+   // Torrent methods (TorrentDebridService)
+ 
+   public async listMagnets(): Promise<DebridDownload[]> {
++    // Debridge's Premiumize-protocol surface is cache-check + directdl only.
++    // It has no list/folder endpoint — return empty so the checkOwned
++    // optimization path skips quietly instead of logging 404s on every check.
++    if (this.serviceName === 'debridge') {
++      return [];
++    }
+     return this.getLibraryWithStaleRefresh(
+       'torrent',
+       (cacheKey, limit) => this.fetchAndCacheMagnets(cacheKey, limit),
+diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
+index dca64b10..48a7b002 100644
+--- a/packages/core/src/main/serviceWrapper.ts
++++ b/packages/core/src/main/serviceWrapper.ts
+@@ -72,20 +72,41 @@ export async function resolveServiceWrappedStreams(
+   userData: UserData,
+   addons: Addon[]
+ ): Promise<ServiceWrapResult> {
+-  if (!userData.serviceWrap?.enabled) {
++  // Identify serviceWrapped addon instanceIds
++  const serviceWrappedInstanceIds = new Set<string>();
++  for (const addon of addons) {
++    if (addon.serviceWrapped) {
++      serviceWrappedInstanceIds.add(addon.instanceId!);
++    }
++  }
++
++  // Skip when neither explicit Service Wrap is enabled nor any implicit-wrapped
++  // addons exist (e.g. implicit Debridge wrap from applyPresets).
++  if (!userData.serviceWrap?.enabled && serviceWrappedInstanceIds.size === 0) {
+     return { streams, errors: [], hasNewStreams: false };
+   }
+ 
+   const errors: ServiceWrapError[] = [];
+ 
+-  // Build set of preset instanceIds that are in scope for service wrap
+-  const serviceWrapPresets = userData.serviceWrap.presets;
++  // Build set of preset instanceIds that are in scope for service wrap.
++  // Preset scoping only applies to EXPLICIT Service Wrap; the implicit
++  // Debridge wrap (serviceWrap disabled but serviceWrapped addons present)
++  // must ignore a stale presets selection — mirrors setup.ts.
++  const serviceWrapPresets = userData.serviceWrap?.enabled
++    ? userData.serviceWrap?.presets
++    : undefined;
+   const isPresetInScope = (presetId: string) =>
+     !serviceWrapPresets ||
+     serviceWrapPresets.length === 0 ||
+     serviceWrapPresets.includes(presetId);
+ 
+-  const reconfigureEnabled = userData.serviceWrap.reconfigureService;
++  // Reconfigure (reprocess existing debrid streams through other services) is
++  // an EXPLICIT Service Wrap feature. When Service Wrap is disabled, a stale
++  // `reconfigureService` flag must not take effect via the implicit Debridge
++  // wrap path — gate it on `enabled`, mirroring the presets scoping above.
++  const reconfigureEnabled =
++    (userData.serviceWrap?.enabled ?? false) &&
++    (userData.serviceWrap?.reconfigureService ?? false);
+ 
+   const wrappedP2PStreams: ParsedStream[] = [];
+   const reconfigureStreams: ParsedStream[] = [];
+@@ -258,7 +279,15 @@ export async function resolveServiceWrappedStreams(
+ function buildDebridServices(userData: UserData): BuiltinDebridServices {
+   const enabledServices =
+     userData.services?.filter((s) => s.enabled !== false) ?? [];
+-  const serviceWrapFilter = userData.serviceWrap?.services;
++  // When explicit Service Wrap is disabled, the only reason we're resolving
++  // service-wrapped streams is the implicit Debridge wrap (see applyPresets).
++  // The user opted into a Debridge fallback only — not into wrapping every
++  // enabled debrid service — so restrict resolution to Debridge. When Service
++  // Wrap is enabled, honour its own services filter (empty/undefined → all
++  // enabled builtin services, the existing behaviour).
++  const serviceWrapFilter = userData.serviceWrap?.enabled
++    ? userData.serviceWrap?.services
++    : [constants.DEBRIDGE_SERVICE];
+   const builtinServiceIds = new Set(constants.BUILTIN_SUPPORTED_SERVICES);
+   const debridServices: BuiltinDebridServices = [];
+ 
+diff --git a/packages/core/src/main/setup.ts b/packages/core/src/main/setup.ts
+index 34086003..960e636f 100644
+--- a/packages/core/src/main/setup.ts
++++ b/packages/core/src/main/setup.ts
+@@ -32,14 +32,31 @@ export async function applyPresets(ctx: AIOStreamsContext): Promise<void> {
+         );
+       }
+ 
++      // Implicit Debridge wrap: if the user has Debridge configured but this
++      // preset doesn't natively list it as supported, transparently service-wrap
++      // so external addons that do not list it can resolve through Debridge.
++      const userHasDebridge = (ctx.userData.services ?? []).some(
++        (s) => s.enabled !== false && s.id === constants.DEBRIDGE_SERVICE
++      );
++      const presetSupportsDebridge =
++        Preset.METADATA.SUPPORTED_SERVICES?.includes(
++          constants.DEBRIDGE_SERVICE
++        ) ?? false;
++      const implicitDebridgeWrap = userHasDebridge && !presetSupportsDebridge;
++
+       // Determine if P2P wrap applies to this preset
+       const shouldServiceWrap =
+-        serviceWrap?.enabled &&
++        (serviceWrap?.enabled || implicitDebridgeWrap) &&
+         Preset.METADATA.SUPPORTED_STREAM_TYPES.includes(
+           constants.P2P_STREAM_TYPE
+         ) &&
+         !Preset.METADATA.BUILTIN &&
+-        (!serviceWrap.presets ||
++        // Preset scoping only applies to EXPLICIT Service Wrap. The implicit
++        // Debridge wrap must ignore a (possibly stale) presets selection left
++        // behind from a since-disabled Service Wrap, otherwise in-scope-only
++        // wrapping silently drops p2p results under PROHIBIT_P2P_STREAMS.
++        (!serviceWrap?.enabled ||
++          !serviceWrap?.presets ||
+           serviceWrap.presets.length === 0 ||
+           serviceWrap.presets.includes(preset.instanceId));
+ 
+@@ -130,18 +147,48 @@ export async function applyPresets(ctx: AIOStreamsContext): Promise<void> {
+             p2pOptions
+           );
+           // Only keep addons that are actually P2P (not debrid addons from presets that don't care about services)
++          //
++          // For implicit-debridge wraps (the user has DG but the preset
++          // doesn't natively support it), relabel the wrapped addon so the
++          // scrape summary, per-stream addon-name slot, and dashboard chip
++          // show "<Preset> DG" instead of "<Preset> p2p". The wrap always
++          // resolves through DG in this branch, so "p2p" is misleading —
++          // bytes never reach the player as peer-to-peer.
++          //
++          // The visible "p2p" suffix comes from `addon.identifier` (set to
++          // 'p2p' by each preset's P2P-mode codepath). `getAddonName` in
++          // utils/general.ts renders `addon.displayIdentifier ||
++          // addon.identifier`, so swapping identifier 'p2p' → 'DG' flips
++          // the label across all surfaces. Only applied for the implicit
++          // case; explicit serviceWrap (user toggled in dashboard) can fan
++          // out to any of the user's debrid services, so "p2p" stays
++          // accurate there as "raw torrents resolved by some debrid".
+           ctx.addons.push(
+-            ...p2pAddons.map(
+-              (a): Addon => ({
++            ...p2pAddons.map((a): Addon => {
++              const renameToDg =
++                implicitDebridgeWrap && a.identifier === 'p2p';
++              return {
+                 ...a,
++                identifier: renameToDg ? 'DG' : a.identifier,
++                displayIdentifier: renameToDg
++                  ? 'DG'
++                  : a.displayIdentifier,
+                 preset: {
+                   ...a.preset,
+                   id: preset.instanceId,
+                 },
+                 instanceId: `${preset.instanceId}${getSimpleTextHash(`servicewrap-${a.identifier ?? ''}`).slice(0, 4)}`,
+                 serviceWrapped: true,
+-              })
+-            )
++                // Mark implicit-DG wraps so the fetcher can suppress their
++                // per-addon scrape summary. Without this, the user sees rows
++                // like "[Meteor DG] fetched 782 streams" even though many of
++                // those will fail to resolve through DG and get dropped by
++                // PROHIBIT_P2P_STREAMS, creating apparent "disappearing
++                // streams" confusion. Explicit serviceWrap (user-toggled)
++                // keeps its stat row — that's their conscious opt-in.
++                implicitlyWrapped: implicitDebridgeWrap,
++              };
++            })
+           );
+           logger.debug(
+             { preset: Preset.METADATA.NAME, count: p2pAddons.length },
+diff --git a/packages/core/src/presets/comet.ts b/packages/core/src/presets/comet.ts
+index 2aa2db1b..4cf471b3 100644
+--- a/packages/core/src/presets/comet.ts
++++ b/packages/core/src/presets/comet.ts
+@@ -64,6 +64,16 @@ export class CometPreset extends StremThruPreset {
+     const supportedServices: ServiceId[] = [
+       constants.REALDEBRID_SERVICE,
+       constants.PREMIUMIZE_SERVICE,
++      // ElfHosted: listed so Debridge credentials route directly wherever
++      // the upstream addon accepts the store. Listing it here makes the solid
++      // "DG" chip appear on the Comet card and routes Debridge credentials
++      // directly to Comet (one network hop fewer than the implicit Service
++      // Wrap path). Implicit wrap auto-disables for Comet once this is
++      // present (see setup.ts: `presetSupportsDebridge` check).
++      // If Comet upstream is unaware of `debridge` at runtime, the cache
++      // check will 404 like ours did before the StremThru update —
++      // remove this entry until Comet ships the update if needed.
++      constants.DEBRIDGE_SERVICE,
+       constants.ALLDEBRID_SERVICE,
+       constants.TORBOX_SERVICE,
+       constants.EASYDEBRID_SERVICE,
+diff --git a/packages/core/src/presets/easynewsSearch.ts b/packages/core/src/presets/easynewsSearch.ts
+index 371d605c..486589ae 100644
+--- a/packages/core/src/presets/easynewsSearch.ts
++++ b/packages/core/src/presets/easynewsSearch.ts
+@@ -38,6 +38,7 @@ export class EasynewsSearchPreset extends BuiltinAddonPreset {
+       constants.EASYNEWS_SERVICE,
+       constants.STREMTHRU_NEWZ_SERVICE,
+       constants.AIOSTREAMS_SERVICE,
++      constants.DEBRIDGE_SERVICE,
+     ] as ServiceId[];
+ 
+     const options: Option[] = [
+diff --git a/packages/core/src/presets/jackettio.ts b/packages/core/src/presets/jackettio.ts
+index ef8ee7e1..7357b429 100644
+--- a/packages/core/src/presets/jackettio.ts
++++ b/packages/core/src/presets/jackettio.ts
+@@ -10,6 +10,16 @@ export class JackettioPreset extends StremThruPreset {
+     const supportedServices: ServiceId[] = [
+       constants.REALDEBRID_SERVICE,
+       constants.PREMIUMIZE_SERVICE,
++      // ElfHosted: listed so Debridge credentials route directly wherever
++      // the upstream addon accepts the store. Listing it here makes the solid
++      // "DG" chip appear on the Jackettio card and routes Debridge credentials
++      // directly to Jackettio (one network hop fewer than the implicit Service
++      // Wrap path). Implicit wrap auto-disables for Jackettio once this is
++      // present (see setup.ts: `presetSupportsDebridge` check).
++      // If Jackettio upstream is unaware of `debridge` at runtime, the cache
++      // check will 404 like ours did before the StremThru update —
++      // remove this entry until Jackettio ships the update if needed.
++      constants.DEBRIDGE_SERVICE,
+       constants.ALLDEBRID_SERVICE,
+       constants.TORBOX_SERVICE,
+       constants.EASYDEBRID_SERVICE,
+diff --git a/packages/core/src/presets/mediafusion.ts b/packages/core/src/presets/mediafusion.ts
+index 86e3006b..ab01d230 100644
+--- a/packages/core/src/presets/mediafusion.ts
++++ b/packages/core/src/presets/mediafusion.ts
+@@ -140,6 +140,17 @@ export class MediaFusionPreset extends Preset {
+     const supportedServices: ServiceId[] = [
+       constants.REALDEBRID_SERVICE,
+       constants.PREMIUMIZE_SERVICE,
++      // ElfHosted: listed so Debridge credentials route directly wherever
++      // the upstream addon accepts the store. Listing it here makes the solid
++      // "DG" chip appear on the MediaFusion card and routes Debridge
++      // credentials directly to MediaFusion (one network hop fewer than the
++      // implicit Service Wrap path). Implicit wrap auto-disables for
++      // MediaFusion once this is present (see setup.ts:
++      // `presetSupportsDebridge` check).
++      // If MediaFusion upstream is unaware of `debridge` at runtime, the cache
++      // check will 404 like ours did before the StremThru update —
++      // remove this entry until MediaFusion ships the update if needed.
++      constants.DEBRIDGE_SERVICE,
+       constants.ALLDEBRID_SERVICE,
+       constants.TORBOX_SERVICE,
+       constants.DEBRIDLINK_SERVICE,
+diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
+index 532a404b..38d39e9b 100644
+--- a/packages/core/src/presets/newznab.ts
++++ b/packages/core/src/presets/newznab.ts
+@@ -122,6 +122,7 @@ export class NewznabPreset extends BuiltinAddonPreset {
+       constants.ALTMOUNT_SERVICE,
+       constants.STREMIO_NNTP_SERVICE,
+       constants.STREMTHRU_NEWZ_SERVICE,
++      constants.DEBRIDGE_SERVICE,
+       constants.AIOSTREAMS_SERVICE,
+     ] as ServiceId[];
+     const options: Option[] = [
+diff --git a/packages/core/src/presets/nzbhydra.ts b/packages/core/src/presets/nzbhydra.ts
+index 9167d031..b80ab681 100644
+--- a/packages/core/src/presets/nzbhydra.ts
++++ b/packages/core/src/presets/nzbhydra.ts
+@@ -13,6 +13,7 @@ export class NZBHydraPreset extends NewznabPreset {
+       constants.STREMIO_NNTP_SERVICE,
+       constants.STREMTHRU_NEWZ_SERVICE,
+       constants.AIOSTREAMS_SERVICE,
++      constants.DEBRIDGE_SERVICE,
+     ] as ServiceId[];
+     const options: Option[] = [
+       {
+diff --git a/packages/core/src/presets/stremthru.ts b/packages/core/src/presets/stremthru.ts
+index ac2a6fb1..33655f1d 100644
+--- a/packages/core/src/presets/stremthru.ts
++++ b/packages/core/src/presets/stremthru.ts
+@@ -90,6 +90,7 @@ export class StremThruPreset extends Preset {
+     constants.EASYDEBRID_SERVICE,
+     constants.OFFCLOUD_SERVICE,
+     constants.PREMIUMIZE_SERVICE,
++    constants.DEBRIDGE_SERVICE,
+     constants.PIKPAK_SERVICE,
+     constants.REALDEBRID_SERVICE,
+     constants.TORBOX_SERVICE,
+diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
+index e14fa42b..fb52dd00 100644
+--- a/packages/core/src/streams/fetcher.ts
++++ b/packages/core/src/streams/fetcher.ts
+@@ -200,7 +200,16 @@ class StreamFetcher {
+           success: true as const,
+           streams: usableStreams,
+           errors: addonErrors,
+-          statistic: statisticStream,
++          // Suppress the per-addon stat row for implicit-debridge wrap
++          // addons: the displayed `📦 Streams: N` reflects raw torrents
++          // fetched, not what survives the post-fetch wrap pipeline
++          // (debrid resolution + PROHIBIT_P2P_STREAMS), which is much
++          // smaller. Showing the raw count creates apparent
++          // "disappearing streams" confusion. Errors still surface via
++          // the addonErrors path above and through the FAILED-status
++          // catch block below. See packages/core/src/main/setup.ts where
++          // `implicitlyWrapped: true` is set.
++          statistic: addon.implicitlyWrapped ? undefined : statisticStream,
+           timeTaken: latencyMs,
+         };
+       } catch (error) {
+diff --git a/packages/core/src/utils/constants.ts b/packages/core/src/utils/constants.ts
+index ff2ce372..4d53567f 100644
+--- a/packages/core/src/utils/constants.ts
++++ b/packages/core/src/utils/constants.ts
+@@ -354,6 +354,7 @@ export type FormatterType = (typeof FORMATTERS)[number];
+ const REALDEBRID_SERVICE = 'realdebrid';
+ const DEBRIDLINK_SERVICE = 'debridlink';
+ const PREMIUMIZE_SERVICE = 'premiumize';
++const DEBRIDGE_SERVICE = 'debridge';
+ const ALLDEBRID_SERVICE = 'alldebrid';
+ const TORBOX_SERVICE = 'torbox';
+ const EASYDEBRID_SERVICE = 'easydebrid';
+@@ -374,6 +375,7 @@ const SERVICES = [
+   REALDEBRID_SERVICE,
+   DEBRIDLINK_SERVICE,
+   PREMIUMIZE_SERVICE,
++  DEBRIDGE_SERVICE,
+   ALLDEBRID_SERVICE,
+   TORBOX_SERVICE,
+   EASYDEBRID_SERVICE,
+@@ -395,6 +397,7 @@ export const BUILTIN_SUPPORTED_SERVICES = [
+   REALDEBRID_SERVICE,
+   DEBRIDLINK_SERVICE,
+   PREMIUMIZE_SERVICE,
++  DEBRIDGE_SERVICE,
+   ALLDEBRID_SERVICE,
+   TORBOX_SERVICE,
+   EASYDEBRID_SERVICE,
+@@ -469,6 +472,24 @@ const SERVICE_DETAILS: Record<
+     credentials: Option[];
+   }
+ > = {
++  [DEBRIDGE_SERVICE]: {
++    id: DEBRIDGE_SERVICE,
++    name: 'Debridge',
++    shortName: 'DG',
++    knownNames: ['DG', 'Debridge'],
++    signUpText:
++      "Debridge is an ElfHosted exclusive. Get your API key [here](https://store.elfhosted.com/my-account/debridge) or [learn more](https://store.elfhosted.com/debridge).",
++    credentials: [
++      {
++        id: 'apiKey',
++        name: 'API Key',
++        description:
++          'Your Debridge API key. Obtain it from [here](https://store.elfhosted.com/my-account/debridge).',
++        type: 'password',
++        required: true,
++      },
++    ],
++  },
+   [REALDEBRID_SERVICE]: {
+     id: REALDEBRID_SERVICE,
+     name: 'Real-Debrid',
+@@ -1766,6 +1787,7 @@ export {
+   ADDON_CATALOG_RESOURCE,
+   REALDEBRID_SERVICE,
+   PREMIUMIZE_SERVICE,
++  DEBRIDGE_SERVICE,
+   ALLDEBRID_SERVICE,
+   DEBRIDLINK_SERVICE,
+   TORBOX_SERVICE,
+diff --git a/packages/frontend/src/components/menu/addons/_components/addon-card.tsx b/packages/frontend/src/components/menu/addons/_components/addon-card.tsx
+index 82d162dc..42c9c0cd 100644
+--- a/packages/frontend/src/components/menu/addons/_components/addon-card.tsx
++++ b/packages/frontend/src/components/menu/addons/_components/addon-card.tsx
+@@ -7,6 +7,7 @@ import { Alert } from '../../../ui/alert';
+ import MarkdownLite from '../../../shared/markdown-lite';
+ import { PlusIcon } from 'lucide-react';
+ import * as constants from '../../../../../../core/src/utils/constants';
++import { useStatus } from '@/context/status';
+ 
+ export function AddonCard({
+   preset,
+@@ -16,6 +17,17 @@ export function AddonCard({
+   onAdd: () => void;
+ }) {
+   const [showBuiltinModal, setShowBuiltinModal] = useState(false);
++  const { status } = useStatus();
++
++  // Debridge is implicitly available on any non-builtin preset that supports
++  // P2P streams (via automatic Service Wrap), even when the preset doesn't
++  // list it in SUPPORTED_SERVICES.
++  const debridgeAvailable = !!status?.settings.services?.debridge;
++  const showImplicitDebridge =
++    debridgeAvailable &&
++    !preset.BUILTIN &&
++    preset.SUPPORTED_STREAM_TYPES?.includes('p2p') &&
++    !preset.SUPPORTED_SERVICES?.includes('debridge');
+ 
+   return (
+     <>
+@@ -97,6 +109,19 @@ export function AddonCard({
+                 </Tooltip>
+               );
+             })}
++            {showImplicitDebridge && (
++              <Tooltip
++                side="top"
++                trigger={
++                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-[--brand]/5 text-[--brand]/80 border border-dashed border-[--brand]/30">
++                    {constants.SERVICE_DETAILS[constants.DEBRIDGE_SERVICE]
++                      ?.shortName ?? 'DG'}
++                  </span>
++                }
++              >
++                Debridge — automatically resolved via Service Wrap
++              </Tooltip>
++            )}
+             {preset.SUPPORTED_RESOURCES?.map((res: string) => (
+               <span
+                 key={res}
+diff --git a/packages/frontend/src/components/menu/services/_components/stream-services.tsx b/packages/frontend/src/components/menu/services/_components/stream-services.tsx
+index f859debc..e3fb56d9 100644
+--- a/packages/frontend/src/components/menu/services/_components/stream-services.tsx
++++ b/packages/frontend/src/components/menu/services/_components/stream-services.tsx
+@@ -99,14 +99,29 @@ export function StreamServices() {
+       (id) => !filtered.some((s) => s.id === id)
+     );
+     if (missing.length > 0 || filtered.length !== currentServices.length) {
+-      const toAdd = missing.map((id) => ({
+-        id,
+-        enabled: false,
+-        credentials: {},
+-      }));
++      // Insert each missing service at its canonical position from
++      // allServiceIds, preserving the user's existing relative ordering
++      // (which may have been changed via drag-to-reorder).
++      const newServices = [...filtered];
++      const canonicalIndex = (id: ServiceId) => allServiceIds.indexOf(id);
++      for (const id of missing) {
++        const canonicalIdx = canonicalIndex(id);
++        let insertAt = newServices.length;
++        for (let i = 0; i < newServices.length; i++) {
++          if (canonicalIndex(newServices[i].id) > canonicalIdx) {
++            insertAt = i;
++            break;
++          }
++        }
++        newServices.splice(insertAt, 0, {
++          id,
++          enabled: false,
++          credentials: {},
++        });
++      }
+       setUserData((prev: any) => ({
+         ...prev,
+-        services: [...filtered, ...toAdd],
++        services: newServices,
+       }));
+     }
+   }, [status.settings.services, userData.services]);
+diff --git a/packages/frontend/src/lib/services.ts b/packages/frontend/src/lib/services.ts
+index ff675086..76357d8a 100644
+--- a/packages/frontend/src/lib/services.ts
++++ b/packages/frontend/src/lib/services.ts
+@@ -14,6 +14,7 @@ export const SERVICE_LOGO_MAP: Record<ServiceId, string> = {
+   premiumize: 'https://www.premiumize.me/icon_normal.svg',
+   alldebrid: 'https://cdn.alldebrid.com/lib/images/default/logo_alldebrid.png',
+   torbox: 'https://torbox.app/assets/logo-bb7a9579.svg',
++  debridge: 'https://docs.elfhosted.com/images/logo.png',
+   putio:
+     'https://images.seeklogo.com/logo-png/51/1/put-io-logo-png_seeklogo-516681.png',
+   pikpak: 'https://mypikpak.com/apple-touch-icon.png',
+@@ -42,7 +43,7 @@ const USENET_SERVICE_IDS: string[] = [
+   AIOSTREAMS_SERVICE,
+ ];
+ 
+-const DUAL_SERVICE_IDS: string[] = ['torbox'];
++const DUAL_SERVICE_IDS: string[] = ['torbox', 'debridge'];
+ 
+ export function isUsenetService(id: string): boolean {
+   return USENET_SERVICE_IDS.includes(id);

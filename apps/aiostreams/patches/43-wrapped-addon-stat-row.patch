@@ -1,0 +1,455 @@
+diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
+index ff1f6b2b..e81c6bfa 100644
+--- a/packages/core/src/main/resources.ts
++++ b/packages/core/src/main/resources.ts
+@@ -22,7 +22,10 @@ import {
+ } from '../streams/index.js';
+ import { buildPlayChain, type FailoverContentType } from './play-chain.js';
+ import { resolveServiceWrappedStreams } from './serviceWrapper.js';
+-import type { ServiceWrapServiceTiming } from './serviceWrapper.js';
++import type {
++  ServiceWrapServiceTiming,
++  WrappedAddonStat,
++} from './serviceWrapper.js';
+ import type { PrecomputeSubTimings } from '../streams/precomputer.js';
+ import { StreamSelector } from '../parser/streamExpression.js';
+ import type {
+@@ -270,6 +273,7 @@ export async function processStreams(
+     limitMs: number;
+     selMs: number;
+   };
++  wrapStats?: Record<string, WrappedAddonStat>;
+ }> {
+   const { type, id } = context;
+   let processedStreams = streams;
+@@ -278,6 +282,7 @@ export async function processStreams(
+   let metaFilterMs = 0;
+   let serviceWrapMs = 0;
+   let serviceWrapTimings: Record<string, ServiceWrapServiceTiming> | undefined;
++  let wrapStats: Record<string, WrappedAddonStat> | undefined;
+   let filterMs = 0;
+   let deduplicationMs = 0;
+   let precomputeMs = 0;
+@@ -317,6 +322,9 @@ export async function processStreams(
+   if (resolvedResults.serviceTimings) {
+     serviceWrapTimings = resolvedResults.serviceTimings;
+   }
++  if (resolvedResults.wrapStats) {
++    wrapStats = resolvedResults.wrapStats;
++  }
+ 
+   // Deployment-level guarantee: never serve raw P2P directly to users.
+   // Anything wrappable has already been resolved through the user's debrid
+@@ -523,6 +531,7 @@ export async function processStreams(
+       limitMs,
+       selMs,
+     },
++    wrapStats,
+   };
+ }
+ 
+@@ -962,7 +971,9 @@ export async function getStreams(
+       },
+       finalStreams,
+       fetchMs,
+-      pipelineTimings
++      pipelineTimings,
++      processResults.wrapStats,
++      dispositions
+     )
+   );
+ 
+diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
+index d6758fdd..23f5f01f 100644
+--- a/packages/core/src/main/serviceWrapper.ts
++++ b/packages/core/src/main/serviceWrapper.ts
+@@ -22,6 +22,7 @@ import { StreamContext } from '../streams/context.js';
+ import { isServiceWrapEligibleP2PStream } from '../streams/utils.js';
+ import { parseTorrentTitleCached } from '../parser/title.js';
+ import { PresetManager } from '../presets/presetManager.js';
++import { getAddonName } from '../utils/general.js';
+ 
+ const logger = createLogger('serviceWrapper');
+ 
+@@ -30,6 +31,36 @@ export interface ServiceWrapResult {
+   errors: ServiceWrapError[];
+   hasNewStreams: boolean;
+   serviceTimings?: Record<string, ServiceWrapServiceTiming>;
++  /**
++   * Per-addon resolution counts for implicitly-DG-wrapped addons, keyed by
++   * addon instanceId. These addons get no fetch-time scrape summary (see
++   * streams/fetcher.ts), so this is the only place their numbers survive.
++   */
++  wrapStats?: Record<string, WrappedAddonStat>;
++}
++
++export interface WrappedAddonStat {
++  /** Display name, resolved once here so the stat layer needs no Addon lookup. */
++  addonName: string;
++  /** Unique torrents this addon put into the debrid availability check. */
++  found: number;
++  /** Of those, how many the debrid service reported cached (playable now). */
++  cached: number;
++  /** Of those, how many resolved but were reported uncached. */
++  uncached: number;
++  /**
++   * True when the debrid resolution step could not run or errored out, so
++   * `cached`/`uncached` are "not measured" rather than "measured as zero".
++   * Without this a misconfiguration reads as "your debrid holds none of these",
++   * which is a confident false diagnosis — the exact failure being fixed.
++   */
++  resolutionFailed?: boolean;
++  /**
++   * True when at least one debrid service errored but another still returned
++   * results. The counts below are then real but incomplete — presenting them
++   * as a full answer would overstate what was measured.
++   */
++  resolutionPartial?: boolean;
+ }
+ 
+ export interface ServiceWrapServiceTiming {
+@@ -177,6 +208,11 @@ export async function resolveServiceWrappedStreams(
+     'resolving streams through debrid services'
+   );
+ 
++  // Built before any early return below: a wrapped addon that resolves nothing
++  // must still report `found`, otherwise a total wipeout is indistinguishable
++  // from the addon never having run — the exact confusion this reporting fixes.
++  const wrapStats = buildWrapStats(wrappedP2PStreams, addons);
++
+   // Build BuiltinDebridServices from user's service configuration
+   const debridServices = buildDebridServices(userData);
+ 
+@@ -186,7 +222,12 @@ export async function resolveServiceWrappedStreams(
+       description:
+         'No debrid services are configured to process service-wrapped addon results.',
+     });
+-    return { streams: otherStreams, errors, hasNewStreams: false };
++    return {
++      streams: otherStreams,
++      errors,
++      hasNewStreams: false,
++      wrapStats: markWrapFailure(wrapStats),
++    };
+   }
+ 
+   // Split services into torrent-capable only (exclude usenet-only services)
+@@ -206,7 +247,15 @@ export async function resolveServiceWrappedStreams(
+           'No torrent debrid services configured to process service-wrapped P2P torrent results.',
+       });
+     }
+-    return { streams: otherStreams, errors, hasNewStreams: false };
++    return {
++      streams: otherStreams,
++      errors,
++      hasNewStreams: false,
++      // Only a missing torrent service is a failure; simply having no torrents
++      // to check is a legitimate zero.
++      wrapStats:
++        torrentServices.length === 0 ? markWrapFailure(wrapStats) : wrapStats,
++    };
+   }
+ 
+   // Build metadata from StreamContext
+@@ -238,6 +287,12 @@ export async function resolveServiceWrappedStreams(
+       errors,
+       hasNewStreams: false,
+       serviceTimings,
++      // Distinguish "the debrid service held none of them" (a real answer)
++      // from "every service call errored" (no answer at all).
++      wrapStats:
++        processedTorrents.errors.length > 0
++          ? markWrapFailure(wrapStats)
++          : wrapStats,
+     };
+   }
+ 
+@@ -274,6 +329,38 @@ export async function resolveServiceWrappedStreams(
+     metadata
+   );
+ 
++  // Count each (addon, torrent) pair once. buildDebridStreams emits one stream
++  // per original *and* per service, so incrementing per stream would let
++  // `cached` exceed `found` (which counts unique hashes) on any hash with
++  // multiple originals — an internally contradictory row.
++  // Explicit Service Wrap can check several services, so the same pair can
++  // appear once per service. Collapse with cached-wins precedence first —
++  // counting in arrival order would let a leading uncached result mask a
++  // playable cached one purely because of service configuration order.
++  const outcomeByPair = new Map<
++    string,
++    { instanceId: string; cached: boolean }
++  >();
++  for (const stream of debridStreams) {
++    const instanceId = stream.addon?.instanceId;
++    const hash = stream.torrent?.infoHash;
++    if (!instanceId || !hash || !wrapStats[instanceId]) continue;
++    const key = `${instanceId}\u0000${hash}`;
++    const cached = stream.service?.cached === true;
++    const existing = outcomeByPair.get(key);
++    if (existing) existing.cached = existing.cached || cached;
++    else outcomeByPair.set(key, { instanceId, cached });
++  }
++  if (processedTorrents.errors.length > 0) {
++    for (const stat of Object.values(wrapStats)) stat.resolutionPartial = true;
++  }
++
++  for (const { instanceId, cached } of outcomeByPair.values()) {
++    const stat = wrapStats[instanceId];
++    if (cached) stat.cached++;
++    else stat.uncached++;
++  }
++
+   logger.debug(
+     {
+       debrid: debridStreams.length,
+@@ -288,6 +375,7 @@ export async function resolveServiceWrappedStreams(
+     errors,
+     hasNewStreams: debridStreams.length > 0,
+     serviceTimings,
++    wrapStats,
+   };
+ }
+ 
+@@ -344,6 +432,64 @@ function buildDebridServices(userData: UserData): BuiltinDebridServices {
+   return debridServices;
+ }
+ 
++/**
++ * Seed per-addon counters for implicitly-DG-wrapped addons only.
++ *
++ * Explicit Service Wrap keeps its own fetch-time scrape summary, so it is left
++ * alone here; only the implicit case has no other surface to report on.
++ * `found` counts *unique* infoHashes, matching what is actually submitted to
++ * the availability check after buildAndDeduplicateTorrents collapses repeats.
++ */
++/**
++ * Mark every wrapped-addon counter as "resolution did not run".
++ * Callers use this on the paths where the debrid step was skipped or errored,
++ * so the stat layer can say "not checked" instead of reporting a measured zero.
++ */
++function markWrapFailure(
++  stats: Record<string, WrappedAddonStat>
++): Record<string, WrappedAddonStat> {
++  for (const stat of Object.values(stats)) {
++    stat.resolutionFailed = true;
++  }
++  return stats;
++}
++
++function buildWrapStats(
++  wrapped: ParsedStream[],
++  addons: Addon[]
++): Record<string, WrappedAddonStat> {
++  const implicit = new Map<string, Addon>();
++  for (const addon of addons) {
++    if (addon.implicitlyWrapped && addon.instanceId) {
++      implicit.set(addon.instanceId, addon);
++    }
++  }
++  if (implicit.size === 0) return {};
++
++  const hashesByInstance = new Map<string, Set<string>>();
++  for (const stream of wrapped) {
++    const instanceId = stream.addon?.instanceId;
++    const hash = stream.torrent?.infoHash;
++    if (!instanceId || !hash) continue;
++    const addon = implicit.get(instanceId);
++    if (!addon) continue;
++    const hashes = hashesByInstance.get(instanceId) ?? new Set<string>();
++    hashes.add(hash);
++    hashesByInstance.set(instanceId, hashes);
++  }
++
++  const stats: Record<string, WrappedAddonStat> = {};
++  for (const [instanceId, hashes] of hashesByInstance) {
++    stats[instanceId] = {
++      addonName: getAddonName(implicit.get(instanceId)!),
++      found: hashes.size,
++      cached: 0,
++      uncached: 0,
++    };
++  }
++  return stats;
++}
++
+ function buildAndDeduplicateTorrents(streams: ParsedStream[]): Torrent[] {
+   const torrents: Torrent[] = streams
+     .filter((s) => s.torrent?.infoHash)
+diff --git a/packages/core/src/main/statistics.ts b/packages/core/src/main/statistics.ts
+index 374af5dd..2d802137 100644
+--- a/packages/core/src/main/statistics.ts
++++ b/packages/core/src/main/statistics.ts
+@@ -1,6 +1,9 @@
+ import { constants, formatMilliseconds } from '../utils/index.js';
+ import type { ParsedStream } from '../db/schemas.js';
+ import type { AIOStreamsContext, StatEntry, PipelineTimings } from './types.js';
++import type { WrappedAddonStat } from './serviceWrapper.js';
++import type { AddonDispositionMap } from '../streams/fetcher.js';
++import { getAddonName } from '../utils/general.js';
+ 
+ /** Split a flat filter-details array into per-📌-header groups. */
+ export function splitByPin(details: string[]): string[][] {
+@@ -46,12 +49,136 @@ export function buildStatistics(
+   ctx: Pick<AIOStreamsContext, 'userData' | 'filterer' | 'precomputer'>,
+   finalStreams: ParsedStream[],
+   fetchMs: number,
+-  pipelineTimings: PipelineTimings
++  pipelineTimings: PipelineTimings,
++  wrapStats?: Record<string, WrappedAddonStat>,
++  dispositions?: AddonDispositionMap
+ ): StatEntry[] {
+   const { userData, filterer, precomputer } = ctx;
+   const statistics: StatEntry[] = [];
+   const fmtMs = (ms: number) => formatMilliseconds(ms);
+ 
++  // Implicitly-DG-wrapped addons (any preset
++  // that does not natively list debridge) get no fetch-time scrape summary —
++  // streams/fetcher.ts suppresses it because the raw fetch count badly
++  // overstates what survives. Suppressing it outright reads as "this addon is
++  // dead", which is what it was mistaken for. Emit a staged row here instead.
++  //
++  // Presence and status come from the fetcher's dispositions, NOT from the
++  // wrap: an addon that ran and returned nothing, or errored, must still get a
++  // row, and neither is reconstructable from surviving streams.
++  if (
++    dispositions &&
++    userData.statistics?.enabled &&
++    userData.statistics?.statsToShow?.includes('addon')
++  ) {
++    // Counted per (addon, torrent), matching how `found` and the resolution
++    // breakdown count. Counting displayed rows instead would produce
++    // self-contradicting output like "Found: 1 torrent … Shown: 2" whenever
++    // dedup is off or keeps more than one service's result for a hash.
++    const shownPairs = new Map<string, Set<string>>();
++    for (const stream of finalStreams) {
++      const instanceId = stream.addon?.instanceId;
++      // `external` rows are presentation-only clones of a stream already
++      // counted (see StreamUtils.createDownloadableStream).
++      if (!instanceId || stream.type === 'external') continue;
++      const key = stream.torrent?.infoHash ?? stream.id;
++      const seen = shownPairs.get(instanceId) ?? new Set<string>();
++      seen.add(key);
++      shownPairs.set(instanceId, seen);
++    }
++
++    for (const info of dispositions.values()) {
++      const addon = info.addon;
++      if (!addon.implicitlyWrapped || !addon.instanceId) continue;
++      // Never queried for this request (wrong content type, cut off early) —
++      // a row would imply it was tried.
++      if (info.disposition === 'not_started') continue;
++      // With dynamic fetching, `doResolve` blankets every still-`not_started`
++      // addon as `cut_off`, including ones excluded for this content type.
++      // No latency, no streams and no wrap stats means it was never queried,
++      // so a row would wrongly imply it was tried.
++      const stat = wrapStats?.[addon.instanceId];
++      if (
++        info.disposition === 'cut_off' &&
++        info.latencyMs === 0 &&
++        info.rawCount === 0 &&
++        !stat
++      ) {
++        continue;
++      }
++
++      const shown = shownPairs.get(addon.instanceId)?.size ?? 0;
++      const failed = info.status === 'error';
++      // The scrape can succeed while the debrid step never ran (no usable
++      // torrent service, every service call errored) or while the addon was
++      // cut off mid-flight. Reporting those as SUCCESS restates the original
++      // bug in a new place, so they get their own status.
++      const partial =
++        !failed &&
++        (info.disposition === 'cut_off' ||
++          !!stat?.resolutionFailed ||
++          !!stat?.resolutionPartial ||
++          (info.errorCount ?? 0) > 0);
++
++      const lines: string[] = [
++        `✔ Status      : ${failed ? 'FAILED' : partial ? 'PARTIAL' : 'SUCCESS'}`,
++        `📦 Found      : ${stat ? `${stat.found} torrent${stat.found === 1 ? '' : 's'}` : `${info.rawCount} stream${info.rawCount === 1 ? '' : 's'}`}`,
++      ];
++
++      // Additive, not an alternative branch: a mixed response must still show
++      // its debrid breakdown below.
++      if (!failed && (info.errorCount ?? 0) > 0) {
++        lines.push(
++          `📋 Details    : ${info.errorCount} error stream${info.errorCount === 1 ? '' : 's'} returned alongside results`
++        );
++      }
++
++      if (failed) {
++        lines.push(
++          `📋 Details    : ${info.errorKind ?? 'addon request failed'}`
++        );
++      } else if (!stat || stat.resolutionFailed) {
++        // Resolution never produced an answer. Saying "0 cached" here would
++        // report a configuration fault as a cache miss.
++        // Deliberately does not assert a cause: the breakdown may be missing
++        // because resolution failed, or because fetch-time deduplication
++        // credited this addon's torrents to another addon that supplied the
++        // same infoHash. Both are "we did not measure it", neither is "your
++        // debrid does not have it".
++        lines.push(`⚡ In debrid   : not measured`);
++      } else {
++        const resolved = stat.cached + stat.uncached;
++        const unheld = Math.max(0, stat.found - resolved);
++        const cachedLine =
++          stat.uncached > 0
++            ? `${stat.cached} cached, ${stat.uncached} uncached`
++            : `${stat.cached} cached`;
++        lines.push(
++          // "not resolved", not "not cached": processTorrents also drops
++          // torrents on failed magnet status and on title/season/episode/file
++          // matching, so absence here is not evidence of a cache miss.
++          `⚡ In debrid   : ${cachedLine}${unheld > 0 ? ` (${unheld} not resolved)` : ''}`
++        );
++        const dropped = Math.max(0, resolved - shown);
++        lines.push(
++          `📊 Shown      : ${shown}${dropped > 0 ? ` (${dropped} not shown after downstream processing)` : ''}`
++        );
++        if (stat.resolutionPartial) {
++          lines.push(
++            `📋 Details    : one or more debrid services errored — counts are incomplete`
++          );
++        }
++      }
++
++      lines.push(`⏱️ Time       : ${fmtMs(info.latencyMs)}`);
++
++      statistics.push({
++        title: `${failed ? '🔴' : shown > 0 && !partial ? '🟢' : '🟠'} [${getAddonName(addon)}] Scrape Summary`,
++        description: lines.join('\n') + '\n',
++      });
++    }
++  }
++
+   const filterStats = filterer.getFilterStatistics();
+   const { filterDetails, includedDetails } =
+     filterer.getFormattedFilterDetails();
+diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
+index a844e9f5..89a73fad 100644
+--- a/packages/core/src/streams/fetcher.ts
++++ b/packages/core/src/streams/fetcher.ts
+@@ -40,6 +40,12 @@ export interface AddonDispositionInfo {
+   latencyMs: number;
+   status: AnalyticsStatus;
+   errorKind?: AnalyticsErrorKind;
++  /**
++   * Number of error streams returned alongside usable ones. `status` stays
++   * 'ok' for a mixed response, so without this the suppressed fetch row's
++   * "PARTIAL SUCCESS" state cannot be reconstructed downstream.
++   */
++  errorCount?: number;
+ }
+ 
+ export type AddonDispositionMap = Map<string, AddonDispositionInfo>;
+@@ -162,6 +168,7 @@ class StreamFetcher {
+           rawCount: usableStreams.length,
+           latencyMs,
+           status,
++          errorCount: errorStreams.length,
+         });
+ 
+         if (errorStreams.length > 0) {

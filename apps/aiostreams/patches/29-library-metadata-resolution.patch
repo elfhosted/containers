@@ -1,0 +1,567 @@
+diff --git a/packages/core/src/builtins/library/addon.ts b/packages/core/src/builtins/library/addon.ts
+index ef72dc05..a4fa8983 100644
+--- a/packages/core/src/builtins/library/addon.ts
++++ b/packages/core/src/builtins/library/addon.ts
+@@ -138,10 +138,21 @@ export class LibraryAddon extends BaseDebridAddon<LibraryAddonConfig> {
+       sort,
+       sortDirection,
+       genre,
+-      search
++      search,
++      this.tmdbAuth
+     );
+   }
+ 
++  // ELFHOSTED: user-supplied TMDB credentials for library title/poster
++  // resolution; TMDBMetadata falls back to deployment-level credentials
++  // when these are absent.
++  private get tmdbAuth() {
++    return {
++      apiKey: this.userData.tmdbApiKey,
++      accessToken: this.userData.tmdbReadAccessToken,
++    };
++  }
++
+   public async getMeta(type: string, id: string): Promise<Meta> {
+     const { serviceId, itemType, itemId } = parseLibraryId(id);
+ 
+@@ -219,7 +230,7 @@ export class LibraryAddon extends BaseDebridAddon<LibraryAddonConfig> {
+       this.clientIp
+     );
+ 
+-    return buildMeta(id, item, service, narrowedItemType);
++    return buildMeta(id, item, service, narrowedItemType, this.tmdbAuth);
+   }
+ 
+   /**
+diff --git a/packages/core/src/builtins/library/catalog.ts b/packages/core/src/builtins/library/catalog.ts
+index 4ed90058..a7f4118d 100644
+--- a/packages/core/src/builtins/library/catalog.ts
++++ b/packages/core/src/builtins/library/catalog.ts
+@@ -15,6 +15,11 @@ import { ParsedResult } from '@viren070/parse-torrent-title';
+ import { parseTorrentTitleCached } from '../../parser/title.js';
+ import { normaliseTitle } from '../../parser/utils.js';
+ import { token_set_ratio } from 'fuzzball';
++import {
++  resolveLibraryMetas,
++  ResolvedLibraryMeta,
++  TmdbAuth,
++} from './resolve.js';
+ 
+ const logger = createLogger('library:catalog');
+ 
+@@ -113,7 +118,8 @@ export async function fetchCatalog(
+   sort: CatalogSort,
+   sortDirection: 'asc' | 'desc',
+   genre?: string,
+-  search?: string
++  search?: string,
++  tmdbAuth?: TmdbAuth
+ ): Promise<MetaPreview[]> {
+   if (genre === Genre.ACTIONS) {
+     if (skip > 0) {
+@@ -198,7 +204,14 @@ export async function fetchCatalog(
+   }
+ 
+   const page = results.slice(skip, skip + CATALOG_PAGE_SIZE);
+-  return page.map((entry) => createMetaPreview(entry));
++  // ELFHOSTED: best-effort canonical-title/poster resolution for the page
++  // (gated on BUILTIN_LIBRARY_METADATA_RESOLUTION + TMDB credentials; null
++  // entries render exactly as before).
++  const resolved = await resolveLibraryMetas(
++    page.map((entry) => entry.parsed),
++    tmdbAuth
++  );
++  return page.map((entry, i) => createMetaPreview(entry, resolved[i]));
+ }
+ 
+ export function parseExtras(extras?: string): {
+@@ -388,10 +401,16 @@ function sortParsedItems(
+   });
+ }
+ 
+-function createMetaPreview(entry: ParsedCatalogItem): MetaPreview {
++function createMetaPreview(
++  entry: ParsedCatalogItem,
++  resolved?: ResolvedLibraryMeta | null
++): MetaPreview {
+   const { item, parsed } = entry;
+   const descriptionParts: string[] = [];
+ 
++  // When the entry resolved to a canonical title, the tile name no longer
++  // shows the release name — keep it discoverable in the description.
++  if (resolved && item.name) descriptionParts.push(`📄 ${item.name}`);
+   if (item.size) descriptionParts.push(`📦 ${formatBytes(item.size, 1000)}`);
+   if (item.addedAt) {
+     descriptionParts.push(`📅 ${new Date(item.addedAt).toLocaleDateString()}`);
+@@ -400,12 +419,19 @@ function createMetaPreview(entry: ParsedCatalogItem): MetaPreview {
+   const typeIcon = item.itemType === 'torrent' ? '🧲' : '📰';
+   descriptionParts.push(`${typeIcon} ${item.itemType}`);
+ 
++  const resolvedName = resolved
++    ? resolved.year
++      ? `${resolved.title} (${resolved.year})`
++      : resolved.title
++    : undefined;
++
+   return {
+     id: `${LIBRARY_ID_PREFIX}${item.serviceId}.${item.itemType}.${item.id}`,
+     type: 'library',
+-    name: item.name ?? 'Unknown',
++    name: resolvedName ?? item.name ?? 'Unknown',
+     description: descriptionParts.join(' • '),
+-    posterShape: 'landscape',
++    poster: resolved?.poster,
++    posterShape: resolved?.poster ? 'poster' : 'landscape',
+   };
+ }
+ 
+diff --git a/packages/core/src/builtins/library/meta.ts b/packages/core/src/builtins/library/meta.ts
+index c08be755..43149b9c 100644
+--- a/packages/core/src/builtins/library/meta.ts
++++ b/packages/core/src/builtins/library/meta.ts
+@@ -15,6 +15,7 @@ import { Meta } from '../../db/schemas.js';
+ import { formatSmartBytes } from '../../formatters/utils.js';
+ import { parseTorrentTitleCached } from '../../parser/title.js';
+ import { LIBRARY_ID_PREFIX } from './catalog.js';
++import { resolveLibraryMeta, TmdbAuth } from './resolve.js';
+ 
+ const logger = createLogger('library:meta');
+ 
+@@ -88,16 +89,22 @@ export async function fetchItem(
+   throw new Error(`Service ${serviceId} does not support getNzb or listNzbs`);
+ }
+ 
+-export function buildMeta(
++export async function buildMeta(
+   id: string,
+   item: DebridDownload,
+   service: { id: BuiltinServiceId; credential: string },
+-  itemType: 'torrent' | 'usenet'
+-): Meta {
++  itemType: 'torrent' | 'usenet',
++  tmdbAuth?: TmdbAuth
++): Promise<Meta> {
+   logger.debug({ item, id }, 'Building library meta for item');
+   const videos = buildVideos(item, id);
+   const parsed = parseTorrentTitleCached(item.name ?? '');
++  // ELFHOSTED: best-effort canonical-title/poster resolution (same gating
++  // as the catalog page — feature flag + TMDB credentials; null keeps the
++  // unresolved presentation).
++  const resolved = await resolveLibraryMeta(parsed, tmdbAuth);
+   const descriptionParts: string[] = [];
++  if (resolved && item.name) descriptionParts.push(`📄 ${item.name}`);
+ 
+   const padNumber = (num: number) => num.toString().padStart(2, '0');
+ 
+@@ -129,12 +136,20 @@ export function buildMeta(
+     descriptionParts.push(`🖥️ ${parsed.resolution}`);
+   }
+ 
++  const resolvedName = resolved
++    ? resolved.year
++      ? `${resolved.title} (${resolved.year})`
++      : resolved.title
++    : undefined;
++
+   return {
+     id,
+-    name: item.name ?? 'Unknown',
++    name: resolvedName ?? item.name ?? 'Unknown',
+     type: 'library',
+     description: descriptionParts.join(' • '),
+-    posterShape: 'landscape',
++    poster: resolved?.poster,
++    background: resolved?.background,
++    posterShape: resolved?.poster ? 'poster' : 'landscape',
+     videos,
+     behaviorHints: {
+       defaultVideoId: videos.length === 1 ? videos[0].id : undefined,
+diff --git a/packages/core/src/builtins/library/resolve.ts b/packages/core/src/builtins/library/resolve.ts
+new file mode 100644
+index 00000000..ae89ec2d
+--- /dev/null
++++ b/packages/core/src/builtins/library/resolve.ts
+@@ -0,0 +1,185 @@
++// ELFHOSTED: canonical-title + poster resolution for Library entries.
++//
++// Library items are raw release names; this resolves each (parsed) title
++// against TMDB's search API — pointable at the EMDB caching proxy via
++// TMDB_API_URL — so catalog tiles get a real title and poster instead of a
++// posterless filename. Strictly best-effort: any failure (no credentials,
++// feature disabled, no match, upstream error) yields null for that entry
++// and the caller renders the unresolved presentation.
++import pLimit from 'p-limit';
++import { ParsedResult } from '@viren070/parse-torrent-title';
++import { TMDBMetadata, TitleSearchResult } from '../../metadata/tmdb.js';
++import { createLogger } from '../../utils/index.js';
++import { config as appConfig } from '../../config/index.js';
++
++const logger = createLogger('library');
++
++// Per-page lookup concurrency. Results are cached inside searchTitle
++// (14d hits / 1d misses), so this only throttles cold pages.
++const RESOLVE_CONCURRENCY = 5;
++
++// Page-wide budget. Resolution is best-effort decoration — once the budget
++// is spent, the page returns with whatever resolved in time and the
++// remaining lookups keep running in the background to warm the cache for
++// the next request. Without this, a cold page of unique titles against a
++// slow/unavailable TMDB could stall the catalog for (page / concurrency) ×
++// per-request-timeout (~100s).
++const PAGE_DEADLINE_MS = 8000;
++
++export interface TmdbAuth {
++  apiKey?: string;
++  accessToken?: string;
++}
++
++export interface ResolvedLibraryMeta {
++  title: string;
++  year?: number;
++  poster?: string;
++  background?: string;
++}
++
++function buildResolver(auth?: TmdbAuth): TMDBMetadata | null {
++  if (!appConfig.builtins.library.metadataResolution) {
++    return null;
++  }
++  try {
++    // Falls back to deployment-level TMDB credentials when the user has
++    // none; throws when neither is configured.
++    return new TMDBMetadata({
++      apiKey: auth?.apiKey,
++      accessToken: auth?.accessToken,
++    });
++  } catch {
++    logger.debug(
++      'Library metadata resolution enabled but no TMDB credentials available — skipping'
++    );
++    return null;
++  }
++}
++
++function toResolvedMeta(hit: TitleSearchResult): ResolvedLibraryMeta {
++  return {
++    title: hit.title,
++    year: hit.year,
++    poster: TMDBMetadata.getImageUrl(hit.posterPath, 'w342'),
++    background: TMDBMetadata.getImageUrl(hit.backdropPath, 'w780'),
++  };
++}
++
++async function resolveOne(
++  tmdb: TMDBMetadata,
++  parsed: ParsedResult
++): Promise<ResolvedLibraryMeta | null> {
++  const title = parsed.title?.trim();
++  if (!title) return null;
++  // Season/episode markers are a strong series signal; their absence says
++  // nothing (movie packs and full-series bundles both parse bare), so only
++  // narrow towards tv — never towards movie.
++  const mediaType =
++    (parsed.seasons?.length ?? 0) > 0 || (parsed.episodes?.length ?? 0) > 0
++      ? ('tv' as const)
++      : undefined;
++  // ParsedResult.year is a string; searchTitle wants a number.
++  const yearNum = parsed.year ? parseInt(String(parsed.year), 10) : NaN;
++  try {
++    const hit = await tmdb.searchTitle(title, {
++      year: isNaN(yearNum) ? undefined : yearNum,
++      mediaType,
++    });
++    return hit ? toResolvedMeta(hit) : null;
++  } catch (error) {
++    logger.debug(`Library title resolution failed for "${title}"`, {
++      error: (error as Error).message,
++    });
++    return null;
++  }
++}
++
++function resolveKey(parsed: ParsedResult): string | null {
++  const title = parsed.title?.trim().toLowerCase();
++  if (!title) return null;
++  const tv =
++    (parsed.seasons?.length ?? 0) > 0 || (parsed.episodes?.length ?? 0) > 0;
++  return `${tv ? 'tv' : 'multi'}:${parsed.year ?? ''}:${title}`;
++}
++
++/**
++ * Resolve a page of parsed library entries. Returns one entry per input,
++ * order-preserved, null where resolution was unavailable, failed, or ran
++ * past the page budget. Duplicate titles (season packs, episode runs of
++ * the same series) are looked up once.
++ */
++export async function resolveLibraryMetas(
++  parsedEntries: ParsedResult[],
++  auth?: TmdbAuth
++): Promise<(ResolvedLibraryMeta | null)[]> {
++  const tmdb = buildResolver(auth);
++  if (!tmdb) {
++    return parsedEntries.map(() => null);
++  }
++
++  // Dedupe: one lookup per distinct (media-type hint, year, title).
++  const uniqueByKey = new Map<string, ParsedResult>();
++  for (const parsed of parsedEntries) {
++    const key = resolveKey(parsed);
++    if (key && !uniqueByKey.has(key)) {
++      uniqueByKey.set(key, parsed);
++    }
++  }
++
++  let deadlineTimer: NodeJS.Timeout | undefined;
++  let deadlineReached = false;
++  const deadline = new Promise<'deadline'>((resolve) => {
++    deadlineTimer = setTimeout(() => {
++      deadlineReached = true;
++      resolve('deadline');
++    }, PAGE_DEADLINE_MS);
++    deadlineTimer.unref?.();
++  });
++
++  const limit = pLimit(RESOLVE_CONCURRENCY);
++  let timedOut = 0;
++  const resolvedByKey = new Map<string, ResolvedLibraryMeta | null>();
++  await Promise.all(
++    [...uniqueByKey.entries()].map(async ([key, parsed]) => {
++      // The underlying lookup keeps running past the deadline and still
++      // populates searchTitle's cache — only the wait is abandoned. But once
++      // the deadline has fired, queued (not-yet-started) jobs must NOT open
++      // fresh TMDB lookups: draining ~100 more requests in the background piles
++      // load on an already-slow proxy. Return immediately so the queue empties
++      // as no-ops; in-flight lookups still finish and warm the cache.
++      const outcome = await Promise.race([
++        limit(() =>
++          deadlineReached ? Promise.resolve(null) : resolveOne(tmdb, parsed)
++        ),
++        deadline,
++      ]);
++      if (outcome === 'deadline') {
++        timedOut++;
++        resolvedByKey.set(key, null);
++      } else {
++        resolvedByKey.set(key, outcome);
++      }
++    })
++  );
++  clearTimeout(deadlineTimer);
++  if (timedOut > 0) {
++    logger.warn(
++      `Library metadata resolution page budget (${PAGE_DEADLINE_MS}ms) hit — ${timedOut}/${uniqueByKey.size} lookups returned unresolved (cache warms in background)`
++    );
++  }
++
++  return parsedEntries.map((parsed) => {
++    const key = resolveKey(parsed);
++    return key ? (resolvedByKey.get(key) ?? null) : null;
++  });
++}
++
++/** Single-entry convenience for the meta (detail page) path. */
++export async function resolveLibraryMeta(
++  parsed: ParsedResult,
++  auth?: TmdbAuth
++): Promise<ResolvedLibraryMeta | null> {
++  const [resolved] = await resolveLibraryMetas([parsed], auth);
++  return resolved;
++}
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index 6330541a..28d6f9d2 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -182,7 +182,10 @@ export const builtinsSchema = {
+     },
+     libraryPageLimit: {
+       schema: positiveInt,
+-      default: 1,
++      // ELFHOSTED: was 1 — a single 500-item page silently truncated large
++      // libraries (a cross-provider aggregate can exceed 500), showing only
++      // the newest page and hiding older direct adds.
++      default: 4,
+       label: 'Library page limit',
+       description: 'Maximum pages fetched per listMagnets / listNzbs request.',
+       env: 'BUILTIN_DEBRID_LIBRARY_PAGE_LIMIT',
+@@ -580,6 +583,18 @@ export const builtinsSchema = {
+       secret: false,
+     },
+   },
++  library: {
++    metadataResolution: {
++      schema: z.boolean(),
++      default: false,
++      label: 'Library metadata resolution',
++      env: 'BUILTIN_LIBRARY_METADATA_RESOLUTION',
++      description:
++        'Resolve library item release names to canonical titles and posters via the TMDB search API (honours TMDB_API_URL, so lookups can ride a caching proxy such as EMDB). Requires TMDB credentials (user-supplied or deployment-level).',
++      requiresRestart: false,
++      secret: false,
++    },
++  },
+   nab: {
+     searchTimeout: {
+       schema: positiveInt,
+diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
+index 6ce37169..ed2c7c84 100644
+--- a/packages/core/src/metadata/tmdb.ts
++++ b/packages/core/src/metadata/tmdb.ts
+@@ -195,6 +195,34 @@ const IdTypeMap: Partial<Record<IdType, TMDBIdType>> = {
+   themoviedbId: 'tmdb_id',
+ };
+ 
++// Title-search (release-name → entity) support for the Library builtin.
++export interface TitleSearchResult {
++  tmdbId: number;
++  mediaType: 'movie' | 'tv';
++  title: string;
++  year?: number;
++  posterPath: string | null;
++  backdropPath: string | null;
++}
++
++const TITLE_SEARCH_CACHE_TTL = 14 * 24 * 60 * 60; // 14 days
++const TITLE_SEARCH_MISS_CACHE_TTL = 24 * 60 * 60; // 1 day
++
++const TitleSearchResultsSchema = z.object({
++  results: z.array(
++    z.object({
++      id: z.number(),
++      media_type: z.string().optional(),
++      title: z.string().optional(),
++      name: z.string().optional(),
++      release_date: z.string().optional(),
++      first_air_date: z.string().optional(),
++      poster_path: z.string().nullable().optional(),
++      backdrop_path: z.string().nullable().optional(),
++    })
++  ),
++});
++
+ export class TMDBMetadata {
+   private readonly TMDB_ID_REGEX = /^(?:tmdb)[-:](\d+)(?::\d+:\d+)?$/;
+   private readonly TVDB_ID_REGEX = /^(?:tvdb)[-:](\d+)(?::\d+:\d+)?$/;
+@@ -213,6 +241,12 @@ export class TMDBMetadata {
+     Cache.getInstance<string, EpisodeDetails>('tmdb_episode_v2');
+   private static readonly searchCache: Cache<string, TMDBSeriesSearchResult[]> =
+     Cache.getInstance<string, TMDBSeriesSearchResult[]>('tmdb_search');
++  private static readonly titleSearchCache: Cache<
++    string,
++    TitleSearchResult | 'miss'
++  > = Cache.getInstance<string, TitleSearchResult | 'miss'>(
++    'tmdb_title_search'
++  );
+   /**
+    * Build a TMDB image URL from a poster_path / backdrop_path returned by the
+    * TMDB API. Returns undefined for null/empty paths so callers can chain
+@@ -569,6 +603,109 @@ export class TMDBMetadata {
+     }
+   }
+ 
++  /**
++   * Resolve a free-text title (typically parsed from a release name) to a
++   * TMDB entity. Used by the Library builtin to attach canonical titles and
++   * posters to catalog entries. Returns null when nothing matches — callers
++   * degrade to the unresolved presentation.
++   *
++   * mediaType narrows the search endpoint (and enables TMDB's server-side
++   * year filter); without it /search/multi is used and the year is applied
++   * client-side (±1 to tolerate release-name year drift). A year-filtered
++   * search that comes up empty is retried once without the year.
++   */
++  public async searchTitle(
++    query: string,
++    opts: { year?: number; mediaType?: 'movie' | 'tv' } = {}
++  ): Promise<TitleSearchResult | null> {
++    const trimmed = query.trim();
++    if (!trimmed) return null;
++
++    const cacheKey =
++      `${opts.mediaType ?? 'multi'}:${opts.year ?? ''}:${trimmed.toLowerCase()}`;
++    const cached = await TMDBMetadata.titleSearchCache.get(cacheKey);
++    if (cached) {
++      return cached === 'miss' ? null : cached;
++    }
++
++    const result =
++      (await this.searchTitleOnce(trimmed, opts)) ??
++      (opts.year !== undefined
++        ? await this.searchTitleOnce(trimmed, { mediaType: opts.mediaType })
++        : null);
++
++    await TMDBMetadata.titleSearchCache.set(
++      cacheKey,
++      result ?? 'miss',
++      result ? TITLE_SEARCH_CACHE_TTL : TITLE_SEARCH_MISS_CACHE_TTL
++    );
++    return result;
++  }
++
++  private async searchTitleOnce(
++    query: string,
++    opts: { year?: number; mediaType?: 'movie' | 'tv' }
++  ): Promise<TitleSearchResult | null> {
++    const path =
++      opts.mediaType === 'movie'
++        ? '/search/movie'
++        : opts.mediaType === 'tv'
++          ? '/search/tv'
++          : '/search/multi';
++    const url = new URL(API_BASE_URL + path);
++    url.searchParams.set('query', query);
++    url.searchParams.set('include_adult', 'false');
++    if (opts.year !== undefined) {
++      if (opts.mediaType === 'movie') {
++        url.searchParams.set('year', opts.year.toString());
++      } else if (opts.mediaType === 'tv') {
++        url.searchParams.set('first_air_date_year', opts.year.toString());
++      }
++    }
++    this.addSearchParams(url);
++
++    const response = await makeRequest(url.toString(), {
++      timeout: 5000,
++      headers: this.getHeaders(),
++    });
++    if (!response.ok) {
++      throw new Error(
++        `TMDB title search failed: ${response.status} - ${response.statusText}`
++      );
++    }
++
++    const data = TitleSearchResultsSchema.parse(await response.json());
++    let candidates = data.results.filter((r) =>
++      opts.mediaType ? true : r.media_type === 'movie' || r.media_type === 'tv'
++    );
++    // /search/multi has no server-side year filter — apply ±1 client-side.
++    if (opts.year !== undefined && !opts.mediaType) {
++      const year = opts.year;
++      const withYear = candidates.filter((r) => {
++        const y = new Date(r.release_date || r.first_air_date || '').getFullYear();
++        return !isNaN(y) && Math.abs(y - year) <= 1;
++      });
++      if (withYear.length > 0) candidates = withYear;
++    }
++
++    const hit = candidates[0];
++    if (!hit) return null;
++
++    const mediaType: 'movie' | 'tv' =
++      opts.mediaType ?? (hit.media_type === 'tv' ? 'tv' : 'movie');
++    const releaseDate =
++      mediaType === 'movie' ? hit.release_date : hit.first_air_date;
++    const yearNum = releaseDate ? new Date(releaseDate).getFullYear() : NaN;
++    return {
++      tmdbId: hit.id,
++      mediaType,
++      title: (mediaType === 'movie' ? hit.title : hit.name) ?? query,
++      year: isNaN(yearNum) ? undefined : yearNum,
++      posterPath: hit.poster_path ?? null,
++      backdropPath: hit.backdrop_path ?? null,
++    };
++  }
++
+   public async getReleaseDates(tmdbId: number): Promise<ReleaseDate[]> {
+     const url = new URL(API_BASE_URL + `/movie/${tmdbId}/release_dates`);
+     this.addSearchParams(url);

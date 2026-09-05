@@ -1,0 +1,92 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index b0af6bf5..7c88ec4f 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -444,12 +444,16 @@ export class StremThruService
+   // Torrent methods (TorrentDebridService)
+ 
+   public async listMagnets(): Promise<DebridDownload[]> {
+-    // Debridge's Premiumize-protocol surface is cache-check + directdl only.
+-    // It has no list/folder endpoint — return empty so the checkOwned
+-    // optimization path skips quietly instead of logging 404s on every check.
+-    if (this.serviceName === 'debridge') {
+-      return [];
+-    }
++    // Debridge lists like any other store since its GET /v1/library landed
++    // (aggregated across the tenant's BYO debrid upstreams, plus their
++    // recent usenet mints as of debridge 2.95.0) — surfaced through
++    // StremThru's debridge-store ListMagnets. The old early-return-[] here
++    // predated that endpoint; removing it lights up the Library preset's
++    // catalog for debridge AND lets checkOwned tag library-owned streams.
++    // Results ride getLibraryWithStaleRefresh's per-token cache, so the
++    // hot check path stays cheap. (checkCacheGet's never-cache-debridge
++    // rule is about per-hash AVAILABILITY, which is per-moment — the
++    // library list is the tenant's own state and caches fine.)
+     return this.getLibraryWithStaleRefresh(
+       'torrent',
+       (cacheKey, limit) => this.fetchAndCacheMagnets(cacheKey, limit),
+@@ -510,23 +514,22 @@ export class StremThruService
+   ): Promise<DebridDownload[]> {
+     let libraryHashes = new Set<string>();
+     let failedHashes = new Set<string>();
+-    if (checkOwned) {
+-      try {
+-        const libraryItems = await this.listMagnets();
+-        for (const item of libraryItems) {
+-          if (item.hash && ['failed', 'invalid'].includes(item.status)) {
+-            failedHashes.add(item.hash.toLowerCase());
+-          } else if (item.hash) {
+-            libraryHashes.add(item.hash.toLowerCase());
+-          }
+-        }
+-      } catch (error) {
+-        logger.warn(
+-          `Failed to list library magnets for checkOwned on ${this.serviceName}`,
+-          { error: (error as Error).message }
+-        );
+-      }
+-    }
++    // Kick the checkOwned library fetch off WITHOUT awaiting it: its sets
++    // are only consumed at flag-application time (after the availability
++    // batch), and awaiting here would put a cold library fetch — for
++    // debridge, a cross-provider /v1/library aggregate — serially in front
++    // of the availability check inside the addon's timeout budget. The
++    // fetch and the batch now overlap; error handling is unchanged
++    // (degrade open, warn).
++    const libraryItemsPromise = checkOwned
++      ? this.listMagnets().catch((error) => {
++          logger.warn(
++            `Failed to list library magnets for checkOwned on ${this.serviceName}`,
++            { error: (error as Error).message }
++          );
++          return [] as DebridDownload[];
++        })
++      : null;
+ 
+     const cachedResults: DebridDownload[] = [];
+     let newResults: DebridDownload[] = [];
+@@ -589,6 +592,24 @@ export class StremThruService
+     }
+     const allResults = [...cachedResults, ...newResults];
+ 
++    if (libraryItemsPromise) {
++      try {
++        for (const item of await libraryItemsPromise) {
++          if (item.hash && ['failed', 'invalid'].includes(item.status)) {
++            failedHashes.add(item.hash.toLowerCase());
++          } else if (item.hash) {
++            libraryHashes.add(item.hash.toLowerCase());
++          }
++        }
++      } catch (error) {
++        // Same degrade-open posture as the fetch itself: a malformed
++        // library payload must never fail the availability answer.
++        logger.warn(
++          `Failed to apply library flags for checkOwned on ${this.serviceName}`,
++          { error: (error as Error).message }
++        );
++      }
++    }
+     for (const item of allResults) {
+       if (item.hash && failedHashes.has(item.hash.toLowerCase())) {
+         item.status = 'failed';

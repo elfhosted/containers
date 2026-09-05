@@ -1,0 +1,74 @@
+diff --git a/packages/core/src/builtins/utils/hashReport.ts b/packages/core/src/builtins/utils/hashReport.ts
+index 0f351201..faccf74e 100644
+--- a/packages/core/src/builtins/utils/hashReport.ts
++++ b/packages/core/src/builtins/utils/hashReport.ts
+@@ -16,10 +16,47 @@ export interface HashReportRow {
+ export interface HashReportOptions {
+   /** Source addon name, used for log lines. */
+   source: string;
+-  /** Store code (e.g. "tb"). Omit/empty to send metadata without cache state. */
++  /**
++   * Store code (e.g. "tb"). Omit/empty to send metadata without cache state.
++   *
++   * An unrecognised value is NOT the same as omitting it: the endpoint rejects
++   * the whole request, losing the metadata half too. `reportHashes` therefore
++   * downgrades an unknown code to metadata-only - see KNOWN_STORE_CODES.
++   */
+   storeCode?: string;
+ }
+ 
++/**
++ * Store codes the endpoint accepts, canonical forms and aliases both. Anything
++ * else is refused, so an unknown code is downgraded rather than sent.
++ *
++ * Intentionally a copy rather than a lookup: it changes rarely, and the cost of
++ * it drifting stale is a downgrade to metadata-only, not an outage.
++ *
++ * Deliberately NOT the same set as our own service ids. A meta-store fronting
++ * whichever accounts a user brought cannot report a portable "cached" fact
++ * about a hash the way a single upstream can, so those are omitted.
++ */
++const KNOWN_STORE_CODES = new Set([
++  'rd',
++  'realdebrid',
++  'tb',
++  'torbox',
++  'ad',
++  'alldebrid',
++  'pm',
++  'premiumize',
++  'dl',
++  'debridlink',
++  'oc',
++  'of',
++  'offcloud',
++  'ed',
++  'easydebrid',
++  'tr',
++  'torrin',
++]);
++
+ interface ReportPayload {
+   hashes: string[];
+   store_code: string;
+@@ -177,7 +214,19 @@ export function reportHashes(
+     return;
+   }
+ 
+-  const payloads = buildPayloads(rows, options.storeCode);
++  // Drop a store code the endpoint would reject, keeping the metadata half.
++  // Callers passing a literal never hit this; the library lane, which forwards
++  // whatever service the user configured, does. Debug rather than warn: for
++  // meta-stores it is the steady state, not a fault.
++  let storeCode = options.storeCode;
++  if (storeCode && !KNOWN_STORE_CODES.has(storeCode.trim().toLowerCase())) {
++    logger.debug(
++      `Hash report (${source}): store code "${storeCode}" is not accepted - sending as metadata only (no cache claim).`
++    );
++    storeCode = undefined;
++  }
++
++  const payloads = buildPayloads(rows, storeCode);
+   if (payloads.length === 0) {
+     logger.debug(
+       `Hash report (${source}): skipped — ${rowCount} input row(s) produced no valid payloads (no valid 40-hex hashes / no metadata).`

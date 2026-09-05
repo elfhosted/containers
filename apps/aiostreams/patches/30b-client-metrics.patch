@@ -1,0 +1,186 @@
+diff --git a/packages/core/src/analytics/index.ts b/packages/core/src/analytics/index.ts
+index ce80b00f..efb51318 100644
+--- a/packages/core/src/analytics/index.ts
++++ b/packages/core/src/analytics/index.ts
+@@ -84,6 +84,35 @@ export interface AnalyticsEvent {
+  * for IPv4 (`a.b.c.x`) or the first 3 hextets for IPv6 (`a:b:c::/48`). The host
+  * portion is dropped so a single address can never be recovered.
+  */
++/**
++ * Expand an IPv6 address to its eight hextets, so a prefix is taken from the
++ * network and never from the host part.
++ *
++ * `::` elides a run of zero groups, and dropping the empty strings it leaves
++ * behind slides the tail forward: `2001:db8::1a2b:3c4d:5e6f:7a8b` becomes
++ * `['2001','db8','1a2b',…]`, so the "first three hextets" include the first
++ * hextet of the interface identifier. That identifier is what RFC 4941
++ * privacy addresses rotate, so one household churns through many distinct
++ * "prefixes" — inflating exactly the client cardinalities this anonymisation
++ * feeds, in the one direction that turns a family into an abuse finding.
++ *
++ * Returns null for anything that is not a well-formed address; the caller
++ * stores null rather than guessing.
++ */
++function expandIpv6(addr: string): string[] | null {
++  const halves = addr.split('::');
++  if (halves.length > 2) return null;
++  const left = halves[0] ? halves[0].split(':') : [];
++  if (halves.length === 1) {
++    return left.length === 8 && left.every(Boolean) ? left : null;
++  }
++  const right = halves[1] ? halves[1].split(':') : [];
++  if (!left.every(Boolean) || !right.every(Boolean)) return null;
++  const fill = 8 - left.length - right.length;
++  if (fill < 1) return null;
++  return [...left, ...Array(fill).fill('0'), ...right];
++}
++
+ export function anonymizeIp(ip: string | undefined | null): string | null {
+   if (!ip) return null;
+   const trimmed = ip.replace(/^::ffff:/i, '').trim();
+@@ -93,8 +122,8 @@ export function anonymizeIp(ip: string | undefined | null): string | null {
+     return `${parts[0]}.${parts[1]}.${parts[2]}.x`;
+   }
+   if (trimmed.includes(':')) {
+-    const parts = trimmed.split(':').filter(Boolean);
+-    if (parts.length === 0) return null;
++    const parts = expandIpv6(trimmed);
++    if (!parts) return null;
+     return parts.slice(0, 3).join(':') + '::/48';
+   }
+   return null;
+diff --git a/packages/core/src/analytics/repository.ts b/packages/core/src/analytics/repository.ts
+index 98dbb1d8..6c544845 100644
+--- a/packages/core/src/analytics/repository.ts
++++ b/packages/core/src/analytics/repository.ts
+@@ -18,6 +18,15 @@ const userRepoLogger = createLogger('analytics-user');
+ 
+ const DAY = 86_400_000;
+ 
++/**
++ * Distinct clients on one config at which it stops looking like a household.
++ *
++ * Deliberately low and deliberately NOT a verdict: this gauge reports how many
++ * configs are above the line, and something outside decides what that means.
++ * A large family with a shared streaming box sits well under it; a link posted
++ * somewhere does not.
++ */
++
+ function rangeStartMs(range: AnalyticsRange): number {
+   const now = Date.now();
+   switch (range) {
+@@ -174,6 +183,36 @@ export const AnalyticsRepository = {
+       sql`SELECT COUNT(*) AS c FROM analytics_events WHERE ts >= ${Date.now() - DAY}`
+     );
+ 
++    // How many distinct clients reached each config.
++    //
++    // The gauges above count CONFIGS and ACCOUNTS, so they see an instance
++    // resold as many configs, and one debrid account passed around several
++    // configs.
++    //
++    // A rolling 24h window is right here, unlike the feature gauges: these
++    // are request events, emitted on every request rather than sampled once
++    // per config per day, so the window does not drop anyone.
++    const clientRows = await db.query<{
++      uuid_hash: string;
++      clients: number | string;
++    }>(
++      sql`SELECT uuid_hash, COUNT(DISTINCT ip_prefix) AS clients
++          FROM analytics_events
++          WHERE ts >= ${Date.now() - DAY}
++            AND uuid_hash IS NOT NULL
++            AND ip_prefix IS NOT NULL
++          GROUP BY uuid_hash`
++    );
++    const clientsPerConfig = clientRows.map((r) => n(r.clients));
++
++    // Distinct clients across the whole instance, which is NOT the sum of the
++    // per-config counts: one household using two configs is one client twice.
++    const clientsTotal = await db.count(
++      sql`SELECT COUNT(DISTINCT ip_prefix) AS count
++          FROM analytics_events
++          WHERE ts >= ${Date.now() - DAY} AND ip_prefix IS NOT NULL`
++    );
++
+     return {
+       totalUsers,
+       activeUsers: { d1: active1d, d7: active7d, d30: active30d },
+@@ -188,6 +227,23 @@ export const AnalyticsRepository = {
+         : 0,
+       /** Accounts used by more than one config. */
+       debridAccountsShared: accountUsers.filter((c) => c > 1).length,
++      /** Distinct anonymised client prefixes seen across the instance, 24h. */
++      clientsTotal,
++      /** Most distinct clients observed on any ONE config, 24h. */
++      configMaxClients: clientsPerConfig.length
++        ? Math.max(...clientsPerConfig)
++        : 0,
++      /**
++       * Configs reached by at least the configured client threshold.
++       *
++       * A count rather than a per-config label: config identifiers are
++       * unbounded, and the existing gauges deliberately expose cardinalities
++       * for exactly that reason.
++       */
++      configsMultiClient: clientsPerConfig.filter(
++        (c) => c >= config.analytics.clientShareMin
++      )
++        .length,
+     };
+   },
+ 
+diff --git a/packages/core/src/config/schema/analytics.ts b/packages/core/src/config/schema/analytics.ts
+index e3979f87..6a91e366 100644
+--- a/packages/core/src/config/schema/analytics.ts
++++ b/packages/core/src/config/schema/analytics.ts
+@@ -23,6 +23,16 @@ export const analyticsSchema = {
+     requiresRestart: false,
+     secret: false,
+   },
++  clientShareMin: {
++    schema: positiveInt,
++    default: 10,
++    label: 'Multi-client config threshold',
++    description:
++      'Minimum distinct clients on one config before it counts towards the multi-client gauge.',
++    env: 'ANALYTICS_CLIENT_SHARE_MIN',
++    requiresRestart: false,
++    secret: false,
++  },
+   eventRetentionDays: {
+     schema: positiveInt,
+     default: 7,
+diff --git a/packages/server/src/metrics.ts b/packages/server/src/metrics.ts
+index 4d2ee5c5..971b7888 100644
+--- a/packages/server/src/metrics.ts
++++ b/packages/server/src/metrics.ts
+@@ -157,6 +157,28 @@ export async function collect(): Promise<string> {
+         },
+       ],
+     },
++    {
++      help: 'Distinct anonymised client prefixes seen across the instance in 24h (IPv4 /24, IPv6 /48).',
++      type: 'gauge',
++      lines: [{ name: 'aiostreams_clients_total', value: s.clientsTotal }],
++    },
++    {
++      help: 'Most distinct clients seen on any ONE config in 24h. High here with a low config count is one config link in many hands - the shape the config and account gauges cannot see.',
++      type: 'gauge',
++      lines: [
++        { name: 'aiostreams_config_max_clients', value: s.configMaxClients },
++      ],
++    },
++    {
++      help: 'Configs reached by at least 10 distinct clients in 24h. A count, not a per-config label: config identifiers are unbounded.',
++      type: 'gauge',
++      lines: [
++        {
++          name: 'aiostreams_configs_multi_client',
++          value: s.configsMultiClient,
++        },
++      ],
++    },
+     {
+       help: 'Analytics events recorded in the last 24h.',
+       type: 'gauge',

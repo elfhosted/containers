@@ -1,0 +1,642 @@
+diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
+index 41ddd8cf..7801f480 100644
+--- a/packages/core/src/builtins/newznab/addon.ts
++++ b/packages/core/src/builtins/newznab/addon.ts
+@@ -6,6 +6,7 @@ import {
+   NZB,
+   NZBWithSelectedFile,
+   TorrentWithSelectedFile,
++  getDebridService,
+ } from '../../debrid/index.js';
+ import { SearchMetadata } from '../base/debrid.js';
+ import { hashNzbUrl } from '../../debrid/utils.js';
+@@ -22,6 +23,11 @@ import {
+   parseNabParsedFileInfo,
+ } from '../base/nab/addon.js';
+ import { BuiltinProxy, createProxy } from '../../proxy/index.js';
++import {
++  fetchZyclopsHealth,
++  deriveNzbFilename,
++  type ZyclopsHealthDescriptor,
++} from '../utils/zyclopsHealth.js';
+ import type { BuiltinServiceId } from '../../utils/index.js';
+ import type { Stream } from '../../db/index.js';
+ 
+@@ -198,12 +204,124 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+     };
+   }
+ 
++  /**
++   * Resolve the tenant's NNTP provider hostnames for zyclops health keying.
++   * Prefers the manually-configured `providerHosts`; otherwise auto-populates
++   * from the configured debridge store's usenet_hosts. Best-effort: no-op until
++   * StremThru surfaces debridge's usenet_hosts via getUser (see
++   * a pending StremThru change) — until
++   * then getUsenetHosts returns [] and this stays a clean no-op.
++   */
++  private async resolveProviderHosts(): Promise<string[]> {
++    const configured = this.userData.zyclopsHealthProxy?.providerHosts ?? [];
++    const hosts = configured
++      .map((h) => h?.trim())
++      .filter((h): h is string => !!h);
++    if (hosts.length) return hosts;
++
++    const debridgeService = this.userData.services?.find(
++      (s) => s.id === constants.DEBRIDGE_SERVICE
++    );
++    if (!debridgeService?.credential) return [];
++    try {
++      const service = getDebridService(
++        debridgeService.id,
++        debridgeService.credential,
++        this.clientIp
++      );
++      if ('getUsenetHosts' in service) {
++        return await (
++          service as { getUsenetHosts: () => Promise<string[]> }
++        ).getUsenetHosts();
++      }
++    } catch (error) {
++      this.logger.warn(
++        `Failed to auto-resolve debridge usenet hosts: ${
++          error instanceof Error ? error.message : String(error)
++        }`
++      );
++    }
++    return [];
++  }
++
++  /**
++   * Batch-consult zyclops to annotate NZBs that weren't already annotated by
++   * the inline proxy, so failover can rank all results by health. Mutates
++   * nzb.zyclopsHealth in place. Best-effort: no hosts / any failure is a no-op.
++   */
++  private async annotateNzbHealth(
++    nzbs: NZB[],
++    nzbPubDates: (string | undefined)[]
++  ): Promise<void> {
++    // Best-effort AND bounded: crowd-sourced health is a ranking nicety, not
++    // required for playback. The provider-host lookup (a cold-cache stremthru
++    // getUser) plus the batch health fetch run inline in the search path, so
++    // cap the added latency — a slow (rather than fast-failing) health backend
++    // must not eat the ~7s addon search budget. Past the budget we return
++    // unannotated and let any in-flight fetch finish in the background.
++    const BUDGET_MS = 1500;
++    const deadlineAt = Date.now() + BUDGET_MS;
++    let timer: ReturnType<typeof setTimeout> | undefined;
++    const budget = new Promise<void>((resolve) => {
++      timer = setTimeout(() => {
++        this.logger.debug(
++          'Zyclops health annotation exceeded budget; returning unannotated'
++        );
++        resolve();
++      }, BUDGET_MS);
++    });
++
++    const work = (async () => {
++      const providerHosts = await this.resolveProviderHosts();
++      if (!providerHosts.length) return;
++      // resolveProviderHosts (cold-cache getUser) can itself consume the whole
++      // budget; if it has, don't open a fresh health request — the race has
++      // already returned to the caller and this would run pure background load.
++      if (Date.now() >= deadlineAt) return;
++
++      const descriptors: ZyclopsHealthDescriptor[] = [];
++      nzbs.forEach((nzb, index) => {
++        if (nzb.zyclopsHealth) return; // already annotated by the inline proxy
++        const nzbFilename = deriveNzbFilename(nzb.title);
++        if (!nzbFilename) return;
++        descriptors.push({
++          index,
++          nzbFilename,
++          pubDate: nzbPubDates[index],
++          downloadUrl: nzb.nzb,
++        });
++      });
++      if (!descriptors.length) return;
++
++      const health = await fetchZyclopsHealth(descriptors, providerHosts);
++      for (const [index, status] of health) {
++        if (nzbs[index]) nzbs[index].zyclopsHealth = status;
++      }
++    })().catch((error) => {
++      // Swallow here (incl. late rejections after the budget fired) so a
++      // health-backend failure never surfaces as a search error.
++      this.logger.warn(
++        `Zyclops batch health annotation failed: ${
++          error instanceof Error ? error.message : String(error)
++        }`
++      );
++    });
++
++    try {
++      await Promise.race([work, budget]);
++    } finally {
++      if (timer) clearTimeout(timer);
++    }
++  }
++
+   protected async _searchNzbs(parsedId: ParsedId): Promise<NZB[]> {
+     const metadata = await this.getSearchMetadata();
+     const { results, meta } = await this.performSearch(parsedId, metadata);
+     const seenNzbs = new Set<string>();
+ 
+     const nzbs: NZB[] = [];
++    // Parallel to nzbs[]: the pubDate used for each, for zyclops health keying.
++    const nzbPubDates: (string | undefined)[] = [];
+     for (const result of results) {
+       const enclosure = this.getEnclosure(result);
+       const enclosureUrl = enclosure?.url;
+@@ -288,8 +406,15 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+       }
+ 
+       nzbs.push(nzb);
++      nzbPubDates.push(date);
+     }
+ 
++    // Rank all results by crowdsourced health regardless of whether the search
++    // was routed through the inline proxy: batch-consult zyclops for any NZB
++    // that didn't already come back annotated. Best-effort — a failure or no
++    // provider hosts leaves the NZBs un-annotated (treated as unknown).
++    await this.annotateNzbHealth(nzbs, nzbPubDates);
++
+     if (this.userData.proxyAuth) {
+       const auth = this.userData.proxyAuth;
+       BuiltinProxy.validateAuth(auth);
+@@ -302,8 +427,9 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+       // do not need to be relayed through the built-in NZB proxy.
+       let zyclopsOrigin: string | undefined;
+       try {
+-        zyclopsOrigin = new URL(appConfig.nzbProxy.zyclopsHealthProxyEndpoint)
+-          .origin;
++        zyclopsOrigin = new URL(
++          appConfig.builtins.nab.zyclopsHealthProxyEndpoint
++        ).origin;
+       } catch {}
+       const nzbsToProxy = nzbs.filter((nzb) => {
+         try {
+diff --git a/packages/core/src/builtins/utils/zyclopsHealth.ts b/packages/core/src/builtins/utils/zyclopsHealth.ts
+new file mode 100644
+index 00000000..dbabadf7
+--- /dev/null
++++ b/packages/core/src/builtins/utils/zyclopsHealth.ts
+@@ -0,0 +1,205 @@
++import { fetch } from 'undici';
++import { createLogger } from '../../utils/index.js';
++import { config as appConfig } from '../../config/index.js';
++
++const logger = createLogger('zyclops-health');
++
++const MAX_BATCH_SIZE = 500;
++
++export interface ZyclopsHealthDescriptor {
++  /** Caller's correlation index (key of the returned Map). Zyclops does NOT
++   * echo it — results are correlated by position within each batch. */
++  index: number;
++  /** NZB filename, keyed by zyclops together with provider_host + pubdate_day. */
++  nzbFilename: string;
++  /** ISO publish date, if known. */
++  pubDate?: string;
++  /** NZB download URL — used as lookup_key fallback correlation. */
++  downloadUrl?: string;
++}
++
++/** Local rank mirroring nzbFailover.zyclopsHealthRank; kept self-contained to
++ * avoid a builtins→main import. Lower = healthier. */
++const HEALTHY = new Set(['verified', 'elf-verified', 'healthy', 'good', 'ok', 'passed']);
++const BLOCKED = new Set(['blocked', 'unhealthy', 'failed', 'dead', 'rejected', 'bad']);
++function rank(status?: string): number {
++  const s = status?.trim().toLowerCase();
++  if (!s) return 1;
++  if (HEALTHY.has(s)) return 0;
++  if (BLOCKED.has(s)) return 2;
++  return 1;
++}
++
++function pubDateDay(pubDate?: string): string | undefined {
++  if (!pubDate) return undefined;
++  const d = new Date(pubDate);
++  if (isNaN(d.getTime())) return undefined;
++  return d.toISOString().slice(0, 10); // YYYY-MM-DD
++}
++
++/**
++ * Derive the zyclops nzb_filename key from a release title. MUST match how
++ * the health API stored it, or every lookup is a false miss.
++ */
++export function sanitizeNzbFilename(value?: string): string | null {
++  if (!value || typeof value !== 'string') return null;
++  const cleaned = value
++    .trim()
++    .replace(/[<>:"/\\|?*]+/g, ' ')
++    .replace(/\s+/g, '.')
++    .replace(/\.+/g, '.')
++    .replace(/^\.+|\.+$/g, '');
++  return cleaned || null;
++}
++
++export function deriveNzbFilename(title?: string): string | null {
++  const sanitized = sanitizeNzbFilename(title);
++  if (!sanitized) return null;
++  return /\.nzb$/i.test(sanitized) ? sanitized : `${sanitized}.nzb`;
++}
++
++interface BatchItem {
++  index: number;
++  nzb_filename: string;
++  provider_host: string;
++  pubDate: string;
++  pubdate_day?: string;
++  download_url?: string;
++  lookup_key?: string;
++}
++
++/**
++ * One entry of the batch response. `index` is zyclops's 0-based position over
++ * the REQUEST items array (server-side enumerate) — NOT our `index` field,
++ * which zyclops ignores. `status` is cache presence ("hit"/"miss"); the actual
++ * segment-health verdict is nested at `health.status` ("healthy"/"unhealthy").
++ * `playable_status` overlays the deep-health verdict
++ * ("playable"/"unplayable"/"unknown").
++ */
++interface BatchEntry {
++  index?: number;
++  status?: string;
++  playable_status?: string;
++  health?: { status?: unknown } | null;
++}
++
++async function postBatch(
++  url: string,
++  providerHost: string,
++  items: BatchItem[]
++): Promise<BatchEntry[]> {
++  const response = await fetch(url, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
++    body: JSON.stringify({ provider_host: providerHost, items }),
++    signal: AbortSignal.timeout(appConfig.builtins.nab.zyclopsHealthApiTimeout),
++  });
++  if (response.status < 200 || response.status >= 300) {
++    logger.warn(`Zyclops batch health returned ${response.status}`);
++    return [];
++  }
++  const data = (await response.json()) as { results?: BatchEntry[] };
++  return Array.isArray(data?.results) ? data.results : [];
++}
++
++/**
++ * Extract a rankable health status from a batch entry. A "miss" (no zyclops
++ * record) is unknown — return undefined so the NZB stays un-annotated. On a
++ * hit, the deep-health "unplayable" overlay (decoy/password/junk) downgrades
++ * to blocked even when segment health is healthy; otherwise the verdict is
++ * health.status ("healthy"/"unhealthy").
++ */
++function entryStatus(entry: BatchEntry): string | undefined {
++  if (entry.status !== 'hit') return undefined;
++  if (entry.playable_status?.trim().toLowerCase() === 'unplayable') {
++    return 'blocked';
++  }
++  const verdict = entry.health?.status;
++  return typeof verdict === 'string' && verdict.trim() ? verdict : undefined;
++}
++
++/**
++ * Batch-consult zyclops for the health of a set of NZBs against the tenant's
++ * provider host(s). Returns a Map of descriptor index → raw health status
++ * string (best/healthiest status when multiple hosts are configured). Missing
++ * entries mean zyclops had no record (unknown) — callers should keep those.
++ *
++ * Best-effort: any failure (no hosts, zyclops down, bad response) yields an
++ * empty map so the caller degrades to no annotation rather than erroring.
++ */
++export async function fetchZyclopsHealth(
++  descriptors: ZyclopsHealthDescriptor[],
++  providerHosts: string[]
++): Promise<Map<number, string>> {
++  const result = new Map<number, string>();
++  const hosts = Array.from(
++    new Set(providerHosts.map((h) => h?.trim()).filter((h): h is string => !!h))
++  );
++  if (!descriptors.length || !hosts.length) return result;
++
++  const url = appConfig.builtins.nab.zyclopsHealthApiUrl;
++  if (!url) return result;
++
++  // pubDate is REQUIRED by the batch endpoint — one missing/unparseable value
++  // 400s the ENTIRE batch. Descriptors without one stay unknown (unranked).
++  const eligible = descriptors.filter(
++    (d): d is ZyclopsHealthDescriptor & { pubDate: string } =>
++      pubDateDay(d.pubDate) !== undefined
++  );
++  if (eligible.length < descriptors.length) {
++    logger.debug(
++      `Skipping ${descriptors.length - eligible.length} NZB(s) without a parseable pubDate`
++    );
++  }
++  if (!eligible.length) return result;
++
++  // One batch (or more, if >MAX_BATCH_SIZE) per provider host. An NZB is
++  // "verified" if it is verified on ANY configured host, so we keep the
++  // lowest-rank status seen per index across hosts.
++  const tasks: Array<Promise<void>> = [];
++  for (const host of hosts) {
++    for (let i = 0; i < eligible.length; i += MAX_BATCH_SIZE) {
++      const slice = eligible.slice(i, i + MAX_BATCH_SIZE);
++      const items: BatchItem[] = slice.map((d) => ({
++        index: d.index,
++        nzb_filename: d.nzbFilename,
++        provider_host: host,
++        pubDate: d.pubDate,
++        pubdate_day: pubDateDay(d.pubDate),
++        download_url: d.downloadUrl,
++        lookup_key: d.downloadUrl,
++      }));
++      tasks.push(
++        postBatch(url, host, items)
++          .then((results) => {
++            for (const entry of results) {
++              // entry.index is the position within THIS request's items array
++              // (zyclops enumerates the payload; our `index` field is ignored).
++              if (!entry || typeof entry.index !== 'number') continue;
++              const item = slice[entry.index];
++              if (!item) continue;
++              const status = entryStatus(entry);
++              if (!status) continue;
++              const prev = result.get(item.index);
++              if (prev === undefined || rank(status) < rank(prev)) {
++                result.set(item.index, status);
++              }
++            }
++          })
++          .catch((err) => {
++            logger.warn(
++              `Zyclops batch health request failed: ${
++                err instanceof Error ? err.message : String(err)
++              }`
++            );
++          })
++      );
++    }
++  }
++
++  await Promise.all(tasks);
++  logger.debug(
++    `Zyclops batch health annotated ${result.size}/${descriptors.length} NZBs across ${hosts.length} host(s)`
++  );
++  return result;
++}
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index a033d698..6330541a 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -657,6 +657,29 @@ export const builtinsSchema = {
+       requiresRestart: false,
+       secret: false,
+     },
++    // Batch health API config, relocated here from the removed nzb-proxy schema
++    // (upstream deleted config/schema/nzb-proxy.ts in "remove unused nzb proxy").
++    // Read by builtins/utils/zyclopsHealth.ts.
++    zyclopsHealthApiUrl: {
++      schema: nullableString,
++      default: null,
++      label: 'Batch health API endpoint',
++      description:
++        'Full URL of the batch health API used to annotate and rank Newznab results. Unset disables the annotation.',
++      env: 'ZYCLOPS_HEALTH_API_URL',
++      requiresRestart: false,
++      secret: false,
++    },
++    zyclopsHealthApiTimeout: {
++      schema: positiveInt,
++      default: 5000,
++      label: 'Zyclops batch health API timeout (ms)',
++      description:
++        'Timeout in milliseconds for Zyclops batch health API requests.',
++      env: 'ZYCLOPS_HEALTH_API_TIMEOUT',
++      requiresRestart: false,
++      secret: false,
++    },
+     replayEndpoint: {
+       schema: nullableUrl,
+       default: null,
+diff --git a/packages/core/src/db/schemas.ts b/packages/core/src/db/schemas.ts
+index 3b0d1feb..c35b2ee3 100644
+--- a/packages/core/src/db/schemas.ts
++++ b/packages/core/src/db/schemas.ts
+@@ -1291,6 +1291,11 @@ export const ParsedStreamSchema = z.object({
+   passthrough: PassthroughSchema.optional(),
+   url: z.string().optional(),
+   nzbUrl: z.string().optional(),
++  // Zyclops crowdsourced health verdict for this NZB on the tenant's backbone,
++  // carried from the newznab search (inline proxy attribute or batch precheck)
++  // so failover can order candidates healthy-first. Raw status string;
++  // normalised to a rank at chain-build time (see play-chain.ts zyclopsHealthRank).
++  zyclopsHealth: z.string().optional(),
+   releaseKey: ReleaseKeySchema,
+   // Same-release failover targets harvested from discarded duplicates by the
+   // deduplicator merge step. Each is another playback URL for the *same*
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 9aad46b0..2ddba708 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -101,6 +101,9 @@ export class StremThruService
+   private static libraryCache = Cache.getInstance<string, DebridDownload[]>(
+     'st:library'
+   );
++  private static usenetHostsCache = Cache.getInstance<string, string[]>(
++    'st:usenet-hosts'
++  );
+ 
+   constructor(private readonly config: StremThruServiceConfig) {
+     this.serviceName = config.serviceName;
+@@ -134,6 +137,63 @@ export class StremThruService
+     });
+   }
+ 
++  /**
++   * Fetch the tenant's NNTP provider hostnames from the store account
++   * (debridge exposes them as `byo_upstreams[].usenet_hosts` via getUser).
++   * Used to key zyclops health lookups without the user configuring backbones
++   * by hand. Best-effort + cached: returns [] if the store/SDK doesn't expose
++   * the field (older StremThru — older StremThru does not surface it).
++   * Never throws.
++   */
++  public async getUsenetHosts(): Promise<string[]> {
++    const cacheKey = `${this.serviceName}:${getSimpleTextHash(
++      this.config.stremthru.token
++    )}`;
++    const cached = await StremThruService.usenetHostsCache.get(cacheKey);
++    if (cached) return cached;
++    try {
++      const result = await this.stremthru.store.getUser();
++      const data = result?.data as {
++        usenet_hosts?: unknown;
++        byo_upstreams?: Array<{ enabled?: unknown; usenet_hosts?: unknown }>;
++      };
++      // Accept both shapes: a flattened top-level `usenet_hosts` (what the
++      // stremthru passthrough is asked to expose — see stremthru
++      // not yet surfaced) OR debridge's raw
++      // `byo_upstreams[].usenet_hosts` (enabled upstreams only), so this works
++      // whether stremthru flattens or passes the account payload through.
++      const collected: string[] = [];
++      if (Array.isArray(data?.usenet_hosts)) {
++        collected.push(...data.usenet_hosts.map((h) => String(h)));
++      }
++      if (Array.isArray(data?.byo_upstreams)) {
++        for (const upstream of data.byo_upstreams) {
++          if (upstream?.enabled === false) continue;
++          if (Array.isArray(upstream?.usenet_hosts)) {
++            collected.push(...upstream.usenet_hosts.map((h) => String(h)));
++          }
++        }
++      }
++      const hosts = Array.from(
++        new Set(collected.map((h) => h.trim()).filter((h) => !!h))
++      );
++      await StremThruService.usenetHostsCache.set(
++        cacheKey,
++        hosts,
++        appConfig.builtins.debrid.libraryCacheTtl,
++        true
++      );
++      return hosts;
++    } catch (error) {
++      logger.warn(
++        `Failed to fetch usenet hosts from ${this.serviceName}: ${
++          error instanceof Error ? error.message : String(error)
++        }`
++      );
++      return [];
++    }
++  }
++
+   //  Shared check cache helpers
+ 
+   private async checkCacheGet(
+diff --git a/packages/core/src/main/play-chain.ts b/packages/core/src/main/play-chain.ts
+index d4dc2a25..06cd0e33 100644
+--- a/packages/core/src/main/play-chain.ts
++++ b/packages/core/src/main/play-chain.ts
+@@ -82,6 +82,14 @@ export interface PlayChainRecord {
+   sameReleaseLimit: number;
+   /** Delay between launching same-release variant attempts (ms). */
+   duplicateStaggerMs: number;
++  /**
++   * Whether `items` were ordered by zyclops health (some eligible stream
++   * carried a health tier) rather than the addon's original ranking. Failover
++   * only reaches candidates ABOVE the clicked item when this is true. Optional
++   * for backward-compat with chains persisted before this field existed
++   * (treated as false → click-respecting after-only failover).
++   */
++  healthSorted?: boolean;
+ }
+ 
+ /** Build-time options derived from the user's `failover` config. */
+@@ -157,6 +165,34 @@ function streamIdentity(s: ParsedStream): string {
+  * eligible results, and stamp each result's playback URL with its position in
+  * that chain. Replaces the old NZB-only `populateNzbFallbacks`.
+  */
++// Zyclops health tiers → sort rank (lower = tried first). Unknown/missing sits
++// between verified and blocked so un-ingested posts are still offered (failover
++// + click-time verify cover them) but ranked behind known-healthy ones.
++const ZYCLOPS_HEALTHY_STATUSES = new Set([
++  'verified',
++  'elf-verified',
++  'healthy',
++  'good',
++  'ok',
++  'passed',
++]);
++const ZYCLOPS_BLOCKED_STATUSES = new Set([
++  'blocked',
++  'unhealthy',
++  'failed',
++  'dead',
++  'rejected',
++  'bad',
++]);
++
++export function zyclopsHealthRank(health?: string): number {
++  const normalized = health?.trim().toLowerCase();
++  if (!normalized) return 1; // unknown
++  if (ZYCLOPS_HEALTHY_STATUSES.has(normalized)) return 0;
++  if (ZYCLOPS_BLOCKED_STATUSES.has(normalized)) return 2;
++  return 1; // unverified / unrecognised → treat as unknown
++}
++
+ export async function buildPlayChain(
+   streams: ParsedStream[],
+   opts: BuildPlayChainOptions,
+@@ -178,6 +214,27 @@ export async function buildPlayChain(
+     return;
+   }
+ 
++  // Health-aware ordering: stable-sort eligible by zyclops health tier (healthy
++  // → unknown → blocked) so the chain tries most-likely-alive candidates first.
++  // Array.prototype.sort is stable, so the incoming quality/sort order is
++  // preserved within each health tier. When no health data is present all ranks
++  // are equal → order is unchanged (identical to prior behaviour).
++  // Whether the sort below actually reorders by health rather than being a
++  // no-op. Only a MEANINGFUL rank counts: 'unknown', whitespace, and
++  // unrecognised statuses all rank the same as missing health (see
++  // zyclopsHealthRank), so a chain of only-unknown streams stays in the addon's
++  // original order — treat it as unsorted so a click respects that order.
++  // Persisted so the click-time resolver knows whether it may fail over to
++  // candidates above the click.
++  const unknownRank = zyclopsHealthRank(undefined);
++  const healthSorted = eligible.some(
++    (s) => zyclopsHealthRank(s.zyclopsHealth) !== unknownRank
++  );
++  eligible.sort(
++    (a, b) =>
++      zyclopsHealthRank(a.zyclopsHealth) - zyclopsHealthRank(b.zyclopsHealth)
++  );
++
+   const items: PlayChainItem[] = eligible.map((s) => {
+     const variants: PlayChainItem[] = (s.failoverVariants ?? [])
+       .filter((v) => opts.contentTypes.includes(v.type))
+@@ -215,6 +272,7 @@ export async function buildPlayChain(
+     proxyConfig: opts.proxyConfig?.enabled ? opts.proxyConfig : undefined,
+     sameReleaseLimit: opts.sameReleaseLimit,
+     duplicateStaggerMs: opts.duplicateStaggerMs,
++    healthSorted,
+   };
+   await chainCache().set(
+     listKey,
+@@ -355,9 +413,21 @@ export async function getPlayChain(
+   // Rank 0: same-release alternatives of the clicked item.
+   addVariants(clickedItem?.variants, 0);
+ 
+-  // Then each subsequent distinct release (increasing rank) + its variants.
++  // Then each other distinct release (increasing rank) + its variants.
++  //
++  // When health data is present the chain is health-sorted (healthy → unknown
++  // → blocked), so try every OTHER candidate in health order — otherwise a
++  // click on a lower-health stream would skip the healthier candidates sorted
++  // above it. WITHOUT any health data the order is the addon's original
++  // ranking, so respect the user's explicit choice: only fail over to
++  // candidates AFTER the clicked entry, never the ones they scrolled past.
++  // maxAttempts still caps the total.
++  const hasHealthData = record.healthSorted ?? false;
++  const failoverCandidates = hasHealthData
++    ? record.items.filter((_, i) => i !== decoded.index)
++    : record.items.slice(decoded.index + 1);
+   let rank = 1;
+-  for (const item of record.items.slice(decoded.index + 1)) {
++  for (const item of failoverCandidates) {
+     if (fallbacks.length >= maxAttempts) break;
+     if (!passesFilter(item)) continue;
+     const key = targetIdentity(item);
+diff --git a/packages/core/src/parser/streams.ts b/packages/core/src/parser/streams.ts
+index 122562e3..41c8bf96 100644
+--- a/packages/core/src/parser/streams.ts
++++ b/packages/core/src/parser/streams.ts
+@@ -95,6 +95,7 @@ class StreamParser {
+       proxied: this.isProxied(stream),
+       url: this.applyUrlModifications(stream.url ?? undefined),
+       nzbUrl: stream.nzbUrl || undefined,
++      zyclopsHealth: (stream as any).zyclopsHealth || undefined,
+       releaseKey: this.getReleaseKey(stream),
+       idMatched: this.getIdMatched(stream),
+       tarUrls: stream.tarUrls ?? undefined,
