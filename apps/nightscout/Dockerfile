@@ -2,13 +2,11 @@
 FROM alpine:latest as cloner
 ARG VERSION
 
-RUN apk update && apk upgrade && \
-    apk add --no-cache git
+RUN apk add --no-cache git
 
-# for now, just clone latest
-RUN git clone https://github.com/nightscout/cgm-remote-monitor.git /source
+RUN git clone --depth 1 --branch "${VERSION}" https://github.com/nightscout/cgm-remote-monitor.git /source
 
-FROM node:16.16.0-alpine
+FROM node:22-alpine
 
 LABEL maintainer="Nightscout Contributors"
 
