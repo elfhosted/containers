@@ -1,0 +1,86 @@
+diff --git a/packages/core/src/db/repositories/users.ts b/packages/core/src/db/repositories/users.ts
+index 117d1fee..c28478f7 100644
+--- a/packages/core/src/db/repositories/users.ts
++++ b/packages/core/src/db/repositories/users.ts
+@@ -26,6 +26,40 @@ import { LinkedAccountRepository } from './linked-accounts.js';
+ const APIError = constants.APIError;
+ const logger = createLogger('users');
+ 
++/**
++ * ELFHOSTED churn-limit: how stale `users.accessed_at` is allowed to get
++ * before `loadRawUser` re-stamps it.
++ *
++ * `loadRawUser` runs on essentially every addon request (manifest, catalog,
++ * meta, stream, playback proxy), and each call unconditionally issued
++ * `UPDATE users SET accessed_at = CURRENT_TIMESTAMP WHERE uuid = ?`. That is
++ * one write per request against a small table, so each row is updated far
++ * more often than it changes. Postgres HOT-updates still write a new tuple
++ * version per update, so the table bloats badly and this single statement
++ * becomes the largest WAL producer in the database.
++ *
++ * A per-process cache cannot fix this: aiostreams runs many replicas and a
++ * client's requests fan out across all of them, so every replica would stamp
++ * the same hot row. The rate-limit therefore lives in the SQL predicate,
++ * where the database — the one component that sees every writer — enforces
++ * it. When the row was stamped recently the UPDATE simply matches no rows:
++ * no tuple version, no WAL, no vacuum debt.
++ *
++ * 1 hour is chosen to be far tighter than every consumer of the column:
++ *   - `UserRepository.pruneUsers()` deletes on `accessed_at < now - N *days*`
++ *     (`PRUNE_MAX_DAYS`, default `-1` = pruning disabled entirely). The
++ *     coarsest possible resolution that could ever delete a user is 1 day,
++ *     i.e. 24x this window. That alone is not a *proof* of safety — a stamp
++ *     trailing reality by up to an hour could delete a user an hour early —
++ *     so `pruneUsers` below widens its own cutoff by exactly this window.
++ *     Anything that deletes or disables on `accessed_at` must do the same.
++ *   - analytics/`/metrics` active-user gauges bucket at 1d / 7d / 30d.
++ *   - the admin dashboard's "Last accessed" column and its `accessed_at`
++ *     sort are informational only.
++ * The only observable change is that "Last accessed" can read up to 1h stale.
++ */
++const ACCESSED_AT_STAMP_WINDOW_HOURS = 1;
++
+ interface UserRow {
+   uuid: string;
+   password_hash: string;
+@@ -240,8 +274,20 @@ export class UserRepository {
+ 
+     const key = await this.resolveConfigKey(uuid, password, row);
+ 
++    // ELFHOSTED churn-limit: only re-stamp a row that has actually gone stale
++    // (see ACCESSED_AT_STAMP_WINDOW_HOURS). `db.intervalAgo` emits the
++    // dialect-correct expression for both drivers, so this stays valid on
++    // sqlite and postgres alike. The `IS NULL` arm keeps rows that predate a
++    // default-bearing schema (or were inserted with an explicit NULL)
++    // stampable rather than frozen forever by a NULL comparison.
+     await db.exec(
+-      sql`UPDATE users SET accessed_at = CURRENT_TIMESTAMP WHERE uuid = ${uuid}`
++      sql`UPDATE users SET accessed_at = CURRENT_TIMESTAMP
++           WHERE uuid = ${uuid}
++             AND (accessed_at IS NULL
++                  OR accessed_at < ${db.intervalAgo(
++                    ACCESSED_AT_STAMP_WINDOW_HOURS,
++                    'hours'
++                  )})`
+     );
+ 
+     const decryptedConfig = this.decryptConfigWithKey(row.config, key);
+@@ -476,8 +522,17 @@ export class UserRepository {
+     }
+     try {
+       const db = getDb();
++      // ELFHOSTED churn-limit: `accessed_at` is now only re-stamped once per
++      // ACCESSED_AT_STAMP_WINDOW_HOURS, so a live row's stamp can trail its
++      // true last access by up to that window. Widening this destructive
++      // cutoff by exactly the same window restores the guarantee the operator
++      // configured: nobody is deleted until their *actual* last access is at
++      // least `maxDays` old. It can only ever delete later, never earlier.
++      // (`maxDays` is validated as an integer by `secondsAllowingDisabled`,
++      // so the hour count stays integral for postgres' CAST(? AS INTEGER).)
++      const cutoffHours = maxDays * 24 + ACCESSED_AT_STAMP_WINDOW_HOURS;
+       const result = await db.exec(
+-        sql`DELETE FROM users WHERE accessed_at < ${db.intervalAgo(maxDays, 'days')}`
++        sql`DELETE FROM users WHERE accessed_at < ${db.intervalAgo(cutoffHours, 'hours')}`
+       );
+       const deletedCount = result.rowCount;
+       logger.info(`Pruned ${deletedCount} users older than ${maxDays} days`);

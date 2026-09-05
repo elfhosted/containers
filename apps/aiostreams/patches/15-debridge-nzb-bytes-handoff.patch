@@ -1,0 +1,155 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index d6b5143a..9aad46b0 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -8,6 +8,7 @@ import {
+   Cache,
+   DistributedLock,
+   getTimeTakenSincePoint,
++  makeRequest,
+   makeUrlLogSafe,
+ } from '../utils/index.js';
+ import {
+@@ -675,9 +676,141 @@ export class StremThruService
+     }
+   }
+ 
++  // stremthru's debridge adapter caps the NZB at 32 MiB (maxNZBBytes = 32 <<
++  // 20). Stay just under it so an oversize body fails here with a clear error
++  // instead of being uploaded and rejected upstream. Reserve only the actual
++  // multipart framing overhead (boundary + Content-Disposition + part
++  // filename — well under 64 KiB), NOT a full MiB: a cap flush to the raw
++  // ceiling needlessly rejected otherwise-valid NZBs just under it that
++  // StremThru and the previous link-based path both accept.
++  private static readonly MAX_NZB_BYTES = 32 * 1024 * 1024 - 64 * 1024;
++
++  // Turn the resolve-supplied filename into a safe multipart part filename.
++  // stremthru uses the part filename for the file `name` when debridge
++  // returns none, so it must be non-empty and free of path separators /
++  // control characters.
++  private static nzbFilename(name: string): string {
++    const cleaned = (name || 'download')
++      .replace(/[/\\]+/g, '_')
++      // eslint-disable-next-line no-control-regex
++      .replace(/[\x00-\x1f]+/g, '')
++      .trim();
++    return `${cleaned || 'download'}.nzb`;
++  }
++
++  private static oversizeNzbError(observed: number): DebridError {
++    return new DebridError(
++      `NZB too large to upload (${observed} bytes exceeds ${StremThruService.MAX_NZB_BYTES} cap)`,
++      {
++        statusCode: 413,
++        statusText: 'NZB too large',
++        code: 'UNPROCESSABLE_ENTITY',
++        type: 'api_error',
++        headers: {},
++        body: { bytes: observed, max: StremThruService.MAX_NZB_BYTES },
++      }
++    );
++  }
++
++  // Read the NZB body while enforcing the size cap as bytes arrive. A bad or
++  // malicious indexer/replay URL must not be able to force us to buffer an
++  // unbounded body into memory before the cap is checked, so we honour
++  // Content-Length up front and abort the stream the moment the running total
++  // crosses the cap. Throws a 413 DebridError on overflow.
++  private static async readCappedNzb(
++    res: Awaited<ReturnType<typeof makeRequest>>,
++    max: number
++  ): Promise<Buffer> {
++    const declared = Number(res.headers.get('content-length'));
++    if (Number.isFinite(declared) && declared > max) {
++      throw StremThruService.oversizeNzbError(declared);
++    }
++    const reader = res.body?.getReader();
++    if (!reader) {
++      return Buffer.alloc(0);
++    }
++    const chunks: Buffer[] = [];
++    let total = 0;
++    while (true) {
++      const { done, value } = await reader.read();
++      if (done) break;
++      if (!value) continue;
++      total += value.byteLength;
++      if (total > max) {
++        await reader.cancel();
++        throw StremThruService.oversizeNzbError(total);
++      }
++      chunks.push(Buffer.from(value));
++    }
++    return Buffer.concat(chunks);
++  }
++
+   public async addNzb(nzb: string, name: string): Promise<DebridDownload> {
++    // The NZB URL handed to us may be wrapped by the AIOStreams replay shim
++    // (builtins.nab.replayDownloadUrl). That forwarder is reachable only from the
++    // AIOStreams process, so the inner upstream URL is not fetchable from the
++    // stremthru pod. AIOStreams — the only party that can reach it — fetches
++    // the NZB bytes
++    // itself (through the wrapper, NOT stripping it) and uploads the raw bytes
++    // via addNewz({ file }). stremthru does no outbound NZB fetch at all.
++    let bytes: Buffer;
++    try {
++      const res = await makeRequest(nzb, {
++        method: 'GET',
++        timeout: 30000,
++        headers: { 'User-Agent': appConfig.http.defaultUserAgent },
++      });
++      if (!res.ok) {
++        throw new DebridError(
++          `Failed to fetch NZB (${res.status} ${res.statusText})`,
++          {
++            statusCode: 502,
++            statusText: 'Failed to fetch NZB',
++            code: 'BAD_GATEWAY',
++            type: 'upstream_error',
++            headers: {},
++            body: { url: makeUrlLogSafe(nzb), status: res.status },
++          }
++        );
++      }
++      bytes = await StremThruService.readCappedNzb(
++        res,
++        StremThruService.MAX_NZB_BYTES
++      );
++    } catch (error) {
++      if (error instanceof DebridError) {
++        throw error;
++      }
++      throw new DebridError(
++        `Failed to fetch NZB from ${makeUrlLogSafe(nzb)}`,
++        {
++          statusCode: 502,
++          statusText: 'Failed to fetch NZB',
++          code: 'BAD_GATEWAY',
++          type: 'upstream_error',
++          headers: {},
++          body: { url: makeUrlLogSafe(nzb) },
++          cause: error,
++        }
++      );
++    }
++
++    if (bytes.byteLength === 0) {
++      throw new DebridError(`Fetched NZB was empty`, {
++        statusCode: 502,
++        statusText: 'Fetched NZB was empty',
++        code: 'BAD_GATEWAY',
++        type: 'upstream_error',
++        headers: {},
++        body: { url: makeUrlLogSafe(nzb) },
++      });
++    }
++
+     try {
+-      const result = await this.stremthru.store.addNewz({ link: nzb });
++      const file = new File([bytes], StremThruService.nzbFilename(name), {
++        type: 'application/x-nzb',
++      });
++      const result = await this.stremthru.store.addNewz({ file });
+       assert.ok(
+         result?.data,
+         `Missing data from StremThru addNewz: ${JSON.stringify(result)}`

@@ -1,0 +1,604 @@
+diff --git a/packages/core/src/analytics/index.ts b/packages/core/src/analytics/index.ts
+index d5f978f3..ce80b00f 100644
+--- a/packages/core/src/analytics/index.ts
++++ b/packages/core/src/analytics/index.ts
+@@ -1,4 +1,5 @@
+ ﻿import { createHmac } from 'crypto';
++import * as constants from '../utils/constants.js';
+ import { getDb } from '../db/db.js';
+ import { sql, join } from '../db/sql.js';
+ import { config } from '../config/index.js';
+@@ -67,8 +68,12 @@ export interface AnalyticsEvent {
+   /** Per-user `addon_contribution`: the addon's user-set display name at request time. */
+   addon_name?: string | null;
+   /** Global `config_feature` events: which dimension is being sampled. */
+-  feature_dim?: 'service' | 'formatter' | 'preset' | null;
+-  /** Global `config_feature` events: dimension key (e.g. `realdebrid`, `custom`, `torrentio`). */
++  feature_dim?: 'service' | 'formatter' | 'preset' | 'account' | null;
++  /**
++   * Global `config_feature` events: dimension key (e.g. `realdebrid`, `custom`,
++   * `torrentio`). For `feature_dim: 'account'` this is a non-reversible
++   * credential fingerprint — see {@link fingerprintServiceAccount}.
++   */
+   feature_key?: string | null;
+   /** Anonymised client IP — IPv4 first 3 octets / IPv6 first 3 hextets only. Never a full address. */
+   ip_prefix?: string | null;
+@@ -115,14 +120,94 @@ function dayKeyFromMs(ms: number): string {
+   return new Date(ms).toISOString().slice(0, 10);
+ }
+ 
++/**
++ * Third-party debrid providers whose credential identifies a per-user
++ * *account*. Only these are fingerprinted.
++ *
++ * Everything else in `constants.SERVICES` is deliberately excluded because
++ * its credential is legitimately shared across a tenant's configs, which
++ * would peg `debrid_account_max_configs` to the config count on every
++ * instance and make the metric meaningless:
++ *   - `aiostreams`  — an instance-wide token, so it is per-instance rather
++ *                     than per-config.
++ *   - `nzbdav`, `altmount` — self-hosted; one tenant-owned instance backing
++ *                     all of that tenant's configs.
++ *   - `easynews`, `stremio_nntp`, `stremthru_newz` — usenet, not debrid, and
++ *                     issued per tenant rather than per config.
++ */
++const DEBRID_ACCOUNT_SERVICES: ReadonlySet<string> = new Set([
++  'realdebrid',
++  'debridge',
++  'torrin',
++  'debridlink',
++  'premiumize',
++  'alldebrid',
++  'torbox',
++  'easydebrid',
++  'debrider',
++  'putio',
++  'pikpak',
++  'offcloud',
++  'seedr',
++]);
++
++/**
++ * Fingerprint a debrid service credential set.
++ *
++ * The returned value is an HMAC over the service id plus its credential
++ * values — it is NOT reversible and never leaves this instance except as a
++ * `feature_key` in analytics_daily, where it is only ever counted, never
++ * displayed. The point is comparability: two configs holding the *same*
++ * debrid account produce the same fingerprint, so the rollup's
++ * COUNT(DISTINCT uuid_hash) tells us how many configs share one account.
++ *
++ * Returns null for any service not in {@link DEBRID_ACCOUNT_SERVICES}.
++ */
++export function fingerprintServiceAccount(
++  serviceId: string,
++  credentials: Record<string, string> | undefined | null
++): string | null {
++  if (!serviceId || !credentials) return null;
++  if (!DEBRID_ACCOUNT_SERVICES.has(serviceId)) return null;
++
++  // Hash ONLY the credential fields the service actually declares. The stored
++  // shape is `z.record(z.string().min(1), z.string())`, so arbitrary extra
++  // keys survive validation — hashing every entry would let two configs on
++  // the SAME account add differing ignored fields (`{apiKey: X, marker: 'A'}`
++  // vs `{apiKey: X, marker: 'B'}`) and land on different fingerprints,
++  // trivially defeating the sharing signal this exists to provide.
++  const declared = constants.SERVICE_DETAILS[
++    serviceId as constants.ServiceId
++  ]?.credentials;
++  if (!declared?.length) return null;
++
++  // Sorted by declared id so neither key order in the stored config nor a
++  // reordering of the declaration upstream can shift the fingerprint.
++  // Blank values are dropped: `{apiKey: ''}` is storable, and hashing it
++  // would collide every such config onto one synthetic "shared" account.
++  const material = declared
++    .map((cred) => cred.id)
++    .sort()
++    .filter((id) => (credentials[id] ?? '').trim() !== '')
++    .map((id) => `${id}=${credentials[id]}`)
++    .join('|');
++  if (!material) return null;
++  try {
++    return `${serviceId}:${hmac(`${serviceId}|${material}`).slice(0, 16)}`;
++  } catch {
++    return null;
++  }
++}
++
+ export function sampleConfigFeatures(args: {
+   uuid: string;
+   serviceIds: string[];
+   formatterId: string | null;
+   presetTypes: string[];
++  serviceAccounts?: string[];
+ }): void {
+   if (!userAnalyticsEnabled()) return;
+-  const { uuid, serviceIds, formatterId, presetTypes } = args;
++  const { uuid, serviceIds, formatterId, presetTypes, serviceAccounts } = args;
+   if (!uuid) return;
+ 
+   let uuidHash: string;
+@@ -142,8 +227,16 @@ export function sampleConfigFeatures(args: {
+   if (featureSampledToday.has(dedupKey)) return;
+   featureSampledToday.add(dedupKey);
+ 
++  // Every row of this sample carries ONE identical timestamp, so a reader can
++  // select an exact snapshot (`ts = MAX(ts)`) rather than guessing at a time
++  // band. A band would straddle two adjacent snapshots — two replicas each
++  // dedup process-locally, so the same config can legitimately be sampled
++  // twice moments apart — and count the config under both its old and new
++  // service/account keys until the older events expire.
++  const sampleTs = Date.now();
++
+   const emitOne = (
+-    feature_dim: 'service' | 'formatter' | 'preset',
++    feature_dim: 'service' | 'formatter' | 'preset' | 'account',
+     feature_key: string
+   ) => {
+     track({
+@@ -151,12 +244,16 @@ export function sampleConfigFeatures(args: {
+       uuid_hash: uuidHash,
+       feature_dim,
+       feature_key,
++      ts: sampleTs,
+     });
+   };
+ 
+   for (const id of new Set(serviceIds)) {
+     if (id) emitOne('service', id);
+   }
++  for (const acct of new Set(serviceAccounts ?? [])) {
++    if (acct) emitOne('account', acct);
++  }
+   if (formatterId) emitOne('formatter', formatterId);
+   for (const t of new Set(presetTypes)) {
+     if (t) emitOne('preset', t);
+@@ -171,11 +268,17 @@ export function hmac(value: string): string {
+     .slice(0, 32);
+ }
+ 
+-/** Hot path: enqueue an event. Never throws, never awaits. */
+-export function track(ev: Omit<AnalyticsEvent, 'ts'>): void {
++/**
++ * Hot path: enqueue an event. Never throws, never awaits.
++ *
++ * `ts` may be supplied so that a group of events forming one logical sample
++ * share an identical timestamp — see {@link sampleConfigFeatures}, whose
++ * rows must be selectable as an exact snapshot.
++ */
++export function track(ev: Omit<AnalyticsEvent, 'ts'> & { ts?: number }): void {
+   if (disabled()) return;
+   if (buffer.length >= MAX_BUFFER) return; // shed load rather than grow unbounded
+-  buffer.push({ ...ev, ts: Date.now() });
++  buffer.push({ ...ev, ts: ev.ts ?? Date.now() });
+ }
+ 
+ /** Map a caught error at a resource stage to a consistent classification. */
+diff --git a/packages/core/src/analytics/repository.ts b/packages/core/src/analytics/repository.ts
+index c439f95c..98dbb1d8 100644
+--- a/packages/core/src/analytics/repository.ts
++++ b/packages/core/src/analytics/repository.ts
+@@ -78,6 +78,119 @@ export const AnalyticsRepository = {
+     };
+   },
+ 
++  /**
++   * Fleet-abuse snapshot, sized for a Prometheus scrape.
++   *
++   * Reads raw `analytics_events` rather than the `analytics_daily` rollup:
++   * the rollup only runs nightly, and a metric that lags 24h is useless for
++   * alerting. The `(event_type, feature_dim, ts)` index from migration 0005
++   * covers this exact query shape.
++   *
++   * Everything returned is a count. No uuid, no fingerprint, and no
++   * credential ever leaves this function — the fingerprints are consumed
++   * here to produce cardinalities and then dropped.
++   */
++  async abuseSnapshot() {
++    const db = getDb();
++    const count = (frag: ReturnType<typeof sql>) => db.count(frag);
++
++    const [totalUsers, active1d, active7d, active30d, new1d, new7d, new30d] =
++      await Promise.all([
++        count(sql`SELECT COUNT(*) AS count FROM users`),
++        count(
++          sql`SELECT COUNT(*) AS count FROM users WHERE accessed_at >= ${db.intervalAgo(1, 'days')}`
++        ),
++        count(
++          sql`SELECT COUNT(*) AS count FROM users WHERE accessed_at >= ${db.intervalAgo(7, 'days')}`
++        ),
++        count(
++          sql`SELECT COUNT(*) AS count FROM users WHERE accessed_at >= ${db.intervalAgo(30, 'days')}`
++        ),
++        count(
++          sql`SELECT COUNT(*) AS count FROM users WHERE created_at >= ${db.intervalAgo(1, 'days')}`
++        ),
++        count(
++          sql`SELECT COUNT(*) AS count FROM users WHERE created_at >= ${db.intervalAgo(7, 'days')}`
++        ),
++        count(
++          sql`SELECT COUNT(*) AS count FROM users WHERE created_at >= ${db.intervalAgo(30, 'days')}`
++        ),
++      ]);
++
++    // `sampleConfigFeatures()` emits at most once per config per UTC day, so a
++    // rolling 24h window silently drops configs whose only sample landed just
++    // outside it (sampled yesterday 00:05, still active today → no event in
++    // the last 24h). Instead: look back over the raw-event retention window
++    // and take, per config, only its MOST RECENT sample. That yields exactly
++    // one complete feature snapshot per config and can't double-count a
++    // config that rotated its debrid key mid-window.
++    //
++    // All rows of one sample share an identical `ts` (sampleConfigFeatures
++    // stamps them from a single Date.now()), so `ts = MAX(ts)` selects that
++    // one snapshot exactly. No time band — a band would straddle two adjacent
++    // snapshots when a config is sampled twice moments apart (two replicas
++    // dedup process-locally) and count it under both old and new keys.
++    const retentionDays = Number(config.analytics.eventRetentionDays) || 7;
++    const since = Date.now() - retentionDays * DAY;
++    const featureRows = await db.query<{
++      feature_dim: string;
++      feature_key: string;
++      c: number | string;
++    }>(
++      sql`SELECT e.feature_dim AS feature_dim, e.feature_key AS feature_key,
++                 COUNT(DISTINCT e.uuid_hash) AS c
++          FROM analytics_events e
++          JOIN (
++            SELECT uuid_hash, MAX(ts) AS max_ts
++            FROM analytics_events
++            WHERE ts >= ${since}
++              AND event_type = 'config_feature'
++              AND uuid_hash IS NOT NULL
++            GROUP BY uuid_hash
++          ) latest ON latest.uuid_hash = e.uuid_hash
++          WHERE e.ts >= ${since}
++            AND e.event_type = 'config_feature'
++            AND e.ts = latest.max_ts
++            AND e.feature_dim IN ('service', 'account')
++            AND e.feature_key IS NOT NULL
++          GROUP BY e.feature_dim, e.feature_key`
++    );
++
++    // service -> distinct configs using it (bounded label, ~12 values)
++    const serviceUsers = new Map<string, number>();
++    // account fingerprint -> distinct configs sharing that one account
++    const accountUsers: number[] = [];
++    for (const r of featureRows) {
++      if (r.feature_dim === 'service') {
++        serviceUsers.set(r.feature_key, n(r.c));
++      } else if (r.feature_dim === 'account') {
++        accountUsers.push(n(r.c));
++      }
++    }
++
++    // Raw event volume — genuinely a rolling 24h count, unlike the feature
++    // gauges above, which are latest-sample-per-config.
++    const requests24h = await db.query<{ c: number | string }>(
++      sql`SELECT COUNT(*) AS c FROM analytics_events WHERE ts >= ${Date.now() - DAY}`
++    );
++
++    return {
++      totalUsers,
++      activeUsers: { d1: active1d, d7: active7d, d30: active30d },
++      newUsers: { d1: new1d, d7: new7d, d30: new30d },
++      requests24h: n(requests24h[0]?.c),
++      serviceUsers,
++      /** How many distinct debrid accounts were seen across all configs. */
++      debridAccounts: accountUsers.length,
++      /** Largest number of configs observed sharing a single debrid account. */
++      debridAccountMaxShared: accountUsers.length
++        ? Math.max(...accountUsers)
++        : 0,
++      /** Accounts used by more than one config. */
++      debridAccountsShared: accountUsers.filter((c) => c > 1).length,
++    };
++  },
++
+   /** User growth from users.created_at - independent of event retention. */
+   async userGrowth(range: AnalyticsRange) {
+     const db = getDb();
+diff --git a/packages/core/src/config/bootstrap.ts b/packages/core/src/config/bootstrap.ts
+index 27181396..3cb5000e 100644
+--- a/packages/core/src/config/bootstrap.ts
++++ b/packages/core/src/config/bootstrap.ts
+@@ -7,6 +7,7 @@ import { Env } from '../utils/env.js';
+ export const bootstrap = {
+   nodeEnv: Env.NODE_ENV,
+   port: Env.PORT,
++  metricsPort: Env.METRICS_PORT,
+   baseUrl: Env.BASE_URL,
+   internalUrl: Env.INTERNAL_URL,
+   internalSecret: Env.INTERNAL_SECRET,
+diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
+index 2c78d30b..7163c640 100644
+--- a/packages/core/src/main/resources.ts
++++ b/packages/core/src/main/resources.ts
+@@ -41,6 +41,7 @@ import {
+   convertDiscoverDeepLinks,
+ } from './catalog.js';
+ import {
++  fingerprintServiceAccount,
+   hmac,
+   sampleConfigFeatures,
+   track,
+@@ -977,8 +978,15 @@ export async function getStreams(
+ 
+   if (ctx.userData?.uuid) {
+     const serviceIds: string[] = [];
++    const serviceAccounts: string[] = [];
+     for (const s of ctx.userData.services ?? []) {
+-      if (s.enabled !== false && s.id) serviceIds.push(s.id);
++      if (s.enabled !== false && s.id) {
++        serviceIds.push(s.id);
++        // Fingerprint (not store) the credential so the rollup can tell
++        // configs with distinct accounts apart from configs sharing one.
++        const acct = fingerprintServiceAccount(s.id, s.credentials);
++        if (acct) serviceAccounts.push(acct);
++      }
+     }
+     const presetTypes: string[] = [];
+     for (const p of ctx.userData.presets ?? []) {
+@@ -987,6 +995,7 @@ export async function getStreams(
+     sampleConfigFeatures({
+       uuid: ctx.userData.uuid,
+       serviceIds,
++      serviceAccounts,
+       formatterId: ctx.userData.formatter?.id ?? null,
+       presetTypes,
+     });
+diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
+index 394d8fb2..d7309ebc 100644
+--- a/packages/core/src/utils/env.ts
++++ b/packages/core/src/utils/env.ts
+@@ -252,6 +252,10 @@ export const Env = cleanEnv(process.env, {
+     default: 3000,
+     desc: 'Port to run the addon on',
+   }),
++  METRICS_PORT: num({
++    default: 0,
++    desc: 'Port to expose the Prometheus metrics endpoint on. 0 disables it. Deliberately a SEPARATE listener from PORT so /metrics is never reachable through the public ingress — scrape the pod IP directly.',
++  }),
+   SECRET_KEY: secretKey({
+     desc: 'Session/encryption secret used to derive keys for stored configurations. Must be a 64-character hex string. Generate with `openssl rand -hex 32`. Cannot be changed after first run. (Legacy alias `SESSION_SECRET` is still accepted for one minor release.)',
+     example: 'Generate using: openssl rand -hex 32',
+diff --git a/packages/server/src/metrics.ts b/packages/server/src/metrics.ts
+new file mode 100644
+index 00000000..4d2ee5c5
+--- /dev/null
++++ b/packages/server/src/metrics.ts
+@@ -0,0 +1,205 @@
++/**
++ * Prometheus metrics listener (ElfHosted).
++ *
++ * Deliberately a SEPARATE http.Server on its own port rather than a route on
++ * the main express app. Instances are internet-facing, so a `/metrics` route
++ * mounted there would be world-readable.
++ * Prometheus scrapes the pod IP on METRICS_PORT, which no ingress maps.
++ *
++ * No prom-client dependency: the text exposition format is a handful of
++ * lines, and adding a runtime dep here would mean regenerating
++ * pnpm-lock.yaml inside a patch, which is miserable to maintain across
++ * upstream bumps.
++ */
++import http from 'http';
++import {
++  AnalyticsRepository,
++  config as appConfig,
++  createLogger,
++} from '@aiostreams/core';
++
++const logger = createLogger('metrics');
++
++let server: http.Server | null = null;
++
++/** Escape a Prometheus label value per the exposition format spec. */
++function esc(v: string): string {
++  return v.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
++}
++
++type Line = { name: string; labels?: Record<string, string>; value: number };
++
++function render(metrics: Array<{ help: string; type: string; lines: Line[] }>) {
++  const out: string[] = [];
++  for (const m of metrics) {
++    if (!m.lines.length) continue;
++    out.push(`# HELP ${m.lines[0].name} ${m.help}`);
++    out.push(`# TYPE ${m.lines[0].name} ${m.type}`);
++    for (const l of m.lines) {
++      const labels = l.labels
++        ? '{' +
++          Object.entries(l.labels)
++            .map(([k, v]) => `${k}="${esc(v)}"`)
++            .join(',') +
++          '}'
++        : '';
++      out.push(`${l.name}${labels} ${l.value}`);
++    }
++  }
++  return out.join('\n') + '\n';
++}
++
++export async function collect(): Promise<string> {
++  const s = await AnalyticsRepository.abuseSnapshot();
++
++  const serviceLines: Line[] = [...s.serviceUsers.entries()].map(
++    ([service, value]) => ({
++      name: 'aiostreams_service_configs',
++      labels: { service },
++      value,
++    })
++  );
++
++  return render([
++    {
++      help: 'Build metadata. Always 1; read the labels.',
++      type: 'gauge',
++      lines: [
++        {
++          name: 'aiostreams_build_info',
++          labels: {
++            version: String(appConfig.bootstrap.version ?? 'unknown'),
++            tag: String(appConfig.bootstrap.tag ?? 'unknown'),
++          },
++          value: 1,
++        },
++      ],
++    },
++    {
++      help: 'Total user configs registered on this instance.',
++      type: 'gauge',
++      lines: [{ name: 'aiostreams_configs_total', value: s.totalUsers }],
++    },
++    {
++      help: 'User configs whose accessed_at falls within the window.',
++      type: 'gauge',
++      lines: [
++        {
++          name: 'aiostreams_configs_active',
++          labels: { window: '1d' },
++          value: s.activeUsers.d1,
++        },
++        {
++          name: 'aiostreams_configs_active',
++          labels: { window: '7d' },
++          value: s.activeUsers.d7,
++        },
++        {
++          name: 'aiostreams_configs_active',
++          labels: { window: '30d' },
++          value: s.activeUsers.d30,
++        },
++      ],
++    },
++    {
++      help: 'User configs created within the window.',
++      type: 'gauge',
++      lines: [
++        {
++          name: 'aiostreams_configs_created',
++          labels: { window: '1d' },
++          value: s.newUsers.d1,
++        },
++        {
++          name: 'aiostreams_configs_created',
++          labels: { window: '7d' },
++          value: s.newUsers.d7,
++        },
++        {
++          name: 'aiostreams_configs_created',
++          labels: { window: '30d' },
++          value: s.newUsers.d30,
++        },
++      ],
++    },
++    {
++      help: 'Distinct configs using each debrid service, taken from the most recent feature sample of each config.',
++      type: 'gauge',
++      lines: serviceLines,
++    },
++    {
++      help: 'Distinct third-party debrid accounts across all configs, taken from the most recent feature sample of each config.',
++      type: 'gauge',
++      lines: [
++        {
++          name: 'aiostreams_debrid_accounts_total',
++          value: s.debridAccounts,
++        },
++      ],
++    },
++    {
++      help: 'Debrid accounts presented by more than one config.',
++      type: 'gauge',
++      lines: [
++        {
++          name: 'aiostreams_debrid_accounts_shared',
++          value: s.debridAccountsShared,
++        },
++      ],
++    },
++    {
++      help: 'Most configs seen on any single debrid account.',
++      type: 'gauge',
++      lines: [
++        {
++          name: 'aiostreams_debrid_account_max_configs',
++          value: s.debridAccountMaxShared,
++        },
++      ],
++    },
++    {
++      help: 'Analytics events recorded in the last 24h.',
++      type: 'gauge',
++      lines: [{ name: 'aiostreams_events_24h', value: s.requests24h }],
++    },
++  ]);
++}
++
++export function startMetricsServer(): void {
++  const port = Number(appConfig.bootstrap.metricsPort) || 0;
++  if (!port) return;
++
++  server = http.createServer((req, res) => {
++    if (!req.url || req.url.split('?')[0] !== '/metrics') {
++      res.writeHead(404).end('not found\n');
++      return;
++    }
++    collect()
++      .then((body) => {
++        res.writeHead(200, {
++          'content-type': 'text/plain; version=0.0.4; charset=utf-8',
++        });
++        res.end(body);
++      })
++      .catch((err) => {
++        // A scrape must never take the addon down, and a failed scrape
++        // should be visible as a gap rather than as bogus zeroes.
++        logger.error('metrics collection failed', err);
++        res.writeHead(500).end('collection failed\n');
++      });
++  });
++
++  server.on('error', (err) => {
++    logger.error(`metrics listener error on port ${port}`, err);
++  });
++
++  server.listen(port, () => {
++    logger.info(`Metrics listener running on port ${port} (/metrics)`);
++  });
++}
++
++export async function stopMetricsServer(): Promise<void> {
++  if (!server) return;
++  await new Promise<void>((resolve) => server!.close(() => resolve()));
++  server = null;
++}
+diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
+index 57ccf0ae..d0554cc4 100644
+--- a/packages/server/src/server.ts
++++ b/packages/server/src/server.ts
+@@ -6,6 +6,7 @@ import {
+ } from './utils/system-metrics.js';
+ import { startNfsShare, stopNfsShare } from './nfs.js';
+ import { startFuseMount, stopFuseMount } from './fuse.js';
++import { startMetricsServer, stopMetricsServer } from './metrics.js';
+ 
+ import {
+   Env,
+@@ -377,6 +378,7 @@ async function start() {
+     startAnalytics();
+     await startNfsShare();
+     await startFuseMount();
++    startMetricsServer();
+     const server = app.listen(appConfig.bootstrap.port, (error) => {
+       if (error) {
+         logger.error('Failed to start server:', error);
+@@ -399,6 +401,7 @@ async function shutdown() {
+   stopMetricsHistory();
+   await stopFuseMount().catch(() => undefined);
+   await stopNfsShare().catch(() => undefined);
++  await stopMetricsServer().catch(() => undefined);
+   // Write live sessions out so the next boot doesn't reclaim them as stale.
+   streamRegistry.closeAll('stale');
+   await flushStreamSessions().catch(() => undefined);

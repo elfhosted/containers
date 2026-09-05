@@ -1,0 +1,202 @@
+diff --git a/packages/core/src/utils/distributed-lock.ts b/packages/core/src/utils/distributed-lock.ts
+index de2ad087..b556aa51 100644
+--- a/packages/core/src/utils/distributed-lock.ts
++++ b/packages/core/src/utils/distributed-lock.ts
+@@ -17,6 +17,11 @@ export { registerLockErrorClass, resolveErrorCtor };
+ const logger = createLogger('distributed-lock');
+ const lockPrefix = `${REDIS_PREFIX}lock:`;
+ 
++// Sentinel resolved by the Redis waiter when the lock was released before our
++// subscription became active, signalling the caller to retry acquisition
++// rather than fail. See withRedisLock for the race this guards against.
++const RETRY_LOCK = Symbol('retry-lock');
++
+ export interface LockOptions {
+   timeout?: number;
+   ttl?: number;
+@@ -205,86 +210,119 @@ export class DistributedLock {
+       return result === 'OK';
+     };
+ 
+-    if (await acquireLock()) {
+-      logger.debug(`Redis lock acquired for key: ${key}`);
+-      let result: T;
+-      try {
+-        result = await fn();
+-        const storedResult: StoredResult<T> = { value: result };
+-        await this.redis!.publish(
+-          doneChannel,
+-          stringifyLockResult(storedResult)
+-        );
+-      } catch (e: any) {
+-        const errorResult: StoredResult<T> = { error: e };
+-        await this.redis!.publish(
+-          doneChannel,
+-          stringifyLockResult(errorResult)
+-        );
+-        throw e;
+-      } finally {
++    // Retry acquisition when the holder released the lock between our failed
++    // acquire and our subscription becoming active. Upstream detects that race
++    // on its double-check GET but answers it with onTimeout(), so a waiter
++    // fails with "Timed out waiting for redis lock" precisely when the work it
++    // was waiting for had just succeeded. Bounded by the original timeout.
++    const deadline = Date.now() + timeout;
++
++    while (true) {
++      if (await acquireLock()) {
++        logger.debug(`Redis lock acquired for key: ${key}`);
++        let result: T;
++        let storedResult: StoredResult<T>;
++        let caught: { error: any } | undefined;
++        try {
++          result = await fn();
++          storedResult = { value: result };
++        } catch (e: any) {
++          storedResult = { error: e };
++          caught = { error: e };
++        }
++
++        // Release *before* publishing, so a waiter that subscribed after the
++        // publish fired observes a freed key on its double-check GET and
++        // retries, rather than parking until timeout for a notification that
++        // has already happened. The reverse order left a window (published,
++        // key not yet deleted) where a late waiter saw a live key, was never
++        // notified, and timed out. Tradeoff: a racing request may re-acquire
++        // and recompute fn() in that window - a redundant recompute, not a
++        // failure.
+         if ((await this.redis!.get(redisKey)) === owner) {
+           logger.debug(`Releasing redis lock for key: ${key}`);
+           await this.redis!.del(redisKey);
+         }
+-      }
+-      return { result, cached: false };
+-    }
+-
+-    // Waiter logic
+-    return new Promise((resolve, reject) => {
+-      let timeoutId: NodeJS.Timeout;
+-
+-      const cleanup = () => {
+-        clearTimeout(timeoutId);
+-        this.subRedis!.unsubscribe(doneChannel).catch((e) =>
+-          logger.error(`Error during unsubscribe: ${e.message}`)
++        await this.redis!.publish(
++          doneChannel,
++          stringifyLockResult(storedResult)
+         );
+-      };
+ 
+-      const subscriber = (message: string) => {
+-        cleanup();
+-        const storedResult: StoredResult<T> = parseLockResult(message);
+-        if (storedResult.error) {
+-          logger.warn(
+-            `Received error result for key: ${key} from lock holder.`
+-          );
+-          reject(storedResult.error);
+-        } else {
+-          logger.debug(`Received cached result for key: ${key} via pub/sub.`);
+-          resolve({ result: storedResult.value!, cached: true });
+-        }
+-      };
++        if (caught) throw caught.error;
++        return { result: result!, cached: false };
++      }
+ 
+-      const onTimeout = () => {
+-        cleanup();
++      const remaining = deadline - Date.now();
++      if (remaining <= 0) {
+         const errorMessage = `Timed out waiting for redis lock on key: ${key}`;
+         logger.error(errorMessage);
+-        reject(new Error(errorMessage));
+-      };
++        throw new Error(errorMessage);
++      }
++
++      // Waiter logic
++      const waited = await new Promise<LockResult<T> | typeof RETRY_LOCK>(
++        (resolve, reject) => {
++          let timeoutId: NodeJS.Timeout;
+ 
+-      this.subRedis!.subscribe(doneChannel, subscriber)
+-        .then(() => {
+-          timeoutId = setTimeout(onTimeout, timeout);
+-          // Double-check the lock's existence to handle race conditions.
+-          this.redis!.get(redisKey)
+-            .then((lockValue) => {
+-              if (lockValue === null) {
+-                logger.warn(
+-                  `Lock for key ${key} was released before subscription completed. Timing out.`
+-                );
+-                onTimeout();
+-              }
++          const cleanup = () => {
++            clearTimeout(timeoutId);
++            this.subRedis!.unsubscribe(doneChannel).catch((e) =>
++              logger.error(`Error during unsubscribe: ${e.message}`)
++            );
++          };
++
++          const subscriber = (message: string) => {
++            cleanup();
++            const storedResult: StoredResult<T> = parseLockResult(message);
++            if (storedResult.error) {
++              logger.warn(
++                `Received error result for key: ${key} from lock holder.`
++              );
++              reject(storedResult.error);
++            } else {
++              logger.debug(
++                `Received cached result for key: ${key} via pub/sub.`
++              );
++              resolve({ result: storedResult.value!, cached: true });
++            }
++          };
++
++          const onTimeout = () => {
++            cleanup();
++            const errorMessage = `Timed out waiting for redis lock on key: ${key}`;
++            logger.error(errorMessage);
++            reject(new Error(errorMessage));
++          };
++
++          this.subRedis!.subscribe(doneChannel, subscriber)
++            .then(() => {
++              timeoutId = setTimeout(onTimeout, remaining);
++              // Double-check the lock's existence to handle race conditions.
++              this.redis!.get(redisKey)
++                .then((lockValue) => {
++                  if (lockValue === null) {
++                    logger.debug(
++                      `Lock for key ${key} was released before subscription completed; retrying acquisition.`
++                    );
++                    cleanup();
++                    resolve(RETRY_LOCK);
++                  }
++                })
++                .catch((err) => {
++                  cleanup();
++                  reject(err);
++                });
+             })
+             .catch((err) => {
+-              cleanup();
+               reject(err);
+             });
+-        })
+-        .catch((err) => {
+-          reject(err);
+-        });
+-    });
++        }
++      );
++
++      if (waited !== RETRY_LOCK) {
++        return waited;
++      }
++    }
+   }
+ 
+   private async withMemoryLock<T>(

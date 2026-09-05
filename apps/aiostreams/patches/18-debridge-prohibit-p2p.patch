@@ -1,0 +1,82 @@
+diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
+index 87ca1502..2c78d30b 100644
+--- a/packages/core/src/main/resources.ts
++++ b/packages/core/src/main/resources.ts
+@@ -302,6 +302,25 @@ export async function processStreams(
+     serviceWrapTimings = resolvedResults.serviceTimings;
+   }
+ 
++  // Deployment-level guarantee: never serve raw P2P directly to users.
++  // Anything wrappable has already been resolved through the user's debrid
++  // service(s) by resolveServiceWrappedStreams above; whatever P2P remains
++  // here could not be resolved (e.g. user has no debrid, or the torrent was
++  // unavailable), so it is dropped rather than streamed directly.
++  if (Env.PROHIBIT_P2P_STREAMS) {
++    const beforeCount = processedStreams.length;
++    processedStreams = processedStreams.filter(
++      (s) => s.type !== constants.P2P_STREAM_TYPE
++    );
++    const droppedCount = beforeCount - processedStreams.length;
++    if (droppedCount > 0) {
++      logger.warn(
++        `Dropped ${droppedCount} unresolved P2P stream(s) (PROHIBIT_P2P_STREAMS)`,
++        { requestId: id }
++      );
++    }
++  }
++
+   if (resolvedResults.hasNewStreams) {
+     const filterStart = Date.now();
+     processedStreams = await ctx.filterer.filter(processedStreams, context);
+diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
+index 48a7b002..d6758fdd 100644
+--- a/packages/core/src/main/serviceWrapper.ts
++++ b/packages/core/src/main/serviceWrapper.ts
+@@ -80,9 +80,28 @@ export async function resolveServiceWrappedStreams(
+     }
+   }
+ 
+-  // Skip when neither explicit Service Wrap is enabled nor any implicit-wrapped
+-  // addons exist (e.g. implicit Debridge wrap from applyPresets).
+-  if (!userData.serviceWrap?.enabled && serviceWrappedInstanceIds.size === 0) {
++  // A Debridge user can have raw P2P streams that no addon pre-marked as
++  // serviceWrapped — e.g. when only "native-debridge" presets (comet,
++  // mediafusion, jackettio, stremthru) are installed and the upstream addon
++  // returned torrents instead of resolving Debridge. Engage the wrap for those
++  // too so they resolve through Debridge rather than being dropped downstream
++  // by PROHIBIT_P2P_STREAMS. An omitted `enabled` flag counts as enabled
++  // (matches buildDebridServices / getUsableServices semantics).
++  const userHasDebridge = (userData.services ?? []).some(
++    (s) => s.enabled !== false && s.id === constants.DEBRIDGE_SERVICE
++  );
++  const hasWrappableP2P = streams.some(
++    (s) => s.type === 'p2p' && !!s.torrent?.infoHash
++  );
++
++  // Skip when neither explicit Service Wrap is enabled, nor any implicit-wrapped
++  // addons exist (e.g. implicit Debridge wrap from applyPresets), nor a Debridge
++  // user has resolvable P2P to wrap.
++  if (
++    !userData.serviceWrap?.enabled &&
++    serviceWrappedInstanceIds.size === 0 &&
++    !(userHasDebridge && hasWrappableP2P)
++  ) {
+     return { streams, errors: [], hasNewStreams: false };
+   }
+ 
+diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
+index c3b17312..85eaeec4 100644
+--- a/packages/core/src/utils/env.ts
++++ b/packages/core/src/utils/env.ts
+@@ -275,6 +275,11 @@ export const Env = cleanEnv(process.env, {
+     default: false,
+     desc: 'Allow the dashboard System page to restart/stop the AIOStreams process.',
+   }),
++  PROHIBIT_P2P_STREAMS: bool({
++    default: false,
++    desc: 'Deployment-level guarantee that raw P2P (torrent) streams are never served directly to users. When true, any stream of type `p2p` that survives the service-wrap step is dropped before results are returned. Debridge users still get their P2P resolved through Debridge (see the implicit Debridge wrap in setup.ts); users without a debrid service simply do not receive those results rather than streaming P2P directly.',
++  }),
++
+   // Slate error-video service (operator-configured). When both are set, the
+   // playback/proxy/refresh redirects that today point at bundled static MP4s
+   // instead point at a signed slate.m3u8 URL rendering a custom message. If

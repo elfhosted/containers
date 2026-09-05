@@ -1,0 +1,456 @@
+diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
+index 7163c640..ff1f6b2b 100644
+--- a/packages/core/src/main/resources.ts
++++ b/packages/core/src/main/resources.ts
+@@ -14,7 +14,12 @@ import { getAddonName } from '../utils/general.js';
+ import { Wrapper } from './wrapper.js';
+ import { PresetManager } from '../presets/index.js';
+ import { FeatureControl } from '../utils/feature.js';
+-import { StreamContext, StreamUtils } from '../streams/index.js';
++import {
++  StreamContext,
++  StreamUtils,
++  buildEnrichmentRequest,
++  enrichFromDuplicates,
++} from '../streams/index.js';
+ import { buildPlayChain, type FailoverContentType } from './play-chain.js';
+ import { resolveServiceWrappedStreams } from './serviceWrapper.js';
+ import type { ServiceWrapServiceTiming } from './serviceWrapper.js';
+@@ -281,6 +286,16 @@ export async function processStreams(
+   let limitMs = 0;
+   let selMs = 0;
+ 
++  // The fetcher runs enrichment within each fetch batch, ahead of its own
++  // filter, which is what makes keyword filters work on the borrowed filename.
++  // Addons fetched in separate batches (configured groups, dynamic fetching)
++  // can only see each other here, after those filters have run - so this pass
++  // improves what is shown and how streams deduplicate, but cannot
++  // retroactively change a filtering decision. Streams enriched in the fetcher
++  // are marked and skipped, so this can only fill gaps.
++  const enrichmentRequest = await buildEnrichmentRequest(context);
++  enrichFromDuplicates(processedStreams, enrichmentRequest);
++
+   if (isMeta) {
+     await ctx.precomputer.precomputeSeaDexOnly(processedStreams, context);
+     const metaFilterStart = Date.now();
+@@ -323,6 +338,10 @@ export async function processStreams(
+   }
+ 
+   if (resolvedResults.hasNewStreams) {
++    // service wrapping mints new streams which may carry file metadata that
++    // was not available when the fetcher ran its pass. Streams enriched there
++    // are marked and skipped, so this can only fill gaps, never re-decide.
++    enrichFromDuplicates(processedStreams, enrichmentRequest);
+     const filterStart = Date.now();
+     processedStreams = await ctx.filterer.filter(processedStreams, context);
+     filterMs = Date.now() - filterStart;
+diff --git a/packages/core/src/streams/enricher.ts b/packages/core/src/streams/enricher.ts
+new file mode 100644
+index 00000000..518cfa5a
+--- /dev/null
++++ b/packages/core/src/streams/enricher.ts
+@@ -0,0 +1,359 @@
++import { ParsedStream } from '../db/schemas.js';
++import { ExtendedMetadata, StreamContext } from './context.js';
++import FileParser from '../parser/file.js';
++import { mergeParsedFiles } from '../parser/merge.js';
++import { createLogger, getTimeTakenSincePoint } from '../utils/index.js';
++
++const logger = createLogger('enricher');
++
++/**
++ * Preset types whose streams may borrow file level metadata from a duplicate
++ * returned by another addon.
++ *
++ * ElfCache is searched over torznab, which exposes only a torrent level
++ * title - there is no per file data to return. When the
++ * debrid store also fails to return a file list for a hash, the builtin debrid
++ * pipeline falls back to `{ name: torrent.title, index: -1 }`, so the stream
++ * ends up presenting the torrent (folder) name as its filename. Keyword
++ * filters, which test the filename, then have nothing file level to match
++ * against.
++ */
++const RECIPIENT_PRESET_TYPES = new Set(['elfcache']);
++
++/**
++ * `selectFileInTorrentOrNZB` uses an index of -1 to signal that no file was
++ * selected and that `name` is really the torrent title.
++ */
++const NO_FILE_SELECTED_IDX = -1;
++
++/** Marker recorded on an enriched stream so it is only ever enriched once. */
++const BORROWED_FROM_KEY = 'metadataBorrowedFrom';
++
++const EXTENSIONS =
++  'mkv|mp4|avi|mov|wmv|flv|webm|m4v|mpg|mpeg|3gp|3g2|m2ts|ts|vob|ogv|ogm|divx|xvid|rm|rmvb|asf|mxf|mka|mks|mk3d|f4v|f4p|f4a|f4b';
++/** A dotted extension is evidence that a name refers to a file. */
++const VIDEO_EXTENSION = new RegExp(`\\.(${EXTENSIONS})$`, 'i');
++/** Matches the parser's own normalisation, which is separator agnostic. */
++const TRAILING_EXTENSION = new RegExp(`(${EXTENSIONS})$`, 'i');
++
++export interface EnrichmentRequest {
++  /** season and episode as carried by ParsedId, which holds them as strings */
++  season?: string | number;
++  episode?: string | number;
++  /** absolute / relative absolute numbering, which anime files use instead */
++  alternateEpisodes?: (string | number | undefined)[];
++  /** known titles of the requested movie, for multi film torrents */
++  titles?: string[];
++  year?: number;
++}
++
++interface ResolvedRequest {
++  season?: number;
++  episode?: number;
++  alternateEpisodes: number[];
++  titles: string[];
++  year?: number;
++}
++
++function toNumber(value: string | number | undefined): number | undefined {
++  if (value === undefined) return undefined;
++  const parsed = typeof value === 'number' ? value : Number(value);
++  return Number.isFinite(parsed) ? parsed : undefined;
++}
++
++/**
++ * Collect everything the request tells us about which file is wanted. Metadata
++ * failures are non fatal - they only make the donor checks stricter.
++ */
++export async function buildEnrichmentRequest(
++  context: StreamContext
++): Promise<EnrichmentRequest> {
++  let metadata: ExtendedMetadata | undefined;
++  try {
++    metadata = await context.getMetadata();
++  } catch (error) {
++    logger.debug(
++      `Could not get metadata for enrichment: ${error instanceof Error ? error.message : String(error)}`
++    );
++  }
++  return {
++    season: context.parsedId?.season,
++    episode: context.parsedId?.episode,
++    alternateEpisodes: [
++      metadata?.absoluteEpisode,
++      metadata?.relativeAbsoluteEpisode,
++    ],
++    titles: metadata?.titles?.length
++      ? metadata.titles.map((t) => t.title)
++      : metadata?.title
++        ? [metadata.title]
++        : [],
++    year: metadata?.year,
++  };
++}
++
++function resolveRequest(request: EnrichmentRequest): ResolvedRequest {
++  const episode = toNumber(request.episode);
++  return {
++    season: toNumber(request.season),
++    episode,
++    alternateEpisodes: (request.alternateEpisodes ?? [])
++      .map(toNumber)
++      .filter((e): e is number => e !== undefined && e !== episode),
++    titles: (request.titles ?? []).map(normaliseTitle).filter(Boolean),
++    year: request.year,
++  };
++}
++
++function strip(value: string): string {
++  return value
++    .replace(/[^\p{L}\p{N}+]/gu, '')
++    .toLowerCase()
++    .trim();
++}
++
++/**
++ * For comparing filenames. Extension stripping is separator agnostic to match
++ * the parser and deduplicator, which lets `a.b.c.mkv` and `a b c mkv` compare
++ * equal. Never use this on a title - it would take the `ts` off `Cats`.
++ */
++function normalise(value: string): string {
++  return strip(value.replace(TRAILING_EXTENSION, ''));
++}
++
++/** For comparing titles, where a trailing `ts` or `rm` is part of the word. */
++function normaliseTitle(value: string): string {
++  return strip(value);
++}
++
++function isRecipientPreset(stream: ParsedStream): boolean {
++  return RECIPIENT_PRESET_TYPES.has(stream.addon?.preset?.type);
++}
++
++/**
++ * True when the stream is only carrying a torrent/folder name where a filename
++ * should be.
++ */
++function lacksFileLevelName(stream: ParsedStream): boolean {
++  return !stream.filename || stream.torrent?.fileIdx === NO_FILE_SELECTED_IDX;
++}
++
++function isRecipient(stream: ParsedStream): boolean {
++  return (
++    isRecipientPreset(stream) &&
++    !!stream.torrent?.infoHash &&
++    !stream.extra?.[BORROWED_FROM_KEY] &&
++    lacksFileLevelName(stream)
++  );
++}
++
++/**
++ * A filename is only worth borrowing if there is evidence it actually names a
++ * file rather than the torrent. `fileIdx` is optional across addons, so accept
++ * any of: an explicit file index, a video file extension, or a folder name the
++ * parser kept separate from the filename (it discards folder names that match
++ * the filename, so a surviving one means the two differ).
++ */
++function hasFileLevelEvidence(stream: ParsedStream): boolean {
++  if (
++    typeof stream.torrent?.fileIdx === 'number' &&
++    stream.torrent.fileIdx >= 0
++  ) {
++    return true;
++  }
++  if (stream.filename && VIDEO_EXTENSION.test(stream.filename)) {
++    return true;
++  }
++  return !!stream.folderName;
++}
++
++function parsedFor(stream: ParsedStream) {
++  return stream.parsedFile ?? FileParser.parse(stream.filename!);
++}
++
++/**
++ * The borrowed name must describe the content that was actually requested,
++ * because our own resolver picks the file from that same request at playback
++ * time. Without this, a donor naming a different episode of a pack, or a
++ * different film of a collection, would have us display - and filter on - a
++ * file we will never play.
++ */
++function matchesRequest(
++  stream: ParsedStream,
++  request: ResolvedRequest
++): boolean {
++  const parsed = parsedFor(stream);
++
++  if (request.episode !== undefined || request.alternateEpisodes.length > 0) {
++    const matchedRequested =
++      request.episode !== undefined &&
++      !!parsed.episodes?.includes(request.episode);
++    const matchedAlternate = request.alternateEpisodes.some((episode) =>
++      parsed.episodes?.includes(episode)
++    );
++    if (parsed.seasons?.length) {
++      // a file that states its season is stating a relative episode number
++      // alongside it, so only the requested episode will do
++      return (
++        matchedRequested &&
++        (request.season === undefined ||
++          parsed.seasons.includes(request.season))
++      );
++    }
++    // no season: trust an absolute number, which is how anime releases name
++    // episodes within a pack, or the plain episode when no season was asked for
++    return (
++      matchedAlternate || (request.season === undefined && matchedRequested)
++    );
++  }
++
++  // a movie: guard against multi film torrents. Without a title to check
++  // against there is no way to tell films apart, so decline.
++  if (request.titles.length === 0) return false;
++  const title = parsed.title ? normaliseTitle(parsed.title) : '';
++  if (!title || !request.titles.includes(title)) return false;
++  const year = toNumber(parsed.year);
++  if (
++    request.year !== undefined &&
++    year !== undefined &&
++    year !== request.year
++  ) {
++    return false;
++  }
++  return true;
++}
++
++function isDonorFor(
++  candidate: ParsedStream,
++  recipient: ParsedStream,
++  request: ResolvedRequest
++): candidate is ParsedStream & { filename: string } {
++  if (candidate === recipient) return false;
++  // never launder metadata between our own instances
++  if (isRecipientPreset(candidate)) return false;
++  if (!candidate.filename) return false;
++  if (candidate.torrent?.fileIdx === NO_FILE_SELECTED_IDX) return false;
++  if (!hasFileLevelEvidence(candidate)) return false;
++  // a donor that is also just naming the torrent has nothing to give
++  if (
++    normalise(candidate.filename) === normalise(recipient.filename ?? '') ||
++    normalise(candidate.filename) === normalise(recipient.folderName ?? '')
++  ) {
++    return false;
++  }
++  return matchesRequest(candidate, request);
++}
++
++/** Prefer the donor carrying the most usable detail. */
++function richness(stream: ParsedStream): number {
++  return (stream.parsedFile ? 1 : 0) + (stream.size !== undefined ? 1 : 0);
++}
++
++/**
++ * Borrow file level metadata for streams that could not obtain any, from
++ * duplicates of the same torrent returned by other addons.
++ *
++ * Only display and matching metadata is copied - never the addon, service,
++ * indexer or `fileIdx`. `fileIdx` in particular is not comparable across
++ * addons (ours comes from the debrid store's file list, other addons index
++ * against the torrent itself), and playback re-selects the file at resolve
++ * time, so copying it would risk pointing playback at the wrong file for no
++ * gain.
++ *
++ * Must run before filtering, so that keyword filters see the borrowed
++ * filename - that is the whole point. Otherwise a release the user excluded
++ * survives under our branding purely because we had no filename to test.
++ *
++ * @returns the number of streams enriched
++ */
++export function enrichFromDuplicates(
++  streams: ParsedStream[],
++  request: EnrichmentRequest = {}
++): number {
++  const start = Date.now();
++  const recipients = streams.filter(isRecipient);
++  if (recipients.length === 0) {
++    return 0;
++  }
++  const wanted = resolveRequest(request);
++
++  const byHash = new Map<string, ParsedStream[]>();
++  for (const stream of streams) {
++    const hash = stream.torrent?.infoHash?.toLowerCase();
++    if (!hash) continue;
++    const group = byHash.get(hash);
++    if (group) {
++      group.push(stream);
++    } else {
++      byHash.set(hash, [stream]);
++    }
++  }
++
++  let enriched = 0;
++  for (const recipient of recipients) {
++    const hash = recipient.torrent!.infoHash!.toLowerCase();
++    const donors = (byHash.get(hash) ?? []).filter((candidate) =>
++      isDonorFor(candidate, recipient, wanted)
++    );
++    if (donors.length === 0) continue;
++
++    // donors disagreeing on which file this is means they picked different
++    // files out of a pack. An honest folder name beats a wrong filename.
++    const distinctNames = new Set(donors.map((d) => normalise(d.filename!)));
++    if (distinctNames.size > 1) {
++      logger.debug(
++        `Skipping enrichment for ${hash}: ${distinctNames.size} donors disagree on the filename`
++      );
++      continue;
++    }
++
++    const donor = donors.sort((a, b) => richness(b) - richness(a))[0];
++    const torrentName = recipient.filename;
++
++    // the borrowed name is the file, whatever we already had is the folder
++    const merged = mergeParsedFiles(parsedFor(donor), recipient.parsedFile);
++
++    recipient.filename = donor.filename;
++    if (merged) {
++      recipient.parsedFile = merged;
++    }
++    // keep our torrent name visible, and matchable, as the folder it is
++    if (
++      torrentName &&
++      normalise(torrentName) !== normalise(donor.filename!) &&
++      !recipient.folderName
++    ) {
++      recipient.folderName = torrentName;
++    }
++    // our size was the whole torrent; the donor's is the file within it
++    if (
++      donor.size !== undefined &&
++      recipient.size !== undefined &&
++      donor.size < recipient.size
++    ) {
++      recipient.folderSize = recipient.folderSize ?? recipient.size;
++      recipient.size = donor.size;
++      // any bitrate already derived from the torrent size is now wrong, and
++      // the filterer only fills it in when it is missing
++      recipient.bitrate = undefined;
++    }
++    recipient.extra = {
++      ...recipient.extra,
++      [BORROWED_FROM_KEY]: donor.addon.name,
++    };
++
++    enriched++;
++    logger.debug(
++      `Enriched ${recipient.addon.name} stream for ${hash} with metadata from ${donor.addon.name}`,
++      { filename: recipient.filename, folderName: recipient.folderName }
++    );
++  }
++
++  if (enriched > 0) {
++    logger.info(
++      `Enriched ${enriched}/${recipients.length} stream(s) with file metadata from duplicates in ${getTimeTakenSincePoint(start)}`
++    );
++  }
++
++  return enriched;
++}
+diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
+index fb52dd00..a844e9f5 100644
+--- a/packages/core/src/streams/fetcher.ts
++++ b/packages/core/src/streams/fetcher.ts
+@@ -14,6 +14,7 @@ import StreamFilter from './filterer.js';
+ import StreamPrecompute from './precomputer.js';
+ import StreamDeduplicator from './deduplicator.js';
+ import { StreamContext } from './context.js';
++import { buildEnrichmentRequest, enrichFromDuplicates } from './enricher.js';
+ import {
+   classifyAddonError,
+   type AnalyticsDisposition,
+@@ -256,6 +257,11 @@ class StreamFetcher {
+       // Now uses context's cached SeaDex data when available
+       await this.precompute.precomputeSeaDexOnly(groupStreams, context);
+ 
++      // Let streams that could not obtain file level metadata borrow it from
++      // duplicates of the same torrent in this batch. Must happen before the
++      // filter, so keyword filters have a real filename to test.
++      enrichFromDuplicates(groupStreams, await buildEnrichmentRequest(context));
++
+       // Blocklist runs before dedup so a flagged candidate never survives
+       // as a failover variant harvested from discarded duplicates.
+       const filteredStreams = await this.deduplicate.deduplicate(
+diff --git a/packages/core/src/streams/index.ts b/packages/core/src/streams/index.ts
+index 7753d634..c252bc7c 100644
+--- a/packages/core/src/streams/index.ts
++++ b/packages/core/src/streams/index.ts
+@@ -5,6 +5,7 @@ import StreamDeduplicator from './deduplicator.js';
+ import StreamPrecomputer from './precomputer.js';
+ import StreamUtils from './utils.js';
+ import { StreamContext, ExtendedMetadata } from './context.js';
++import { buildEnrichmentRequest, enrichFromDuplicates } from './enricher.js';
+ 
+ export {
+   StreamFetcher,
+@@ -14,6 +15,8 @@ export {
+   StreamPrecomputer,
+   StreamUtils,
+   StreamContext,
++  enrichFromDuplicates,
++  buildEnrichmentRequest,
+ };
+ 
+ export type { ExtendedMetadata };

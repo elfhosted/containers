@@ -1,0 +1,26 @@
+diff --git a/packages/core/src/streams/deduplicator.ts b/packages/core/src/streams/deduplicator.ts
+index 15f31935..4292f4be 100644
+--- a/packages/core/src/streams/deduplicator.ts
++++ b/packages/core/src/streams/deduplicator.ts
+@@ -405,6 +405,21 @@ class StreamDeduplicator {
+       for (const winner of groupWinners) {
+         processedStreams.add(winner);
+       }
++
++      // Propagate SeaDex tags from discarded duplicates onto the surviving
++      // winner(s) of this duplicate group. Deduplication can pick a
++      // non-SeaDex stream over a SeaDex-tagged duplicate (e.g. a season
++      // pack whose wrong file hash-matches, issue #990), silently dropping
++      // the SeaDex tag. Backported from upstream "deduplicator merging" (dev).
++      const seadexSource =
++        group.find((s) => s.seadex?.isBest) ?? group.find((s) => s.seadex);
++      if (seadexSource?.seadex) {
++        for (const stream of group) {
++          if (!stream.seadex && processedStreams.has(stream)) {
++            stream.seadex = seadexSource.seadex;
++          }
++        }
++      }
+     }
+ 
+     let deduplicatedStreams = StreamUtils.mergeStreams(

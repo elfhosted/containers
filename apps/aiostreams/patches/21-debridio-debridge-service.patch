@@ -1,0 +1,67 @@
+diff --git a/packages/core/src/presets/debridioScraper.ts b/packages/core/src/presets/debridioScraper.ts
+index f9221bf3..ffa2846e 100644
+--- a/packages/core/src/presets/debridioScraper.ts
++++ b/packages/core/src/presets/debridioScraper.ts
+@@ -3,6 +3,7 @@ import { Preset, baseOptions } from './preset.js';
+ import { SERVICE_DETAILS } from '../utils/index.js';
+ import { constants, ServiceId } from '../utils/index.js';
+ import { config as appConfig } from '../config/index.js';
++import { Env } from '../utils/env.js';
+ import { StreamParser } from '../parser/index.js';
+ import {
+   debridioSocialOption,
+@@ -30,6 +31,11 @@ export class DebridioPreset extends Preset {
+       constants.TORBOX_SERVICE,
+       constants.EASYDEBRID_SERVICE,
+       constants.DEBRIDER_SERVICE,
++      // ElfHosted: debridge is a StremThru store rather than a Debridio
++      // provider, and exposes a Debridio-compatible endpoint of its own.
++      // generateManifestUrl routes this service there
++      // (Env.DEBRIDGE_DEBRIDIO_URL).
++      constants.DEBRIDGE_SERVICE,
+     ];
+     const supportedResources = [constants.STREAM_RESOURCE];
+ 
+@@ -161,7 +167,25 @@ export class DebridioPreset extends Preset {
+     options: Record<string, any>,
+     service?: ServiceId
+   ) {
+-    const url = options?.url || this.DEFAULT_URL;
++    // ElfHosted: debridge isn't a Debridio provider, so route the debridge
++    // service to its Debridio-compatible endpoint instead of the public
++    // Debridio host.
++    //
++    // Why a separate endpoint: Debridio returns no raw infohashes, and a
++    // request upstream for them had no response. Without this a user with a
++    // paid Debridio subscription gets no results from it at all when
++    // resolving through debridge. It also lets playability be checked rather than
++    // assumed: a debrid service's own infringing-file filter can report an
++    // item as present in a library while still refusing to serve it, so a
++    // listing on its own is not a playable result. The config segment below already carries the account
++    // key (api_key) and the debridge key (providerKey), which is what that
++    // endpoint expects.
++    // No deployment-specific default: the endpoint is supplied by config, and
++    // without it the service falls back to the ordinary Debridio host.
++    const url =
++      service === constants.DEBRIDGE_SERVICE && Env.DEBRIDGE_DEBRIDIO_URL
++        ? Env.DEBRIDGE_DEBRIDIO_URL
++        : options?.url || this.DEFAULT_URL;
+     if (url.endsWith('/manifest.json')) {
+       return url;
+     }
+diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
+index 85eaeec4..f055b8f4 100644
+--- a/packages/core/src/utils/env.ts
++++ b/packages/core/src/utils/env.ts
+@@ -280,6 +280,11 @@ export const Env = cleanEnv(process.env, {
+     desc: 'Deployment-level guarantee that raw P2P (torrent) streams are never served directly to users. When true, any stream of type `p2p` that survives the service-wrap step is dropped before results are returned. Debridge users still get their P2P resolved through Debridge (see the implicit Debridge wrap in setup.ts); users without a debrid service simply do not receive those results rather than streaming P2P directly.',
+   }),
+ 
++  DEBRIDGE_DEBRIDIO_URL: str({
++    default: '',
++    desc: 'Base URL of the Debridio-compatible endpoint used for the `debridge` service. Other Debridio services are unaffected.',
++  }),
++
+   // Slate error-video service (operator-configured). When both are set, the
+   // playback/proxy/refresh redirects that today point at bundled static MP4s
+   // instead point at a signed slate.m3u8 URL rendering a custom message. If

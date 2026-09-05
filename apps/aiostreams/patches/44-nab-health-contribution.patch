@@ -1,0 +1,298 @@
+diff --git a/packages/core/src/builtins/utils/nzbContribution.ts b/packages/core/src/builtins/utils/nzbContribution.ts
+new file mode 100644
+index 00000000..4485fe3c
+--- /dev/null
++++ b/packages/core/src/builtins/utils/nzbContribution.ts
+@@ -0,0 +1,99 @@
++import { fetch, FormData } from 'undici';
++import crypto from 'crypto';
++import { createLogger } from '../../utils/index.js';
++import { makeUrlLogSafe } from '../../utils/http.js';
++import { config as appConfig } from '../../config/index.js';
++
++const logger = createLogger('nzb-contribution');
++
++/**
++ * Content hashes submitted recently, so a scheduled re-fetch of the same
++ * library entry does not resubmit it. Keyed on the NZB body rather than its
++ * URL: the same release is commonly reachable at several URLs.
++ */
++const recent = new Map<string, number>();
++const RECENT_TTL_MS = 6 * 60 * 60 * 1000;
++const RECENT_MAX = 5000;
++
++function inFlightOrSubmitted(key: string): boolean {
++  const now = Date.now();
++  const at = recent.get(key);
++  if (at !== undefined && now - at < RECENT_TTL_MS) return true;
++  if (recent.size >= RECENT_MAX) {
++    for (const [k, t] of recent) {
++      if (now - t >= RECENT_TTL_MS) recent.delete(k);
++    }
++    if (recent.size >= RECENT_MAX) {
++      const oldest = recent.keys().next();
++      if (!oldest.done) recent.delete(oldest.value);
++    }
++  }
++  recent.set(key, now);
++  return false;
++}
++
++/**
++ * Submit a fetched NZB to the configured health index.
++ *
++ * Off unless explicitly enabled. Fire-and-forget: a failure here must never
++ * affect playback, so nothing is awaited and every error is swallowed.
++ */
++export function contributeNzb(
++  bytes: Buffer,
++  source: string,
++  name?: string
++): void {
++  if (!appConfig.builtins.nab.healthContribute) return;
++  const url = appConfig.builtins.nab.healthIngestUrl;
++  if (!url) {
++    logger.debug('NZB contribution enabled but no ingest endpoint is set.');
++    return;
++  }
++  if (!bytes?.length) return;
++
++  const key = crypto.createHash('sha1').update(bytes).digest('hex');
++  if (inFlightOrSubmitted(key)) return;
++
++  // Multipart, matching the health API's existing submission contract: a
++  // `metadata` JSON part plus an `nzb` file part. A raw body is rejected.
++  const base = (name || source.split('/').pop() || 'release')
++    .replace(/\.nzb$/i, '')
++    .replace(/[<>:"/\\|?*]+/g, ' ')
++    .replace(/\s+/g, ' ')
++    .trim();
++  const releaseName = base || 'release';
++  const form = new FormData();
++  form.append(
++    'metadata',
++    JSON.stringify({ name: releaseName, source: 'AIOStreams' })
++  );
++  form.append(
++    'nzb',
++    new Blob([new Uint8Array(bytes)], { type: 'application/x-nzb' }),
++    `${releaseName.replace(/\s+/g, '.')}.nzb`
++  );
++
++  void fetch(url, {
++    method: 'POST',
++    body: form,
++    signal: AbortSignal.timeout(appConfig.builtins.nab.zyclopsHealthApiTimeout),
++  })
++    .then((res) => {
++      // Undici keeps the connection until the body is consumed.
++      void res.body?.cancel().catch(() => undefined);
++      if (res.status < 200 || res.status >= 300) {
++        recent.delete(key);
++        logger.debug(
++          `NZB contribution returned ${res.status} for ${makeUrlLogSafe(source)}`
++        );
++      }
++    })
++    .catch((err) => {
++      recent.delete(key);
++      logger.debug(
++        `NZB contribution failed for ${makeUrlLogSafe(source)}: ${
++          err instanceof Error ? err.message : String(err)
++        }`
++      );
++    });
++}
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index 28d6f9d2..39fa5d16 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -675,6 +675,36 @@ export const builtinsSchema = {
+     // Batch health API config, relocated here from the removed nzb-proxy schema
+     // (upstream deleted config/schema/nzb-proxy.ts in "remove unused nzb proxy").
+     // Read by builtins/utils/zyclopsHealth.ts.
++    healthContribute: {
++      schema: z.boolean(),
++      default: false,
++      label: 'Contribute fetched NZBs to the health index',
++      env: 'BUILTIN_NAB_HEALTH_CONTRIBUTE',
++      description:
++        'Submit NZBs this instance fetches to the configured health index. Access to the health-backed indexer is reciprocal: it is offered only while this is enabled.',
++      requiresRestart: false,
++      secret: false,
++    },
++    healthIngestUrl: {
++      schema: nullableString,
++      default: null,
++      label: 'Health index ingest endpoint',
++      env: 'BUILTIN_NAB_HEALTH_INGEST_URL',
++      description:
++        'Full URL fetched NZBs are POSTed to when contribution is enabled.',
++      requiresRestart: false,
++      secret: false,
++    },
++    healthIndexerUrl: {
++      schema: nullableString,
++      default: null,
++      label: 'Health-backed indexer URL',
++      env: 'BUILTIN_NAB_HEALTH_INDEXER_URL',
++      description:
++        'Newznab endpoint whose results come from the health index. Configuring a Newznab addon against it is refused while contribution is disabled.',
++      requiresRestart: false,
++      secret: false,
++    },
+     zyclopsHealthApiUrl: {
+       schema: nullableString,
+       default: null,
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index f0176205..d63f307a 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -32,6 +32,8 @@ import { ParsedResult } from '@viren070/parse-torrent-title';
+ import { parseTorrentTitleCached } from '../parser/title.js';
+ import assert from 'assert';
+ 
++import { contributeNzb } from '../builtins/utils/nzbContribution.js';
++
+ const logger = createLogger('debrid:stremthru');
+ 
+ function convertStremThruError(error: StremThruError): DebridError {
+@@ -1043,6 +1045,7 @@ export class StremThruService
+         res,
+         StremThruService.MAX_NZB_BYTES
+       );
++      contributeNzb(bytes, nzb, name);
+     } catch (error) {
+       if (error instanceof DebridError) {
+         throw error;
+diff --git a/packages/core/src/presets/elfcache.ts b/packages/core/src/presets/elfcache.ts
+index 33edd38b..34cc380d 100644
+--- a/packages/core/src/presets/elfcache.ts
++++ b/packages/core/src/presets/elfcache.ts
+@@ -73,7 +73,18 @@ export class ElfCachePreset extends TorznabPreset {
+             reason: 'Not configured',
+             disabled: true,
+           }
+-        : undefined,
++        : // ELFHOSTED: access to the shared cache is reciprocal. Its results
++          // come from hashes contributed by the instances that query it, so
++          // an instance that has opted out of reporting is not offered it.
++          // Surfaced as DISABLED rather than thrown so the reason is visible
++          // where the addon would otherwise be listed.
++          !appConfig.builtins.hashReport.enabled
++          ? {
++              reason:
++                'Requires hash reporting to be enabled (BUILTIN_HASH_REPORT_ENABLED). Results come from hashes contributed by the instances that use it.',
++              disabled: true,
++            }
++          : undefined,
+     };
+   }
+ 
+@@ -85,6 +96,11 @@ export class ElfCachePreset extends TorznabPreset {
+     if (!appConfig.builtins.elfcache.url) {
+       throw new Error('The ElfCache URL is not set');
+     }
++    if (!appConfig.builtins.hashReport.enabled) {
++      throw new Error(
++        'ElfCache requires hash reporting to be enabled (BUILTIN_HASH_REPORT_ENABLED).'
++      );
++    }
+ 
+     const config = {
+       ...this.getBaseConfig(userData, services),
+diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
+index 38d39e9b..d61ae44d 100644
+--- a/packages/core/src/presets/newznab.ts
++++ b/packages/core/src/presets/newznab.ts
+@@ -109,6 +109,22 @@ const NEWZNAB_INDEXERS: {
+   },
+ ];
+ 
++/**
++ * True when two endpoints address the same host and path, ignoring trailing
++ * slashes and query. Used to recognise the health-backed indexer whichever
++ * form it was configured in.
++ */
++function sameEndpoint(a: string, b: string): boolean {
++  try {
++    const ua = new URL(a);
++    const ub = new URL(b);
++    const norm = (p: string) => p.replace(/\/+$/, '');
++    return ua.host === ub.host && norm(ua.pathname) === norm(ub.pathname);
++  } catch {
++    return false;
++  }
++}
++
+ export class NewznabPreset extends BuiltinAddonPreset {
+   static override getParser() {
+     return NewznabStreamParser;
+@@ -367,6 +383,19 @@ export class NewznabPreset extends BuiltinAddonPreset {
+     userData: UserData,
+     options: Record<string, any>
+   ): Promise<Addon[]> {
++    // ELFHOSTED: access to the health-backed indexer is reciprocal. While
++    // contribution is disabled this instance takes from the index without
++    // adding to it, so the addon is refused rather than silently degraded.
++    const gatedIndexer = appConfig.builtins.nab.healthIndexerUrl;
++    if (gatedIndexer && !appConfig.builtins.nab.healthContribute) {
++      const configured = options.api?.url;
++      if (configured && sameEndpoint(configured, gatedIndexer)) {
++        throw new Error(
++          `${this.METADATA.NAME}: this indexer requires NZB contribution to be enabled (BUILTIN_NAB_HEALTH_CONTRIBUTE).`
++        );
++      }
++    }
++
+     const usableServices = this.getUsableServices(
+       userData,
+       options.services,
+diff --git a/packages/core/src/usenet/integration/dashboard/providers.ts b/packages/core/src/usenet/integration/dashboard/providers.ts
+index 6a67d46c..38742d2e 100644
+--- a/packages/core/src/usenet/integration/dashboard/providers.ts
++++ b/packages/core/src/usenet/integration/dashboard/providers.ts
+@@ -216,7 +216,7 @@ async function resolveSpeedTestSource(
+     return cachedTestSource.source;
+   }
+   try {
+-    const xml = await fetchNzb(SPEEDTEST_NZB_URL, signal);
++    const xml = await fetchNzb(SPEEDTEST_NZB_URL, signal, false);
+     const nzb = await parseNzb(xml);
+     const fileIndexes = dataFileIndexes(nzb);
+     if (fileIndexes.length === 0) return null;
+diff --git a/packages/core/src/usenet/integration/library.ts b/packages/core/src/usenet/integration/library.ts
+index 20075d91..d432af1d 100644
+--- a/packages/core/src/usenet/integration/library.ts
++++ b/packages/core/src/usenet/integration/library.ts
+@@ -10,6 +10,7 @@ import {
+ } from '../../utils/index.js';
+ import { getDataFolder } from '../../utils/general.js';
+ import { createLogger } from '../../logging/logger.js';
++import { contributeNzb } from '../../builtins/utils/nzbContribution.js';
+ import {
+   DebridError,
+   DebridDownload,
+@@ -230,7 +231,10 @@ export async function canonicaliseNzbHash(
+  */
+ export async function fetchNzb(
+   url: string,
+-  signal?: AbortSignal
++  signal?: AbortSignal,
++  // ELFHOSTED: false for callers that fetch a canned NZB (the provider speed
++  // test), which would otherwise resubmit the same article on every run.
++  contribute = true
+ ): Promise<Buffer> {
+   if (url.startsWith(LOCAL_NZB_SCHEME)) {
+     const hash = url.slice(LOCAL_NZB_SCHEME.length);
+@@ -249,7 +253,9 @@ export async function fetchNzb(
+     }
+   }
+   try {
+-    return await downloadManager.fetchNzb(url, { signal });
++    const fetched = await downloadManager.fetchNzb(url, { signal });
++    if (contribute) contributeNzb(fetched, url);
++    return fetched;
+   } catch (err) {
+     if (err instanceof NotAnNzbError) {
+       throw new DebridError(err.message, {

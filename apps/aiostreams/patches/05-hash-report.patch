@@ -1,0 +1,425 @@
+diff --git a/packages/core/src/builtins/eztv/addon.ts b/packages/core/src/builtins/eztv/addon.ts
+index c65fcff3..b9a6b56f 100644
+--- a/packages/core/src/builtins/eztv/addon.ts
++++ b/packages/core/src/builtins/eztv/addon.ts
+@@ -18,6 +18,7 @@ import {
+   extractTrackersFromMagnet,
+   validateInfoHash,
+ } from '../utils/debrid.js';
++import { reportHashes } from '../utils/hashReport.js';
+ 
+ const logger = createLogger('eztv');
+ 
+@@ -194,6 +195,15 @@ export class EztvAddon extends BaseDebridAddon<EztvAddonConfig> {
+       });
+     }
+ 
++    reportHashes(
++      torrents.map((t) => ({
++        hash: t.hash!,
++        title: t.title ?? '',
++        size: t.size,
++      })),
++      { source: 'eztv' }
++    );
++
+     return torrents;
+   }
+ }
+diff --git a/packages/core/src/builtins/knaben/addon.ts b/packages/core/src/builtins/knaben/addon.ts
+index cd57b07c..9da2bfb3 100644
+--- a/packages/core/src/builtins/knaben/addon.ts
++++ b/packages/core/src/builtins/knaben/addon.ts
+@@ -17,6 +17,7 @@ import {
+   extractTrackersFromMagnet,
+   validateInfoHash,
+ } from '../utils/debrid.js';
++import { reportHashes } from '../utils/hashReport.js';
+ import { createQueryLimit, getTitleLanguagesForUrl } from '../utils/general.js';
+ 
+ const logger = createLogger('knaben');
+@@ -146,6 +147,18 @@ export class KnabenAddon extends BaseDebridAddon<KnabenAddonConfig> {
+         type: 'torrent',
+       });
+     }
++
++    reportHashes(
++      torrents
++        .filter((t) => t.hash)
++        .map((t) => ({
++          hash: t.hash!,
++          title: t.title ?? '',
++          size: t.size,
++        })),
++      { source: 'knaben' }
++    );
++
+     return torrents;
+   }
+ }
+diff --git a/packages/core/src/builtins/library/matching.ts b/packages/core/src/builtins/library/matching.ts
+index ea03ea32..4a3b332d 100644
+--- a/packages/core/src/builtins/library/matching.ts
++++ b/packages/core/src/builtins/library/matching.ts
+@@ -16,6 +16,7 @@ import {
+ import { titleMatch, cleanTitle, preprocessTitle } from '../../parser/utils.js';
+ import { parseTorrentTitleCached } from '../../parser/title.js';
+ import { SearchMetadata } from '../base/debrid.js';
++import { reportHashes, HashReportRow } from '../utils/hashReport.js';
+ 
+ const logger = createLogger('library');
+ 
+@@ -176,6 +177,17 @@ export async function searchTorrents(
+       const searchTime = getTimeTakenSincePoint(start);
+       start = Date.now();
+       const matched = matchTorrents(items, metadata, parsedId, service.id);
++      reportHashes(
++        matched
++          .filter((t) => t.hash)
++          .map((t) => ({
++            hash: t.hash!,
++            title: t.title ?? '',
++            size: t.size ?? 0,
++            cached: true,
++          })),
++        { source: `library:${service.id}`, storeCode: service.id }
++      );
+       logger.info(`Matched torrents from service library`, {
+         serviceId: service.id,
+         totalItems: items.length,
+diff --git a/packages/core/src/builtins/the-pirate-bay/addon.ts b/packages/core/src/builtins/the-pirate-bay/addon.ts
+index 1d08161b..9127dddc 100644
+--- a/packages/core/src/builtins/the-pirate-bay/addon.ts
++++ b/packages/core/src/builtins/the-pirate-bay/addon.ts
+@@ -4,6 +4,7 @@ import { createLogger, ParsedId } from '../../utils/index.js';
+ import ThePirateBayAPI, { getThePirateBayUrl } from './api.js';
+ import { NZB, UnprocessedTorrent } from '../../debrid/utils.js';
+ import { validateInfoHash } from '../utils/debrid.js';
++import { reportHashes } from '../utils/hashReport.js';
+ import { createQueryLimit, getTitleLanguagesForUrl } from '../utils/general.js';
+ 
+ const logger = createLogger('the-pirate-bay');
+@@ -94,6 +95,15 @@ export class ThePirateBayAddon extends BaseDebridAddon<ThePirateBayAddonConfig>
+         type: 'torrent',
+       });
+     }
++    reportHashes(
++      torrents.map((t) => ({
++        hash: t.hash!,
++        title: t.title ?? '',
++        size: t.size,
++      })),
++      { source: 'the-pirate-bay' }
++    );
++
+     return torrents;
+   }
+ }
+diff --git a/packages/core/src/builtins/therarbg/addon.ts b/packages/core/src/builtins/therarbg/addon.ts
+index 6daa37e4..a4a511a5 100644
+--- a/packages/core/src/builtins/therarbg/addon.ts
++++ b/packages/core/src/builtins/therarbg/addon.ts
+@@ -8,6 +8,7 @@ import {
+ import TheRARBGAPI, { TheRARBGCategory, getTheRARBGUrl } from './api.js';
+ import { NZB, UnprocessedTorrent } from '../../debrid/utils.js';
+ import { validateInfoHash } from '../utils/debrid.js';
++import { reportHashes } from '../utils/hashReport.js';
+ import { config as appConfig } from '../../config/index.js';
+ import { createQueryLimit, getTitleLanguagesForUrl } from '../utils/general.js';
+ 
+@@ -172,6 +173,15 @@ export class TheRARBGAddon extends BaseDebridAddon<TheRARBGAddonConfig> {
+         type: 'torrent',
+       });
+     }
++    reportHashes(
++      torrents.map((t) => ({
++        hash: t.hash!,
++        title: t.title ?? '',
++        size: t.size,
++      })),
++      { source: 'therarbg' }
++    );
++
+     return torrents;
+   }
+ }
+diff --git a/packages/core/src/builtins/torrent-galaxy/addon.ts b/packages/core/src/builtins/torrent-galaxy/addon.ts
+index bc12ef7a..b7e30da1 100644
+--- a/packages/core/src/builtins/torrent-galaxy/addon.ts
++++ b/packages/core/src/builtins/torrent-galaxy/addon.ts
+@@ -18,6 +18,7 @@ import {
+   extractTrackersFromMagnet,
+   validateInfoHash,
+ } from '../utils/debrid.js';
++import { reportHashes } from '../utils/hashReport.js';
+ import { config as appConfig } from '../../config/index.js';
+ import { createQueryLimit, getTitleLanguagesForUrl } from '../utils/general.js';
+ 
+@@ -187,6 +188,16 @@ export class TorrentGalaxyAddon extends BaseDebridAddon<TorrentGalaxyAddonConfig
+         type: 'torrent',
+       });
+     }
++
++    reportHashes(
++      torrents.map((t) => ({
++        hash: t.hash!,
++        title: t.title ?? '',
++        size: t.size,
++      })),
++      { source: 'torrent-galaxy' }
++    );
++
+     return torrents;
+   }
+ }
+diff --git a/packages/core/src/builtins/utils/hashReport.ts b/packages/core/src/builtins/utils/hashReport.ts
+new file mode 100644
+index 00000000..1532621a
+--- /dev/null
++++ b/packages/core/src/builtins/utils/hashReport.ts
+@@ -0,0 +1,184 @@
++import { fetch } from 'undici';
++import { createLogger } from '../../utils/index.js';
++import { config as appConfig } from '../../config/index.js';
++import { validateInfoHash } from './debrid.js';
++
++const logger = createLogger('hash-report');
++
++export interface HashReportRow {
++  hash: string;
++  title: string;
++  size: number;
++  /** Only meaningful when paired with a storeCode in the options. */
++  cached?: boolean;
++}
++
++export interface HashReportOptions {
++  /** Source addon name, used for log lines. */
++  source: string;
++  /** Store code (e.g. "tb"). Omit/empty to send metadata without cache state. */
++  storeCode?: string;
++}
++
++interface ReportPayload {
++  hashes: string[];
++  store_code: string;
++  metadata?: Record<string, { name: string; size: number }>;
++}
++
++function buildPayloads(
++  rows: HashReportRow[],
++  storeCode: string | undefined
++): ReportPayload[] {
++  const metadata: Record<string, { name: string; size: number }> = {};
++  const cachedHashes: string[] = [];
++
++  for (const row of rows) {
++    const hash = validateInfoHash(row.hash);
++    if (!hash) continue;
++
++    if (row.title && Number.isFinite(row.size) && row.size > 0) {
++      metadata[hash] = { name: row.title, size: row.size };
++    }
++    if (storeCode && row.cached === true) {
++      cachedHashes.push(hash);
++    }
++  }
++
++  const allHashes = Array.from(
++    new Set([...cachedHashes, ...Object.keys(metadata)])
++  );
++  if (allHashes.length === 0) return [];
++
++  const cachedSet = new Set(cachedHashes);
++  const batchSize = Math.max(1, appConfig.builtins.hashReport.batchSize);
++  const payloads: ReportPayload[] = [];
++
++  for (let i = 0; i < allHashes.length; i += batchSize) {
++    const slice = allHashes.slice(i, i + batchSize);
++    const batchMetadata: Record<string, { name: string; size: number }> = {};
++    for (const h of slice) {
++      if (metadata[h]) batchMetadata[h] = metadata[h];
++    }
++    payloads.push({
++      hashes: slice.filter((h) => cachedSet.has(h)),
++      store_code: storeCode ?? '',
++      ...(Object.keys(batchMetadata).length > 0
++        ? { metadata: batchMetadata }
++        : {}),
++    });
++  }
++
++  return payloads;
++}
++
++async function postWithRetry(
++  url: string,
++  apiKey: string,
++  body: ReportPayload,
++  source: string
++): Promise<void> {
++  const maxAttempts = 3;
++  let attempt = 0;
++  let lastError: unknown;
++
++  while (attempt < maxAttempts) {
++    attempt++;
++    try {
++      const response = await fetch(url, {
++        method: 'POST',
++        headers: {
++          'Content-Type': 'application/json',
++          Accept: 'application/json',
++          'X-Api-Key': apiKey,
++        },
++        body: JSON.stringify(body),
++        signal: AbortSignal.timeout(appConfig.builtins.hashReport.timeout),
++      });
++
++      if (response.status >= 200 && response.status < 300) return;
++
++      if (response.status >= 500 && attempt < maxAttempts) {
++        const delay = 250 * 2 ** (attempt - 1);
++        await new Promise((r) => setTimeout(r, delay));
++        continue;
++      }
++
++      logger.warn(
++        `Hash report (${source}) returned ${response.status}; giving up after ${attempt} attempt(s).`
++      );
++      return;
++    } catch (error) {
++      lastError = error;
++      if (attempt < maxAttempts) {
++        const delay = 250 * 2 ** (attempt - 1);
++        await new Promise((r) => setTimeout(r, delay));
++        continue;
++      }
++    }
++  }
++
++  if (lastError) {
++    logger.warn(
++      `Hash report (${source}) failed after ${maxAttempts} attempt(s): ${
++        lastError instanceof Error ? lastError.message : String(lastError)
++      }`
++    );
++  }
++}
++
++export function reportHashes(
++  rows: HashReportRow[] | null | undefined,
++  options: HashReportOptions
++): void {
++  const source = options.source;
++  const rowCount = rows?.length ?? 0;
++
++  if (!appConfig.builtins.hashReport.enabled) {
++    logger.debug(
++      `Hash report (${source}): skipped — reporting disabled (rows=${rowCount}).`
++    );
++    return;
++  }
++  if (!rows || rows.length === 0) {
++    logger.debug(`Hash report (${source}): skipped — no rows.`);
++    return;
++  }
++
++  const apiKey = appConfig.builtins.hashReport.apiKey;
++  if (!apiKey) {
++    logger.warn(
++      `Hash report (${source}): enabled but no API key is set; skipping.`
++    );
++    return;
++  }
++
++  const payloads = buildPayloads(rows, options.storeCode);
++  if (payloads.length === 0) {
++    logger.debug(
++      `Hash report (${source}): skipped — ${rowCount} input row(s) produced no valid payloads (no valid 40-hex hashes / no metadata).`
++    );
++    return;
++  }
++
++  const url = appConfig.builtins.hashReport.url;
++  if (!url) {
++    logger.warn(
++      `Hash report (${source}): enabled but no endpoint is set; skipping.`
++    );
++    return;
++  }
++  const totalHashes = payloads.reduce((s, p) => s + p.hashes.length, 0);
++  const totalMetadata = payloads.reduce(
++    (s, p) => s + (p.metadata ? Object.keys(p.metadata).length : 0),
++    0
++  );
++
++  logger.info(
++    `Hash report (${source}): dispatching ${payloads.length} batch(es) to ${url} — ${totalHashes} cached hash(es), ${totalMetadata} metadata entr(ies).`
++  );
++
++  void Promise.allSettled(
++    payloads.map((p) => postWithRetry(url, apiKey, p, source))
++  );
++}
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index d38d10e0..38db4b0e 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -678,6 +678,56 @@ export const builtinsSchema = {
+       secret: false,
+     },
+   },
++  hashReport: {
++    enabled: {
++      schema: z.boolean(),
++      default: false,
++      label: 'Hash reporting enabled',
++      env: 'BUILTIN_HASH_REPORT_ENABLED',
++      description:
++        'Report observed info-hashes and their release metadata to a configured endpoint.',
++      requiresRestart: false,
++      secret: false,
++    },
++    url: {
++      schema: nullableString,
++      default: null,
++      label: 'Hash report endpoint',
++      env: 'BUILTIN_HASH_REPORT_URL',
++      description:
++        'Full URL the reports are POSTed to. Required when reporting is enabled.',
++      requiresRestart: false,
++      secret: false,
++    },
++    apiKey: {
++      schema: nullableString,
++      default: null,
++      label: 'Hash report API key',
++      env: 'BUILTIN_HASH_REPORT_API_KEY',
++      description:
++        'Sent as X-Api-Key. Required when reporting is enabled.',
++      requiresRestart: false,
++      secret: true,
++    },
++    timeout: {
++      schema: positiveInt,
++      default: 10000,
++      label: 'Hash report request timeout (ms)',
++      env: 'BUILTIN_HASH_REPORT_TIMEOUT',
++      description: 'Timeout (ms) for a single report request.',
++      requiresRestart: false,
++      secret: false,
++    },
++    batchSize: {
++      schema: positiveInt,
++      default: 100,
++      label: 'Hash report batch size',
++      env: 'BUILTIN_HASH_REPORT_BATCH_SIZE',
++      description: 'Maximum number of hashes per report request.',
++      requiresRestart: false,
++      secret: false,
++    },
++  },
+   zilean: {
+     url: {
+       schema: urlString,

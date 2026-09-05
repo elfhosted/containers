@@ -1,0 +1,51 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 7d6898f2..f0176205 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -605,22 +605,30 @@ export class StremThruService
+           }
+         );
+ 
+-        newResults = allItems.map((item) => ({
+-          id: -1,
+-          hash: item.hash,
+-          status: item.status,
+-          size: Math.round(
+-            item.files.reduce((acc, file) => acc + file.size, 0)
+-          ),
+-          files: item.files.map((file) => {
+-            return {
+-              name: file.name,
+-              size: file.size,
+-              index: file.index,
+-              mediaInfo: (file as any).media_info,
+-            };
+-          }),
+-        }));
++        newResults = allItems.map((item) => {
++          // `files` is typed non-nullable by the SDK but arrives as `null`
++          // whenever StremThru serialises a nil Go slice — the RD filename
++          // blocklist does exactly that when it downgrades a cached item.
++          // Guard rather than trust the type: this throw escapes all the way
++          // out of processTorrentsForDebridService, so a single such item
++          // discards every torrent for the service, not just itself. The
++          // usenet path below already does this.
++          const files = item.files ?? [];
++          return {
++            id: -1,
++            hash: item.hash,
++            status: item.status,
++            size: Math.round(files.reduce((acc, file) => acc + file.size, 0)),
++            files: files.map((file) => {
++              return {
++                name: file.name,
++                size: file.size,
++                index: file.index,
++                mediaInfo: (file as any).media_info,
++              };
++            }),
++          };
++        });
+ 
+         newResults.forEach((item) => {
+           this.checkCacheSet(item);

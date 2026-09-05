@@ -1,0 +1,1862 @@
+diff --git a/packages/core/src/builtins/elfsymlinks/addon.ts b/packages/core/src/builtins/elfsymlinks/addon.ts
+new file mode 100644
+index 00000000..548ca221
+--- /dev/null
++++ b/packages/core/src/builtins/elfsymlinks/addon.ts
+@@ -0,0 +1,350 @@
++import { z } from 'zod';
++import {
++  Manifest,
++  Meta,
++  MetaPreview,
++  Stream,
++} from '../../db/schemas.js';
++import {
++  createLogger,
++  ExtrasParser,
++  IdParser,
++} from '../../utils/index.js';
++import { config as appConfig } from '../../config/index.js';
++import {
++  CatalogEntry,
++  findEpisodesByImdbId,
++  findMoviesByImdbId,
++  listCatalog,
++  listSeriesEpisodes,
++  SymlinkMatch,
++} from './scanner.js';
++import { signFileToken } from './signing.js';
++import { enrichWithTmdb, enrichEntry, EnrichedEntry } from './enrich.js';
++
++const logger = createLogger('elfsymlinks');
++
++const DEFAULT_FILE_URL_VALIDITY_MS = 24 * 60 * 60 * 1000;
++
++/** decodeURIComponent that returns the input unchanged on malformed input. */
++const safeDecode = (s: string): string => {
++  try {
++    return decodeURIComponent(s);
++  } catch {
++    return s;
++  }
++};
++
++export const ElfSymlinksConfigSchema = z
++  .object({
++    /** Validity (ms) for signed file URLs. Defaults to 24 hours. */
++    fileUrlValidityMs: z
++      .number()
++      .int()
++      .positive()
++      .default(DEFAULT_FILE_URL_VALIDITY_MS),
++    /**
++     * User-supplied TMDB v4 read access token (preferred) and v3 API key
++     * (fallback). Either is sufficient for catalog/meta enrichment. Server
++     * appConfig (metadata.tmdb) acts as the fallback inside the addon when
++     * neither user token is set.
++     */
++    tmdbAccessToken: z.string().optional(),
++    tmdbApiKey: z.string().optional(),
++  })
++  .strict();
++
++export type ElfSymlinksConfig = z.infer<typeof ElfSymlinksConfigSchema>;
++
++export const ELFSYMLINKS_MOVIE_CATALOG_ID = 'elfsymlinks-recent-movies';
++export const ELFSYMLINKS_SERIES_CATALOG_ID = 'elfsymlinks-recent-series';
++
++const CATALOG_PAGE_SIZE = 100;
++
++export class ElfSymlinksAddon {
++  private readonly userData: ElfSymlinksConfig;
++
++  constructor(userData?: Partial<ElfSymlinksConfig>) {
++    this.userData = ElfSymlinksConfigSchema.parse(userData ?? {});
++  }
++
++  private get root(): string | undefined {
++    return appConfig.builtins.elfsymlinks.root ?? undefined;
++  }
++
++  private requireRoot(): string {
++    if (!this.root) {
++      throw new Error(
++        'builtins.elfsymlinks.root (BUILTIN_ELFSYMLINKS_ROOT) is not configured on the server.'
++      );
++    }
++    return this.root;
++  }
++
++  /** TMDB credentials to pass to the enricher. Server config is the fallback. */
++  private tmdbAuth() {
++    return {
++      accessToken: this.userData.tmdbAccessToken,
++      apiKey: this.userData.tmdbApiKey,
++    };
++  }
++
++  static getManifest(): Manifest {
++    return {
++      id: 'com.elfhosted.elfsymlinks',
++      version: '1.0.0',
++      name: 'ElfSymlinks',
++      description:
++        "For ElfHosted users with a Personal Media Stack: searches your existing symlinks for matching content and exposes a 'recently added' catalog of movies and TV.",
++      types: ['movie', 'series'],
++      catalogs: [
++        // Catalog names appear in Stremio as "<name> - <Type>" (e.g.
++        // "ElfSymlinks - Movie"); don't repeat the type word in the name.
++        {
++          id: ELFSYMLINKS_MOVIE_CATALOG_ID,
++          name: 'ElfSymlinks',
++          type: 'movie',
++          extra: [{ name: 'skip' }, { name: 'search' }],
++        },
++        {
++          id: ELFSYMLINKS_SERIES_CATALOG_ID,
++          name: 'ElfSymlinks',
++          type: 'series',
++          extra: [{ name: 'skip' }, { name: 'search' }],
++        },
++      ],
++      resources: [
++        {
++          name: 'stream',
++          types: ['movie', 'series'],
++          idPrefixes: IdParser.getPrefixes(['imdbId']),
++        },
++        {
++          name: 'catalog',
++          types: ['movie', 'series'],
++          idPrefixes: ['elfsymlinks'],
++        },
++        {
++          name: 'meta',
++          types: ['movie', 'series'],
++          idPrefixes: IdParser.getPrefixes(['imdbId']),
++        },
++      ],
++      behaviorHints: {
++        adult: false,
++        p2p: false,
++        configurable: false,
++        configurationRequired: false,
++      },
++    };
++  }
++
++  public getManifest(): Manifest {
++    return ElfSymlinksAddon.getManifest();
++  }
++
++  public async getStreams(type: string, id: string): Promise<Stream[]> {
++    const root = this.requireRoot();
++    const parsedId = IdParser.parse(id, type);
++    if (!parsedId || parsedId.type !== 'imdbId') {
++      throw new Error(`Unsupported ID for ElfSymlinks: ${id}`);
++    }
++
++    const imdbId = String(parsedId.value);
++
++    let matches: SymlinkMatch[] = [];
++    if (type === 'movie') {
++      matches = await findMoviesByImdbId(root, imdbId);
++    } else if (type === 'series') {
++      // parsedId.season/episode are strings; treat 0 as valid (Stremio uses
++      // season 0 for specials).
++      const season =
++        parsedId.season !== undefined ? Number(parsedId.season) : undefined;
++      const episode =
++        parsedId.episode !== undefined ? Number(parsedId.episode) : undefined;
++      if (
++        season === undefined ||
++        episode === undefined ||
++        Number.isNaN(season) ||
++        Number.isNaN(episode)
++      ) {
++        throw new Error(`Series stream request missing season/episode: ${id}`);
++      }
++      matches = await findEpisodesByImdbId(root, imdbId, season, episode);
++    } else {
++      logger.debug(`Unsupported type for ElfSymlinks: ${type}`);
++      return [];
++    }
++
++    if (matches.length === 0) {
++      logger.debug(
++        `No ElfSymlinks matches for ${type} ${id} (imdb ${imdbId})`
++      );
++      return [];
++    }
++
++    return matches.map((m) => this.createStream(m));
++  }
++
++  public async getCatalog(
++    type: string,
++    catalogId: string,
++    extras?: string
++  ): Promise<MetaPreview[]> {
++    const root = this.requireRoot();
++    const parsedExtras = extras ? new ExtrasParser(extras) : undefined;
++    const skip = parsedExtras?.skip ?? 0;
++    // ExtrasParser stores the raw value Express handed it, which is
++    // percent-encoded for spaces and other non-token chars. Decode before
++    // matching so multi-word searches ("star wars") don't compare against
++    // "star%20wars".
++    const search = parsedExtras?.search
++      ? safeDecode(parsedExtras.search).toLowerCase()
++      : undefined;
++
++    let stremioType: 'movie' | 'series';
++    if (type === 'movie' && catalogId === ELFSYMLINKS_MOVIE_CATALOG_ID) {
++      stremioType = 'movie';
++    } else if (
++      type === 'series' &&
++      catalogId === ELFSYMLINKS_SERIES_CATALOG_ID
++    ) {
++      stremioType = 'series';
++    } else {
++      throw new Error(`Unsupported catalog: ${type}/${catalogId}`);
++    }
++
++    let entries = await listCatalog(root, stremioType);
++    if (search) {
++      entries = entries.filter((e) => e.title.toLowerCase().includes(search));
++    }
++    const page = entries.slice(skip, skip + CATALOG_PAGE_SIZE);
++    // Enrich the page (not the full list) — TMDB has its own cache so repeat
++    // pages cost only the cache hits. No-ops cleanly when TMDB isn't
++    // configured.
++    const enriched = await enrichWithTmdb(page, this.tmdbAuth());
++    return enriched.map((e) => this.createMetaPreview(e));
++  }
++
++  public async getMeta(type: string, id: string): Promise<Meta> {
++    const root = this.requireRoot();
++    const parsedId = IdParser.parse(id, type);
++    if (!parsedId || parsedId.type !== 'imdbId') {
++      throw new Error(`Unsupported ID for ElfSymlinks meta: ${id}`);
++    }
++    const imdbId = String(parsedId.value);
++    const stremioType: 'movie' | 'series' =
++      type === 'series' ? 'series' : 'movie';
++
++    const entry = (await listCatalog(root, stremioType)).find(
++      (e) => e.imdbId === imdbId
++    );
++    if (!entry) {
++      return {
++        id,
++        type: stremioType,
++        name: 'Not in ElfSymlinks library',
++        description:
++          'This item is not available in the ElfSymlinks library on this instance.',
++      };
++    }
++
++    const enriched = await enrichEntry(entry, this.tmdbAuth());
++
++    const meta: Meta = {
++      id,
++      type: stremioType,
++      name: enriched.enrichedTitle ?? enriched.title,
++      releaseInfo: enriched.year ? String(enriched.year) : undefined,
++      description: this.buildDescription(enriched),
++      poster: enriched.posterUrl,
++      background: enriched.backdropUrl,
++    };
++
++    if (stremioType === 'series') {
++      const episodes = await listSeriesEpisodes(root, imdbId);
++      meta.videos = episodes.map(({ season, episode }) => ({
++        id: `${id}:${season}:${episode}`,
++        title: `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`,
++        season,
++        episode,
++        released: undefined,
++      }));
++    }
++
++    return meta;
++  }
++
++  private buildDescription(entry: CatalogEntry): string {
++    const parts: string[] = [];
++    if (entry.year) parts.push(`📅 ${entry.year}`);
++    if (entry.has4K) parts.push('🟦 4K available');
++    return parts.join(' • ');
++  }
++
++  private createMetaPreview(entry: EnrichedEntry): MetaPreview {
++    return {
++      id: `tt${entry.imdbId.replace(/^tt/, '')}`,
++      type: entry.type,
++      name: entry.enrichedTitle ?? entry.title,
++      poster: entry.posterUrl,
++      posterShape: 'poster',
++      releaseInfo: entry.year ? String(entry.year) : undefined,
++      description: entry.has4K ? '🟦 4K available' : undefined,
++    };
++  }
++
++  private createStream(match: SymlinkMatch): Stream {
++    const is4K = match.bucket.endsWith('-4k');
++    const token = signFileToken(
++      match.relativePath,
++      this.userData.fileUrlValidityMs
++    );
++    const filename = match.fileName;
++    const url = `${appConfig.bootstrap.baseUrl}/elfsymlinks/file/${token}/${encodeURIComponent(filename)}`;
++
++    const descriptionLines: string[] = [];
++    if (match.seasonFolderName) {
++      descriptionLines.push(
++        `📁 ${match.folderName} / ${match.seasonFolderName}`
++      );
++    } else {
++      descriptionLines.push(`📁 ${match.folderName}`);
++    }
++    descriptionLines.push(filename);
++
++    return {
++      // 🗃️ marks this as a library result; ⚡ is the conventional
++      // "cached / instantly available" cue used elsewhere in the codebase.
++      name: `🗃️ [⚡] ElfSymlinks${is4K ? ' 4K' : ''}`,
++      description: descriptionLines.join('\n'),
++      url,
++      behaviorHints: {
++        filename,
++        // Custom field: looseObject schema permits extras and the default
++        // StreamParser.getFolder() reads it for folder-name parsing.
++        folderName: match.folderName,
++        videoSize: match.size || undefined,
++        notWebReady: true,
++        bingeGroup: `elfsymlinks-${match.bucket}`,
++      },
++    };
++  }
++}
++
++export const elfSymlinksFromConfig = (
++  encoded?: string
++): ElfSymlinksAddon => {
++  if (!encoded) return new ElfSymlinksAddon();
++  try {
++    const parsed = JSON.parse(
++      Buffer.from(
++        encoded.replace(/-/g, '+').replace(/_/g, '/'),
++        'base64'
++      ).toString('utf8')
++    );
++    return new ElfSymlinksAddon(parsed);
++  } catch {
++    return new ElfSymlinksAddon();
++  }
++};
+diff --git a/packages/core/src/builtins/elfsymlinks/enrich.ts b/packages/core/src/builtins/elfsymlinks/enrich.ts
+new file mode 100644
+index 00000000..7b645368
+--- /dev/null
++++ b/packages/core/src/builtins/elfsymlinks/enrich.ts
+@@ -0,0 +1,148 @@
++import pLimit from 'p-limit';
++import { config as appConfig } from '../../config/index.js';
++import { createLogger } from '../../utils/index.js';
++import { TMDBMetadata } from '../../metadata/tmdb.js';
++import type { ParsedId } from '../../utils/id-parser.js';
++import { CatalogEntry } from './scanner.js';
++
++const logger = createLogger('elfsymlinks-enrich');
++
++export interface EnrichedEntry extends CatalogEntry {
++  /** TMDB-canonical title, if available — otherwise the folder-derived title. */
++  enrichedTitle?: string;
++  /** Full TMDB poster URL, if available. */
++  posterUrl?: string;
++  /** Full TMDB backdrop URL, if available. */
++  backdropUrl?: string;
++}
++
++const TMDB_CONCURRENCY = 16;
++const POSTER_SIZE = 'w500' as const;
++const BACKDROP_SIZE = 'w780' as const;
++// Best-effort page budget: once exceeded, queued entries return unenriched
++// instead of draining ~100 lookups (each up to a 5s metadata timeout) past the
++// addon deadline and piling background load onto a slow/unavailable TMDB proxy.
++const ENRICH_PAGE_BUDGET_MS = 6000;
++
++const buildParsedId = (
++  imdbId: string,
++  type: 'movie' | 'series'
++): ParsedId => ({
++  type: 'imdbId',
++  value: imdbId,
++  fullId: imdbId,
++  externalType: 'imdb_id',
++  mediaType: type,
++  generator: (value, season, episode) =>
++    `${value}${season && episode ? `:${season}:${episode}` : ''}`,
++});
++
++export interface TmdbAuth {
++  /** TMDB v4 read access token (preferred). */
++  accessToken?: string;
++  /** TMDB v3 API key. */
++  apiKey?: string;
++}
++
++/**
++ * Whether TMDB enrichment can run for the given auth. Either user-supplied
++ * token (passed via `auth`) or the server-side appConfig fallback satisfies
++ * this.
++ */
++export const tmdbEnrichmentAvailable = (auth?: TmdbAuth): boolean =>
++  !!(
++    auth?.accessToken ||
++    auth?.apiKey ||
++    appConfig.metadata.tmdb.accessToken ||
++    appConfig.metadata.tmdb.apiKey
++  );
++
++/**
++ * Enrich a list of catalog entries with TMDB metadata (canonical title +
++ * poster/backdrop URLs). Lazy and per-request: TMDBMetadata has its own cache
++ * keyed by imdb id, so repeat calls for the same entry are free.
++ *
++ * `auth` carries the user's TMDB credentials (configured via the AIOStreams
++ * UI, plumbed through the manifest URL). When unset, TMDBMetadata falls back
++ * to the server-side appConfig.metadata.tmdb credentials.
++ *
++ * Behaviour on failure:
++ * - No TMDB token configured (anywhere) → returns input unchanged.
++ * - Per-entry lookup fails → that entry is returned unenriched (others still
++ *   succeed). We never reject the whole catalog page because one item is
++ *   missing in TMDB.
++ */
++export const enrichWithTmdb = async (
++  entries: CatalogEntry[],
++  auth?: TmdbAuth
++): Promise<EnrichedEntry[]> => {
++  if (entries.length === 0) return [];
++  if (!tmdbEnrichmentAvailable(auth)) return entries;
++
++  let tmdb: TMDBMetadata;
++  try {
++    tmdb = new TMDBMetadata({
++      accessToken: auth?.accessToken,
++      apiKey: auth?.apiKey,
++    });
++  } catch (err) {
++    logger.debug(
++      `Skipping TMDB enrichment: ${err instanceof Error ? err.message : err}`
++    );
++    return entries;
++  }
++
++  const limit = pLimit(TMDB_CONCURRENCY);
++  let deadlineReached = false;
++  const deadlineP = new Promise<'deadline'>((resolve) => {
++    const t = setTimeout(() => {
++      deadlineReached = true;
++      resolve('deadline');
++    }, ENRICH_PAGE_BUDGET_MS);
++    t.unref?.();
++  });
++
++  return Promise.all(
++    entries.map(async (entry): Promise<EnrichedEntry> => {
++      // Race each lookup against the shared page budget. Queued jobs skip the
++      // TMDB call once the deadline fires (the flag), AND an already-started
++      // lookup that runs long no longer blocks the page: we return the entry
++      // unenriched and let the started request finish in the background
++      // (warming TMDBMetadata's cache). Bounds the page to ~the budget.
++      return Promise.race([
++        limit(async (): Promise<EnrichedEntry> => {
++          if (deadlineReached) return entry;
++          try {
++            const meta = await tmdb.getMetadata(
++              buildParsedId(entry.imdbId, entry.type)
++            );
++            return {
++              ...entry,
++              enrichedTitle: meta.title || entry.title,
++              posterUrl: TMDBMetadata.getImageUrl(meta.posterPath, POSTER_SIZE),
++              backdropUrl: TMDBMetadata.getImageUrl(
++                meta.backdropPath,
++                BACKDROP_SIZE
++              ),
++            };
++          } catch (err) {
++            logger.debug(
++              `TMDB lookup failed for ${entry.imdbId}: ${err instanceof Error ? err.message : err}`
++            );
++            return entry;
++          }
++        }),
++        deadlineP.then(() => entry),
++      ]);
++    })
++  );
++};
++
++/** Enrich a single entry. Convenience wrapper around enrichWithTmdb. */
++export const enrichEntry = async (
++  entry: CatalogEntry,
++  auth?: TmdbAuth
++): Promise<EnrichedEntry> => {
++  const [enriched] = await enrichWithTmdb([entry], auth);
++  return enriched;
++};
+diff --git a/packages/core/src/builtins/elfsymlinks/index.ts b/packages/core/src/builtins/elfsymlinks/index.ts
+new file mode 100644
+index 00000000..4eff60c9
+--- /dev/null
++++ b/packages/core/src/builtins/elfsymlinks/index.ts
+@@ -0,0 +1,4 @@
++export * from './addon.js';
++export * from './scanner.js';
++export * from './signing.js';
++export * from './enrich.js';
+diff --git a/packages/core/src/builtins/elfsymlinks/scanner.ts b/packages/core/src/builtins/elfsymlinks/scanner.ts
+new file mode 100644
+index 00000000..23bfdb35
+--- /dev/null
++++ b/packages/core/src/builtins/elfsymlinks/scanner.ts
+@@ -0,0 +1,495 @@
++import fs from 'fs';
++import fsp from 'fs/promises';
++import path from 'path';
++import pLimit from 'p-limit';
++import { config as appConfig } from '../../config/index.js';
++import { createLogger } from '../../utils/index.js';
++
++const logger = createLogger('elfsymlinks');
++
++const VIDEO_EXTENSIONS = new Set([
++  '.mkv',
++  '.mp4',
++  '.m4v',
++  '.avi',
++  '.mov',
++  '.webm',
++  '.ts',
++  '.m2ts',
++  '.flv',
++  '.wmv',
++  '.mpg',
++  '.mpeg',
++  '.ogv',
++]);
++
++export type SymlinkBucket = 'movies' | 'movies-4k' | 'series' | 'series-4k';
++
++export const BUCKETS: readonly SymlinkBucket[] = [
++  'movies',
++  'movies-4k',
++  'series',
++  'series-4k',
++] as const;
++
++export interface SymlinkMatch {
++  bucket: SymlinkBucket;
++  /** Path relative to the configured root, with forward slashes. */
++  relativePath: string;
++  fileName: string;
++  /** The {imdb-tt###} folder. */
++  folderName: string;
++  /** Containing season folder name for series, otherwise undefined. */
++  seasonFolderName?: string;
++  /** Resolved absolute path (within root). */
++  absolutePath: string;
++  /** File size in bytes (from stat). */
++  size: number;
++}
++
++export interface CatalogEntry {
++  imdbId: string;
++  type: 'movie' | 'series';
++  bucket: SymlinkBucket;
++  folderName: string;
++  title: string;
++  year?: number;
++  has4K: boolean;
++  modifiedTime: number;
++}
++
++interface IndexEntry {
++  folderName: string;
++  modifiedTime: number;
++  title: string;
++  year?: number;
++}
++
++type BucketIndex = Map<string, IndexEntry>; // imdbId -> entry
++
++const isVideoFile = (name: string) =>
++  VIDEO_EXTENSIONS.has(path.extname(name).toLowerCase());
++
++const FOLDER_PARSE_RE =
++  /^(?<title>.+?)\s*(?:\((?<year>\d{4})\))?\s*\{imdb-(?<imdb>tt\d+)\}/;
++
++const parseFolderName = (
++  folderName: string
++): { title: string; year?: number; imdbId: string } | undefined => {
++  const m = folderName.match(FOLDER_PARSE_RE);
++  if (!m?.groups) return undefined;
++  return {
++    title: m.groups.title.trim(),
++    year: m.groups.year ? Number(m.groups.year) : undefined,
++    imdbId: m.groups.imdb,
++  };
++};
++
++const toRelative = (root: string, absolute: string): string =>
++  path.relative(root, absolute).split(path.sep).join('/');
++
++const safeReadDirAsync = async (dir: string): Promise<fs.Dirent[]> => {
++  try {
++    return await fsp.readdir(dir, { withFileTypes: true });
++  } catch (err: any) {
++    if (err?.code !== 'ENOENT') {
++      logger.warn(`Failed to read ${dir}: ${err?.message ?? err}`);
++    }
++    return [];
++  }
++};
++
++const safeReadDirSync = (dir: string): fs.Dirent[] => {
++  try {
++    return fs.readdirSync(dir, { withFileTypes: true });
++  } catch {
++    return [];
++  }
++};
++
++const safeStatMtime = async (p: string): Promise<number> => {
++  try {
++    return (await fsp.stat(p)).mtimeMs;
++  } catch {
++    return 0;
++  }
++};
++
++const safeStatSize = (p: string): number => {
++  try {
++    return fs.statSync(p).size;
++  } catch {
++    return 0;
++  }
++};
++
++/**
++ * Dirent.isFile() / isDirectory() return false for symlinks. The whole
++ * elfhosted layout is symlinks pointing at real files/dirs, so we follow
++ * symlinks via stat to determine the real type. Dangling symlinks return
++ * false. We accept the extra stat cost because it only runs on per-folder
++ * readdir results during stream lookups (small N), not during the index
++ * build (which uses Dirent.isDirectory directly on real top-level dirs).
++ */
++const isFileFollowingLinks = (
++  dir: string,
++  e: fs.Dirent
++): boolean => {
++  if (e.isFile()) return true;
++  if (!e.isSymbolicLink()) return false;
++  try {
++    return fs.statSync(path.join(dir, e.name)).isFile();
++  } catch {
++    return false;
++  }
++};
++
++const isDirectoryFollowingLinks = (
++  dir: string,
++  e: fs.Dirent
++): boolean => {
++  if (e.isDirectory()) return true;
++  if (!e.isSymbolicLink()) return false;
++  try {
++    return fs.statSync(path.join(dir, e.name)).isDirectory();
++  } catch {
++    return false;
++  }
++};
++
++/**
++ * In-memory index of every imdb folder in the configured root, refreshed in
++ * the background. Catalog requests read it directly. Stream lookups use it to
++ * find the target folder, then do a single readdir of just that folder.
++ *
++ * Stale-while-revalidate: once primed, requests during a refresh see the old
++ * data; only the very first request after process start has to wait for the
++ * initial build.
++ */
++class ElfSymlinksIndex {
++  private cache: Record<SymlinkBucket, BucketIndex> | null = null;
++  private buildPromise: Promise<void> | null = null;
++  private lastBuild = 0;
++
++  private get ttl(): number {
++    return appConfig.builtins.elfsymlinks.indexTtl;
++  }
++
++  /** Force a rebuild on next access — useful for tests. */
++  invalidate(): void {
++    this.cache = null;
++    this.lastBuild = 0;
++  }
++
++  async getCache(root: string): Promise<Record<SymlinkBucket, BucketIndex>> {
++    const age = Date.now() - this.lastBuild;
++    if (this.cache && age < this.ttl) return this.cache;
++
++    if (!this.cache) {
++      // First call — caller has to wait.
++      if (!this.buildPromise) this.buildPromise = this.build(root);
++      await this.buildPromise;
++      return this.cache!;
++    }
++
++    // Stale-while-revalidate: kick off refresh in the background, return stale.
++    if (!this.buildPromise) {
++      this.buildPromise = this.build(root).catch((err) => {
++        logger.error(`Background index refresh failed: ${err?.message ?? err}`);
++      });
++    }
++    return this.cache;
++  }
++
++  /** Look up a folder by imdb id within a bucket. */
++  async lookup(
++    root: string,
++    bucket: SymlinkBucket,
++    imdbId: string
++  ): Promise<IndexEntry | undefined> {
++    const cache = await this.getCache(root);
++    return cache[bucket].get(imdbId);
++  }
++
++  async listAll(
++    root: string,
++    type: 'movie' | 'series'
++  ): Promise<CatalogEntry[]> {
++    const cache = await this.getCache(root);
++    const buckets: SymlinkBucket[] =
++      type === 'movie' ? ['movies', 'movies-4k'] : ['series', 'series-4k'];
++    const merged = new Map<string, CatalogEntry>();
++    for (const bucket of buckets) {
++      for (const [imdbId, entry] of cache[bucket]) {
++        const existing = merged.get(imdbId);
++        if (!existing) {
++          merged.set(imdbId, {
++            imdbId,
++            type,
++            bucket,
++            folderName: entry.folderName,
++            title: entry.title,
++            year: entry.year,
++            has4K: bucket.endsWith('-4k'),
++            modifiedTime: entry.modifiedTime,
++          });
++          continue;
++        }
++        existing.has4K = existing.has4K || bucket.endsWith('-4k');
++        if (entry.modifiedTime > existing.modifiedTime) {
++          existing.modifiedTime = entry.modifiedTime;
++        }
++        // Prefer the HD bucket's folder name for display.
++        if (existing.bucket.endsWith('-4k') && !bucket.endsWith('-4k')) {
++          existing.bucket = bucket;
++          existing.folderName = entry.folderName;
++        }
++      }
++    }
++    return [...merged.values()].sort(
++      (a, b) => b.modifiedTime - a.modifiedTime
++    );
++  }
++
++  private async build(root: string): Promise<void> {
++    const start = Date.now();
++    try {
++      const limit = pLimit(appConfig.builtins.elfsymlinks.indexConcurrency);
++      const next: Record<SymlinkBucket, BucketIndex> = {
++        movies: new Map(),
++        'movies-4k': new Map(),
++        series: new Map(),
++        'series-4k': new Map(),
++      };
++
++      await Promise.all(
++        BUCKETS.map(async (bucket) => {
++          const bucketDir = path.join(root, bucket);
++          const entries = await safeReadDirAsync(bucketDir);
++          const dirs = entries.filter((e) =>
++            isDirectoryFollowingLinks(bucketDir, e)
++          );
++
++          await Promise.all(
++            dirs.map((d) =>
++              limit(async () => {
++                const parsed = parseFolderName(d.name);
++                if (!parsed) return;
++                const fullPath = path.join(bucketDir, d.name);
++                const mtime = await safeStatMtime(fullPath);
++                next[bucket].set(parsed.imdbId, {
++                  folderName: d.name,
++                  modifiedTime: mtime,
++                  title: parsed.title,
++                  year: parsed.year,
++                });
++              })
++            )
++          );
++        })
++      );
++
++      this.cache = next;
++      this.lastBuild = Date.now();
++      const total = Object.values(next).reduce((n, m) => n + m.size, 0);
++      logger.info(
++        `ElfSymlinks index built in ${Date.now() - start}ms (${total} entries across ${BUCKETS.length} buckets)`
++      );
++    } finally {
++      // Always clear the in-flight guard, even on failure, so a transient
++      // build error doesn't wedge getCache(): the first-call path would
++      // otherwise re-await the same rejected promise forever, and the
++      // stale-while-revalidate path would never schedule another refresh.
++      this.buildPromise = null;
++    }
++  }
++}
++
++const sharedIndex = new ElfSymlinksIndex();
++
++export const elfSymlinksIndex = (): ElfSymlinksIndex => sharedIndex;
++
++const buildEpisodeRegex = (season: number, episode: number): RegExp => {
++  const s = season.toString();
++  const e = episode.toString();
++  // Match S<season>E<episode> in either zero-padded or unpadded form, plus
++  // the Nx<episode> shorthand. (?!\d) anchors the trailing edge so a request
++  // for E1 doesn't match E10/E11/etc when both exist in the same folder.
++  return new RegExp(
++    `(?:s0*${s}[\\s.\\-]?e0*${e}|0*${s}x0*${e})(?!\\d)`,
++    'i'
++  );
++};
++
++const buildSeasonFolderRegex = (season: number): RegExp =>
++  // (?!\d) so "Season 1" doesn't match "Season 10".
++  new RegExp(`^(?:season|s)\\s*0*${season}(?!\\d)`, 'i');
++
++const findMoviesInBucket = async (
++  root: string,
++  bucket: SymlinkBucket,
++  imdbId: string
++): Promise<SymlinkMatch[]> => {
++  const entry = await sharedIndex.lookup(root, bucket, imdbId);
++  if (!entry) return [];
++
++  const folderDir = path.join(root, bucket, entry.folderName);
++  const entries = await safeReadDirAsync(folderDir);
++
++  return entries
++    .filter((e) => isVideoFile(e.name) && isFileFollowingLinks(folderDir, e))
++    .map((e) => {
++      const absolutePath = path.join(folderDir, e.name);
++      return {
++        bucket,
++        relativePath: toRelative(root, absolutePath),
++        fileName: e.name,
++        folderName: entry.folderName,
++        absolutePath,
++        size: safeStatSize(absolutePath),
++      } satisfies SymlinkMatch;
++    });
++};
++
++const findEpisodesInBucket = async (
++  root: string,
++  bucket: SymlinkBucket,
++  imdbId: string,
++  season: number,
++  episode: number
++): Promise<SymlinkMatch[]> => {
++  const entry = await sharedIndex.lookup(root, bucket, imdbId);
++  if (!entry) return [];
++
++  const seriesDir = path.join(root, bucket, entry.folderName);
++  const seasonRe = buildSeasonFolderRegex(season);
++  const seriesEntries = await safeReadDirAsync(seriesDir);
++  const seasonFolder = seriesEntries.find(
++    (e) => seasonRe.test(e.name) && isDirectoryFollowingLinks(seriesDir, e)
++  );
++  if (!seasonFolder) return [];
++
++  const seasonDir = path.join(seriesDir, seasonFolder.name);
++  const episodeRe = buildEpisodeRegex(season, episode);
++  const seasonEntries = await safeReadDirAsync(seasonDir);
++
++  return seasonEntries
++    .filter(
++      (e) =>
++        isVideoFile(e.name) &&
++        episodeRe.test(e.name) &&
++        isFileFollowingLinks(seasonDir, e)
++    )
++    .map((e) => {
++      const absolutePath = path.join(seasonDir, e.name);
++      return {
++        bucket,
++        relativePath: toRelative(root, absolutePath),
++        fileName: e.name,
++        folderName: entry.folderName,
++        seasonFolderName: seasonFolder.name,
++        absolutePath,
++        size: safeStatSize(absolutePath),
++      } satisfies SymlinkMatch;
++    });
++};
++
++export const findMoviesByImdbId = async (
++  root: string,
++  imdbId: string
++): Promise<SymlinkMatch[]> => {
++  const results = await Promise.all([
++    findMoviesInBucket(root, 'movies', imdbId),
++    findMoviesInBucket(root, 'movies-4k', imdbId),
++  ]);
++  return results.flat();
++};
++
++export const findEpisodesByImdbId = async (
++  root: string,
++  imdbId: string,
++  season: number,
++  episode: number
++): Promise<SymlinkMatch[]> => {
++  const results = await Promise.all([
++    findEpisodesInBucket(root, 'series', imdbId, season, episode),
++    findEpisodesInBucket(root, 'series-4k', imdbId, season, episode),
++  ]);
++  return results.flat();
++};
++
++export const listCatalog = async (
++  root: string,
++  type: 'movie' | 'series'
++): Promise<CatalogEntry[]> => sharedIndex.listAll(root, type);
++
++/**
++ * List the (season, episode) tuples present on disk for a given imdb id, used
++ * by getMeta to populate the videos[] list. Reads from the index for the
++ * series folder lookup, then reads season/file listings live (small).
++ */
++export const listSeriesEpisodes = async (
++  root: string,
++  imdbId: string
++): Promise<Array<{ season: number; episode: number }>> => {
++  const seen = new Map<string, { season: number; episode: number }>();
++  for (const bucket of ['series', 'series-4k'] as const) {
++    const entry = await sharedIndex.lookup(root, bucket, imdbId);
++    if (!entry) continue;
++    const seriesDir = path.join(root, bucket, entry.folderName);
++    const seasonDirs = await safeReadDirAsync(seriesDir);
++    for (const sd of seasonDirs) {
++      if (!isDirectoryFollowingLinks(seriesDir, sd)) continue;
++      const seasonMatch = sd.name.match(/^(?:season|s)\s*0*(\d+)/i);
++      if (!seasonMatch) continue;
++      const seasonNum = Number(seasonMatch[1]);
++      const seasonDir = path.join(seriesDir, sd.name);
++      const files = await safeReadDirAsync(seasonDir);
++      for (const f of files) {
++        if (!isFileFollowingLinks(seasonDir, f)) continue;
++        const epMatch =
++          f.name.match(/s(\d+)[\s.\-]?e(\d+)(?!\d)/i) ??
++          f.name.match(/(?<![\d])(\d+)x(\d+)(?!\d)/i);
++        if (!epMatch) continue;
++        const epNum = Number(epMatch[2]);
++        const key = `${seasonNum}:${epNum}`;
++        if (!seen.has(key)) {
++          seen.set(key, { season: seasonNum, episode: epNum });
++        }
++      }
++    }
++  }
++  return [...seen.values()].sort((a, b) =>
++    a.season === b.season ? a.episode - b.episode : a.season - b.season
++  );
++};
++
++/**
++ * Verify that a relative path resolves inside `root` and points to an existing
++ * file. Used by the public file-serving route — kept synchronous because it's
++ * a single stat per request and the caller is also synchronous.
++ */
++export const resolveSafeFilePath = (
++  root: string,
++  relativePath: string
++): string | undefined => {
++  if (!relativePath || relativePath.includes('\0')) return undefined;
++  const absoluteRoot = path.resolve(root);
++  const resolved = path.resolve(absoluteRoot, relativePath);
++  const rootWithSep = absoluteRoot.endsWith(path.sep)
++    ? absoluteRoot
++    : absoluteRoot + path.sep;
++  if (resolved !== absoluteRoot && !resolved.startsWith(rootWithSep)) {
++    return undefined;
++  }
++  try {
++    const stat = fs.statSync(resolved);
++    if (!stat.isFile()) return undefined;
++  } catch {
++    return undefined;
++  }
++  return resolved;
++};
++
++// Kept for symmetry / potential reuse — currently unused from the main paths.
++export const _internal = { safeReadDirSync };
+diff --git a/packages/core/src/builtins/elfsymlinks/signing.ts b/packages/core/src/builtins/elfsymlinks/signing.ts
+new file mode 100644
+index 00000000..9dc5113e
+--- /dev/null
++++ b/packages/core/src/builtins/elfsymlinks/signing.ts
+@@ -0,0 +1,85 @@
++import { createHmac, timingSafeEqual } from 'crypto';
++import { config as appConfig } from '../../config/index.js';
++
++const toBase64Url = (buf: Buffer): string =>
++  buf
++    .toString('base64')
++    .replace(/=+$/, '')
++    .replace(/\+/g, '-')
++    .replace(/\//g, '_');
++
++const fromBase64Url = (s: string): Buffer => {
++  const padded = s.replace(/-/g, '+').replace(/_/g, '/');
++  const pad = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4));
++  return Buffer.from(padded + pad, 'base64');
++};
++
++const hmac = (payload: string): string =>
++  toBase64Url(
++    createHmac('sha256', appConfig.bootstrap.internalSecret)
++      .update(payload)
++      .digest()
++  );
++
++export interface SignedFileToken {
++  /** Path relative to the elfsymlinks root (forward slashes). */
++  path: string;
++  /** Unix epoch milliseconds when this URL stops being valid. */
++  exp: number;
++}
++
++/**
++ * Sign a relative path with the bootstrap internal secret. Returned token
++ * format is `<base64url(json)>.<base64url(hmac)>` — opaque to clients but
++ * decodable on the serving side.
++ */
++export const signFileToken = (
++  relativePath: string,
++  validForMs: number
++): string => {
++  const token: SignedFileToken = {
++    path: relativePath,
++    exp: Date.now() + validForMs,
++  };
++  const payload = toBase64Url(Buffer.from(JSON.stringify(token), 'utf8'));
++  return `${payload}.${hmac(payload)}`;
++};
++
++export interface VerifiedToken {
++  ok: true;
++  path: string;
++}
++export interface InvalidToken {
++  ok: false;
++  reason: 'malformed' | 'bad-signature' | 'expired';
++}
++
++export const verifyFileToken = (
++  token: string
++): VerifiedToken | InvalidToken => {
++  const dot = token.indexOf('.');
++  if (dot === -1) return { ok: false, reason: 'malformed' };
++  const payload = token.slice(0, dot);
++  const sig = token.slice(dot + 1);
++  const expected = hmac(payload);
++  const sigBuf = Buffer.from(sig);
++  const expBuf = Buffer.from(expected);
++  if (sigBuf.length !== expBuf.length) {
++    return { ok: false, reason: 'bad-signature' };
++  }
++  if (!timingSafeEqual(sigBuf, expBuf)) {
++    return { ok: false, reason: 'bad-signature' };
++  }
++  try {
++    const decoded = JSON.parse(
++      fromBase64Url(payload).toString('utf8')
++    ) as SignedFileToken;
++    if (typeof decoded.path !== 'string' || typeof decoded.exp !== 'number') {
++      return { ok: false, reason: 'malformed' };
++    }
++    if (Date.now() > decoded.exp) return { ok: false, reason: 'expired' };
++    return { ok: true, path: decoded.path };
++  } catch {
++    return { ok: false, reason: 'malformed' };
++  }
++};
+diff --git a/packages/core/src/builtins/index.ts b/packages/core/src/builtins/index.ts
+index 81691c93..04686877 100644
+--- a/packages/core/src/builtins/index.ts
++++ b/packages/core/src/builtins/index.ts
+@@ -2,6 +2,7 @@ export * from './base/nab/test.js';
+ export * from './gdrive/index.js';
+ export * from './torbox-search/index.js';
+ export * from './torznab/index.js';
++export * from './elfsymlinks/index.js';
+ export * from './newznab/index.js';
+ export * from './prowlarr/index.js';
+ export * from './knaben/index.js';
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index 38db4b0e..a033d698 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -768,6 +768,47 @@ export const builtinsSchema = {
+       secret: false,
+     },
+   },
++  elfsymlinks: {
++    root: {
++      schema: nullableString,
++      default: null,
++      label: 'ElfSymlinks filesystem root',
++      env: 'BUILTIN_ELFSYMLINKS_ROOT',
++      description:
++        'Filesystem root for the ElfSymlinks built-in. Expected to contain movies/, movies-4k/, series/ and series-4k/ subdirectories with {imdb-tt###} folder markers. When unset, the ElfSymlinks preset is disabled.',
++      requiresRestart: false,
++      secret: false,
++    },
++    timeout: {
++      schema: optionalPositiveInt,
++      default: null,
++      label: 'ElfSymlinks timeout (ms)',
++      env: 'BUILTIN_DEFAULT_ELFSYMLINKS_TIMEOUT',
++      description: 'Timeout for ElfSymlinks requests.',
++      requiresRestart: false,
++      secret: false,
++    },
++    indexTtl: {
++      schema: positiveInt,
++      default: 3_600_000,
++      label: 'ElfSymlinks index TTL (ms)',
++      env: 'BUILTIN_ELFSYMLINKS_INDEX_TTL',
++      description:
++        'How long (ms) to cache the ElfSymlinks folder index before refreshing. Refresh runs in the background; stale data is served until the new build finishes.',
++      requiresRestart: false,
++      secret: false,
++    },
++    indexConcurrency: {
++      schema: positiveInt,
++      default: 32,
++      label: 'ElfSymlinks index concurrency',
++      env: 'BUILTIN_ELFSYMLINKS_INDEX_CONCURRENCY',
++      description:
++        'Max concurrent fs.stat calls when building the ElfSymlinks index.',
++      requiresRestart: false,
++      secret: false,
++    },
++  },
+   animetosho: {
+     url: {
+       schema: urlString,
+diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
+index 62ae05c7..ee75aaca 100644
+--- a/packages/core/src/index.ts
++++ b/packages/core/src/index.ts
+@@ -28,6 +28,12 @@ export {
+   GoogleOAuth,
+   GDriveAPI,
+   TorznabAddon,
++  ElfSymlinksAddon,
++  elfSymlinksFromConfig,
++  resolveSafeFilePath,
++  verifyFileToken,
++  ELFSYMLINKS_MOVIE_CATALOG_ID,
++  ELFSYMLINKS_SERIES_CATALOG_ID,
+   NewznabAddon,
+   ProwlarrAddon,
+   KnabenAddon,
+diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
+index 9cb15267..0c0bb20d 100644
+--- a/packages/core/src/metadata/tmdb.ts
++++ b/packages/core/src/metadata/tmdb.ts
+@@ -49,6 +49,8 @@ const MovieDetailsSchema = z.object({
+   origin_country: z.array(z.string()).optional(),
+   runtime: z.number().nullable().optional(),
+   genres: z.array(GenreSchema).optional(),
++  poster_path: z.string().nullable().optional(),
++  backdrop_path: z.string().nullable().optional(),
+ });
+ 
+ const TVDetailsSchema = z.object({
+@@ -68,6 +70,8 @@ const TVDetailsSchema = z.object({
+     })
+   ),
+   genres: z.array(GenreSchema).optional(),
++  poster_path: z.string().nullable().optional(),
++  backdrop_path: z.string().nullable().optional(),
+ });
+ 
+ const MovieAlternativeTitlesSchema = z.object({
+@@ -208,6 +212,30 @@ export class TMDBMetadata {
+     Cache.getInstance<string, EpisodeDetails>('tmdb_episode_v2');
+   private static readonly searchCache: Cache<string, TMDBSeriesSearchResult[]> =
+     Cache.getInstance<string, TMDBSeriesSearchResult[]>('tmdb_search');
++  /**
++   * Build a TMDB image URL from a poster_path / backdrop_path returned by the
++   * TMDB API. Returns undefined for null/empty paths so callers can chain
++   * with `?? somethingElse`.
++   *
++   * Sizes are TMDB's standard image-config values; w500 is a sensible default
++   * for posters in catalog listings.
++   */
++  public static getImageUrl(
++    p: string | null | undefined,
++    size:
++      | 'w92'
++      | 'w154'
++      | 'w185'
++      | 'w342'
++      | 'w500'
++      | 'w780'
++      | 'original' = 'w500'
++  ): string | undefined {
++    if (!p) return undefined;
++    const path = p.startsWith('/') ? p : `/${p}`;
++    return `https://image.tmdb.org/t/p/${size}${path}`;
++  }
++
+   public constructor(auth?: { accessToken?: string; apiKey?: string }) {
+     if (
+       !auth?.accessToken &&
+@@ -354,8 +382,11 @@ export class TMDBMetadata {
+ 
+     const tmdbId = await this.convertToTmdbId(parsedId);
+ 
+-    // Check cache first
+-    const cacheKey = `${tmdbId}:${parsedId.mediaType}`;
++    // Check cache first. The `v2:` prefix invalidates pre-poster-path
++    // cached objects: the `Metadata` shape gained `posterPath`/`backdropPath`
++    // and old entries serialised without those fields would otherwise be
++    // returned as cache hits with no poster, blocking the catalog enricher.
++    const cacheKey = `v2:${tmdbId}:${parsedId.mediaType}`;
+     const cachedMetadata = await TMDBMetadata.metadataCache.get(cacheKey);
+     if (cachedMetadata) {
+       if (
+@@ -405,9 +436,13 @@ export class TMDBMetadata {
+     let genres: string[] = [];
+     let firstAiredDate: string | undefined;
+     let lastAiredDate: string | undefined;
++    let posterPath: string | undefined;
++    let backdropPath: string | undefined;
+ 
+     if (parsedId.mediaType === 'movie') {
+       const movieData = MovieDetailsSchema.parse(detailsJson);
++      posterPath = movieData.poster_path ?? undefined;
++      backdropPath = movieData.backdrop_path ?? undefined;
+       if (movieData.original_title) {
+         allTitles.push({
+           title: movieData.original_title,
+@@ -427,6 +462,8 @@ export class TMDBMetadata {
+       genres = movieData.genres?.map((g) => g.name) ?? [];
+     } else {
+       const tvData = TVDetailsSchema.parse(detailsJson);
++      posterPath = tvData.poster_path ?? undefined;
++      backdropPath = tvData.backdrop_path ?? undefined;
+       if (tvData.original_name) {
+         allTitles.push({
+           title: tvData.original_name,
+@@ -517,6 +554,8 @@ export class TMDBMetadata {
+       genres: genres.length > 0 ? genres : undefined,
+       firstAiredDate,
+       lastAiredDate,
++      posterPath,
++      backdropPath,
+     };
+     // Cache the result
+     TMDBMetadata.metadataCache.set(cacheKey, metadata, TITLE_CACHE_TTL);
+diff --git a/packages/core/src/metadata/utils.ts b/packages/core/src/metadata/utils.ts
+index 4dee13a5..725f6ae4 100644
+--- a/packages/core/src/metadata/utils.ts
++++ b/packages/core/src/metadata/utils.ts
+@@ -100,6 +100,10 @@ export interface Metadata {
+   nextAirDate?: string;
+   firstAiredDate?: string;
+   lastAiredDate?: string;
++  /** Raw poster_path from TMDB (e.g., "/abc123.jpg"). Use TMDBMetadata.getImageUrl() to build a full URL. */
++  posterPath?: string;
++  /** Raw backdrop_path from TMDB. Use TMDBMetadata.getImageUrl() to build a full URL. */
++  backdropPath?: string;
+   /** Requested series/season is date-based (releases named by air date, e.g. talk shows). */
+   isDateBased?: boolean;
+   /** Candidate local air dates ('YYYY-MM-DD') for the requested episode. Usually length 1. */
+diff --git a/packages/core/src/presets/elfsymlinks.ts b/packages/core/src/presets/elfsymlinks.ts
+new file mode 100644
+index 00000000..831cb122
+--- /dev/null
++++ b/packages/core/src/presets/elfsymlinks.ts
+@@ -0,0 +1,119 @@
++import { Addon, Option, ParsedStream, Stream, UserData } from '../db/index.js';
++import { appConfig, constants } from '../utils/index.js';
++import { baseOptions } from './preset.js';
++import { BuiltinAddonPreset, BuiltinStreamParser } from './builtin.js';
++import { StreamParser } from '../parser/index.js';
++
++class ElfSymlinksStreamParser extends BuiltinStreamParser {
++  // Files served by ElfSymlinks live on local disk and are always instantly
++  // playable, so flag every parsed stream as a library result. The 🗃️ emoji
++  // path in BuiltinStreamParser is fine, but pinning it here makes the
++  // behaviour independent of cosmetic changes to the stream name.
++  protected override getInLibrary(
++    _stream: Stream,
++    _currentParsedStream: ParsedStream
++  ): boolean {
++    return true;
++  }
++
++  // BuiltinStreamParser.getStreamType assumes built-in addons return streams
++  // with stream.type ∈ {torrent, usenet, stremio-usenet}; for those it maps
++  // 'torrent' → 'debrid' and passes the rest through. ElfSymlinks emits plain
++  // HTTP file URLs without a stream.type, so the inherited override would
++  // leave ParsedStream.type === undefined — which makes any user stream
++  // expression that calls helpers like seadex()/seeders()/subtitle() throw
++  // "Your streams input must be an array of streams" (they all check
++  // `streams.some((s) => !s.type)`).
++  protected override getStreamType(): 'http' {
++    return 'http';
++  }
++}
++
++export class ElfSymlinksPreset extends BuiltinAddonPreset {
++  static override getParser(): typeof StreamParser {
++    return ElfSymlinksStreamParser;
++  }
++
++  static override get METADATA() {
++    const supportedResources = [
++      constants.STREAM_RESOURCE,
++      constants.CATALOG_RESOURCE,
++      constants.META_RESOURCE,
++    ];
++
++    const options: Option[] = [
++      ...baseOptions(
++        'ElfSymlinks',
++        supportedResources,
++        appConfig.builtins.elfsymlinks.timeout ??
++          appConfig.presets.defaultTimeout
++      ).filter((option) => option.id !== 'url'),
++    ];
++
++    return {
++      ID: 'elfsymlinks',
++      NAME: 'ElfSymlinks',
++      LOGO: 'https://docs.elfhosted.com/images/logo.png',
++      URL: [`${appConfig.bootstrap.internalUrl}/builtins/elfsymlinks`],
++      TIMEOUT:
++        appConfig.builtins.elfsymlinks.timeout ??
++        appConfig.presets.defaultTimeout,
++      USER_AGENT: appConfig.http.defaultUserAgent,
++      SUPPORTED_SERVICES: [],
++      DESCRIPTION:
++        "For ElfHosted users with a Personal Media Stack: searches your existing symlinks for matching content and exposes a 'recently added' catalog of movies and TV.",
++      OPTIONS: options,
++      SUPPORTED_STREAM_TYPES: [constants.HTTP_STREAM_TYPE],
++      SUPPORTED_RESOURCES: supportedResources,
++      BUILTIN: true,
++      CATEGORY: constants.PresetCategory.STREAMS,
++      DISABLED: !appConfig.builtins.elfsymlinks.root
++        ? {
++            reason: 'Not configured',
++            disabled: true,
++          }
++        : undefined,
++    };
++  }
++
++  static override async generateAddons(
++    userData: UserData,
++    options: Record<string, any>
++  ): Promise<Addon[]> {
++    return [
++      {
++        name: options.name || this.METADATA.NAME,
++        manifestUrl: this.generateManifestUrl(userData),
++        enabled: true,
++        resources: options.resources || this.METADATA.SUPPORTED_RESOURCES,
++        timeout: options.timeout || this.METADATA.TIMEOUT,
++        preset: {
++          id: '',
++          type: this.METADATA.ID,
++          options,
++        },
++        headers: {
++          'User-Agent': this.METADATA.USER_AGENT,
++        },
++      },
++    ];
++  }
++
++  private static generateManifestUrl(userData: UserData): string {
++    if (!appConfig.builtins.elfsymlinks.root) {
++      throw new Error(
++        'builtins.elfsymlinks.root (BUILTIN_ELFSYMLINKS_ROOT) is not configured'
++      );
++    }
++    // Pass the user's TMDB credentials through so per-user tokens (configured
++    // via the AIOStreams UI) are honored by the catalog/meta enricher.
++    // Server config (metadata.tmdb) is the fallback inside the addon when
++    // neither user token is set.
++    const config = {
++      tmdbAccessToken: userData.tmdbAccessToken,
++      tmdbApiKey: userData.tmdbApiKey,
++    };
++    const encoded = this.base64EncodeJSON(config, 'urlSafe');
++    return `${appConfig.bootstrap.internalUrl}/builtins/elfsymlinks/${encoded}/manifest.json`;
++  }
++}
+diff --git a/packages/core/src/presets/presetManager.ts b/packages/core/src/presets/presetManager.ts
+index 74251d0c..2179bbc7 100644
+--- a/packages/core/src/presets/presetManager.ts
++++ b/packages/core/src/presets/presetManager.ts
+@@ -61,6 +61,7 @@ import { TorznabPreset } from './torznab.js';
+ import { AStreamPreset } from './aStream.js';
+ import { ZileanPreset } from './zilean.js';
+ import { ElfCachePreset } from './elfcache.js';
++import { ElfSymlinksPreset } from './elfsymlinks.js';
+ import { AnimeToshoPreset } from './animetosho.js';
+ import { AnimeToshoNewPreset } from './animeToshoNew.js';
+ import { NewznabPreset } from './newznab.js';
+@@ -89,6 +90,7 @@ import { Preset } from './index.js';
+ let PRESET_LIST: string[] = [
+   'custom',
+   'elfcache',
++  'elfsymlinks',
+   'torznab',
+   'newznab',
+   'aiostreams',
+@@ -317,6 +319,8 @@ export class PresetManager {
+         return ZileanPreset;
+       case 'elfcache':
+         return ElfCachePreset;
++      case 'elfsymlinks':
++        return ElfSymlinksPreset;
+       case 'animetosho':
+         return AnimeToshoPreset;
+       case 'anime-tosho-new':
+diff --git a/packages/server/src/app.ts b/packages/server/src/app.ts
+index 774b7893..d1525bed 100644
+--- a/packages/server/src/app.ts
++++ b/packages/server/src/app.ts
+@@ -44,6 +44,7 @@ import {
+   gdrive,
+   torboxSearch,
+   torznab,
++  elfsymlinks,
+   newznab,
+   prowlarr,
+   knaben,
+@@ -55,6 +56,7 @@ import {
+   easynews,
+   library,
+ } from './routes/builtins/index.js';
++import elfsymlinksFile from './routes/elfsymlinksFile.js';
+ import {
+   ipMiddleware,
+   loggerMiddleware,
+@@ -217,6 +219,7 @@ builtinsRouter.use(internalMiddleware);
+ builtinsRouter.use('/gdrive', gdrive);
+ builtinsRouter.use('/torbox-search', torboxSearch);
+ builtinsRouter.use('/torznab', torznab);
++builtinsRouter.use('/elfsymlinks', elfsymlinks);
+ builtinsRouter.use('/newznab', newznab);
+ builtinsRouter.use('/prowlarr', prowlarr);
+ builtinsRouter.use('/knaben', knaben);
+@@ -229,6 +232,11 @@ builtinsRouter.use('/easynews', easynews);
+ builtinsRouter.use('/library', library);
+ app.use('/builtins', builtinsRouter);
+ 
++// Public file streaming for ElfSymlinks. Lives outside /builtins so Stremio
++// clients can reach it directly. URLs are HMAC-signed with the bootstrap
++// internal secret.
++app.use('/elfsymlinks', elfsymlinksFile);
++
+ app.use('/blocklist', publicBlocklistRouter);
+ app.use('/community', publicCommunityRouter);
+ app.use('/webdav', webdavRouter);
+diff --git a/packages/server/src/routes/builtins/elfsymlinks.ts b/packages/server/src/routes/builtins/elfsymlinks.ts
+new file mode 100644
+index 00000000..4f788b96
+--- /dev/null
++++ b/packages/server/src/routes/builtins/elfsymlinks.ts
+@@ -0,0 +1,101 @@
++import { Router, Request, Response, NextFunction } from 'express';
++import { ElfSymlinksAddon, fromUrlSafeBase64 } from '@aiostreams/core';
++
++const router: Router = Router();
++
++const decodeConfig = (encoded?: string): unknown => {
++  if (!encoded) return undefined;
++  try {
++    return JSON.parse(fromUrlSafeBase64(encoded));
++  } catch {
++    return undefined;
++  }
++};
++
++// Backwards-compat: the original patch shipped without an encoded-config
++// prefix in the URL. We keep both forms working so deployments mid-rollout
++// don't 404 on the older manifest URL while clients still cache it.
++
++router.get(
++  '{/:encodedConfig}/manifest.json',
++  async (
++    req: Request<{ encodedConfig?: string }>,
++    res: Response,
++    next: NextFunction
++  ) => {
++    try {
++      const config = decodeConfig(req.params.encodedConfig);
++      res.json(new ElfSymlinksAddon(config as any).getManifest());
++    } catch (error) {
++      next(error);
++    }
++  }
++);
++
++router.get(
++  '{/:encodedConfig}/stream/:type/:id.json',
++  async (
++    req: Request<{ encodedConfig?: string; type: string; id: string }>,
++    res: Response,
++    next: NextFunction
++  ) => {
++    const { type, id } = req.params;
++    try {
++      const config = decodeConfig(req.params.encodedConfig);
++      const streams = await new ElfSymlinksAddon(config as any).getStreams(
++        type,
++        id
++      );
++      res.json({ streams });
++    } catch (error) {
++      next(error);
++    }
++  }
++);
++
++router.get(
++  '{/:encodedConfig}/catalog/:type/:id{/:extras}.json',
++  async (
++    req: Request<{
++      encodedConfig?: string;
++      type: string;
++      id: string;
++      extras?: string;
++    }>,
++    res: Response,
++    next: NextFunction
++  ) => {
++    const { type, id, extras } = req.params;
++    try {
++      const config = decodeConfig(req.params.encodedConfig);
++      const metas = await new ElfSymlinksAddon(config as any).getCatalog(
++        type,
++        id,
++        extras
++      );
++      res.json({ metas });
++    } catch (error) {
++      next(error);
++    }
++  }
++);
++
++router.get(
++  '{/:encodedConfig}/meta/:type/:id.json',
++  async (
++    req: Request<{ encodedConfig?: string; type: string; id: string }>,
++    res: Response,
++    next: NextFunction
++  ) => {
++    const { type, id } = req.params;
++    try {
++      const config = decodeConfig(req.params.encodedConfig);
++      const meta = await new ElfSymlinksAddon(config as any).getMeta(type, id);
++      res.json({ meta });
++    } catch (error) {
++      next(error);
++    }
++  }
++);
++
++export default router;
+diff --git a/packages/server/src/routes/builtins/index.ts b/packages/server/src/routes/builtins/index.ts
+index e8118091..7ca58f5b 100644
+--- a/packages/server/src/routes/builtins/index.ts
++++ b/packages/server/src/routes/builtins/index.ts
+@@ -1,6 +1,7 @@
+ export { default as gdrive } from './gdrive.js';
+ export { default as torboxSearch } from './torbox-search.js';
+ export { default as torznab } from './torznab.js';
++export { default as elfsymlinks } from './elfsymlinks.js';
+ export { default as newznab } from './newznab.js';
+ export { default as prowlarr } from './prowlarr.js';
+ export { default as knaben } from './knaben.js';
+diff --git a/packages/server/src/routes/elfsymlinksFile.ts b/packages/server/src/routes/elfsymlinksFile.ts
+new file mode 100644
+index 00000000..14c6be22
+--- /dev/null
++++ b/packages/server/src/routes/elfsymlinksFile.ts
+@@ -0,0 +1,236 @@
++import { Router, Request, Response, NextFunction } from 'express';
++import path from 'path';
++import fs from 'fs';
++import {
++  createLogger,
++  config as appConfig,
++  resolveSafeFilePath,
++  verifyFileToken,
++} from '@aiostreams/core';
++
++const logger = createLogger('elfsymlinks-file');
++
++const router: Router = Router();
++
++const MIME_BY_EXT: Record<string, string> = {
++  '.mkv': 'video/x-matroska',
++  '.mp4': 'video/mp4',
++  '.m4v': 'video/x-m4v',
++  '.avi': 'video/x-msvideo',
++  '.mov': 'video/quicktime',
++  '.webm': 'video/webm',
++  '.ts': 'video/mp2t',
++  '.m2ts': 'video/mp2t',
++  '.flv': 'video/x-flv',
++  '.wmv': 'video/x-ms-wmv',
++  '.mpg': 'video/mpeg',
++  '.mpeg': 'video/mpeg',
++  '.ogv': 'video/ogg',
++};
++
++const guessMime = (filePath: string): string =>
++  MIME_BY_EXT[path.extname(filePath).toLowerCase()] ??
++  'application/octet-stream';
++
++/**
++ * Range header parser. Returns:
++ *  - the byte range a client asked for (satisfiable, with `end` clamped to EOF),
++ *  - `'unsatisfiable'` for a syntactically valid but unsatisfiable range (→ 416),
++ *  - `undefined` if there is no/malformed Range header (caller serves the whole file).
++ */
++const parseRange = (
++  header: string | undefined,
++  fileSize: number
++): { start: number; end: number } | 'unsatisfiable' | undefined => {
++  if (!header) return undefined;
++  const match = header.match(/^bytes=(\d*)-(\d*)$/);
++  if (!match) return undefined;
++  const startStr = match[1];
++  const endStr = match[2];
++  if (!startStr && !endStr) return undefined;
++
++  let start: number;
++  let end: number;
++  if (!startStr) {
++    // Suffix range: bytes=-N → last N bytes. A suffix larger than the file
++    // means the whole file (RFC 9110 §14.1.2).
++    const suffix = Number(endStr);
++    if (!Number.isFinite(suffix) || suffix <= 0) return undefined;
++    start = Math.max(0, fileSize - suffix);
++    end = fileSize - 1;
++  } else {
++    start = Number(startStr);
++    if (!Number.isFinite(start) || start < 0) return undefined;
++    // A start at/after EOF is a valid but unsatisfiable range → 416.
++    if (start >= fileSize) return 'unsatisfiable';
++    end = endStr ? Number(endStr) : fileSize - 1;
++    if (!Number.isFinite(end)) return undefined;
++    // Clamp an end past EOF rather than rejecting: `bytes=0-<huge>` is a
++    // satisfiable request for the whole file and must return 206 — not a 200
++    // full-body response that breaks range/seek semantics.
++    if (end >= fileSize) end = fileSize - 1;
++  }
++  // A reversed range (end < start, e.g. `bytes=10-5`) is a malformed header,
++  // not merely unsatisfiable: RFC 9110 says ignore it and serve the whole
++  // representation (200). Only start-beyond-EOF is unsatisfiable (416), and
++  // that is handled above.
++  if (start > end) return undefined;
++  return { start, end };
++};
++
++/**
++ * Browser players hosted on a different origin (web.stremio.com) hit this
++ * route cross-origin and need permissive CORS headers — including Range in
++ * Allow-Headers and the Range-related response headers in Expose-Headers so
++ * JS code can read them. The global corsMiddleware doesn't cover Range, so
++ * we set our own here.
++ */
++const setCorsHeaders = (res: Response) => {
++  res.setHeader('Access-Control-Allow-Origin', '*');
++  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
++  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
++  res.setHeader(
++    'Access-Control-Expose-Headers',
++    'Accept-Ranges, Content-Length, Content-Range, Content-Type'
++  );
++  res.setHeader('Access-Control-Max-Age', '86400');
++};
++
++interface ResolvedFile {
++  absolutePath: string;
++  fileSize: number;
++  mime: string;
++}
++
++/**
++ * Verify the token and resolve the file. Sets a response status + body and
++ * returns undefined on failure so the caller can `return`.
++ */
++const resolveOrReject = (
++  req: Request<{ token: string; filename: string }>,
++  res: Response
++): ResolvedFile | undefined => {
++  const root = appConfig.builtins.elfsymlinks.root;
++  if (!root) {
++    res.status(503).json({ error: 'ElfSymlinks is not configured' });
++    return undefined;
++  }
++
++  const verified = verifyFileToken(req.params.token);
++  if (!verified.ok) {
++    logger.warn(`Rejected ElfSymlinks file request: ${verified.reason}`);
++    res
++      .status(verified.reason === 'expired' ? 410 : 403)
++      .json({ error: verified.reason });
++    return undefined;
++  }
++
++  const absolutePath = resolveSafeFilePath(root, verified.path);
++  if (!absolutePath) {
++    res.status(404).json({ error: 'File not found' });
++    return undefined;
++  }
++
++  let stat: fs.Stats;
++  try {
++    stat = fs.statSync(absolutePath);
++  } catch {
++    res.status(404).json({ error: 'File not found' });
++    return undefined;
++  }
++  return { absolutePath, fileSize: stat.size, mime: guessMime(absolutePath) };
++};
++
++// Apply CORS to every method on this router so OPTIONS preflight responses
++// also carry the Allow-* headers.
++router.use('/file/:token/:filename', (_req, res, next) => {
++  setCorsHeaders(res);
++  next();
++});
++
++router.options('/file/:token/:filename', (_req, res) => {
++  res.status(204).end();
++});
++
++router.head(
++  '/file/:token/:filename',
++  (
++    req: Request<{ token: string; filename: string }>,
++    res: Response,
++    _next: NextFunction
++  ) => {
++    const file = resolveOrReject(req, res);
++    if (!file) return;
++
++    res.setHeader('Accept-Ranges', 'bytes');
++    res.setHeader('Content-Type', file.mime);
++    res.setHeader('Cache-Control', 'private, max-age=0');
++
++    // For HEAD with Range, mirror what the GET would respond with so clients
++    // can probe seek support without committing to a body fetch.
++    const range = parseRange(req.headers.range, file.fileSize);
++    if (range === 'unsatisfiable') {
++      res.status(416);
++      res.setHeader('Content-Range', `bytes */${file.fileSize}`);
++      res.end();
++      return;
++    }
++    if (range) {
++      res.status(206);
++      res.setHeader(
++        'Content-Range',
++        `bytes ${range.start}-${range.end}/${file.fileSize}`
++      );
++      res.setHeader('Content-Length', String(range.end - range.start + 1));
++    } else {
++      res.status(200);
++      res.setHeader('Content-Length', String(file.fileSize));
++    }
++    res.end();
++  }
++);
++
++router.get(
++  '/file/:token/:filename',
++  (
++    req: Request<{ token: string; filename: string }>,
++    res: Response,
++    next: NextFunction
++  ) => {
++    const file = resolveOrReject(req, res);
++    if (!file) return;
++
++    res.setHeader('Accept-Ranges', 'bytes');
++    res.setHeader('Content-Type', file.mime);
++    res.setHeader('Cache-Control', 'private, max-age=0');
++
++    const range = parseRange(req.headers.range, file.fileSize);
++    if (range === 'unsatisfiable') {
++      res.status(416);
++      res.setHeader('Content-Range', `bytes */${file.fileSize}`);
++      res.end();
++      return;
++    }
++    if (range) {
++      const { start, end } = range;
++      res.status(206);
++      res.setHeader('Content-Range', `bytes ${start}-${end}/${file.fileSize}`);
++      res.setHeader('Content-Length', String(end - start + 1));
++      const stream = fs.createReadStream(file.absolutePath, { start, end });
++      stream.on('error', next);
++      // Tear down the file stream if the client disconnects mid-transfer.
++      res.on('close', () => stream.destroy());
++      stream.pipe(res);
++      return;
++    }
++
++    res.status(200);
++    res.setHeader('Content-Length', String(file.fileSize));
++    const stream = fs.createReadStream(file.absolutePath);
++    stream.on('error', next);
++    res.on('close', () => stream.destroy());
++    stream.pipe(res);
++  }
++);
++
++export default router;

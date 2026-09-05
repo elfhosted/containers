@@ -1,0 +1,232 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 2ddba708..b0af6bf5 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -104,6 +104,11 @@ export class StremThruService
+   private static usenetHostsCache = Cache.getInstance<string, string[]>(
+     'st:usenet-hosts'
+   );
++  // In-flight availability checks, keyed by store+token+kind+hash — the
++  // single-flight table behind coalesceCheck() below. Entries only ever
++  // RESOLVE (never reject) and are removed as they settle, so the map
++  // holds nothing between requests.
++  private static inflightChecks = new Map<string, Promise<unknown>>();
+ 
+   constructor(private readonly config: StremThruServiceConfig) {
+     this.serviceName = config.serviceName;
+@@ -233,6 +238,153 @@ export class StremThruService
+     }
+   }
+ 
++  //  Single-flight coalescing for debridge availability checks
++
++  /**
++   * Debridge check results are deliberately never cached (per-tenant,
++   * per-moment answers — see checkCacheGet), so one user action fans the
++   * SAME hashes out through every debrid-resolving builtin (
++   * elfcache, comet, debridio, stremthru-torz): five concurrent 400-hash
++   * sweeps against debridge for one title. This coalesces the overlap
++   * WITHIN the in-flight window only — the first caller to ask for a hash
++   * owns its fetch; concurrent callers piggyback on the same promise.
++   * Nothing outlives the requests, so the "never cache debridge" rule is
++   * intact.
++   *
++   * Error semantics: the OWNER rethrows a fetch failure (same behaviour
++   * as today); piggybackers degrade open — their joined hashes settle
++   * null (treated as unknown/uncached) instead of amplifying one upstream
++   * failure into five addon errors. Entries only ever resolve, so an
++   * unawaited join can never surface as an unhandled rejection.
++   *
++   * Batching (500/batch, as before) lives HERE so each batch settles its
++   * own hashes as it completes — a slow or failed batch never delays or
++   * nulls joiners whose hashes were answered by a sibling batch. A batch
++   * failure settles only ITS hashes null; the owner still throws after
++   * all batches settle.
++   *
++   * Non-debridge services keep the direct path: their per-hash Redis cache
++   * (checkCacheSet) already absorbs the overlap.
++   */
++  private async coalesceCheck<T extends { hash?: string | null }>(
++    kind: 'magnet' | 'newz',
++    hashes: string[],
++    fetchBatch: (batch: string[]) => Promise<T[]>
++  ): Promise<T[]> {
++    const CHECK_BATCH_SIZE = 500;
++    const chunk = (arr: string[]): string[][] => {
++      const out: string[][] = [];
++      for (let i = 0; i < arr.length; i += CHECK_BATCH_SIZE) {
++        out.push(arr.slice(i, i + CHECK_BATCH_SIZE));
++      }
++      return out;
++    };
++
++    if (this.serviceName !== 'debridge') {
++      const results = await Promise.all(chunk(hashes).map(fetchBatch));
++      return results.flat();
++    }
++
++    const keyFor = (h: string) =>
++      `${this.config.stremthru.store}:${getSimpleTextHash(
++        this.config.stremthru.token
++      )}:${kind}:${h.toLowerCase()}`;
++
++    const joined: Promise<T | null>[] = [];
++    const toFetch: string[] = [];
++    const settle = new Map<string, (item: T | null) => void>();
++    for (const h of hashes) {
++      if (settle.has(h.toLowerCase())) {
++        continue; // duplicate within this call — owned fetch covers it
++      }
++      const existing = StremThruService.inflightChecks.get(keyFor(h)) as
++        | Promise<T | null>
++        | undefined;
++      if (existing) {
++        joined.push(existing);
++        continue;
++      }
++      let resolve!: (item: T | null) => void;
++      StremThruService.inflightChecks.set(
++        keyFor(h),
++        new Promise<T | null>((res) => (resolve = res))
++      );
++      settle.set(h.toLowerCase(), resolve);
++      toFetch.push(h);
++    }
++
++    const settleOne = (h: string, item: T | null) => {
++      settle.get(h.toLowerCase())?.(item);
++      settle.delete(h.toLowerCase());
++      StremThruService.inflightChecks.delete(keyFor(h));
++    };
++
++    const settled = await Promise.allSettled(
++      chunk(toFetch).map(async (batch) => {
++        try {
++          const items = await fetchBatch(batch);
++          const byHash = new Map<string, T>();
++          for (const item of items) {
++            if (item.hash) {
++              byHash.set(item.hash.toLowerCase(), item);
++            }
++          }
++          for (const h of batch) {
++            settleOne(h, byHash.get(h.toLowerCase()) ?? null);
++          }
++          return items;
++        } catch (error) {
++          for (const h of batch) {
++            settleOne(h, null);
++          }
++          throw error;
++        }
++      })
++    );
++
++    const owned = settled.flatMap((s) =>
++      s.status === 'fulfilled' ? s.value : []
++    );
++    const failed = settled.find(
++      (s): s is PromiseRejectedResult => s.status === 'rejected'
++    );
++    if (failed) {
++      // A batch failed. Only propagate the error when NO batch succeeded —
++      // otherwise prefer the partial set over failing the whole check. Detect
++      // success from a FULFILLED settlement, not owned.length: a batch can
++      // fulfill with an empty items array (all its hashes uncached), which is
++      // still a valid answer for those hashes. A single failed batch shouldn't
++      // null a multi-batch sweep for the owner while piggybackers already
++      // received the successful batches' hashes. Unfetched hashes degrade open
++      // (uncached), matching joiner-side semantics; debridge checks are never
++      // cached, so a partial is never persisted as if it were complete.
++      const anyFulfilled = settled.some((s) => s.status === 'fulfilled');
++      if (!anyFulfilled) {
++        throw failed.reason;
++      }
++      logger.warn(
++        `Coalesced ${kind} check on ${this.serviceName}: a batch failed but a sibling batch succeeded; returning partial (${
++          failed.reason instanceof Error
++            ? failed.reason.message
++            : String(failed.reason)
++        })`
++      );
++    }
++
++    if (joined.length > 0) {
++      const joinedItems = (await Promise.all(joined)).filter(
++        (i): i is Awaited<T> => i !== null
++      );
++      if (joinedItems.length > 0) {
++        logger.debug(
++          `Coalesced ${joined.length} in-flight ${kind} check(s) on ${this.serviceName} (${joinedItems.length} answered)`
++        );
++      }
++      return [...owned, ...joinedItems];
++    }
++    return owned;
++  }
++
+   //  Shared library helpers (pagination, stale-while-revalidate)
+ 
+   private getLibraryCacheKey(type: 'torrent' | 'usenet'): string {
+@@ -389,15 +541,11 @@ export class StremThruService
+     }
+ 
+     if (magnetsToCheck.length > 0) {
+-      const BATCH_SIZE = 500;
+-      const batches: string[][] = [];
+-      for (let i = 0; i < magnetsToCheck.length; i += BATCH_SIZE) {
+-        batches.push(magnetsToCheck.slice(i, i + BATCH_SIZE));
+-      }
+-
+       try {
+-        const batchResults = await Promise.all(
+-          batches.map(async (batch) => {
++        const allItems = await this.coalesceCheck(
++          'magnet',
++          magnetsToCheck,
++          async (batch) => {
+             const result = await this.stremthru.store.checkMagnet({
+               magnet: batch,
+               sid,
+@@ -409,11 +557,9 @@ export class StremThruService
+             );
+ 
+             return result.data.items;
+-          })
++          }
+         );
+ 
+-        const allItems = batchResults.flat();
+-
+         newResults = allItems.map((item) => ({
+           id: -1,
+           hash: item.hash,
+@@ -626,23 +772,17 @@ export class StremThruService
+ 
+     if (hashesToCheck.length > 0) {
+       try {
+-        const BATCH_SIZE = 500;
+-        const batches: string[][] = [];
+-        for (let i = 0; i < hashesToCheck.length; i += BATCH_SIZE) {
+-          batches.push(hashesToCheck.slice(i, i + BATCH_SIZE));
+-        }
+-
+-        const batchResults = await Promise.all(
+-          batches.map(async (batch) => {
++        const allItems = await this.coalesceCheck(
++          'newz',
++          hashesToCheck,
++          async (batch) => {
+             const result = await this.stremthru.store.checkNewz({
+               hash: batch,
+             });
+             return result.data.items;
+-          })
++          }
+         );
+ 
+-        const allItems = batchResults.flat();
+-
+         logger.debug(`Checked NZBs on ${this.serviceName}`, {
+           checked: hashesToCheck.length,
+           found: allItems.length,

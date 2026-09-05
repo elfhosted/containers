@@ -1,0 +1,35 @@
+diff --git a/packages/core/src/presets/usenetStreamer.ts b/packages/core/src/presets/usenetStreamer.ts
+index 6182ff5e..06e6a1fc 100644
+--- a/packages/core/src/presets/usenetStreamer.ts
++++ b/packages/core/src/presets/usenetStreamer.ts
+@@ -25,6 +25,22 @@ export class UsenetStreamerParser extends StreamParser {
+     stream: Stream,
+     currentParsedStream: ParsedStream
+   ): ParsedStream['service'] | undefined {
++    // Explicit service marker emitted by the elfhosted Usenet Streamer addon.
++    // It rides the existing `meta` out-of-band channel (same one `getIndexer`
++    // reads), preserved by the looseObject Stream schema, and names the
++    // STREAMING_MODE the addon actually served the stream from. Without it,
++    // debridge-mode streams — which carry no nzbUrl, just like nzbdav mode —
++    // are indistinguishable from nzbdav and get mislabelled [ND].
++    const mode = (stream as any).meta?.streamingMode;
++    if (mode === 'debridge')
++      return { id: constants.DEBRIDGE_SERVICE, cached: true };
++    if (mode === 'nzbdav')
++      return { id: constants.NZBDAV_SERVICE, cached: true };
++    if (mode === 'native')
++      return { id: constants.STREMIO_NNTP_SERVICE, cached: true };
++
++    // Fallback for older addon builds / streams without the marker: the
++    // original nzbUrl heuristic. Debridge is only mislabelled on this path.
+     return {
+       id: stream.nzbUrl
+         ? constants.STREMIO_NNTP_SERVICE
+@@ -71,6 +87,7 @@ export class UsenetStreamerPreset extends Preset {
+     const supportedServices = [
+       constants.NZBDAV_SERVICE,
+       constants.STREMIO_NNTP_SERVICE,
++      constants.DEBRIDGE_SERVICE,
+     ];
+     const supportedResources = [constants.STREAM_RESOURCE];
+ 

@@ -1,0 +1,85 @@
+diff --git a/packages/core/src/builtins/utils/hashReport.ts b/packages/core/src/builtins/utils/hashReport.ts
+index 1532621a..0f351201 100644
+--- a/packages/core/src/builtins/utils/hashReport.ts
++++ b/packages/core/src/builtins/utils/hashReport.ts
+@@ -45,24 +45,48 @@ function buildPayloads(
+     }
+   }
+ 
+-  const allHashes = Array.from(
+-    new Set([...cachedHashes, ...Object.keys(metadata)])
++  const cachedSet = new Set(cachedHashes);
++  // Hashes worth sending for their metadata that we are NOT claiming as
++  // cached. The endpoint drives both indexing and cache-marking off `hashes`,
++  // so a hash omitted from that array has its metadata ignored no matter what
++  // the metadata map says.
++  const metadataOnlyHashes = Object.keys(metadata).filter(
++    (h) => !cachedSet.has(h)
+   );
+-  if (allHashes.length === 0) return [];
+ 
+-  const cachedSet = new Set(cachedHashes);
++  // Two separate requests, because one cannot express both halves: the
++  // endpoint derives its cache-marking from store_code alone and then applies
++  // it to every hash in the payload, so cached and uncached hashes can never
++  // share a request.
++  return [
++    // Cache-marking. Only genuinely-cached hashes may appear here. Batched
++    // from the Set, not the raw array, so duplicate input rows are not counted
++    // more than once.
++    ...batchPayloads(Array.from(cachedSet), storeCode ?? '', metadata),
++    // Metadata only. An empty store_code means no claim about cache state.
++    ...batchPayloads(metadataOnlyHashes, '', metadata),
++  ];
++}
++
++function batchPayloads(
++  hashes: string[],
++  storeCode: string,
++  metadata: Record<string, { name: string; size: number }>
++): ReportPayload[] {
++  if (hashes.length === 0) return [];
++
+   const batchSize = Math.max(1, appConfig.builtins.hashReport.batchSize);
+   const payloads: ReportPayload[] = [];
+ 
+-  for (let i = 0; i < allHashes.length; i += batchSize) {
+-    const slice = allHashes.slice(i, i + batchSize);
++  for (let i = 0; i < hashes.length; i += batchSize) {
++    const slice = hashes.slice(i, i + batchSize);
+     const batchMetadata: Record<string, { name: string; size: number }> = {};
+     for (const h of slice) {
+       if (metadata[h]) batchMetadata[h] = metadata[h];
+     }
+     payloads.push({
+-      hashes: slice.filter((h) => cachedSet.has(h)),
+-      store_code: storeCode ?? '',
++      hashes: slice,
++      store_code: storeCode,
+       ...(Object.keys(batchMetadata).length > 0
+         ? { metadata: batchMetadata }
+         : {}),
+@@ -168,14 +192,21 @@ export function reportHashes(
+     );
+     return;
+   }
+-  const totalHashes = payloads.reduce((s, p) => s + p.hashes.length, 0);
++  const cachedHashCount = payloads.reduce(
++    (s, p) => s + (p.store_code ? p.hashes.length : 0),
++    0
++  );
++  const metadataOnlyCount = payloads.reduce(
++    (s, p) => s + (p.store_code ? 0 : p.hashes.length),
++    0
++  );
+   const totalMetadata = payloads.reduce(
+     (s, p) => s + (p.metadata ? Object.keys(p.metadata).length : 0),
+     0
+   );
+ 
+   logger.info(
+-    `Hash report (${source}): dispatching ${payloads.length} batch(es) to ${url} — ${totalHashes} cached hash(es), ${totalMetadata} metadata entr(ies).`
++    `Hash report (${source}): dispatching ${payloads.length} batch(es) to ${url} — ${cachedHashCount} cached hash(es), ${metadataOnlyCount} metadata-only hash(es), ${totalMetadata} metadata entr(ies).`
+   );
+ 
+   void Promise.allSettled(

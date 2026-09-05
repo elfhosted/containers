@@ -1,0 +1,395 @@
+diff --git a/packages/core/src/builtins/base/nab/api.ts b/packages/core/src/builtins/base/nab/api.ts
+index c7981332..ecf5149d 100644
+--- a/packages/core/src/builtins/base/nab/api.ts
++++ b/packages/core/src/builtins/base/nab/api.ts
+@@ -270,6 +270,10 @@ type RawSearchResponse = {
+   results: (TorznabSearchResultItem | NewznabSearchResultItem)[];
+ };
+ 
++export interface NabApiOptions {
++  disableReplay?: boolean;
++}
++
+ // --- Connection test ---
+ const NAB_TEST_TIMEOUT = 15000;
+ 
+@@ -346,6 +350,7 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
+   private readonly params: Record<string, string>;
+   private readonly userAgent: string;
+   private readonly httpProxy: string | undefined;
++  private readonly disableReplay: boolean;
+ 
+   constructor(
+     public readonly namespace: N,
+@@ -353,11 +358,13 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
+     private readonly baseUrl: string,
+     private readonly apiKey?: string,
+     private readonly apiPath: string = '/api',
+-    params: Record<string, string | number | boolean> = {}
++    params: Record<string, string | number | boolean> = {},
++    options: NabApiOptions = {}
+   ) {
+     this.logger = logger;
+     this.baseUrl = this.removeTrailingSlash(baseUrl);
+     this.apiPath = this.removeTrailingSlash(apiPath);
++    this.disableReplay = options.disableReplay ?? false;
+     this.params = Object.fromEntries(
+       Object.entries(params).map(([key, value]) => [key, String(value)])
+     );
+@@ -600,20 +607,46 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
+     url.search = searchParams.toString();
+     const urlString = url.toString();
+ 
+-    this.logger.info(
+-      `Making ${this.namespace} request to: ${makeUrlLogSafe(urlString)}`
+-    );
++    const shouldUseReplay =
++      this.namespace === 'newznab' &&
++      !this.disableReplay &&
++      Boolean(appConfig.builtins.nab.replayEndpoint);
++
++    if (shouldUseReplay) {
++      this.logger.info(
++        `Making ${this.namespace} request via replay endpoint to: ${makeUrlLogSafe(urlString)}`
++      );
++    } else {
++      this.logger.info(
++        `Making ${this.namespace} request to: ${makeUrlLogSafe(urlString)}`
++      );
++    }
+ 
+     try {
+-      const response = await makeRequest(urlString, {
+-        method: 'GET',
+-        headers: this.getHeaders(),
+-        timeout: timeout ?? appConfig.builtins.nab.searchTimeout,
+-        forceProxy: this.httpProxy,
+-        // `[newznab]`/`[torznab]` overrides apply on top of getHeaders()
+-        // (legacy nab.userAgent) inside makeRequest.
+-        context: this.namespace,
+-      });
++      const headers = this.getHeaders();
++      const response = shouldUseReplay
++        ? await makeRequest(appConfig.builtins.nab.replayEndpoint!, {
++            method: 'POST',
++            headers: {
++              ...headers,
++              'Content-Type': 'application/json',
++            },
++            timeout: timeout ?? appConfig.builtins.nab.searchTimeout,
++            body: JSON.stringify({
++              host: url.host,
++              path: `${url.pathname}${url.search}`,
++              useHttps: url.protocol === 'https:',
++            }),
++          })
++        : await makeRequest(urlString, {
++            method: 'GET',
++            headers,
++            timeout: timeout ?? appConfig.builtins.nab.searchTimeout,
++            forceProxy: this.httpProxy,
++            // `[newznab]`/`[torznab]` overrides apply on top of getHeaders()
++            // (legacy nab.userAgent) inside makeRequest.
++            context: this.namespace,
++          });
+ 
+       const data = await response.text();
+ 
+diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
+index 5096e466..2b7800ab 100644
+--- a/packages/core/src/builtins/newznab/addon.ts
++++ b/packages/core/src/builtins/newznab/addon.ts
+@@ -10,7 +10,11 @@ import {
+ import { SearchMetadata } from '../base/debrid.js';
+ import { hashNzbUrl } from '../../debrid/utils.js';
+ import { toUnixSeconds, usenetKey } from '../../release-blocklist/index.js';
+-import { BaseNabApi, SearchResultItem } from '../base/nab/api.js';
++import {
++  BaseNabApi,
++  NabApiOptions,
++  SearchResultItem,
++} from '../base/nab/api.js';
+ import {
+   BaseNabAddon,
+   NabAddonConfigSchema,
+@@ -28,9 +32,10 @@ class NewznabApi extends BaseNabApi<'newznab'> {
+     baseUrl: string,
+     apiKey?: string,
+     apiPath?: string,
+-    extraParams?: Record<string, string | number | boolean>
++    extraParams?: Record<string, string | number | boolean>,
++    options?: NabApiOptions
+   ) {
+-    super('newznab', logger, baseUrl, apiKey, apiPath, extraParams);
++    super('newznab', logger, baseUrl, apiKey, apiPath, extraParams, options);
+   }
+ }
+ 
+@@ -54,6 +59,30 @@ interface HealthProxyConfig {
+   extraParams: Record<string, string | number | boolean>;
+ }
+ 
++let hasLoggedReplayError = false;
++
++const buildReplayDownloadUrl = (originalUrl: string): string => {
++  const replayBase = appConfig.builtins.nab.replayDownloadUrl;
++  if (!replayBase) {
++    return originalUrl;
++  }
++
++  try {
++    const replayUrl = new URL(replayBase);
++    replayUrl.searchParams.set('url', originalUrl);
++    return replayUrl.toString();
++  } catch (error) {
++    if (!hasLoggedReplayError) {
++      hasLoggedReplayError = true;
++      logger.warn('Failed to construct NZB replay download URL', {
++        replayBase,
++        error: error instanceof Error ? error.message : String(error),
++      });
++    }
++    return originalUrl;
++  }
++};
++
+ // Addon class
+ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+   readonly name = 'Newznab';
+@@ -61,6 +90,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+   readonly id = 'newznab';
+   readonly logger = logger;
+   readonly api: NewznabApi;
++  private readonly disableReplayEndpoints: boolean;
+   constructor(userData: NewznabAddonConfig, clientIp?: string) {
+     super(userData, NewznabAddonConfigSchema, clientIp);
+ 
+@@ -73,6 +103,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+             constants.ALTMOUNT_SERVICE,
+             constants.STREMIO_NNTP_SERVICE,
+             constants.STREMTHRU_NEWZ_SERVICE,
++            constants.DEBRIDGE_SERVICE,
+             constants.AIOSTREAMS_SERVICE,
+           ].includes(s.id)
+       )
+@@ -82,11 +113,13 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+       );
+     }
+     const zyclopsHealthProxyConfig = this.buildZyclopsHealthProxyConfig();
++    this.disableReplayEndpoints = Boolean(zyclopsHealthProxyConfig);
+     this.api = new NewznabApi(
+       zyclopsHealthProxyConfig?.endpoint ?? this.userData.url,
+       this.userData.apiKey,
+       zyclopsHealthProxyConfig?.path ?? this.userData.apiPath,
+-      zyclopsHealthProxyConfig?.extraParams
++      zyclopsHealthProxyConfig?.extraParams,
++      { disableReplay: this.disableReplayEndpoints }
+     );
+   }
+ 
+@@ -173,13 +206,21 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+     const nzbs: NZB[] = [];
+     for (const result of results) {
+       const enclosure = this.getEnclosure(result);
+-      const nzbUrl = enclosure?.url;
+-      if (!nzbUrl) continue;
++      const enclosureUrl = enclosure?.url;
++      if (!enclosureUrl) continue;
++
++      const nzbUrl = this.disableReplayEndpoints
++        ? enclosureUrl
++        : buildReplayDownloadUrl(enclosureUrl);
+       if (seenNzbs.has(nzbUrl)) continue;
+       seenNzbs.add(nzbUrl);
+ 
+       const zyclopsHealth = result.newznab?.zyclopsHealth?.toString();
+-      const md5 = hashNzbUrl(nzbUrl);
++      // Hash the ORIGINAL enclosure URL, not the replay-wrapped nzbUrl:
++      // buildReplayDownloadUrl() hides the unique URL in a ?url= query that
++      // hashNzbUrl()/cleanNzbUrl() strip, collapsing every NZB to one hash
++      // and fanning a single availability/file listing across all results.
++      const md5 = hashNzbUrl(enclosureUrl);
+ 
+       let date = result.pubDate?.toString();
+       if (typeof result.newznab?.usenetdate === 'string') {
+@@ -189,6 +230,18 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+         Math.abs(new Date().getTime() - new Date(date).getTime()) /
+           (1000 * 60 * 60)
+       );
++
++      const enclosureSize = (() => {
++        if (typeof enclosure?.length === 'number') {
++          return enclosure.length;
++        }
++        if (typeof enclosure?.length === 'string') {
++          const parsed = Number(enclosure.length);
++          return Number.isNaN(parsed) ? undefined : parsed;
++        }
++        return undefined;
++      })();
++
+       const parsedMediaInfo = parseNabParsedFileInfo({
+         audioLanguages: result.newznab?.language,
+         subtitleLanguages: result.newznab?.subs,
+@@ -207,7 +260,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+         size:
+           result.size ??
+           (result.newznab?.size ? Number(result.newznab.size) : undefined) ??
+-          enclosure?.length ??
++          enclosureSize ??
+           0,
+         type: 'usenet',
+         parsedMediaInfo,
+@@ -245,24 +298,36 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+         url: appConfig.bootstrap.baseUrl,
+         credentials: auth,
+       });
+-      const nzbsToProxy = nzbs.map((nzb) => ({
+-        url: nzb.nzb,
+-        filename: nzb.title,
+-      }));
+-      const proxiedUrls = await proxy.generateUrls(
+-        nzbsToProxy.map(({ url, filename }) => ({
+-          url,
+-          filename: filename || url.split('/').pop(),
+-          type: 'nzb',
+-        })),
+-        false // don't encrypt NZB URLs to make sure the URLs stay the same.
+-      );
+-      if (!proxiedUrls || 'error' in proxiedUrls) {
+-        throw new Error('Failed to proxy NZBs: ' + proxiedUrls?.error || '');
+-      }
+-      for (let i = 0; i < nzbs.length; i++) {
+-        nzbs[i].nzb = proxiedUrls[i];
+-        nzbs[i].hash = hashNzbUrl(nzbs[i].nzb);
++      // NZB URLs served by the health proxy are publicly fetchable, so they
++      // do not need to be relayed through the built-in NZB proxy.
++      let zyclopsOrigin: string | undefined;
++      try {
++        zyclopsOrigin = new URL(appConfig.nzbProxy.zyclopsHealthProxyEndpoint)
++          .origin;
++      } catch {}
++      const nzbsToProxy = nzbs.filter((nzb) => {
++        try {
++          return new URL(nzb.nzb).origin !== zyclopsOrigin;
++        } catch {
++          return true;
++        }
++      });
++      if (nzbsToProxy.length > 0) {
++        const proxiedUrls = await proxy.generateUrls(
++          nzbsToProxy.map(({ nzb, title }) => ({
++            url: nzb,
++            filename: title || nzb.split('/').pop(),
++            type: 'nzb',
++          })),
++          false // don't encrypt NZB URLs to make sure the URLs stay the same.
++        );
++        if (!proxiedUrls || 'error' in proxiedUrls) {
++          throw new Error('Failed to proxy NZBs: ' + proxiedUrls?.error || '');
++        }
++        nzbsToProxy.forEach((nzb, i) => {
++          nzb.nzb = proxiedUrls[i];
++          nzb.hash = hashNzbUrl(nzb.nzb);
++        });
+       }
+     }
+     return nzbs;
+@@ -295,7 +360,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+     return stream;
+   }
+ 
+-  private getEnclosure(result: any) {
++  private getEnclosure(result: SearchResultItem<'newznab'>) {
+     return result.enclosure?.find((e: any) =>
+       e.type?.toLowerCase().includes('nzb')
+     );
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index e1b14b12..c8f7d8cc 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -657,6 +657,26 @@ export const builtinsSchema = {
+       requiresRestart: false,
+       secret: false,
+     },
++    replayEndpoint: {
++      schema: nullableUrl,
++      default: null,
++      label: 'Newznab replay endpoint',
++      env: 'BUILTIN_NAB_REPLAY_ENDPOINT',
++      description:
++        'Endpoint that forwards built-in Newznab API calls. Leave unset to call indexers directly. \nThis is the same capability as the `httpProxy` option above over a different transport: the target is passed as request fields rather than a CONNECT tunnel, so an https target is fetched by the forwarder\u2019s own TLS stack.',
++      requiresRestart: false,
++      secret: false,
++    },
++    replayDownloadUrl: {
++      schema: nullableUrl,
++      default: null,
++      label: 'NZB replay download URL',
++      env: 'BUILTIN_NZB_REPLAY_DOWNLOAD_URL',
++      description:
++        'SABnzbd replay endpoint (GET /replay?url=...) to wrap NZB download URLs so SAB fetches the upstream NZB on demand.',
++      requiresRestart: false,
++      secret: false,
++    },
+   },
+   zilean: {
+     url: {
+diff --git a/packages/core/src/debrid/usenet-stream-base.ts b/packages/core/src/debrid/usenet-stream-base.ts
+index 33cdb0b8..cc227a72 100644
+--- a/packages/core/src/debrid/usenet-stream-base.ts
++++ b/packages/core/src/debrid/usenet-stream-base.ts
+@@ -254,10 +254,11 @@ export class SABnzbdApi {
+     category: string,
+     jobLabel: string
+   ): Promise<{ nzoId: string }> {
++    const resolvedNzbUrl = this.stripReplayWrap(nzbUrl);
+     const params = {
+       mode: 'addurl',
+       apikey: this.apiKey,
+-      name: nzbUrl,
++      name: resolvedNzbUrl,
+       cat: category,
+       nzbname: jobLabel,
+       output: 'json',
+@@ -301,6 +302,40 @@ export class SABnzbdApi {
+     return { nzoId };
+   }
+ 
++  // nzbdav runs its own replay sidecar. If we hand it a URL already wrapped
++  // by the AIOStreams download forwarder (builtins.nab.replayDownloadUrl), nzbdav
++  // cannot reach that forwarder from its own container. Strip the wrapper so
++  // nzbdav fetches the upstream NZB directly and applies its own path.
++  private stripReplayWrap(nzbUrl: string): string {
++    if (this.serviceName !== 'nzbdav') {
++      return nzbUrl;
++    }
++    const replayBase = appConfig.builtins.nab.replayDownloadUrl;
++    if (!replayBase) {
++      return nzbUrl;
++    }
++    try {
++      const wrapped = new URL(nzbUrl);
++      const base = new URL(replayBase);
++      if (
++        wrapped.origin !== base.origin ||
++        wrapped.pathname !== base.pathname
++      ) {
++        return nzbUrl;
++      }
++      const inner = wrapped.searchParams.get('url');
++      if (!inner) {
++        return nzbUrl;
++      }
++      this.logger.debug(
++        `Stripping AIOStreams replay wrapper before handoff to ${this.serviceName}`
++      );
++      return inner;
++    } catch {
++      return nzbUrl;
++    }
++  }
++
+   async history(
+     params: {
+       start?: number;
