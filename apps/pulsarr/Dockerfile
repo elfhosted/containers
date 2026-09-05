@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b ${VERSION} https://github.com/jamcalli/pulsarr.git /source
 
-FROM oven/bun:1.3.11-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS base
+FROM oven/bun:1.4.1-alpine@sha256:2ef545220f7a886f22fcb3f2309bbd6bcf1c0aa04b7d79c31765c7aa4a13aac1 AS base
 WORKDIR /app
 
 # Install production dependencies in a temp directory (cached independently)
@@ -18,10 +18,8 @@ RUN mkdir -p /temp/prod && \
     cp package.json bun.lock /temp/prod/ && \
     cp -r packages /temp/prod/packages && \
     cd /temp/prod && \
-    bun install --frozen-lockfile --production --ignore-scripts && \
-    rm -rf node_modules/vite node_modules/rollup node_modules/esbuild \
-           node_modules/@rollup node_modules/@esbuild \
-           node_modules/rolldown node_modules/@rolldown
+    bun install --frozen-lockfile --production --ignore-scripts --omit=peer && \
+    rm -rf node_modules/@types
 
 # Build stage: full install + compile
 FROM base AS builder
@@ -34,7 +32,7 @@ COPY --from=cloner /source/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 
-COPY --from=cloner /source/vite.config.js /source/tsconfig.json /source/postcss.config.mjs ./
+COPY --from=cloner /source/vite.config.js /source/tsconfig.json /source/tsconfig.base.json /source/postcss.config.mjs ./
 COPY --from=cloner /source/src ./src
 
 RUN --mount=type=cache,target=/app/node_modules/.vite \
