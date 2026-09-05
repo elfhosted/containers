@@ -1,0 +1,29 @@
+name: Harbor experimental edge checks (no publication)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/harbor-site/**'
+      - '.github/workflows/harbor-experimental-checks.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test apps/harbor-site/ci/experimental.test.cjs
+      # The Dockerfile runs nginx -t with the actual njs module. No registry
+      # login, push, version tag, deployment, signing key or release token.
+      - run: docker build --build-arg VERSION=experimental-test -f apps/harbor-site/Dockerfile -t harbor-site-experimental-test .
+      - name: Running nginx and njs against isolated HTTPS fixtures
+        env:
+          HARBOR_EXPERIMENTAL_EDGE_INTEGRATION: '1'
+        run: node --test apps/harbor-site/ci/experimental-integration.test.cjs
