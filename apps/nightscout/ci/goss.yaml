@@ -3,10 +3,6 @@ process:
   node:
     running: true
 
-port:
-  tcp:1337:
-    listening: true
-
 http:
   http://localhost:1337/api/v1/status.json:
     status: 200
