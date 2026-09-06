@@ -80,6 +80,23 @@ http:
     body:
       - "ok"
 
+  # The experimental feed must FAIL CLOSED. With no Backblaze credentials the
+  # njs handler cannot read a manifest, and the one outcome that must never
+  # happen is falling through to the stable feed -- an experimental client
+  # silently receiving a stable manifest is a downgrade nobody would notice.
+  #
+  # 503 is therefore the assertion, and it is meaningful precisely BECAUSE
+  # there are no credentials here: 200 would mean it served something it could
+  # not have validated, and 500 would mean it took the ordinary storage path
+  # instead of the handler. Anything but 503 is a real regression.
+  #
+  # This also proves the njs module parsed and loaded. njs is not Node -- it
+  # rejects for...of and optional catch binding, neither of which the unit
+  # tests can catch, because they evaluate the source under Node.
+  http://localhost:8080/updates/latest-experimental.json:
+    status: 503
+    timeout: 10000
+
   # The write methods are refused before anything is signed. Cheap to assert and
   # it fails loudly if the server-level `if` is ever moved into a location, where
   # it would stop applying to the whole vhost.

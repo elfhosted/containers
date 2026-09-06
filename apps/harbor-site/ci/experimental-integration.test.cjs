@@ -1,3 +1,23 @@
+// MANUAL ONLY -- nothing runs this automatically.
+//
+// It needs Docker-in-Docker and host networking to drive the built image
+// against a live fixture origin, so it cannot run inside a docker build, and
+// this repo deliberately has no pull_request-triggered workflows. The njs unit
+// tests moved into the Dockerfile and DO gate every build; `nginx -t` already
+// ran there before this change and still does, so a config that cannot parse
+// still fails the build.
+//
+// What is genuinely lost by not running this on every change: proof that the
+// stable, beta and legacy feeds still behave when the experimental routing
+// changes. Run it by hand when touching harbor-site's nginx config:
+//
+//   docker build -t harbor-site-experimental-test -f apps/harbor-site/Dockerfile .
+//   HARBOR_EXPERIMENTAL_EDGE_INTEGRATION=1 \
+//     node --test apps/harbor-site/ci/experimental-integration.test.cjs
+//
+// Left in the tree rather than deleted because it is the only check that
+// covers cross-channel regressions -- but a test nobody runs is not coverage,
+// so treat the line above as a step in the change, not as a safety net.
 // Runs the actual built nginx/njs image against a throwaway HTTPS origin.
 // No production network destination, image push, signing key or release build.
 const assert = require("node:assert/strict");
