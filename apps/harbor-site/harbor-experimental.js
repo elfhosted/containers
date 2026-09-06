@@ -22,7 +22,11 @@ function validManifest(m) {
   }
   const names = Object.keys(m.platforms);
   if (!names.length || names.length > 2) return false;
-  for (const name of names) {
+  // Indexed loop, not for...of: njs rejects `of` outright ("Token \"of\" not
+  // supported in this version"), so the module would not load and nginx would
+  // refuse to start. The existing harbor-site.js uses no for...of either.
+  for (var i = 0; i < names.length; i++) {
+    var name = names[i];
     if (name === "windows-x86_64") {
       if (!artifact(m.platforms[name], "x64-setup.exe") || !record(m.installer)) return false;
       const setup = m.installer[name];
@@ -33,7 +37,7 @@ function validManifest(m) {
     } else return false;
   }
   if (m.installer !== undefined &&
-      (!record(m.installer) || Object.keys(m.installer).some(k => k !== "windows-x86_64") ||
+      (!record(m.installer) || Object.keys(m.installer).some(function (k) { return k !== "windows-x86_64"; }) ||
        !m.platforms["windows-x86_64"])) return false;
   return true;
 }
@@ -56,7 +60,9 @@ async function latest(r) {
     if (!validManifest(manifest)) { r.return(503); return; }
     r.headersOut["Content-Type"] = "application/json; charset=utf-8";
     r.return(200, reply.responseText);
-  } catch {
+  } catch (e) {
+    // Named binding, not optional catch: njs rejects `catch {` ("Token \"{\"
+    // not supported in this version") and the module then fails to load.
     // No origin XML, storage identifiers, or stable fallback on a failed read.
     r.return(503);
   }
