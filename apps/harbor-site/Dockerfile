@@ -14,6 +14,27 @@
 # IfNotPresent reuses the cached layer even across a restart -- the same trap
 # harbor-hosted's HANDOVER.md documents in §2.
 
+# The njs unit tests run HERE, in the build, rather than in a GitHub workflow.
+#
+# Two reasons. This repo has no pull_request-triggered workflows at all, and
+# adding one would mean deciding, on every future fork PR, whether to execute a
+# contributor's code on a runner -- a standing judgement call in exchange for
+# coverage the build can provide for free. And a test that only runs in CI does
+# not gate the artifact: an image built by any other path would ship untested.
+# Here, a failing test fails the build, so an untested image cannot exist.
+#
+# The final stage COPYs the marker this produces, which is what forces docker to
+# execute this stage at all -- an unreferenced stage is silently skipped, and a
+# test suite that is silently skipped is worse than none, because it reads as
+# coverage.
+FROM node:24-alpine AS njs-tests
+
+WORKDIR /src/apps/harbor-site
+# whole directory, so the tests resolve harbor-experimental.js and the nginx
+# confs at __dirname/.. exactly as they do in the repo
+COPY apps/harbor-site/ ./
+RUN node --test ci/experimental.test.cjs && touch /njs-tests-passed
+
 FROM nginxinc/nginx-unprivileged:1.29-alpine
 
 # Recorded for the label only; there is no source checkout to pin. The image is
@@ -23,6 +44,11 @@ ARG VERSION
 USER root
 
 # The stock server block listens on the same port and would answer first.
+# Referencing the test stage is what makes it run; the marker is removed in the
+# same layer so it does not ship.
+COPY --from=njs-tests /njs-tests-passed /tmp/njs-tests-passed
+RUN rm -f /tmp/njs-tests-passed
+
 RUN rm -f /etc/nginx/conf.d/default.conf
 
 # Build context is the repository root (action-image-build.yaml runs
@@ -36,6 +62,7 @@ COPY apps/harbor-site/harbor-notfound.conf         /etc/nginx/snippets/harbor-no
 COPY apps/harbor-site/harbor-cors-preflight.conf   /etc/nginx/snippets/harbor-cors-preflight.conf
 COPY apps/harbor-site/harbor-data.conf             /etc/nginx/snippets/harbor-data.conf
 COPY apps/harbor-site/harbor-site.js               /etc/nginx/njs/harbor-site.js
+COPY apps/harbor-site/harbor-experimental.js       /etc/nginx/njs/harbor-experimental.js
 COPY apps/harbor-site/05-harbor-site-resolver.sh   /docker-entrypoint.d/05-harbor-site-resolver.sh
 
 # Shadow the bucket's copies of these two, which name a third domain that
@@ -54,6 +81,7 @@ RUN chmod 0755 /docker-entrypoint.d/05-harbor-site-resolver.sh \
                /etc/nginx/snippets/harbor-cors-preflight.conf \
                /etc/nginx/snippets/harbor-data.conf \
                /etc/nginx/njs/harbor-site.js \
+               /etc/nginx/njs/harbor-experimental.js \
                /usr/share/nginx/seo/robots.txt \
                /usr/share/nginx/seo/sitemap.xml
 
