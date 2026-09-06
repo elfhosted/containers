@@ -58,4 +58,5 @@
 #          authenticated paths were fixed at Traefik; these four reach nginx.
 set -uo pipefail
 
-printf '%s' "1.4.0"
+# 1.5.0: isolated, validated experimental update feed; normal channels unchanged.
+printf '%s' "1.5.0"
