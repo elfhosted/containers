@@ -64,6 +64,18 @@ command:
   "awk '/server_name harbor.site/,/^}/' /etc/nginx/conf.d/harbor-site.conf | grep -q 'include /etc/nginx/snippets/harbor-updates.conf'":
     exit-status: 0
 
+  # The subrequest output buffer must be set on the location that SERVES the
+  # subrequest, not just on the two that issue it. Set only on the parents, this
+  # falls back to nginx's 4k default and every manifest larger than one memory
+  # page 502s with "too big subrequest response". That is not reachable from a
+  # runtime probe here -- with no credentials the handler fails closed at 503
+  # before any body is buffered -- so it is asserted against the config text.
+  # Anchored to the line start: this block's own comments name the directive,
+  # and an unanchored grep would be satisfied by the explanation of the bug
+  # rather than by the fix for it.
+  "awk '/location = \\/_harbor_experimental_manifest/,/^}/' /etc/nginx/snippets/harbor-updates.conf | grep -qE '^[[:space:]]*subrequest_output_buffer_size'":
+    exit-status: 0
+
   # And the negative: no redirect of any kind on /updates/ within that same block.
   # Asserting the include is present would still pass if a 308 were reintroduced
   # above it, because the first matching location wins.
