@@ -58,5 +58,5 @@
 #          authenticated paths were fixed at Traefik; these four reach nginx.
 set -uo pipefail
 
-# 1.5.0: isolated, validated experimental update feed; normal channels unchanged.
-printf '%s' "1.5.0"
+# 1.5.1: sitemap covers the four pages the static site added.
+printf '%s' "1.5.1"
