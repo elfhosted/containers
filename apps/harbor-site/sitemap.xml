@@ -1,8 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Served from the image, not the bucket. The 6-hourly VPS mirror used to revert
+  hand-fixes to this file silently; docs/19 section 4 in harbor-hosted records
+  why it moved here. A sitemap may only list URLs on the host that serves it,
+  so every entry below is harbor.elfhosted.com.
+
+  The paths are extensionless because that is what the site links to. The .html
+  twins exist only so old inbound links keep resolving, and listing both would
+  advertise duplicates. Anything Harbor routes client-side stays out, because
+  to a crawler that is a soft 404.
+-->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://harbor.elfhosted.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+  <url><loc>https://harbor.elfhosted.com/faq</loc></url>
+  <url><loc>https://harbor.elfhosted.com/contributors</loc></url>
+  <url><loc>https://harbor.elfhosted.com/legal</loc></url>
+  <url><loc>https://harbor.elfhosted.com/privacy</loc></url>
 </urlset>

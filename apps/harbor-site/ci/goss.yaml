@@ -138,11 +138,18 @@ http:
     body:
       - "Sitemap: https://harbor.elfhosted.com/sitemap.xml"
 
+  # Every page the site links to, asserted individually. The static site added
+  # four pages in 1.5.1 and a sitemap that silently loses one is invisible --
+  # it stays valid XML and keeps returning 200.
   http://localhost:8080/sitemap.xml:
     status: 200
     timeout: 5000
     body:
       - "<loc>https://harbor.elfhosted.com/</loc>"
+      - "<loc>https://harbor.elfhosted.com/faq</loc>"
+      - "<loc>https://harbor.elfhosted.com/contributors</loc>"
+      - "<loc>https://harbor.elfhosted.com/legal</loc>"
+      - "<loc>https://harbor.elfhosted.com/privacy</loc>"
 
 file:
   # The resolver include is what makes proxy_pass with a variable host work. If
