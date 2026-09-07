@@ -58,5 +58,5 @@
 #          authenticated paths were fixed at Traefik; these four reach nginx.
 set -uo pipefail
 
-# 1.5.1: sitemap covers the four pages the static site added.
-printf '%s' "1.5.1"
+# 1.5.2: subrequest_output_buffer_size on the manifest location; 4k default 502d.
+printf '%s' "1.5.2"
