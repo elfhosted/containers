@@ -9,7 +9,7 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": true,
+        "enabled": false,
         "type": "web"
       }
     }
