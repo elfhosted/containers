@@ -9,4 +9,4 @@
 # leaves nodes that already cached it running the OLD build forever. The chart
 # pins the digest for exactly that reason, but a moving tag is still the
 # clearer signal.
-printf "%s" "0.9.1"
+printf "%s" "0.10.0"
