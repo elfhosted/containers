@@ -6,7 +6,7 @@ RUN apk add --no-cache git
 
 RUN git clone --depth 1 --branch "${VERSION}" https://github.com/nightscout/cgm-remote-monitor.git /source
 
-FROM node:22-alpine
+FROM node:24-alpine
 
 LABEL maintainer="Nightscout Contributors"
 

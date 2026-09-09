@@ -11,7 +11,7 @@ COPY ./apps/readmeabook/patches/ /patches/
 RUN cd /source && for p in /patches/*.patch; do echo "Applying $p..." && git apply "$p"; done
 
 # Build stage
-FROM node:20-bookworm AS builder
+FROM node:24-bookworm AS builder
 
 WORKDIR /app
 
@@ -38,7 +38,7 @@ RUN cp -r .next/standalone/* . && \
 RUN npm prune --production
 
 # Runtime stage
-FROM node:20-bookworm-slim
+FROM node:24-bookworm-slim
 
 RUN apt-get update && apt-get install -y \
     curl \
