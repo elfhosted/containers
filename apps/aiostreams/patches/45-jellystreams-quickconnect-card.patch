@@ -1,0 +1,93 @@
+diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
+index ec1f35a..946d06d 100644
+--- a/packages/frontend/src/components/menu/save-install.tsx
++++ b/packages/frontend/src/components/menu/save-install.tsx
+@@ -550,6 +550,53 @@ function InstallCard({
+   disableSearchApiCard,
+   searchApiDisabledReason,
+ }: InstallCardProps) {
++  // ElfHosted: jellystreams (a native Jellyfin front end) runs only on private
++  // instances, path-split on this same hostname. Probe for it via a same-origin
++  // GET to /QuickConnect/Enabled (true only when jellystreams is serving). When
++  // present, offer a one-tap Quick Connect card; on public instances, upsell a
++  // private instance instead.
++  const [jellyfinAvailable, setJellyfinAvailable] = React.useState<
++    boolean | null
++  >(null);
++  const jellystreamsOrigin = React.useMemo(() => {
++    try {
++      return new URL(manifestUrl).origin;
++    } catch {
++      return '';
++    }
++  }, [manifestUrl]);
++  React.useEffect(() => {
++    if (!jellystreamsOrigin) return;
++    let cancelled = false;
++    fetch(`${jellystreamsOrigin}/QuickConnect/Enabled`, {
++      headers: { Accept: 'application/json' },
++    })
++      .then((r) => (r.ok ? r.json() : false))
++      .then((v) => {
++        if (!cancelled) setJellyfinAvailable(v === true);
++      })
++      .catch(() => {
++        if (!cancelled) setJellyfinAvailable(false);
++      });
++    return () => {
++      cancelled = true;
++    };
++  }, [jellystreamsOrigin]);
++  const jellystreamsQuickConnectUrl = React.useMemo(() => {
++    try {
++      const u = new URL(manifestUrl);
++      const m = u.pathname.match(/\/stremio\/([^/]+)\/([^/]+)\//);
++      if (m && m[1] !== 'u') {
++        return `${u.origin}/QuickConnect/Approve?uuid=${encodeURIComponent(
++          m[1]
++        )}&enc=${encodeURIComponent(m[2])}`;
++      }
++      return `${u.origin}/QuickConnect/Approve`;
++    } catch {
++      return '';
++    }
++  }, [manifestUrl]);
++
+   return (
+     <SettingsCard
+       title="Installation Options"
+@@ -661,6 +708,34 @@ function InstallCard({
+               author="lostb1t"
+               onClick={onOpenJellyfin}
+             />
++            {jellyfinAvailable === true ? (
++              <AppCard
++                logoSrc="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/refs/heads/master/logos/PNG-4x/jellyfin-icon--color-on-dark.png"
++                name="Jellyfin (Quick Connect)"
++                description="One-tap sign-in — no UUID to type"
++                onClick={() =>
++                  jellystreamsQuickConnectUrl &&
++                  window.open(
++                    jellystreamsQuickConnectUrl,
++                    '_blank',
++                    'noopener'
++                  )
++                }
++              />
++            ) : jellyfinAvailable === false ? (
++              <AppCard
++                logoSrc="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/refs/heads/master/logos/PNG-4x/jellyfin-icon--color-on-dark.png"
++                name="Jellyfin (Quick Connect)"
++                description="Available on ElfHosted private instances →"
++                onClick={() =>
++                  window.open(
++                    'https://store.elfhosted.com/product/aiostreams/',
++                    '_blank',
++                    'noopener'
++                  )
++                }
++              />
++            ) : null}
+             <AppCard
+               logoSrc="https://link.chillio.app/app-icon.png"
+               name="Chillio"
