@@ -16,7 +16,7 @@ RUN git clone https://github.com/qwertyuiop8899/toast-translator.git /source && 
 # Apply our patches. `|| exit 1` so a non-applying patch FAILS the build instead
 # of silently shipping an image missing the fix.
 COPY apps/toast-translator/patches/ /patches/
-RUN for p in /patches/*.patch; do echo "applying $p"; git -C /source apply "$p" || exit 1; done
+RUN pn=0; for p in /patches/*.patch; do pn=$((pn+1)); echo "Applying patch $pn"; git -C /source apply "$p" || exit 1; done
 
 FROM python:3.10-slim-buster
 WORKDIR /app

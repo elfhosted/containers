@@ -8,7 +8,7 @@ RUN git clone -b v${VERSION} https://github.com/kikootwo/ReadMeABook.git /source
 
 # Apply ElfHosted patches (numbered, applied in order)
 COPY ./apps/readmeabook/patches/ /patches/
-RUN cd /source && for p in /patches/*.patch; do echo "Applying $p..." && git apply "$p"; done
+RUN cd /source && pn=0 && for p in /patches/*.patch; do pn=$((pn+1)); echo "Applying patch $pn" && git apply "$p"; done
 
 # Build stage
 FROM node:20-bookworm AS builder

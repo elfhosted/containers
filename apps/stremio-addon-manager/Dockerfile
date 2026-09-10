@@ -11,7 +11,7 @@ RUN git clone https://github.com/0xConstant1/stremio-addon-manager.git /source
 
 # Apply our patches
 COPY apps/stremio-addon-manager/patches/ /patches/
-RUN cd /source && for p in /patches/*.patch; do echo "Applying $p" && git apply "$p"; done
+RUN cd /source && pn=0 && for p in /patches/*.patch; do pn=$((pn+1)); echo "Applying patch $pn" && git apply "$p"; done
 
 FROM node:lts-alpine as builder
 

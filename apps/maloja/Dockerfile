@@ -53,7 +53,7 @@ COPY --from=cloner /source /source
 # git apply is used rather than patch(1) so a context mismatch fails the build
 # loudly instead of fuzzing the hunk into the wrong place.
 COPY apps/maloja/patches/*.patch /patches/
-RUN cd /source && for p in /patches/*.patch; do echo "Applying $p"; git apply --verbose "$p" || exit 1; done
+RUN cd /source && pn=0 && for p in /patches/*.patch; do pn=$((pn+1)); echo "Applying patch $pn"; git apply "$p" || exit 1; done
 
 RUN python3 -m venv /venv && \
     /venv/bin/pip install --no-cache-dir --upgrade pip wheel && \
