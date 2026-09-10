@@ -1,22 +1,36 @@
 diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
-index ec1f35a..946d06d 100644
+index 43c0c733..f1b18541 100644
 --- a/packages/frontend/src/components/menu/save-install.tsx
 +++ b/packages/frontend/src/components/menu/save-install.tsx
-@@ -550,6 +550,53 @@ function InstallCard({
+@@ -546,6 +546,64 @@ function InstallCard({
    disableSearchApiCard,
    searchApiDisabledReason,
  }: InstallCardProps) {
-+  // ElfHosted: jellystreams (a native Jellyfin front end) runs only on private
-+  // instances, path-split on this same hostname. Probe for it via a same-origin
-+  // GET to /QuickConnect/Enabled (true only when jellystreams is serving). When
-+  // present, offer a one-tap Quick Connect card; on public instances, upsell a
-+  // private instance instead.
++  // ElfHosted: jellystreams is a native Jellyfin front end that runs only on
++  // private instances. It USED to be path-split on this same hostname, so this
++  // probed same-origin; it is its own host now, and the Jellyfin paths have
++  // been removed from the addon's host entirely. Probing the old place hits the
++  // SSO catch-all, comes back a redirect, and reads as "not present" -- which
++  // showed a paying tenant an advert for the thing they had already bought.
++  //
++  // So the host is derived (-aiostreams. -> -jellystreams.) and probed
++  // cross-origin; jellystreams answers with a permissive CORS policy and
++  // handles the preflight itself. When present, offer a card that carries the
++  // install address straight into its onboarding. On public instances, point at
++  // the guide instead.
 +  const [jellyfinAvailable, setJellyfinAvailable] = React.useState<
 +    boolean | null
 +  >(null);
 +  const jellystreamsOrigin = React.useMemo(() => {
 +    try {
-+      return new URL(manifestUrl).origin;
++      const u = new URL(manifestUrl);
++      // tenant-aiostreams.example -> tenant-jellystreams.example. Only where
++      // that label is actually present, so a host shaped some other way probes
++      // nothing and reports absent -- the right answer for anything that is not
++      // one of our tenant instances.
++      if (!u.hostname.includes('-aiostreams.')) return '';
++      u.hostname = u.hostname.replace('-aiostreams.', '-jellystreams.');
++      return u.origin;
 +    } catch {
 +      return '';
 +    }
@@ -38,50 +52,43 @@ index ec1f35a..946d06d 100644
 +      cancelled = true;
 +    };
 +  }, [jellystreamsOrigin]);
-+  const jellystreamsQuickConnectUrl = React.useMemo(() => {
-+    try {
-+      const u = new URL(manifestUrl);
-+      const m = u.pathname.match(/\/stremio\/([^/]+)\/([^/]+)\//);
-+      if (m && m[1] !== 'u') {
-+        return `${u.origin}/QuickConnect/Approve?uuid=${encodeURIComponent(
-+          m[1]
-+        )}&enc=${encodeURIComponent(m[2])}`;
-+      }
-+      return `${u.origin}/QuickConnect/Approve`;
-+    } catch {
-+      return '';
-+    }
-+  }, [manifestUrl]);
++  const jellystreamsSetupUrl = React.useMemo(() => {
++    if (!jellystreamsOrigin) return '';
++    // The whole install address, which carries the uuid AND the sealed
++    // envelope. jellystreams reads both out of it, so setting up is a name and
++    // a PIN with nothing copied by hand. This used to pull the two apart here
++    // and link at Quick Connect's approve page; one parameter means this side
++    // no longer needs to know the URL's shape.
++    return `${jellystreamsOrigin}/admin?address=${encodeURIComponent(
++      manifestUrl
++    )}`;
++  }, [jellystreamsOrigin, manifestUrl]);
 +
    return (
      <SettingsCard
        title="Installation Options"
-@@ -661,6 +708,34 @@ function InstallCard({
+@@ -657,6 +715,30 @@ function InstallCard({
                author="lostb1t"
                onClick={onOpenJellyfin}
              />
 +            {jellyfinAvailable === true ? (
 +              <AppCard
 +                logoSrc="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/refs/heads/master/logos/PNG-4x/jellyfin-icon--color-on-dark.png"
-+                name="Jellyfin (Quick Connect)"
-+                description="One-tap sign-in — no UUID to type"
++                name="JellyStreams"
++                description="Set up in one tap, no UUID to type"
 +                onClick={() =>
-+                  jellystreamsQuickConnectUrl &&
-+                  window.open(
-+                    jellystreamsQuickConnectUrl,
-+                    '_blank',
-+                    'noopener'
-+                  )
++                  jellystreamsSetupUrl &&
++                  window.open(jellystreamsSetupUrl, '_blank', 'noopener')
 +                }
 +              />
 +            ) : jellyfinAvailable === false ? (
 +              <AppCard
 +                logoSrc="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/refs/heads/master/logos/PNG-4x/jellyfin-icon--color-on-dark.png"
-+                name="Jellyfin (Quick Connect)"
-+                description="Available on ElfHosted private instances →"
++                name="Watch in Jellyfin"
++                description="Available with ElfHosted AIOMagic ✨"
 +                onClick={() =>
 +                  window.open(
-+                    'https://store.elfhosted.com/product/aiostreams/',
++                    'https://docs.elfhosted.com/guides/media/stremio-addons-in-jellyfin/',
 +                    '_blank',
 +                    'noopener'
 +                  )
