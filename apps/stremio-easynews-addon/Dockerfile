@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
     apk add --no-cache git
 
 RUN git clone -b $VERSION https://github.com/sleeyax/stremio-easynews-addon.git /source
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /build
 
@@ -34,7 +34,7 @@ RUN npm run build
 # Remove development dependencies.
 RUN npm --workspaces prune --omit=dev
 
-FROM node:22-alpine AS final
+FROM node:24-alpine AS final
 
 WORKDIR /app
 
