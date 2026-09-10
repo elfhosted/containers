@@ -17,7 +17,7 @@ COPY --from=cloner /source/src/ /src/src/
 
 RUN clojure -T:build uber
 
-FROM eclipse-temurin:22_36-jre-alpine as runtime
+FROM eclipse-temurin:25.0.4_7-jre-alpine as runtime
 
 WORKDIR /app
 
