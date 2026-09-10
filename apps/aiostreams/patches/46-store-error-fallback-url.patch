@@ -1,0 +1,165 @@
+diff --git a/packages/core/src/debrid/base.ts b/packages/core/src/debrid/base.ts
+index fc6255ad..ee0c91de 100644
+--- a/packages/core/src/debrid/base.ts
++++ b/packages/core/src/debrid/base.ts
+@@ -115,6 +115,36 @@ const DEBRID_NON_RETRYABLE_CODES = new Set<DebridErrorCode | undefined>([
+   'NOT_IMPLEMENTED',
+ ]);
+ 
++/**
++ * A URL a store attached to an error, to be played when the failover chain
++ * ends without a playable result — typically a short video explaining why.
++ *
++ * Only ever consulted after the chain is done, so attaching one never
++ * suppresses a working source: a store that answers instantly with an
++ * explanation still cannot end the search early.
++ *
++ * Read out of the error body rather than a typed field, because the value
++ * originates upstream of this client and travels as opaque JSON. Parsed
++ * rather than pattern-matched so that a malformed value is rejected instead
++ * of being handed to a redirect.
++ */
++export function storeFallbackUrl(error: unknown): string | undefined {
++  const body = (error as DebridError | undefined)?.body as
++    | { fallback_url?: unknown; error?: { fallback_url?: unknown } }
++    | undefined;
++  const raw = body?.fallback_url ?? body?.error?.fallback_url;
++  if (typeof raw !== 'string') return undefined;
++  try {
++    const parsed = new URL(raw);
++    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
++      return undefined;
++    if (!parsed.hostname) return undefined;
++    return parsed.toString();
++  } catch {
++    return undefined;
++  }
++}
++
+ /**
+  * Shared cross-service failure cache
+  */
+diff --git a/packages/core/src/main/failover.ts b/packages/core/src/main/failover.ts
+index cab2f7b1..699a3789 100644
+--- a/packages/core/src/main/failover.ts
++++ b/packages/core/src/main/failover.ts
+@@ -17,6 +17,7 @@ import {
+   PLAYBACK_PATH_PREFIX,
+ } from '../debrid/utils.js';
+ import { isFailoverRetryableError } from './play-chain.js';
++import { storeFallbackUrl } from '../debrid/base.js';
+ 
+ const logger = createLogger('failover');
+ 
+@@ -308,6 +309,13 @@ export interface RunPlayChainResult {
+   failedOver: boolean;
+   /** If a URL is available, this is the label of the attempt that provided it. */
+   label?: string;
++  /**
++   * A URL supplied by a failing store, to play instead of a generic error
++   * video. Set only alongside `error`. Captured from the FIRST failure that
++   * offered one, because the error ultimately reported is chosen for
++   * diagnostic value and may not be the one that carried a URL.
++   */
++  fallbackUrl?: string;
+ }
+ 
+ /**
+@@ -330,6 +338,7 @@ async function runSequential(
+ ): Promise<RunPlayChainResult> {
+   let sawDownloading = false;
+   let lastError: Error | undefined;
++  let fallbackUrl: string | undefined;
+   let tried = 0;
+   for (let i = 0; i < attempts.length; i++) {
+     tried++;
+@@ -349,6 +358,7 @@ async function runSequential(
+       );
+     } catch (err: any) {
+       lastError = err as Error;
++      fallbackUrl ??= storeFallbackUrl(err);
+       if (!isFailoverRetryableError(err)) break; // terminal for this service — stop
+       logger.warn(
+         { attempt: i, err, label: attempts[i]?.label },
+@@ -363,7 +373,7 @@ async function runSequential(
+       failedOver: tried > 1,
+       label: attempts[tried - 1]?.label ?? `attempt ${tried - 1}`,
+     };
+-  return { error: lastError, failedOver: tried > 1 };
++  return { error: lastError, fallbackUrl, failedOver: tried > 1 };
+ }
+ 
+ function runParallel(
+@@ -373,6 +383,10 @@ function runParallel(
+   return new Promise<RunPlayChainResult>((resolve) => {
+     const controllers: AbortController[] = [];
+     const errors: Error[] = [];
++    // First store-supplied explanation seen. Kept separately from `errors`
++    // because pickError() selects for diagnostic value, which may discard the
++    // error that carried a URL.
++    let fallbackUrl: string | undefined;
+     const succeeded = new Set<number>();
+     const failed = new Set<number>();
+     // Indices whose resolve settled as "still downloading" (undefined url). These
+@@ -451,7 +465,11 @@ function runParallel(
+         },
+         'all failover attempts failed'
+       );
+-      resolve({ error: pickError(errors), failedOver: launched > 1 });
++      resolve({
++        error: pickError(errors),
++        fallbackUrl,
++        failedOver: launched > 1,
++      });
+     }
+ 
+     function onDeadline() {
+@@ -535,6 +553,7 @@ function runParallel(
+           active--;
+           failed.add(i);
+           errors.push(err);
++          fallbackUrl ??= storeFallbackUrl(err);
+           logger.warn(
+             { attempt: i, label: attempts[i]?.label, err },
+             'failover attempt failed'
+diff --git a/packages/server/src/routes/api/debrid.ts b/packages/server/src/routes/api/debrid.ts
+index 4ea0ee7c..156abf9f 100644
+--- a/packages/server/src/routes/api/debrid.ts
++++ b/packages/server/src/routes/api/debrid.ts
+@@ -237,14 +237,31 @@ router.get(
+             return;
+           }
+           logger.error({ err }, `error during debrid resolve: ${err.message}`);
+-          slateRedirect(res, mapDebridErrorToStaticFile(err.code), 307);
++        } else {
++          logger.error(
++            { err },
++            `got unknown error during debrid resolve: ${err.message}`
++          );
++        }
++        // The chain produced no playable result. If any failing store
++        // supplied its own explanation, prefer it over the generic slate —
++        // it can say why, which the generic one cannot.
++        //
++        // Checked independently of which error was selected for reporting:
++        // that one is chosen for diagnostic value and is not necessarily the
++        // one that carried a URL, nor necessarily of any particular class.
++        if (result.fallbackUrl) {
++          res.setHeader('Cache-Control', 'no-store');
++          res.redirect(307, result.fallbackUrl);
+           return;
+         }
+-        logger.error(
+-          { err },
+-          `got unknown error during debrid resolve: ${err.message}`
++        slateRedirect(
++          res,
++          err instanceof DebridError
++            ? mapDebridErrorToStaticFile(err.code)
++            : StaticFiles.INTERNAL_SERVER_ERROR,
++          307
+         );
+-        slateRedirect(res, StaticFiles.INTERNAL_SERVER_ERROR, 307);
+         return;
+       }
+ 
