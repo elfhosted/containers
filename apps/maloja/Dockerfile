@@ -37,7 +37,7 @@ RUN apk add --no-cache git
 RUN git clone --depth 1 --branch "v${VERSION}" https://github.com/krateng/maloja.git /source
 
 
-FROM public.ecr.aws/docker/library/python:3.12-alpine AS builder
+FROM public.ecr.aws/docker/library/python:3.14-alpine AS builder
 
 # setproctitle, psutil, lru-dict and python-datauri have no musl wheels on
 # PyPI, so they are compiled here and only the finished venv is copied forward.
@@ -60,7 +60,7 @@ RUN python3 -m venv /venv && \
     /venv/bin/pip install --no-cache-dir /source
 
 
-FROM public.ecr.aws/docker/library/python:3.12-alpine
+FROM public.ecr.aws/docker/library/python:3.14-alpine
 ARG VERSION
 ARG APP_REVISION
 
