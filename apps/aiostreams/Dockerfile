@@ -116,7 +116,7 @@ COPY --from=builder /build/node_modules ./node_modules
 COPY --from=builder /build/packages/core/node_modules ./packages/core/node_modules
 COPY --from=builder /build/packages/server/node_modules ./packages/server/node_modules
 
-FROM debian:12-slim AS mimalloc
+FROM debian:13-slim AS mimalloc
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libmimalloc2.0 \
   && rm -rf /var/lib/apt/lists/* \
