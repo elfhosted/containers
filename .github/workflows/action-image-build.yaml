@@ -149,7 +149,7 @@ jobs:
       # patch-failure detection) can read/write the type=gha layer cache — this is
       # what docker/build-push-action does internally.
       - name: Expose GitHub Actions runtime for buildx gha cache
-        uses: crazy-max/ghaction-github-runtime@v3
+        uses: crazy-max/ghaction-github-runtime@v4
 
       - name: Setup GHCR
         uses: docker/login-action@v3
