@@ -30,7 +30,7 @@
 # requires-python = "==3.12.*", so 3.13 refuses to install and any bump here
 # must be checked against upstream first.
 
-FROM public.ecr.aws/docker/library/alpine:3.21 AS cloner
+FROM public.ecr.aws/docker/library/alpine:3.24 AS cloner
 ARG VERSION
 
 RUN apk add --no-cache git
