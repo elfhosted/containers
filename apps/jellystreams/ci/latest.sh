@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# `jellystreams` is our own code — a Jellyfin front end for a tenant's
-# AIOStreams configuration — so there is no upstream release to track and
-# renovate has nothing to watch. The version is declared here and bumped by
-# hand.
+# `jellystreams` is our own code, in the private repo elfhosted/jellystreams,
+# where release-please cuts the tags. Auth via ZURG_GH_CREDS.
 #
-# Bump this when apps/jellystreams/ changes in containers-private. Without a
-# bump the tag stays put across rebuilds, and imagePullPolicy: IfNotPresent
-# leaves nodes that already cached it running the OLD build forever. The chart
-# pins the digest for exactly that reason, but a moving tag is still the
-# clearer signal.
-printf "%s" "0.24.1"
+# It reads /releases/latest, not /tags: release-please creates both, but only a
+# published RELEASE is visible here, and that is deliberate -- a tag pushed by
+# hand should not start a rebuild.
+#
+# An empty result means the lookup failed (rate-limit, outage, a token that
+# cannot see the repo) rather than "no version". fetch.sh treats empty as
+# "skip", so a failure here costs a nightly rebuild rather than pushing a wrong
+# tag. Same shape as balrog, debridge, shadowfax and zyclops.
+version=$(curl -L -sX GET https://api.github.com/repos/elfhosted/jellystreams/releases/latest --header "Authorization: Bearer ${ZURG_GH_CREDS}" | jq --raw-output '.tag_name // empty')
+printf "%s" "${version}"
