@@ -1,8 +1,8 @@
 diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
-index 43c0c733..f1b18541 100644
+index ec1f35a..aa05ef4 100644
 --- a/packages/frontend/src/components/menu/save-install.tsx
 +++ b/packages/frontend/src/components/menu/save-install.tsx
-@@ -546,6 +546,64 @@ function InstallCard({
+@@ -550,6 +550,90 @@ function InstallCard({
    disableSearchApiCard,
    searchApiDisabledReason,
  }: InstallCardProps) {
@@ -21,24 +21,50 @@ index 43c0c733..f1b18541 100644
 +  const [jellyfinAvailable, setJellyfinAvailable] = React.useState<
 +    boolean | null
 +  >(null);
-+  const jellystreamsOrigin = React.useMemo(() => {
++  // Three shapes of host, wanting three different answers. Reading this as one
++  // question -- "can I derive a jellystreams origin?" -- is what left the
++  // PUBLIC instance showing no card at all, which is the one place this card
++  // is pure upsell and the whole reason it exists.
++  const jellystreams = React.useMemo((): {
++    kind: 'public' | 'tenant' | 'unknown';
++    origin: string;
++  } => {
 +    try {
 +      const u = new URL(manifestUrl);
-+      // tenant-aiostreams.example -> tenant-jellystreams.example. Only where
-+      // that label is actually present, so a host shaped some other way probes
-+      // nothing and reports absent -- the right answer for anything that is not
-+      // one of our tenant instances.
-+      if (!u.hostname.includes('-aiostreams.')) return '';
-+      u.hostname = u.hostname.replace('-aiostreams.', '-jellystreams.');
-+      return u.origin;
++      // The public instance, aiostreams.<domain>: no tenant label at all, so
++      // there is no private instance to ask about and never will be. Answer
++      // without probing.
++      //
++      // The public DEV instance showed the upsell already, by accident:
++      // "dev-aiostreams" happens to contain the hyphen, so it was read as a
++      // tenant called "dev" and probed a host that does not exist, 404'd, and
++      // fell into the same branch. Right answer, wrong route.
++      if (u.hostname.split('.')[0] === 'aiostreams') {
++        return { kind: 'public', origin: '' };
++      }
++      // A tenant: tenant-aiostreams.example -> tenant-jellystreams.example.
++      if (u.hostname.includes('-aiostreams.')) {
++        u.hostname = u.hostname.replace('-aiostreams.', '-jellystreams.');
++        return { kind: 'tenant', origin: u.origin };
++      }
++      // A custom domain. It may well be a tenant WITH jellystreams and there is
++      // nothing here to tell from, so claim nothing: defaulting to the upsell
++      // would advertise the product to somebody who has already bought it,
++      // which is the fault this card was rewritten to stop doing.
++      return { kind: 'unknown', origin: '' };
 +    } catch {
-+      return '';
++      return { kind: 'unknown', origin: '' };
 +    }
 +  }, [manifestUrl]);
++  const jellystreamsOrigin = jellystreams.origin;
 +  React.useEffect(() => {
-+    if (!jellystreamsOrigin) return;
++    if (jellystreams.kind === 'public') {
++      setJellyfinAvailable(false);
++      return;
++    }
++    if (jellystreams.kind !== 'tenant') return;
 +    let cancelled = false;
-+    fetch(`${jellystreamsOrigin}/QuickConnect/Enabled`, {
++    fetch(`${jellystreams.origin}/QuickConnect/Enabled`, {
 +      headers: { Accept: 'application/json' },
 +    })
 +      .then((r) => (r.ok ? r.json() : false))
@@ -51,7 +77,7 @@ index 43c0c733..f1b18541 100644
 +    return () => {
 +      cancelled = true;
 +    };
-+  }, [jellystreamsOrigin]);
++  }, [jellystreams]);
 +  const jellystreamsSetupUrl = React.useMemo(() => {
 +    if (!jellystreamsOrigin) return '';
 +    // The whole install address, which carries the uuid AND the sealed
@@ -67,7 +93,7 @@ index 43c0c733..f1b18541 100644
    return (
      <SettingsCard
        title="Installation Options"
-@@ -657,6 +715,30 @@ function InstallCard({
+@@ -661,6 +745,30 @@ function InstallCard({
                author="lostb1t"
                onClick={onOpenJellyfin}
              />
