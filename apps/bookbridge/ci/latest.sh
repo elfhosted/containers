@@ -19,6 +19,11 @@ if [[ -z "${version}" || "${version}" == "null" ]]; then
     exit 1
 fi
 
-# Upstream tags keep their leading "v" (v7.6.0), and the Dockerfile clones the
-# tag verbatim, so do not strip it here.
+# Strip the leading "v" (v7.6.0 -> 7.6.0). The Dockerfile puts it back for the
+# clone. It comes off here because this string is also baked in as APP_VERSION,
+# and upstream's update check compares it against the GitHub tag_name with the
+# "v" already lstripped -- so a "v"-prefixed APP_VERSION never matches and the
+# dashboard reports an update is available on the very release it is running.
+version="${version#v}"
+
 printf "%s" "${version}"
