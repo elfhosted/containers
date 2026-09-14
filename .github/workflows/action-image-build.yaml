@@ -59,6 +59,22 @@ jobs:
           token: ${{ secrets.GH_TOKEN_CONTAINERS_PRIVATE }}
           fetch-depth: 1
 
+      - name: Refuse private build inputs for published apps
+        run: |
+          # These apps publish their complete build (Dockerfile and patches) in
+          # this repository. The overlay below would silently replace any
+          # same-named file, so the private tree may only carry documentation.
+          for app in aiostreams; do
+            dir="containers-private/apps/${app}"
+            [ -d "$dir" ] || continue
+            offending=$(find "$dir" -type f ! -name '*.md' ! -name '.gitattributes')
+            if [ -n "$offending" ]; then
+              echo "::error::${app} is built from this repository only; remove these files from containers-private:"
+              echo "$offending"
+              exit 1
+            fi
+          done
+
       - name: Overlay /apps/ from external repo
         run: |
           cp -r containers-private/apps/* apps/
