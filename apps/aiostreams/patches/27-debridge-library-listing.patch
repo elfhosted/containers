@@ -1,0 +1,70 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 8fa8650..87b560f 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -383,9 +383,6 @@ export class StremThruService
+   // Torrent methods (TorrentDebridService)
+ 
+   public async listMagnets(): Promise<DebridDownload[]> {
+-    if (this.serviceName === 'debridge') {
+-      return [];
+-    }
+     return this.getLibraryWithStaleRefresh(
+       'torrent',
+       (cacheKey, limit) => this.fetchAndCacheMagnets(cacheKey, limit),
+@@ -446,23 +443,15 @@ export class StremThruService
+   ): Promise<DebridDownload[]> {
+     let libraryHashes = new Set<string>();
+     let failedHashes = new Set<string>();
+-    if (checkOwned) {
+-      try {
+-        const libraryItems = await this.listMagnets();
+-        for (const item of libraryItems) {
+-          if (item.hash && ['failed', 'invalid'].includes(item.status)) {
+-            failedHashes.add(item.hash.toLowerCase());
+-          } else if (item.hash) {
+-            libraryHashes.add(item.hash.toLowerCase());
+-          }
+-        }
+-      } catch (error) {
+-        logger.warn(
+-          `Failed to list library magnets for checkOwned on ${this.serviceName}`,
+-          { error: (error as Error).message }
+-        );
+-      }
+-    }
++    const libraryItemsPromise = checkOwned
++      ? this.listMagnets().catch((error) => {
++          logger.warn(
++            `Failed to list library magnets for checkOwned on ${this.serviceName}`,
++            { error: (error as Error).message }
++          );
++          return [] as DebridDownload[];
++        })
++      : null;
+ 
+     const cachedResults: DebridDownload[] = [];
+     let newResults: DebridDownload[] = [];
+@@ -525,6 +514,22 @@ export class StremThruService
+     }
+     const allResults = [...cachedResults, ...newResults];
+ 
++    if (libraryItemsPromise) {
++      try {
++        for (const item of await libraryItemsPromise) {
++          if (item.hash && ['failed', 'invalid'].includes(item.status)) {
++            failedHashes.add(item.hash.toLowerCase());
++          } else if (item.hash) {
++            libraryHashes.add(item.hash.toLowerCase());
++          }
++        }
++      } catch (error) {
++        logger.warn(
++          `Failed to apply library flags for checkOwned on ${this.serviceName}`,
++          { error: (error as Error).message }
++        );
++      }
++    }
+     for (const item of allResults) {
+       if (item.hash && failedHashes.has(item.hash.toLowerCase())) {
+         item.status = 'failed';

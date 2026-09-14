@@ -1,0 +1,360 @@
+diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
+index 892d4a1..065a626 100644
+--- a/packages/core/src/main/resources.ts
++++ b/packages/core/src/main/resources.ts
+@@ -14,7 +14,12 @@ import { getAddonName } from '../utils/general.js';
+ import { Wrapper } from './wrapper.js';
+ import { PresetManager } from '../presets/index.js';
+ import { FeatureControl } from '../utils/feature.js';
+-import { StreamContext, StreamUtils } from '../streams/index.js';
++import {
++  StreamContext,
++  StreamUtils,
++  buildEnrichmentRequest,
++  enrichFromDuplicates,
++} from '../streams/index.js';
+ import { buildPlayChain, type FailoverContentType } from './play-chain.js';
+ import { resolveServiceWrappedStreams } from './serviceWrapper.js';
+ import type { ServiceWrapServiceTiming } from './serviceWrapper.js';
+@@ -281,6 +286,9 @@ export async function processStreams(
+   let limitMs = 0;
+   let selMs = 0;
+ 
++  const enrichmentRequest = await buildEnrichmentRequest(context);
++  enrichFromDuplicates(processedStreams, enrichmentRequest);
++
+   if (isMeta) {
+     await ctx.precomputer.precomputeSeaDexOnly(processedStreams, context);
+     const metaFilterStart = Date.now();
+@@ -318,6 +326,7 @@ export async function processStreams(
+   }
+ 
+   if (resolvedResults.hasNewStreams) {
++    enrichFromDuplicates(processedStreams, enrichmentRequest);
+     const filterStart = Date.now();
+     processedStreams = await ctx.filterer.filter(processedStreams, context);
+     filterMs = Date.now() - filterStart;
+diff --git a/packages/core/src/streams/enricher.ts b/packages/core/src/streams/enricher.ts
+new file mode 100644
+index 0000000..b970d8f
+--- /dev/null
++++ b/packages/core/src/streams/enricher.ts
+@@ -0,0 +1,276 @@
++import { ParsedStream } from '../db/schemas.js';
++import { ExtendedMetadata, StreamContext } from './context.js';
++import FileParser from '../parser/file.js';
++import { mergeParsedFiles } from '../parser/merge.js';
++import { createLogger, getTimeTakenSincePoint } from '../utils/index.js';
++
++const logger = createLogger('enricher');
++
++const RECIPIENT_PRESET_TYPES = new Set(['elfcache']);
++
++const NO_FILE_SELECTED_IDX = -1;
++
++const BORROWED_FROM_KEY = 'metadataBorrowedFrom';
++
++const EXTENSIONS =
++  'mkv|mp4|avi|mov|wmv|flv|webm|m4v|mpg|mpeg|3gp|3g2|m2ts|ts|vob|ogv|ogm|divx|xvid|rm|rmvb|asf|mxf|mka|mks|mk3d|f4v|f4p|f4a|f4b';
++const VIDEO_EXTENSION = new RegExp(`\\.(${EXTENSIONS})$`, 'i');
++const TRAILING_EXTENSION = new RegExp(`(${EXTENSIONS})$`, 'i');
++
++export interface EnrichmentRequest {
++  season?: string | number;
++  episode?: string | number;
++  alternateEpisodes?: (string | number | undefined)[];
++  titles?: string[];
++  year?: number;
++}
++
++interface ResolvedRequest {
++  season?: number;
++  episode?: number;
++  alternateEpisodes: number[];
++  titles: string[];
++  year?: number;
++}
++
++function toNumber(value: string | number | undefined): number | undefined {
++  if (value === undefined) return undefined;
++  const parsed = typeof value === 'number' ? value : Number(value);
++  return Number.isFinite(parsed) ? parsed : undefined;
++}
++
++export async function buildEnrichmentRequest(
++  context: StreamContext
++): Promise<EnrichmentRequest> {
++  let metadata: ExtendedMetadata | undefined;
++  try {
++    metadata = await context.getMetadata();
++  } catch (error) {
++    logger.debug(
++      `Could not get metadata for enrichment: ${error instanceof Error ? error.message : String(error)}`
++    );
++  }
++  return {
++    season: context.parsedId?.season,
++    episode: context.parsedId?.episode,
++    alternateEpisodes: [
++      metadata?.absoluteEpisode,
++      metadata?.relativeAbsoluteEpisode,
++    ],
++    titles: metadata?.titles?.length
++      ? metadata.titles.map((t) => t.title)
++      : metadata?.title
++        ? [metadata.title]
++        : [],
++    year: metadata?.year,
++  };
++}
++
++function resolveRequest(request: EnrichmentRequest): ResolvedRequest {
++  const episode = toNumber(request.episode);
++  return {
++    season: toNumber(request.season),
++    episode,
++    alternateEpisodes: (request.alternateEpisodes ?? [])
++      .map(toNumber)
++      .filter((e): e is number => e !== undefined && e !== episode),
++    titles: (request.titles ?? []).map(normaliseTitle).filter(Boolean),
++    year: request.year,
++  };
++}
++
++function strip(value: string): string {
++  return value
++    .replace(/[^\p{L}\p{N}+]/gu, '')
++    .toLowerCase()
++    .trim();
++}
++
++function normalise(value: string): string {
++  return strip(value.replace(TRAILING_EXTENSION, ''));
++}
++
++function normaliseTitle(value: string): string {
++  return strip(value);
++}
++
++function isRecipientPreset(stream: ParsedStream): boolean {
++  return RECIPIENT_PRESET_TYPES.has(stream.addon?.preset?.type);
++}
++
++function lacksFileLevelName(stream: ParsedStream): boolean {
++  return !stream.filename || stream.torrent?.fileIdx === NO_FILE_SELECTED_IDX;
++}
++
++function isRecipient(stream: ParsedStream): boolean {
++  return (
++    isRecipientPreset(stream) &&
++    !!stream.torrent?.infoHash &&
++    !stream.extra?.[BORROWED_FROM_KEY] &&
++    lacksFileLevelName(stream)
++  );
++}
++
++function hasFileLevelEvidence(stream: ParsedStream): boolean {
++  if (
++    typeof stream.torrent?.fileIdx === 'number' &&
++    stream.torrent.fileIdx >= 0
++  ) {
++    return true;
++  }
++  if (stream.filename && VIDEO_EXTENSION.test(stream.filename)) {
++    return true;
++  }
++  return !!stream.folderName;
++}
++
++function parsedFor(stream: ParsedStream) {
++  return stream.parsedFile ?? FileParser.parse(stream.filename!);
++}
++
++function matchesRequest(
++  stream: ParsedStream,
++  request: ResolvedRequest
++): boolean {
++  const parsed = parsedFor(stream);
++
++  if (request.episode !== undefined || request.alternateEpisodes.length > 0) {
++    const matchedRequested =
++      request.episode !== undefined &&
++      !!parsed.episodes?.includes(request.episode);
++    const matchedAlternate = request.alternateEpisodes.some((episode) =>
++      parsed.episodes?.includes(episode)
++    );
++    if (parsed.seasons?.length) {
++      return (
++        matchedRequested &&
++        (request.season === undefined ||
++          parsed.seasons.includes(request.season))
++      );
++    }
++    return (
++      matchedAlternate || (request.season === undefined && matchedRequested)
++    );
++  }
++
++  if (request.titles.length === 0) return false;
++  const title = parsed.title ? normaliseTitle(parsed.title) : '';
++  if (!title || !request.titles.includes(title)) return false;
++  const year = toNumber(parsed.year);
++  if (
++    request.year !== undefined &&
++    year !== undefined &&
++    year !== request.year
++  ) {
++    return false;
++  }
++  return true;
++}
++
++function isDonorFor(
++  candidate: ParsedStream,
++  recipient: ParsedStream,
++  request: ResolvedRequest
++): candidate is ParsedStream & { filename: string } {
++  if (candidate === recipient) return false;
++  if (isRecipientPreset(candidate)) return false;
++  if (!candidate.filename) return false;
++  if (candidate.torrent?.fileIdx === NO_FILE_SELECTED_IDX) return false;
++  if (!hasFileLevelEvidence(candidate)) return false;
++  if (
++    normalise(candidate.filename) === normalise(recipient.filename ?? '') ||
++    normalise(candidate.filename) === normalise(recipient.folderName ?? '')
++  ) {
++    return false;
++  }
++  return matchesRequest(candidate, request);
++}
++
++function richness(stream: ParsedStream): number {
++  return (stream.parsedFile ? 1 : 0) + (stream.size !== undefined ? 1 : 0);
++}
++
++export function enrichFromDuplicates(
++  streams: ParsedStream[],
++  request: EnrichmentRequest = {}
++): number {
++  const start = Date.now();
++  const recipients = streams.filter(isRecipient);
++  if (recipients.length === 0) {
++    return 0;
++  }
++  const wanted = resolveRequest(request);
++
++  const byHash = new Map<string, ParsedStream[]>();
++  for (const stream of streams) {
++    const hash = stream.torrent?.infoHash?.toLowerCase();
++    if (!hash) continue;
++    const group = byHash.get(hash);
++    if (group) {
++      group.push(stream);
++    } else {
++      byHash.set(hash, [stream]);
++    }
++  }
++
++  let enriched = 0;
++  for (const recipient of recipients) {
++    const hash = recipient.torrent!.infoHash!.toLowerCase();
++    const donors = (byHash.get(hash) ?? []).filter((candidate) =>
++      isDonorFor(candidate, recipient, wanted)
++    );
++    if (donors.length === 0) continue;
++
++    const distinctNames = new Set(donors.map((d) => normalise(d.filename!)));
++    if (distinctNames.size > 1) {
++      logger.debug(
++        `Skipping enrichment for ${hash}: ${distinctNames.size} donors disagree on the filename`
++      );
++      continue;
++    }
++
++    const donor = donors.sort((a, b) => richness(b) - richness(a))[0];
++    const torrentName = recipient.filename;
++
++    const merged = mergeParsedFiles(parsedFor(donor), recipient.parsedFile);
++
++    recipient.filename = donor.filename;
++    if (merged) {
++      recipient.parsedFile = merged;
++    }
++    if (
++      torrentName &&
++      normalise(torrentName) !== normalise(donor.filename!) &&
++      !recipient.folderName
++    ) {
++      recipient.folderName = torrentName;
++    }
++    if (
++      donor.size !== undefined &&
++      recipient.size !== undefined &&
++      donor.size < recipient.size
++    ) {
++      recipient.folderSize = recipient.folderSize ?? recipient.size;
++      recipient.size = donor.size;
++      recipient.bitrate = undefined;
++    }
++    recipient.extra = {
++      ...recipient.extra,
++      [BORROWED_FROM_KEY]: donor.addon.name,
++    };
++
++    enriched++;
++    logger.debug(
++      `Enriched ${recipient.addon.name} stream for ${hash} with metadata from ${donor.addon.name}`,
++      { filename: recipient.filename, folderName: recipient.folderName }
++    );
++  }
++
++  if (enriched > 0) {
++    logger.info(
++      `Enriched ${enriched}/${recipients.length} stream(s) with file metadata from duplicates in ${getTimeTakenSincePoint(start)}`
++    );
++  }
++
++  return enriched;
++}
+diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
+index 0f693ba..fffa02c 100644
+--- a/packages/core/src/streams/fetcher.ts
++++ b/packages/core/src/streams/fetcher.ts
+@@ -14,6 +14,7 @@ import StreamFilter from './filterer.js';
+ import StreamPrecompute from './precomputer.js';
+ import StreamDeduplicator from './deduplicator.js';
+ import { StreamContext } from './context.js';
++import { buildEnrichmentRequest, enrichFromDuplicates } from './enricher.js';
+ import {
+   classifyAddonError,
+   type AnalyticsDisposition,
+@@ -247,6 +248,8 @@ class StreamFetcher {
+       // Now uses context's cached SeaDex data when available
+       await this.precompute.precomputeSeaDexOnly(groupStreams, context);
+ 
++      enrichFromDuplicates(groupStreams, await buildEnrichmentRequest(context));
++
+       // Blocklist runs before dedup so a flagged candidate never survives
+       // as a failover variant harvested from discarded duplicates.
+       const filteredStreams = await this.deduplicate.deduplicate(
+diff --git a/packages/core/src/streams/index.ts b/packages/core/src/streams/index.ts
+index 7753d63..c252bc7 100644
+--- a/packages/core/src/streams/index.ts
++++ b/packages/core/src/streams/index.ts
+@@ -5,6 +5,7 @@ import StreamDeduplicator from './deduplicator.js';
+ import StreamPrecomputer from './precomputer.js';
+ import StreamUtils from './utils.js';
+ import { StreamContext, ExtendedMetadata } from './context.js';
++import { buildEnrichmentRequest, enrichFromDuplicates } from './enricher.js';
+ 
+ export {
+   StreamFetcher,
+@@ -14,6 +15,8 @@ export {
+   StreamPrecomputer,
+   StreamUtils,
+   StreamContext,
++  enrichFromDuplicates,
++  buildEnrichmentRequest,
+ };
+ 
+ export type { ExtendedMetadata };

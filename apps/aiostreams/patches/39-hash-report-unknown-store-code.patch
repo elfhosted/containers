@@ -1,0 +1,48 @@
+diff --git a/packages/core/src/builtins/utils/hashReport.ts b/packages/core/src/builtins/utils/hashReport.ts
+index 545ecf2..f7ef933 100644
+--- a/packages/core/src/builtins/utils/hashReport.ts
++++ b/packages/core/src/builtins/utils/hashReport.ts
+@@ -17,6 +17,26 @@ export interface HashReportOptions {
+   storeCode?: string;
+ }
+ 
++const KNOWN_STORE_CODES = new Set([
++  'rd',
++  'realdebrid',
++  'tb',
++  'torbox',
++  'ad',
++  'alldebrid',
++  'pm',
++  'premiumize',
++  'dl',
++  'debridlink',
++  'oc',
++  'of',
++  'offcloud',
++  'ed',
++  'easydebrid',
++  'tr',
++  'torrin',
++]);
++
+ interface ReportPayload {
+   hashes: string[];
+   store_code: string;
+@@ -162,7 +182,15 @@ export function reportHashes(
+     return;
+   }
+ 
+-  const payloads = buildPayloads(rows, options.storeCode);
++  let storeCode = options.storeCode;
++  if (storeCode && !KNOWN_STORE_CODES.has(storeCode.trim().toLowerCase())) {
++    logger.debug(
++      `Hash report (${source}): store code "${storeCode}" is not accepted - sending as metadata only (no cache claim).`
++    );
++    storeCode = undefined;
++  }
++
++  const payloads = buildPayloads(rows, storeCode);
+   if (payloads.length === 0) {
+     logger.debug(
+       `Hash report (${source}): skipped — ${rowCount} input row(s) produced no valid payloads (no valid 40-hex hashes / no metadata).`

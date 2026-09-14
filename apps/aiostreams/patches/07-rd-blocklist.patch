@@ -1,0 +1,111 @@
+diff --git a/packages/core/src/debrid/rdBlocklist.ts b/packages/core/src/debrid/rdBlocklist.ts
+new file mode 100644
+index 0000000..a6f3a0a
+--- /dev/null
++++ b/packages/core/src/debrid/rdBlocklist.ts
+@@ -0,0 +1,39 @@
++
++import type { DebridDownload } from './base.js';
++
++const _raw = (process.env.RD_BLOCKED_FILENAME_REGEX || '').trim();
++let _pattern: RegExp | null = null;
++if (_raw) {
++  try {
++    _pattern = new RegExp(_raw, 'i');
++    console.log(`rdBlocklist: RD filename blocklist active: ${_raw}`);
++  } catch (err) {
++    throw new Error(
++      `rdBlocklist: invalid RD_BLOCKED_FILENAME_REGEX: ${
++        err instanceof Error ? err.message : String(err)
++      }`
++    );
++  }
++}
++
++export function isEnabled(): boolean {
++  return _pattern !== null;
++}
++
++function matchesString(s: string | undefined | null): boolean {
++  if (!_pattern || !s || typeof s !== 'string') return false;
++  return _pattern.test(s);
++}
++
++export function downgradeIfBlocked(
++  item: DebridDownload | undefined,
++  serviceName: string
++): DebridDownload | undefined {
++  if (!item || !_pattern) return item;
++  if (serviceName !== 'realdebrid') return item;
++  if (item.status !== 'cached') return item;
++  const nameMatches = matchesString(item.name);
++  const fileMatches = (item.files ?? []).some((f) => matchesString(f.name));
++  if (!nameMatches && !fileMatches) return item;
++  return { ...item, status: 'unknown' };
++}
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 6b7df15..37787db 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -17,6 +17,7 @@ import {
+   buildResolveKey,
+   removeDownloadOnAbort,
+ } from './utils.js';
++import { downgradeIfBlocked as rdBlocklistDowngrade } from './rdBlocklist.js';
+ import {
+   DebridServiceConfig,
+   DebridDownload,
+@@ -137,9 +138,10 @@ export class StremThruService
+   private async checkCacheGet(
+     hash: string
+   ): Promise<DebridDownload | undefined> {
+-    return await StremThruService.checkCache.get(
++    const cached = await StremThruService.checkCache.get(
+       `${this.serviceName}:${getSimpleTextHash(hash)}`
+     );
++    return rdBlocklistDowngrade(cached, this.serviceName);
+   }
+ 
+   private async checkCacheSet(debridDownload: DebridDownload): Promise<void> {
+diff --git a/packages/core/src/streams/filterer.ts b/packages/core/src/streams/filterer.ts
+index dc4820a..5e23092 100644
+--- a/packages/core/src/streams/filterer.ts
++++ b/packages/core/src/streams/filterer.ts
+@@ -33,6 +33,20 @@ import { StreamContext, ExtendedMetadata } from './context.js';
+ 
+ const logger = createLogger('filterer');
+ 
++const RD_BLOCKLIST_REGEX: RegExp | null = (() => {
++  const raw = (process.env.RD_BLOCKED_FILENAME_REGEX || '').trim();
++  if (!raw) return null;
++  try {
++    return new RegExp(raw, 'i');
++  } catch (err) {
++    throw new Error(
++      `filterer: invalid RD_BLOCKED_FILENAME_REGEX: ${
++        err instanceof Error ? err.message : String(err)
++      }`
++    );
++  }
++})();
++
+ interface Reason {
+   total: number;
+   details: Record<string, number>;
+@@ -1446,6 +1460,16 @@ class StreamFilterer {
+     const shouldKeepStream = (stream: ParsedStream): boolean => {
+       const file = stream.parsedFile;
+ 
++      if (
++        RD_BLOCKLIST_REGEX &&
++        stream.service?.id === 'realdebrid' &&
++        ((stream.filename && RD_BLOCKLIST_REGEX.test(stream.filename)) ||
++          (stream.folderName && RD_BLOCKLIST_REGEX.test(stream.folderName)))
++      ) {
++        this.incrementRemovalReason('excludedFilterCondition', 'RD Blacklist');
++        return false;
++      }
++
+       const isPendingServiceWrapResolution = isServiceWrapEligibleP2PStream(
+         stream,
+         this.userData

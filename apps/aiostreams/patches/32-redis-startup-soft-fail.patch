@@ -1,0 +1,78 @@
+diff --git a/packages/core/src/utils/cache.ts b/packages/core/src/utils/cache.ts
+index faa871ba..dd187132 100644
+--- a/packages/core/src/utils/cache.ts
++++ b/packages/core/src/utils/cache.ts
+@@ -50,6 +50,19 @@ export class Cache<K, V> {
+ 
+   // Redis client singleton
+   private static redisClient: RedisClientType | null = null;
++  private static redisUnavailable = false;
++
++  public static disableRedis(reason: string): void {
++    if (!this.redisUnavailable) {
++      logger.warn(`${reason}; falling back to in-memory cache`);
++    }
++    this.redisUnavailable = true;
++    this.redisClient = null;
++  }
++
++  public static isRedisEnabled(): boolean {
++    return Boolean(appConfig.bootstrap.redisUri) && !this.redisUnavailable;
++  }
+ 
+   private constructor(
+     name: string,
+@@ -75,7 +88,7 @@ export class Cache<K, V> {
+     const { storePreference: store, maxSize, name } = this;
+     if (store === 'sql') {
+       this._backend = new SQLCacheBackend<K, V>(`${name}:`, maxSize);
+-    } else if (appConfig.bootstrap.redisUri && (!store || store === 'redis')) {
++    } else if (Cache.isRedisEnabled() && (!store || store === 'redis')) {
+       this._backend = new RedisCacheBackend<K, V>(
+         Cache.getRedisClient(),
+         `${name}:`,
+@@ -114,7 +127,7 @@ export class Cache<K, V> {
+           });
+         })
+         .catch((err: any) => {
+-          throw new Error(`Failed to connect to Redis server: ${err}`);
++          Cache.disableRedis(`Failed to connect to Redis server: ${err}`);
+         });
+     }
+ 
+@@ -126,7 +139,7 @@ export class Cache<K, V> {
+    * @throws Error if Redis connection test fails
+    */
+   public static async testRedisConnection(): Promise<void> {
+-    if (!appConfig.bootstrap.redisUri) {
++    if (!this.isRedisEnabled()) {
+       return;
+     }
+ 
+@@ -163,6 +176,7 @@ export class Cache<K, V> {
+ 
+       logger.info('Redis connection test successful');
+     } catch (err: any) {
++      this.disableRedis(`Redis connection test failed: ${err.message}`);
+       throw new Error(`Redis connection test failed: ${err.message}`);
+     }
+   }
+diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
+index d0554cc4..2f1b97e4 100644
+--- a/packages/server/src/server.ts
++++ b/packages/server/src/server.ts
+@@ -284,8 +284,13 @@ function registerReleaseBlocklistTasks() {
+ }
+ 
+ async function initialiseRedis() {
+-  if (appConfig.bootstrap.redisUri) {
++  if (!appConfig.bootstrap.redisUri) {
++    return;
++  }
++  try {
+     await Cache.testRedisConnection();
++  } catch (error) {
++    logger.warn('Redis unavailable during startup; continuing with in-memory cache', error);
+   }
+ }
+ 

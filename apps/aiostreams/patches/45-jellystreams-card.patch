@@ -1,0 +1,92 @@
+diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
+index 44e22c4..d826652 100644
+--- a/packages/frontend/src/components/menu/save-install.tsx
++++ b/packages/frontend/src/components/menu/save-install.tsx
+@@ -550,6 +550,56 @@ function InstallCard({
+   disableSearchApiCard,
+   searchApiDisabledReason,
+ }: InstallCardProps) {
++  const [jellyfinAvailable, setJellyfinAvailable] = React.useState<
++    boolean | null
++  >(null);
++  const jellystreams = React.useMemo((): {
++    kind: 'public' | 'tenant' | 'unknown';
++    origin: string;
++  } => {
++    try {
++      const u = new URL(manifestUrl);
++      if (u.hostname.split('.')[0] === 'aiostreams') {
++        return { kind: 'public', origin: '' };
++      }
++      if (u.hostname.includes('-aiostreams.')) {
++        u.hostname = u.hostname.replace('-aiostreams.', '-jellystreams.');
++        return { kind: 'tenant', origin: u.origin };
++      }
++      return { kind: 'unknown', origin: '' };
++    } catch {
++      return { kind: 'unknown', origin: '' };
++    }
++  }, [manifestUrl]);
++  const jellystreamsOrigin = jellystreams.origin;
++  React.useEffect(() => {
++    if (jellystreams.kind === 'public') {
++      setJellyfinAvailable(false);
++      return;
++    }
++    if (jellystreams.kind !== 'tenant') return;
++    let cancelled = false;
++    fetch(`${jellystreams.origin}/QuickConnect/Enabled`, {
++      headers: { Accept: 'application/json' },
++    })
++      .then((r) => (r.ok ? r.json() : false))
++      .then((v) => {
++        if (!cancelled) setJellyfinAvailable(v === true);
++      })
++      .catch(() => {
++        if (!cancelled) setJellyfinAvailable(false);
++      });
++    return () => {
++      cancelled = true;
++    };
++  }, [jellystreams]);
++  const jellystreamsSetupUrl = React.useMemo(() => {
++    if (!jellystreamsOrigin) return '';
++    return `${jellystreamsOrigin}/admin?address=${encodeURIComponent(
++      manifestUrl
++    )}`;
++  }, [jellystreamsOrigin, manifestUrl]);
++
+   return (
+     <SettingsCard
+       title="Installation Options"
+@@ -661,6 +711,30 @@ function InstallCard({
+               author="lostb1t"
+               onClick={onOpenJellyfin}
+             />
++            {jellyfinAvailable === true ? (
++              <AppCard
++                logoSrc="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/refs/heads/master/logos/PNG-4x/jellyfin-icon--color-on-dark.png"
++                name="JellyStreams"
++                description="Set up in one tap, no UUID to type"
++                onClick={() =>
++                  jellystreamsSetupUrl &&
++                  window.open(jellystreamsSetupUrl, '_blank', 'noopener')
++                }
++              />
++            ) : jellyfinAvailable === false ? (
++              <AppCard
++                logoSrc="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/refs/heads/master/logos/PNG-4x/jellyfin-icon--color-on-dark.png"
++                name="Watch in Jellyfin"
++                description="Available with ElfHosted AIOMagic ✨"
++                onClick={() =>
++                  window.open(
++                    'https://docs.elfhosted.com/guides/media/stremio-addons-in-jellyfin/',
++                    '_blank',
++                    'noopener'
++                  )
++                }
++              />
++            ) : null}
+             <AppCard
+               logoSrc="https://link.chillio.app/app-icon.png"
+               name="Chillio"

@@ -1,0 +1,191 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 9b9e7c5..8fa8650 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -104,6 +104,7 @@ export class StremThruService
+   private static usenetHostsCache = Cache.getInstance<string, string[]>(
+     'st:usenet-hosts'
+   );
++  private static inflightChecks = new Map<string, Promise<unknown>>();
+ 
+   constructor(private readonly config: StremThruServiceConfig) {
+     this.serviceName = config.serviceName;
+@@ -213,6 +214,116 @@ export class StremThruService
+     }
+   }
+ 
++  private async coalesceCheck<T extends { hash?: string | null }>(
++    kind: 'magnet' | 'newz',
++    hashes: string[],
++    fetchBatch: (batch: string[]) => Promise<T[]>
++  ): Promise<T[]> {
++    const CHECK_BATCH_SIZE = 500;
++    const chunk = (arr: string[]): string[][] => {
++      const out: string[][] = [];
++      for (let i = 0; i < arr.length; i += CHECK_BATCH_SIZE) {
++        out.push(arr.slice(i, i + CHECK_BATCH_SIZE));
++      }
++      return out;
++    };
++
++    if (this.serviceName !== 'debridge') {
++      const results = await Promise.all(chunk(hashes).map(fetchBatch));
++      return results.flat();
++    }
++
++    const keyFor = (h: string) =>
++      `${this.config.stremthru.store}:${getSimpleTextHash(
++        this.config.stremthru.token
++      )}:${kind}:${h.toLowerCase()}`;
++
++    const joined: Promise<T | null>[] = [];
++    const toFetch: string[] = [];
++    const settle = new Map<string, (item: T | null) => void>();
++    for (const h of hashes) {
++      if (settle.has(h.toLowerCase())) {
++        continue;
++      }
++      const existing = StremThruService.inflightChecks.get(keyFor(h)) as
++        | Promise<T | null>
++        | undefined;
++      if (existing) {
++        joined.push(existing);
++        continue;
++      }
++      let resolve!: (item: T | null) => void;
++      StremThruService.inflightChecks.set(
++        keyFor(h),
++        new Promise<T | null>((res) => (resolve = res))
++      );
++      settle.set(h.toLowerCase(), resolve);
++      toFetch.push(h);
++    }
++
++    const settleOne = (h: string, item: T | null) => {
++      settle.get(h.toLowerCase())?.(item);
++      settle.delete(h.toLowerCase());
++      StremThruService.inflightChecks.delete(keyFor(h));
++    };
++
++    const settled = await Promise.allSettled(
++      chunk(toFetch).map(async (batch) => {
++        try {
++          const items = await fetchBatch(batch);
++          const byHash = new Map<string, T>();
++          for (const item of items) {
++            if (item.hash) {
++              byHash.set(item.hash.toLowerCase(), item);
++            }
++          }
++          for (const h of batch) {
++            settleOne(h, byHash.get(h.toLowerCase()) ?? null);
++          }
++          return items;
++        } catch (error) {
++          for (const h of batch) {
++            settleOne(h, null);
++          }
++          throw error;
++        }
++      })
++    );
++
++    const owned = settled.flatMap((s) =>
++      s.status === 'fulfilled' ? s.value : []
++    );
++    const failed = settled.find(
++      (s): s is PromiseRejectedResult => s.status === 'rejected'
++    );
++    if (failed) {
++      const anyFulfilled = settled.some((s) => s.status === 'fulfilled');
++      if (!anyFulfilled) {
++        throw failed.reason;
++      }
++      logger.warn(
++        `Coalesced ${kind} check on ${this.serviceName}: a batch failed but a sibling batch succeeded; returning partial (${
++          failed.reason instanceof Error
++            ? failed.reason.message
++            : String(failed.reason)
++        })`
++      );
++    }
++
++    if (joined.length > 0) {
++      const joinedItems = (await Promise.all(joined)).filter(
++        (i): i is Awaited<T> => i !== null
++      );
++      if (joinedItems.length > 0) {
++        logger.debug(
++          `Coalesced ${joined.length} in-flight ${kind} check(s) on ${this.serviceName} (${joinedItems.length} answered)`
++        );
++      }
++      return [...owned, ...joinedItems];
++    }
++    return owned;
++  }
++
+   //  Shared library helpers (pagination, stale-while-revalidate)
+ 
+   private getLibraryCacheKey(type: 'torrent' | 'usenet'): string {
+@@ -366,15 +477,11 @@ export class StremThruService
+     }
+ 
+     if (magnetsToCheck.length > 0) {
+-      const BATCH_SIZE = 500;
+-      const batches: string[][] = [];
+-      for (let i = 0; i < magnetsToCheck.length; i += BATCH_SIZE) {
+-        batches.push(magnetsToCheck.slice(i, i + BATCH_SIZE));
+-      }
+-
+       try {
+-        const batchResults = await Promise.all(
+-          batches.map(async (batch) => {
++        const allItems = await this.coalesceCheck(
++          'magnet',
++          magnetsToCheck,
++          async (batch) => {
+             const result = await this.stremthru.store.checkMagnet({
+               magnet: batch,
+               sid,
+@@ -386,11 +493,9 @@ export class StremThruService
+             );
+ 
+             return result.data.items;
+-          })
++          }
+         );
+ 
+-        const allItems = batchResults.flat();
+-
+         newResults = allItems.map((item) => ({
+           id: -1,
+           hash: item.hash,
+@@ -603,23 +708,17 @@ export class StremThruService
+ 
+     if (hashesToCheck.length > 0) {
+       try {
+-        const BATCH_SIZE = 500;
+-        const batches: string[][] = [];
+-        for (let i = 0; i < hashesToCheck.length; i += BATCH_SIZE) {
+-          batches.push(hashesToCheck.slice(i, i + BATCH_SIZE));
+-        }
+-
+-        const batchResults = await Promise.all(
+-          batches.map(async (batch) => {
++        const allItems = await this.coalesceCheck(
++          'newz',
++          hashesToCheck,
++          async (batch) => {
+             const result = await this.stremthru.store.checkNewz({
+               hash: batch,
+             });
+             return result.data.items;
+-          })
++          }
+         );
+ 
+-        const allItems = batchResults.flat();
+-
+         logger.debug(`Checked NZBs on ${this.serviceName}`, {
+           checked: hashesToCheck.length,
+           found: allItems.length,

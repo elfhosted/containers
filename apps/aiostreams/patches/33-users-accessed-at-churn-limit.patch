@@ -1,0 +1,39 @@
+diff --git a/packages/core/src/db/repositories/users.ts b/packages/core/src/db/repositories/users.ts
+index 117d1fe..d4ecd2f 100644
+--- a/packages/core/src/db/repositories/users.ts
++++ b/packages/core/src/db/repositories/users.ts
+@@ -26,6 +26,8 @@ import { LinkedAccountRepository } from './linked-accounts.js';
+ const APIError = constants.APIError;
+ const logger = createLogger('users');
+ 
++const ACCESSED_AT_STAMP_WINDOW_HOURS = 1;
++
+ interface UserRow {
+   uuid: string;
+   password_hash: string;
+@@ -241,7 +243,13 @@ export class UserRepository {
+     const key = await this.resolveConfigKey(uuid, password, row);
+ 
+     await db.exec(
+-      sql`UPDATE users SET accessed_at = CURRENT_TIMESTAMP WHERE uuid = ${uuid}`
++      sql`UPDATE users SET accessed_at = CURRENT_TIMESTAMP
++           WHERE uuid = ${uuid}
++             AND (accessed_at IS NULL
++                  OR accessed_at < ${db.intervalAgo(
++                    ACCESSED_AT_STAMP_WINDOW_HOURS,
++                    'hours'
++                  )})`
+     );
+ 
+     const decryptedConfig = this.decryptConfigWithKey(row.config, key);
+@@ -476,8 +484,9 @@ export class UserRepository {
+     }
+     try {
+       const db = getDb();
++      const cutoffHours = maxDays * 24 + ACCESSED_AT_STAMP_WINDOW_HOURS;
+       const result = await db.exec(
+-        sql`DELETE FROM users WHERE accessed_at < ${db.intervalAgo(maxDays, 'days')}`
++        sql`DELETE FROM users WHERE accessed_at < ${db.intervalAgo(cutoffHours, 'hours')}`
+       );
+       const deletedCount = result.rowCount;
+       logger.info(`Pruned ${deletedCount} users older than ${maxDays} days`);

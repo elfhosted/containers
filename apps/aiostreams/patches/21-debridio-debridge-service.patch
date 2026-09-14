@@ -1,0 +1,48 @@
+diff --git a/packages/core/src/presets/debridioScraper.ts b/packages/core/src/presets/debridioScraper.ts
+index f9221bf..a25d393 100644
+--- a/packages/core/src/presets/debridioScraper.ts
++++ b/packages/core/src/presets/debridioScraper.ts
+@@ -3,6 +3,7 @@ import { Preset, baseOptions } from './preset.js';
+ import { SERVICE_DETAILS } from '../utils/index.js';
+ import { constants, ServiceId } from '../utils/index.js';
+ import { config as appConfig } from '../config/index.js';
++import { Env } from '../utils/env.js';
+ import { StreamParser } from '../parser/index.js';
+ import {
+   debridioSocialOption,
+@@ -30,6 +31,7 @@ export class DebridioPreset extends Preset {
+       constants.TORBOX_SERVICE,
+       constants.EASYDEBRID_SERVICE,
+       constants.DEBRIDER_SERVICE,
++      constants.DEBRIDGE_SERVICE,
+     ];
+     const supportedResources = [constants.STREAM_RESOURCE];
+ 
+@@ -161,7 +163,10 @@ export class DebridioPreset extends Preset {
+     options: Record<string, any>,
+     service?: ServiceId
+   ) {
+-    const url = options?.url || this.DEFAULT_URL;
++    const url =
++      service === constants.DEBRIDGE_SERVICE && Env.DEBRIDGE_DEBRIDIO_URL
++        ? Env.DEBRIDGE_DEBRIDIO_URL
++        : options?.url || this.DEFAULT_URL;
+     if (url.endsWith('/manifest.json')) {
+       return url;
+     }
+diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
+index d790337..22946ed 100644
+--- a/packages/core/src/utils/env.ts
++++ b/packages/core/src/utils/env.ts
+@@ -280,6 +280,11 @@ export const Env = cleanEnv(process.env, {
+     desc: 'When true, P2P streams that were not resolved by a debrid service are removed from results.',
+   }),
+ 
++  DEBRIDGE_DEBRIDIO_URL: str({
++    default: '',
++    desc: 'Base URL of the Debridio-compatible endpoint used for the `debridge` service. Other Debridio services are unaffected.',
++  }),
++
+   SLATE_URL: str({
+     default: undefined,
+     desc: 'Base URL of the slate error-video service. Leave empty to use the bundled error videos.',

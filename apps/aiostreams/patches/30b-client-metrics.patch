@@ -1,0 +1,135 @@
+diff --git a/packages/core/src/analytics/index.ts b/packages/core/src/analytics/index.ts
+index 917f6fe..1c5ffd5 100644
+--- a/packages/core/src/analytics/index.ts
++++ b/packages/core/src/analytics/index.ts
+@@ -79,6 +79,20 @@ export interface AnalyticsEvent {
+  * for IPv4 (`a.b.c.x`) or the first 3 hextets for IPv6 (`a:b:c::/48`). The host
+  * portion is dropped so a single address can never be recovered.
+  */
++function expandIpv6(addr: string): string[] | null {
++  const halves = addr.split('::');
++  if (halves.length > 2) return null;
++  const left = halves[0] ? halves[0].split(':') : [];
++  if (halves.length === 1) {
++    return left.length === 8 && left.every(Boolean) ? left : null;
++  }
++  const right = halves[1] ? halves[1].split(':') : [];
++  if (!left.every(Boolean) || !right.every(Boolean)) return null;
++  const fill = 8 - left.length - right.length;
++  if (fill < 1) return null;
++  return [...left, ...Array(fill).fill('0'), ...right];
++}
++
+ export function anonymizeIp(ip: string | undefined | null): string | null {
+   if (!ip) return null;
+   const trimmed = ip.replace(/^::ffff:/i, '').trim();
+@@ -88,8 +102,8 @@ export function anonymizeIp(ip: string | undefined | null): string | null {
+     return `${parts[0]}.${parts[1]}.${parts[2]}.x`;
+   }
+   if (trimmed.includes(':')) {
+-    const parts = trimmed.split(':').filter(Boolean);
+-    if (parts.length === 0) return null;
++    const parts = expandIpv6(trimmed);
++    if (!parts) return null;
+     return parts.slice(0, 3).join(':') + '::/48';
+   }
+   return null;
+diff --git a/packages/core/src/analytics/repository.ts b/packages/core/src/analytics/repository.ts
+index 1f789c8..1590112 100644
+--- a/packages/core/src/analytics/repository.ts
++++ b/packages/core/src/analytics/repository.ts
+@@ -145,6 +145,25 @@ export const AnalyticsRepository = {
+       sql`SELECT COUNT(*) AS c FROM analytics_events WHERE ts >= ${Date.now() - DAY}`
+     );
+ 
++    const clientRows = await db.query<{
++      uuid_hash: string;
++      clients: number | string;
++    }>(
++      sql`SELECT uuid_hash, COUNT(DISTINCT ip_prefix) AS clients
++          FROM analytics_events
++          WHERE ts >= ${Date.now() - DAY}
++            AND uuid_hash IS NOT NULL
++            AND ip_prefix IS NOT NULL
++          GROUP BY uuid_hash`
++    );
++    const clientsPerConfig = clientRows.map((r) => n(r.clients));
++
++    const clientsTotal = await db.count(
++      sql`SELECT COUNT(DISTINCT ip_prefix) AS count
++          FROM analytics_events
++          WHERE ts >= ${Date.now() - DAY} AND ip_prefix IS NOT NULL`
++    );
++
+     return {
+       totalUsers,
+       activeUsers: { d1: active1d, d7: active7d, d30: active30d },
+@@ -156,6 +175,14 @@ export const AnalyticsRepository = {
+         ? Math.max(...accountUsers)
+         : 0,
+       debridAccountsShared: accountUsers.filter((c) => c > 1).length,
++      clientsTotal,
++      configMaxClients: clientsPerConfig.length
++        ? Math.max(...clientsPerConfig)
++        : 0,
++      configsMultiClient: clientsPerConfig.filter(
++        (c) => c >= config.analytics.clientShareMin
++      )
++        .length,
+     };
+   },
+ 
+diff --git a/packages/core/src/config/schema/analytics.ts b/packages/core/src/config/schema/analytics.ts
+index e3979f8..6a91e36 100644
+--- a/packages/core/src/config/schema/analytics.ts
++++ b/packages/core/src/config/schema/analytics.ts
+@@ -23,6 +23,16 @@ export const analyticsSchema = {
+     requiresRestart: false,
+     secret: false,
+   },
++  clientShareMin: {
++    schema: positiveInt,
++    default: 10,
++    label: 'Multi-client config threshold',
++    description:
++      'Minimum distinct clients on one config before it counts towards the multi-client gauge.',
++    env: 'ANALYTICS_CLIENT_SHARE_MIN',
++    requiresRestart: false,
++    secret: false,
++  },
+   eventRetentionDays: {
+     schema: positiveInt,
+     default: 7,
+diff --git a/packages/server/src/metrics.ts b/packages/server/src/metrics.ts
+index f542e2c..17f8c74 100644
+--- a/packages/server/src/metrics.ts
++++ b/packages/server/src/metrics.ts
+@@ -143,6 +143,28 @@ export async function collect(): Promise<string> {
+         },
+       ],
+     },
++    {
++      help: 'Distinct anonymised clients seen across the instance in 24h.',
++      type: 'gauge',
++      lines: [{ name: 'aiostreams_clients_total', value: s.clientsTotal }],
++    },
++    {
++      help: 'Most distinct clients seen on any one config in 24h.',
++      type: 'gauge',
++      lines: [
++        { name: 'aiostreams_config_max_clients', value: s.configMaxClients },
++      ],
++    },
++    {
++      help: 'Configs reached by at least the configured number of distinct clients in 24h.',
++      type: 'gauge',
++      lines: [
++        {
++          name: 'aiostreams_configs_multi_client',
++          value: s.configsMultiClient,
++        },
++      ],
++    },
+     {
+       help: 'Analytics events recorded in the last 24h.',
+       type: 'gauge',

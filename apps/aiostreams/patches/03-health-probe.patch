@@ -1,0 +1,21 @@
+diff --git a/packages/server/src/routes/api/health.ts b/packages/server/src/routes/api/health.ts
+index a30d467..f9d2a9c 100644
+--- a/packages/server/src/routes/api/health.ts
++++ b/packages/server/src/routes/api/health.ts
+@@ -4,14 +4,14 @@ import {
+   APIError,
+   constants,
+   createLogger,
+-  UserRepository,
++  getDb,
+ } from '@aiostreams/core';
+ const router: Router = Router();
+ const logger = createLogger('server');
+ 
+ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+   try {
+-    await UserRepository.getUserCount();
++    await getDb().ping();
+     res.status(200).json(createResponse({ success: true, detail: 'OK' }));
+   } catch (error: any) {
+     logger.error(`Health check failed: ${error.message}`);

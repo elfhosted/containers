@@ -1,0 +1,44 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 390403a..37f87e0 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -527,22 +527,23 @@ export class StremThruService
+           }
+         );
+ 
+-        newResults = allItems.map((item) => ({
+-          id: -1,
+-          hash: item.hash,
+-          status: item.status,
+-          size: Math.round(
+-            item.files.reduce((acc, file) => acc + file.size, 0)
+-          ),
+-          files: item.files.map((file) => {
+-            return {
+-              name: file.name,
+-              size: file.size,
+-              index: file.index,
+-              mediaInfo: (file as any).media_info,
+-            };
+-          }),
+-        }));
++        newResults = allItems.map((item) => {
++          const files = item.files ?? [];
++          return {
++            id: -1,
++            hash: item.hash,
++            status: item.status,
++            size: Math.round(files.reduce((acc, file) => acc + file.size, 0)),
++            files: files.map((file) => {
++              return {
++                name: file.name,
++                size: file.size,
++                index: file.index,
++                mediaInfo: (file as any).media_info,
++              };
++            }),
++          };
++        });
+ 
+         newResults.forEach((item) => {
+           this.checkCacheSet(item);

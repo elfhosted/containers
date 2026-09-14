@@ -1,0 +1,229 @@
+diff --git a/packages/core/src/builtins/library/catalog.test.ts b/packages/core/src/builtins/library/catalog.test.ts
+new file mode 100644
+index 00000000..f77a6b0b
+--- /dev/null
++++ b/packages/core/src/builtins/library/catalog.test.ts
+@@ -0,0 +1,14 @@
++import assert from 'node:assert/strict';
++import { describe, it } from 'node:test';
++
++import { libraryCatalogItemType } from './catalog.js';
++
++describe('libraryCatalogItemType', () => {
++  it('renders debridge usenet library rows in the usenet lane', () => {
++    assert.equal(libraryCatalogItemType({ libraryType: 'usenet' }), 'usenet');
++  });
++
++  it('keeps existing library rows in the torrent lane by default', () => {
++    assert.equal(libraryCatalogItemType({}), 'torrent');
++  });
++});
+diff --git a/packages/core/src/builtins/library/catalog.ts b/packages/core/src/builtins/library/catalog.ts
+index a7f4118d..1a8bec2a 100644
+--- a/packages/core/src/builtins/library/catalog.ts
++++ b/packages/core/src/builtins/library/catalog.ts
+@@ -51,6 +51,12 @@ interface ParsedCatalogItem {
+   normalisedTitle: string;
+ }
+ 
++export function libraryCatalogItemType(
++  item: Pick<DebridDownload, 'libraryType'>
++): 'torrent' | 'usenet' {
++  return item.libraryType === 'usenet' ? 'usenet' : 'torrent';
++}
++
+ function parseCatalogItems(items: CatalogItem[]): ParsedCatalogItem[] {
+   return items.map((item) => {
+     const parsed = parseTorrentTitleCached(item.name ?? '');
+@@ -166,7 +172,7 @@ export async function fetchCatalog(
+         ...item,
+         serviceId,
+         serviceCredential,
+-        itemType: 'torrent',
++        itemType: libraryCatalogItemType(item),
+       });
+     }
+   } else {
+diff --git a/packages/core/src/debrid/base.ts b/packages/core/src/debrid/base.ts
+index b17f3179..fc6255ad 100644
+--- a/packages/core/src/debrid/base.ts
++++ b/packages/core/src/debrid/base.ts
+@@ -187,6 +187,7 @@ export type DebridFile = z.infer<typeof DebridFileSchema>;
+ export interface DebridDownload {
+   id: string | number;
+   library?: boolean;
++  libraryType?: 'torrent' | 'usenet';
+   hash?: string;
+   name?: string;
+   private?: boolean;
+diff --git a/packages/core/src/debrid/stremthru.test.ts b/packages/core/src/debrid/stremthru.test.ts
+new file mode 100644
+index 00000000..39d8b9ae
+--- /dev/null
++++ b/packages/core/src/debrid/stremthru.test.ts
+@@ -0,0 +1,65 @@
++import assert from 'node:assert/strict';
++import { describe, it } from 'node:test';
++
++import { mapStremThruLibraryItems } from './stremthru.js';
++
++describe('mapStremThruLibraryItems', () => {
++  it('marks debridge usenet rows carried by the StremThru library list', () => {
++    const rows = [
++      {
++        id: 'rd-1',
++        hash: 'torrent-hash',
++        name: 'Torrent.Movie.2024.mkv',
++        size: 100,
++        status: 'downloaded',
++        added_at: '2026-07-29T00:00:00Z',
++        kind: 'realdebrid',
++      },
++      {
++        id: 'usenet-hash',
++        hash: 'usenet-hash',
++        name: 'Usenet.Movie.2024.mkv',
++        size: 200,
++        status: 'downloaded',
++        added_at: '2026-07-29T01:00:00Z',
++        kind: 'usenet',
++      },
++    ];
++
++    const mapped = mapStremThruLibraryItems(rows, 'torrent');
++
++    assert.deepEqual(
++      mapped.map((item) => [item.id, item.libraryType]),
++      [
++        ['rd-1', 'torrent'],
++        ['usenet-hash', 'usenet'],
++      ]
++    );
++  });
++
++  it('treats untyped rows from native newz endpoints as usenet', () => {
++    const rows = [
++      {
++        id: 'newz-1',
++        hash: 'nzb-hash',
++        name: 'NZB.Movie.2024.mkv',
++        size: 200,
++        status: 'downloaded',
++        added_at: '2026-07-29T01:00:00Z',
++      },
++    ];
++
++    assert.deepEqual(mapStremThruLibraryItems(rows, 'usenet'), [
++      {
++        id: 'newz-1',
++        hash: 'nzb-hash',
++        name: 'NZB.Movie.2024.mkv',
++        size: 200,
++        status: 'downloaded',
++        private: undefined,
++        addedAt: '2026-07-29T01:00:00Z',
++        libraryType: 'usenet',
++      },
++    ]);
++  });
++});
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 7c88ec4f..7d6898f2 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -45,6 +45,48 @@ function convertStremThruError(error: StremThruError): DebridError {
+   });
+ }
+ 
++type StremThruLibraryType = 'torrent' | 'usenet';
++
++type RawStremThruLibraryItem = {
++  id: string | number;
++  hash?: string;
++  name?: string;
++  size?: number;
++  status: DebridDownload['status'];
++  private?: boolean;
++  added_at?: string;
++  kind?: string;
++  type?: string;
++  source?: string;
++};
++
++function stremThruLibraryType(
++  item: RawStremThruLibraryItem,
++  fallback: StremThruLibraryType
++): StremThruLibraryType {
++  return [item.kind, item.type, item.source].some(
++    (value) => typeof value === 'string' && value.toLowerCase() === 'usenet'
++  )
++    ? 'usenet'
++    : fallback;
++}
++
++export function mapStremThruLibraryItems(
++  items: RawStremThruLibraryItem[],
++  fallbackType: StremThruLibraryType
++): DebridDownload[] {
++  return items.map((item) => ({
++    id: item.id,
++    hash: item.hash,
++    name: item.name,
++    size: item.size,
++    status: item.status as DebridDownload['status'],
++    private: item.private,
++    addedAt: item.added_at,
++    libraryType: stremThruLibraryType(item, fallbackType),
++  }));
++}
++
+ export interface StremThruServiceConfig {
+   serviceName: ServiceId;
+   clientIp?: string;
+@@ -700,17 +742,12 @@ export class StremThruService
+         offset,
+       });
+       totalItems = Math.min(result.data.total_items, maxItems);
+-      for (const item of result.data.items) {
+-        allItems.push({
+-          id: item.id,
+-          hash: item.hash,
+-          name: item.name,
+-          size: (item as any).size,
+-          status: item.status,
+-          private: item.private,
+-          addedAt: item.added_at,
+-        });
+-      }
++      allItems.push(
++        ...mapStremThruLibraryItems(
++          result.data.items as RawStremThruLibraryItem[],
++          'torrent'
++        )
++      );
+       offset += limit;
+       if (result.data.items.length < limit) break;
+     }
+@@ -1097,16 +1134,12 @@ export class StremThruService
+           offset,
+         });
+         totalItems = Math.min(result.data.total_items, maxItems);
+-        for (const item of result.data.items) {
+-          allItems.push({
+-            id: item.id,
+-            hash: item.hash,
+-            name: item.name,
+-            size: item.size,
+-            status: item.status as DebridDownload['status'],
+-            addedAt: item.added_at,
+-          });
+-        }
++        allItems.push(
++          ...mapStremThruLibraryItems(
++            result.data.items as RawStremThruLibraryItem[],
++            'usenet'
++          )
++        );
+         offset += limit;
+         if (result.data.items.length < limit) break;
+       } catch (error) {

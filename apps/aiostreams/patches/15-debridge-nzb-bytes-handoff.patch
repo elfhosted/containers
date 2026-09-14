@@ -1,0 +1,132 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 9df2dc7..57e7e11 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -8,6 +8,7 @@ import {
+   Cache,
+   DistributedLock,
+   getTimeTakenSincePoint,
++  makeRequest,
+   makeUrlLogSafe,
+ } from '../utils/index.js';
+ import {
+@@ -665,9 +666,118 @@ export class StremThruService
+     }
+   }
+ 
++  private static readonly MAX_NZB_BYTES = 32 * 1024 * 1024 - 64 * 1024;
++
++  private static nzbFilename(name: string): string {
++    const cleaned = (name || 'download')
++      .replace(/[/\\]+/g, '_')
++      // eslint-disable-next-line no-control-regex
++      .replace(/[\x00-\x1f]+/g, '')
++      .trim();
++    return `${cleaned || 'download'}.nzb`;
++  }
++
++  private static oversizeNzbError(observed: number): DebridError {
++    return new DebridError(
++      `NZB too large to upload (${observed} bytes exceeds ${StremThruService.MAX_NZB_BYTES} cap)`,
++      {
++        statusCode: 413,
++        statusText: 'NZB too large',
++        code: 'UNPROCESSABLE_ENTITY',
++        type: 'api_error',
++        headers: {},
++        body: { bytes: observed, max: StremThruService.MAX_NZB_BYTES },
++      }
++    );
++  }
++
++  private static async readCappedNzb(
++    res: Awaited<ReturnType<typeof makeRequest>>,
++    max: number
++  ): Promise<Buffer> {
++    const declared = Number(res.headers.get('content-length'));
++    if (Number.isFinite(declared) && declared > max) {
++      throw StremThruService.oversizeNzbError(declared);
++    }
++    const reader = res.body?.getReader();
++    if (!reader) {
++      return Buffer.alloc(0);
++    }
++    const chunks: Buffer[] = [];
++    let total = 0;
++    while (true) {
++      const { done, value } = await reader.read();
++      if (done) break;
++      if (!value) continue;
++      total += value.byteLength;
++      if (total > max) {
++        await reader.cancel();
++        throw StremThruService.oversizeNzbError(total);
++      }
++      chunks.push(Buffer.from(value));
++    }
++    return Buffer.concat(chunks);
++  }
++
+   public async addNzb(nzb: string, name: string): Promise<DebridDownload> {
++    let bytes: Buffer;
+     try {
+-      const result = await this.stremthru.store.addNewz({ link: nzb });
++      const res = await makeRequest(nzb, {
++        method: 'GET',
++        timeout: 30000,
++        headers: { 'User-Agent': appConfig.http.defaultUserAgent },
++      });
++      if (!res.ok) {
++        throw new DebridError(
++          `Failed to fetch NZB (${res.status} ${res.statusText})`,
++          {
++            statusCode: 502,
++            statusText: 'Failed to fetch NZB',
++            code: 'BAD_GATEWAY',
++            type: 'upstream_error',
++            headers: {},
++            body: { url: makeUrlLogSafe(nzb), status: res.status },
++          }
++        );
++      }
++      bytes = await StremThruService.readCappedNzb(
++        res,
++        StremThruService.MAX_NZB_BYTES
++      );
++    } catch (error) {
++      if (error instanceof DebridError) {
++        throw error;
++      }
++      throw new DebridError(
++        `Failed to fetch NZB from ${makeUrlLogSafe(nzb)}`,
++        {
++          statusCode: 502,
++          statusText: 'Failed to fetch NZB',
++          code: 'BAD_GATEWAY',
++          type: 'upstream_error',
++          headers: {},
++          body: { url: makeUrlLogSafe(nzb) },
++          cause: error,
++        }
++      );
++    }
++
++    if (bytes.byteLength === 0) {
++      throw new DebridError(`Fetched NZB was empty`, {
++        statusCode: 502,
++        statusText: 'Fetched NZB was empty',
++        code: 'BAD_GATEWAY',
++        type: 'upstream_error',
++        headers: {},
++        body: { url: makeUrlLogSafe(nzb) },
++      });
++    }
++
++    try {
++      const file = new File([bytes], StremThruService.nzbFilename(name), {
++        type: 'application/x-nzb',
++      });
++      const result = await this.stremthru.store.addNewz({ file });
+       assert.ok(
+         result?.data,
+         `Missing data from StremThru addNewz: ${JSON.stringify(result)}`

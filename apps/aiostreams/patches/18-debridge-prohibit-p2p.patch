@@ -1,0 +1,252 @@
+diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
+index 87ca150..a83f158 100644
+--- a/packages/core/src/main/resources.ts
++++ b/packages/core/src/main/resources.ts
+@@ -302,6 +302,20 @@ export async function processStreams(
+     serviceWrapTimings = resolvedResults.serviceTimings;
+   }
+ 
++  if (Env.PROHIBIT_P2P_STREAMS) {
++    const beforeCount = processedStreams.length;
++    processedStreams = processedStreams.filter(
++      (s) => s.type !== constants.P2P_STREAM_TYPE
++    );
++    const droppedCount = beforeCount - processedStreams.length;
++    if (droppedCount > 0) {
++      logger.warn(
++        `Dropped ${droppedCount} unresolved P2P stream(s) (PROHIBIT_P2P_STREAMS)`,
++        { requestId: id }
++      );
++    }
++  }
++
+   if (resolvedResults.hasNewStreams) {
+     const filterStart = Date.now();
+     processedStreams = await ctx.filterer.filter(processedStreams, context);
+diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
+index 1dfd9bd..b63314a 100644
+--- a/packages/core/src/main/serviceWrapper.ts
++++ b/packages/core/src/main/serviceWrapper.ts
+@@ -79,7 +79,18 @@ export async function resolveServiceWrappedStreams(
+     }
+   }
+ 
+-  if (!userData.serviceWrap?.enabled && serviceWrappedInstanceIds.size === 0) {
++  const userHasDebridge = (userData.services ?? []).some(
++    (s) => s.enabled !== false && s.id === constants.DEBRIDGE_SERVICE
++  );
++  const hasWrappableP2P = streams.some(
++    (s) => s.type === 'p2p' && !!s.torrent?.infoHash
++  );
++
++  if (
++    !userData.serviceWrap?.enabled &&
++    serviceWrappedInstanceIds.size === 0 &&
++    !(userHasDebridge && hasWrappableP2P)
++  ) {
+     return { streams, errors: [], hasNewStreams: false };
+   }
+ 
+diff --git a/packages/core/src/streams/utils.test.ts b/packages/core/src/streams/utils.test.ts
+new file mode 100644
+index 0000000..2320879
+--- /dev/null
++++ b/packages/core/src/streams/utils.test.ts
+@@ -0,0 +1,154 @@
++import { describe, it } from 'node:test';
++import assert from 'node:assert/strict';
++import type { ParsedStream, UserData } from '../db/schemas.js';
++import { isServiceWrapEligibleP2PStream } from './utils.js';
++
++const HASH = 'a'.repeat(40);
++
++function stream(opts: {
++  type?: string;
++  serviceWrapped?: boolean;
++  infoHash?: string;
++  presetId?: string;
++}): ParsedStream {
++  return {
++    type: opts.type ?? 'p2p',
++    addon: {
++      serviceWrapped: opts.serviceWrapped,
++      preset: { id: opts.presetId ?? 'tio', type: 'torrentio', options: {} },
++    },
++    torrent: opts.infoHash ? { infoHash: opts.infoHash } : undefined,
++  } as unknown as ParsedStream;
++}
++
++function user(opts: {
++  services?: { id: string; enabled?: boolean }[];
++  serviceWrap?: { enabled?: boolean; presets?: string[] };
++}): UserData {
++  return {
++    services: (opts.services ?? []).map((s) => ({ ...s, credentials: {} })),
++    serviceWrap: opts.serviceWrap,
++  } as unknown as UserData;
++}
++
++const debridge = [{ id: 'debridge', enabled: true }];
++
++describe('isServiceWrapEligibleP2PStream without explicit Service Wrap', () => {
++  it('picks up a stream from a service-wrapped addon', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ serviceWrapped: true, infoHash: HASH }),
++        user({ services: debridge })
++      ),
++      true
++    );
++  });
++
++  it('picks up a hashed P2P stream when Debridge is enabled', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ infoHash: HASH }),
++        user({ services: debridge, serviceWrap: { enabled: false } })
++      ),
++      true
++    );
++  });
++
++  it('treats a Debridge service with no enabled flag as enabled', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ infoHash: HASH }),
++        user({ services: [{ id: 'debridge' }] })
++      ),
++      true
++    );
++  });
++
++  it('ignores a stale presets selection', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ infoHash: HASH, presetId: 'tio' }),
++        user({
++          services: debridge,
++          serviceWrap: { enabled: false, presets: ['other'] },
++        })
++      ),
++      true
++    );
++  });
++
++  it('skips a hashless stream that is not service-wrapped', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(stream({}), user({ services: debridge })),
++      false
++    );
++  });
++
++  it('skips when Debridge is disabled', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ infoHash: HASH }),
++        user({ services: [{ id: 'debridge', enabled: false }] })
++      ),
++      false
++    );
++  });
++
++  it('skips when the user has other services but not Debridge', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ infoHash: HASH }),
++        user({ services: [{ id: 'realdebrid', enabled: true }] })
++      ),
++      false
++    );
++  });
++
++  it('skips non-P2P streams', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ type: 'debrid', serviceWrapped: true, infoHash: HASH }),
++        user({ services: debridge })
++      ),
++      false
++    );
++  });
++});
++
++describe('isServiceWrapEligibleP2PStream with explicit Service Wrap', () => {
++  it('picks up a service-wrapped stream', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ serviceWrapped: true }),
++        user({ serviceWrap: { enabled: true } })
++      ),
++      true
++    );
++  });
++
++  it('picks up an in-scope hashed stream without Debridge', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ infoHash: HASH, presetId: 'tio' }),
++        user({
++          services: [{ id: 'realdebrid', enabled: true }],
++          serviceWrap: { enabled: true, presets: ['tio'] },
++        })
++      ),
++      true
++    );
++  });
++
++  it('skips an out-of-scope stream that is not service-wrapped', () => {
++    assert.equal(
++      isServiceWrapEligibleP2PStream(
++        stream({ infoHash: HASH, presetId: 'tio' }),
++        user({
++          services: debridge,
++          serviceWrap: { enabled: true, presets: ['other'] },
++        })
++      ),
++      false
++    );
++  });
++});
+diff --git a/packages/core/src/streams/utils.ts b/packages/core/src/streams/utils.ts
+index f541bc9..0019153 100644
+--- a/packages/core/src/streams/utils.ts
++++ b/packages/core/src/streams/utils.ts
+@@ -1,4 +1,5 @@
+ import { ParsedStream, PassthroughStage, UserData } from '../db/schemas.js';
++import { DEBRIDGE_SERVICE } from '../utils/constants.js';
+ 
+ /**
+  * Check if a stream should passthrough a specific stage.
+@@ -37,7 +38,15 @@ export function isServiceWrapEligibleP2PStream(
+ ): boolean {
+   if (stream.type !== 'p2p') return false;
+   if (stream.addon.serviceWrapped) return true;
+-  if (!userData.serviceWrap?.enabled) return false;
++
++  if (!userData.serviceWrap?.enabled) {
++    return (
++      !!stream.torrent?.infoHash &&
++      (userData.services ?? []).some(
++        (s) => s.enabled !== false && s.id === DEBRIDGE_SERVICE
++      )
++    );
++  }
+ 
+   const serviceWrapPresets = userData.serviceWrap.presets;
+   const isPresetInScope =
+diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
+index ccff061..d790337 100644
+--- a/packages/core/src/utils/env.ts
++++ b/packages/core/src/utils/env.ts
+@@ -275,6 +275,11 @@ export const Env = cleanEnv(process.env, {
+     default: false,
+     desc: 'Allow the dashboard System page to restart/stop the AIOStreams process.',
+   }),
++  PROHIBIT_P2P_STREAMS: bool({
++    default: false,
++    desc: 'When true, P2P streams that were not resolved by a debrid service are removed from results.',
++  }),
++
+   SLATE_URL: str({
+     default: undefined,
+     desc: 'Base URL of the slate error-video service. Leave empty to use the bundled error videos.',

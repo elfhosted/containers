@@ -1,0 +1,136 @@
+diff --git a/packages/core/src/debrid/base.ts b/packages/core/src/debrid/base.ts
+index fc6255a..984bf88 100644
+--- a/packages/core/src/debrid/base.ts
++++ b/packages/core/src/debrid/base.ts
+@@ -115,6 +115,23 @@ const DEBRID_NON_RETRYABLE_CODES = new Set<DebridErrorCode | undefined>([
+   'NOT_IMPLEMENTED',
+ ]);
+ 
++export function storeFallbackUrl(error: unknown): string | undefined {
++  const body = (error as DebridError | undefined)?.body as
++    | { fallback_url?: unknown; error?: { fallback_url?: unknown } }
++    | undefined;
++  const raw = body?.fallback_url ?? body?.error?.fallback_url;
++  if (typeof raw !== 'string') return undefined;
++  try {
++    const parsed = new URL(raw);
++    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
++      return undefined;
++    if (!parsed.hostname) return undefined;
++    return parsed.toString();
++  } catch {
++    return undefined;
++  }
++}
++
+ /**
+  * Shared cross-service failure cache
+  */
+diff --git a/packages/core/src/main/failover.ts b/packages/core/src/main/failover.ts
+index cab2f7b..4b8060b 100644
+--- a/packages/core/src/main/failover.ts
++++ b/packages/core/src/main/failover.ts
+@@ -17,6 +17,7 @@ import {
+   PLAYBACK_PATH_PREFIX,
+ } from '../debrid/utils.js';
+ import { isFailoverRetryableError } from './play-chain.js';
++import { storeFallbackUrl } from '../debrid/base.js';
+ 
+ const logger = createLogger('failover');
+ 
+@@ -308,6 +309,7 @@ export interface RunPlayChainResult {
+   failedOver: boolean;
+   /** If a URL is available, this is the label of the attempt that provided it. */
+   label?: string;
++  fallbackUrl?: string;
+ }
+ 
+ /**
+@@ -330,6 +332,7 @@ async function runSequential(
+ ): Promise<RunPlayChainResult> {
+   let sawDownloading = false;
+   let lastError: Error | undefined;
++  let fallbackUrl: string | undefined;
+   let tried = 0;
+   for (let i = 0; i < attempts.length; i++) {
+     tried++;
+@@ -349,6 +352,7 @@ async function runSequential(
+       );
+     } catch (err: any) {
+       lastError = err as Error;
++      fallbackUrl ??= storeFallbackUrl(err);
+       if (!isFailoverRetryableError(err)) break; // terminal for this service — stop
+       logger.warn(
+         { attempt: i, err, label: attempts[i]?.label },
+@@ -363,7 +367,7 @@ async function runSequential(
+       failedOver: tried > 1,
+       label: attempts[tried - 1]?.label ?? `attempt ${tried - 1}`,
+     };
+-  return { error: lastError, failedOver: tried > 1 };
++  return { error: lastError, fallbackUrl, failedOver: tried > 1 };
+ }
+ 
+ function runParallel(
+@@ -373,6 +377,7 @@ function runParallel(
+   return new Promise<RunPlayChainResult>((resolve) => {
+     const controllers: AbortController[] = [];
+     const errors: Error[] = [];
++    let fallbackUrl: string | undefined;
+     const succeeded = new Set<number>();
+     const failed = new Set<number>();
+     // Indices whose resolve settled as "still downloading" (undefined url). These
+@@ -451,7 +456,11 @@ function runParallel(
+         },
+         'all failover attempts failed'
+       );
+-      resolve({ error: pickError(errors), failedOver: launched > 1 });
++      resolve({
++        error: pickError(errors),
++        fallbackUrl,
++        failedOver: launched > 1,
++      });
+     }
+ 
+     function onDeadline() {
+@@ -535,6 +544,7 @@ function runParallel(
+           active--;
+           failed.add(i);
+           errors.push(err);
++          fallbackUrl ??= storeFallbackUrl(err);
+           logger.warn(
+             { attempt: i, label: attempts[i]?.label, err },
+             'failover attempt failed'
+diff --git a/packages/server/src/routes/api/debrid.ts b/packages/server/src/routes/api/debrid.ts
+index 4ea0ee7..b8688ec 100644
+--- a/packages/server/src/routes/api/debrid.ts
++++ b/packages/server/src/routes/api/debrid.ts
+@@ -237,14 +237,24 @@ router.get(
+             return;
+           }
+           logger.error({ err }, `error during debrid resolve: ${err.message}`);
+-          slateRedirect(res, mapDebridErrorToStaticFile(err.code), 307);
++        } else {
++          logger.error(
++            { err },
++            `got unknown error during debrid resolve: ${err.message}`
++          );
++        }
++        if (result.fallbackUrl) {
++          res.setHeader('Cache-Control', 'no-store');
++          res.redirect(307, result.fallbackUrl);
+           return;
+         }
+-        logger.error(
+-          { err },
+-          `got unknown error during debrid resolve: ${err.message}`
++        slateRedirect(
++          res,
++          err instanceof DebridError
++            ? mapDebridErrorToStaticFile(err.code)
++            : StaticFiles.INTERNAL_SERVER_ERROR,
++          307
+         );
+-        slateRedirect(res, StaticFiles.INTERNAL_SERVER_ERROR, 307);
+         return;
+       }
+ 

@@ -1,0 +1,39 @@
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index 9b0aeac..9df2dc7 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -138,6 +138,9 @@ export class StremThruService
+   private async checkCacheGet(
+     hash: string
+   ): Promise<DebridDownload | undefined> {
++    if (this.serviceName === 'debridge') {
++      return undefined;
++    }
+     const cached = await StremThruService.checkCache.get(
+       `${this.serviceName}:${getSimpleTextHash(hash)}`
+     );
+@@ -145,6 +148,9 @@ export class StremThruService
+   }
+ 
+   private async checkCacheSet(debridDownload: DebridDownload): Promise<void> {
++    if (this.serviceName === 'debridge') {
++      return;
++    }
+     try {
+       await StremThruService.checkCache.set(
+         `${this.serviceName}:${getSimpleTextHash(debridDownload.hash!)}`,
+diff --git a/packages/core/src/debrid/usenet-stream-base.ts b/packages/core/src/debrid/usenet-stream-base.ts
+index 2f1fc7e..e72e30b 100644
+--- a/packages/core/src/debrid/usenet-stream-base.ts
++++ b/packages/core/src/debrid/usenet-stream-base.ts
+@@ -470,7 +470,9 @@ export abstract class UsenetStreamService implements UsenetDebridService {
+     'usenet-stream:link'
+   );
+   protected static libraryCache = Cache.getInstance<string, DebridDownload[]>(
+-    'usenet-stream:library'
++    'usenet-stream:library',
++    undefined,
++    'memory'
+   );
+   protected static categoriesCache = Cache.getInstance<string, string[]>(
+     'usenet-stream:categories'

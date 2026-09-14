@@ -1,0 +1,27 @@
+diff --git a/packages/core/src/presets/usenetStreamer.ts b/packages/core/src/presets/usenetStreamer.ts
+index 6182ff5..135b342 100644
+--- a/packages/core/src/presets/usenetStreamer.ts
++++ b/packages/core/src/presets/usenetStreamer.ts
+@@ -25,6 +25,14 @@ export class UsenetStreamerParser extends StreamParser {
+     stream: Stream,
+     currentParsedStream: ParsedStream
+   ): ParsedStream['service'] | undefined {
++    const mode = (stream as any).meta?.streamingMode;
++    if (mode === 'debridge')
++      return { id: constants.DEBRIDGE_SERVICE, cached: true };
++    if (mode === 'nzbdav')
++      return { id: constants.NZBDAV_SERVICE, cached: true };
++    if (mode === 'native')
++      return { id: constants.STREMIO_NNTP_SERVICE, cached: true };
++
+     return {
+       id: stream.nzbUrl
+         ? constants.STREMIO_NNTP_SERVICE
+@@ -71,6 +79,7 @@ export class UsenetStreamerPreset extends Preset {
+     const supportedServices = [
+       constants.NZBDAV_SERVICE,
+       constants.STREMIO_NNTP_SERVICE,
++      constants.DEBRIDGE_SERVICE,
+     ];
+     const supportedResources = [constants.STREAM_RESOURCE];
+ 
