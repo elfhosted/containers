@@ -1,6 +1,6 @@
 diff --git a/packages/core/src/builtins/elfsymlinks/addon.ts b/packages/core/src/builtins/elfsymlinks/addon.ts
 new file mode 100644
-index 00000000..548ca221
+index 0000000..548ca22
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/addon.ts
 @@ -0,0 +1,350 @@
@@ -356,7 +356,7 @@ index 00000000..548ca221
 +};
 diff --git a/packages/core/src/builtins/elfsymlinks/enrich.ts b/packages/core/src/builtins/elfsymlinks/enrich.ts
 new file mode 100644
-index 00000000..7b645368
+index 0000000..45fde13
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/enrich.ts
 @@ -0,0 +1,148 @@
@@ -383,7 +383,7 @@ index 00000000..7b645368
 +const BACKDROP_SIZE = 'w780' as const;
 +// Best-effort page budget: once exceeded, queued entries return unenriched
 +// instead of draining ~100 lookups (each up to a 5s metadata timeout) past the
-+// addon deadline and piling background load onto a slow/unavailable TMDB proxy.
++// addon deadline and piling background load onto a slow or unavailable TMDB endpoint.
 +const ENRICH_PAGE_BUDGET_MS = 6000;
 +
 +const buildParsedId = (
@@ -510,7 +510,7 @@ index 00000000..7b645368
 +};
 diff --git a/packages/core/src/builtins/elfsymlinks/index.ts b/packages/core/src/builtins/elfsymlinks/index.ts
 new file mode 100644
-index 00000000..4eff60c9
+index 0000000..4eff60c
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/index.ts
 @@ -0,0 +1,4 @@
@@ -520,7 +520,7 @@ index 00000000..4eff60c9
 +export * from './enrich.js';
 diff --git a/packages/core/src/builtins/elfsymlinks/scanner.ts b/packages/core/src/builtins/elfsymlinks/scanner.ts
 new file mode 100644
-index 00000000..23bfdb35
+index 0000000..edd624d
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/scanner.ts
 @@ -0,0 +1,495 @@
@@ -650,8 +650,8 @@ index 00000000..23bfdb35
 +};
 +
 +/**
-+ * Dirent.isFile() / isDirectory() return false for symlinks. The whole
-+ * elfhosted layout is symlinks pointing at real files/dirs, so we follow
++ * Dirent.isFile() / isDirectory() return false for symlinks. Library
++ * entries are commonly symlinks to real files/dirs, so we follow
 + * symlinks via stat to determine the real type. Dangling symlinks return
 + * false. We accept the extra stat cost because it only runs on per-folder
 + * readdir results during stream lookups (small N), not during the index
@@ -1021,7 +1021,7 @@ index 00000000..23bfdb35
 +export const _internal = { safeReadDirSync };
 diff --git a/packages/core/src/builtins/elfsymlinks/signing.ts b/packages/core/src/builtins/elfsymlinks/signing.ts
 new file mode 100644
-index 00000000..9dc5113e
+index 0000000..9dc5113
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/signing.ts
 @@ -0,0 +1,85 @@
@@ -1111,7 +1111,7 @@ index 00000000..9dc5113e
 +  }
 +};
 diff --git a/packages/core/src/builtins/index.ts b/packages/core/src/builtins/index.ts
-index 81691c93..04686877 100644
+index 81691c9..0468687 100644
 --- a/packages/core/src/builtins/index.ts
 +++ b/packages/core/src/builtins/index.ts
 @@ -2,6 +2,7 @@ export * from './base/nab/test.js';
@@ -1123,7 +1123,7 @@ index 81691c93..04686877 100644
  export * from './prowlarr/index.js';
  export * from './knaben/index.js';
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 38db4b0e..a033d698 100644
+index eac2b0c..0b18bd8 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
 @@ -768,6 +768,47 @@ export const builtinsSchema = {
@@ -1175,7 +1175,7 @@ index 38db4b0e..a033d698 100644
      url: {
        schema: urlString,
 diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
-index 62ae05c7..ee75aaca 100644
+index 62ae05c..ee75aac 100644
 --- a/packages/core/src/index.ts
 +++ b/packages/core/src/index.ts
 @@ -28,6 +28,12 @@ export {
@@ -1192,7 +1192,7 @@ index 62ae05c7..ee75aaca 100644
    ProwlarrAddon,
    KnabenAddon,
 diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
-index 9cb15267..0c0bb20d 100644
+index 9cb1526..0c0bb20 100644
 --- a/packages/core/src/metadata/tmdb.ts
 +++ b/packages/core/src/metadata/tmdb.ts
 @@ -49,6 +49,8 @@ const MovieDetailsSchema = z.object({
@@ -1291,7 +1291,7 @@ index 9cb15267..0c0bb20d 100644
      // Cache the result
      TMDBMetadata.metadataCache.set(cacheKey, metadata, TITLE_CACHE_TTL);
 diff --git a/packages/core/src/metadata/utils.ts b/packages/core/src/metadata/utils.ts
-index 4dee13a5..725f6ae4 100644
+index 4dee13a..725f6ae 100644
 --- a/packages/core/src/metadata/utils.ts
 +++ b/packages/core/src/metadata/utils.ts
 @@ -100,6 +100,10 @@ export interface Metadata {
@@ -1307,7 +1307,7 @@ index 4dee13a5..725f6ae4 100644
    /** Candidate local air dates ('YYYY-MM-DD') for the requested episode. Usually length 1. */
 diff --git a/packages/core/src/presets/elfsymlinks.ts b/packages/core/src/presets/elfsymlinks.ts
 new file mode 100644
-index 00000000..831cb122
+index 0000000..831cb12
 --- /dev/null
 +++ b/packages/core/src/presets/elfsymlinks.ts
 @@ -0,0 +1,119 @@
@@ -1431,7 +1431,7 @@ index 00000000..831cb122
 +  }
 +}
 diff --git a/packages/core/src/presets/presetManager.ts b/packages/core/src/presets/presetManager.ts
-index 74251d0c..2179bbc7 100644
+index 74251d0..2179bbc 100644
 --- a/packages/core/src/presets/presetManager.ts
 +++ b/packages/core/src/presets/presetManager.ts
 @@ -61,6 +61,7 @@ import { TorznabPreset } from './torznab.js';
@@ -1460,7 +1460,7 @@ index 74251d0c..2179bbc7 100644
          return AnimeToshoPreset;
        case 'anime-tosho-new':
 diff --git a/packages/server/src/app.ts b/packages/server/src/app.ts
-index 774b7893..d1525bed 100644
+index 774b789..d1525be 100644
 --- a/packages/server/src/app.ts
 +++ b/packages/server/src/app.ts
 @@ -44,6 +44,7 @@ import {
@@ -1501,10 +1501,10 @@ index 774b7893..d1525bed 100644
  app.use('/webdav', webdavRouter);
 diff --git a/packages/server/src/routes/builtins/elfsymlinks.ts b/packages/server/src/routes/builtins/elfsymlinks.ts
 new file mode 100644
-index 00000000..4f788b96
+index 0000000..8acfcd3
 --- /dev/null
 +++ b/packages/server/src/routes/builtins/elfsymlinks.ts
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,99 @@
 +import { Router, Request, Response, NextFunction } from 'express';
 +import { ElfSymlinksAddon, fromUrlSafeBase64 } from '@aiostreams/core';
 +
@@ -1519,9 +1519,7 @@ index 00000000..4f788b96
 +  }
 +};
 +
-+// Backwards-compat: the original patch shipped without an encoded-config
-+// prefix in the URL. We keep both forms working so deployments mid-rollout
-+// don't 404 on the older manifest URL while clients still cache it.
++// Accept manifest URLs both with and without the encoded-config segment.
 +
 +router.get(
 +  '{/:encodedConfig}/manifest.json',
@@ -1607,7 +1605,7 @@ index 00000000..4f788b96
 +
 +export default router;
 diff --git a/packages/server/src/routes/builtins/index.ts b/packages/server/src/routes/builtins/index.ts
-index e8118091..7ca58f5b 100644
+index e811809..7ca58f5 100644
 --- a/packages/server/src/routes/builtins/index.ts
 +++ b/packages/server/src/routes/builtins/index.ts
 @@ -1,6 +1,7 @@
@@ -1620,7 +1618,7 @@ index e8118091..7ca58f5b 100644
  export { default as knaben } from './knaben.js';
 diff --git a/packages/server/src/routes/elfsymlinksFile.ts b/packages/server/src/routes/elfsymlinksFile.ts
 new file mode 100644
-index 00000000..14c6be22
+index 0000000..14c6be2
 --- /dev/null
 +++ b/packages/server/src/routes/elfsymlinksFile.ts
 @@ -0,0 +1,236 @@

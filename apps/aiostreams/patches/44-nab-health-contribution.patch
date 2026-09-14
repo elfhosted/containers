@@ -1,6 +1,6 @@
 diff --git a/packages/core/src/builtins/utils/nzbContribution.ts b/packages/core/src/builtins/utils/nzbContribution.ts
 new file mode 100644
-index 00000000..4485fe3c
+index 0000000..4485fe3
 --- /dev/null
 +++ b/packages/core/src/builtins/utils/nzbContribution.ts
 @@ -0,0 +1,99 @@
@@ -104,10 +104,10 @@ index 00000000..4485fe3c
 +    });
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 28d6f9d2..39fa5d16 100644
+index 3bcf308..8a57234 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -675,6 +675,36 @@ export const builtinsSchema = {
+@@ -674,6 +674,36 @@ export const builtinsSchema = {
      // Batch health API config, relocated here from the removed nzb-proxy schema
      // (upstream deleted config/schema/nzb-proxy.ts in "remove unused nzb proxy").
      // Read by builtins/utils/zyclopsHealth.ts.
@@ -145,7 +145,7 @@ index 28d6f9d2..39fa5d16 100644
        schema: nullableString,
        default: null,
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index f0176205..d63f307a 100644
+index a2a17c9..71e53ea 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
 @@ -32,6 +32,8 @@ import { ParsedResult } from '@viren070/parse-torrent-title';
@@ -157,7 +157,7 @@ index f0176205..d63f307a 100644
  const logger = createLogger('debrid:stremthru');
  
  function convertStremThruError(error: StremThruError): DebridError {
-@@ -1043,6 +1045,7 @@ export class StremThruService
+@@ -1029,6 +1031,7 @@ export class StremThruService
          res,
          StremThruService.MAX_NZB_BYTES
        );
@@ -166,7 +166,7 @@ index f0176205..d63f307a 100644
        if (error instanceof DebridError) {
          throw error;
 diff --git a/packages/core/src/presets/elfcache.ts b/packages/core/src/presets/elfcache.ts
-index 33edd38b..34cc380d 100644
+index 33edd38..190c797 100644
 --- a/packages/core/src/presets/elfcache.ts
 +++ b/packages/core/src/presets/elfcache.ts
 @@ -73,7 +73,18 @@ export class ElfCachePreset extends TorznabPreset {
@@ -174,7 +174,7 @@ index 33edd38b..34cc380d 100644
              disabled: true,
            }
 -        : undefined,
-+        : // ELFHOSTED: access to the shared cache is reciprocal. Its results
++        : // Access to the shared cache is reciprocal. Its results
 +          // come from hashes contributed by the instances that query it, so
 +          // an instance that has opted out of reporting is not offered it.
 +          // Surfaced as DISABLED rather than thrown so the reason is visible
@@ -202,7 +202,7 @@ index 33edd38b..34cc380d 100644
      const config = {
        ...this.getBaseConfig(userData, services),
 diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
-index 38d39e9b..d61ae44d 100644
+index 38d39e9..2e28b6c 100644
 --- a/packages/core/src/presets/newznab.ts
 +++ b/packages/core/src/presets/newznab.ts
 @@ -109,6 +109,22 @@ const NEWZNAB_INDEXERS: {
@@ -232,7 +232,7 @@ index 38d39e9b..d61ae44d 100644
      userData: UserData,
      options: Record<string, any>
    ): Promise<Addon[]> {
-+    // ELFHOSTED: access to the health-backed indexer is reciprocal. While
++    // Access to the health-backed indexer is reciprocal. While
 +    // contribution is disabled this instance takes from the index without
 +    // adding to it, so the addon is refused rather than silently degraded.
 +    const gatedIndexer = appConfig.builtins.nab.healthIndexerUrl;
@@ -249,7 +249,7 @@ index 38d39e9b..d61ae44d 100644
        userData,
        options.services,
 diff --git a/packages/core/src/usenet/integration/dashboard/providers.ts b/packages/core/src/usenet/integration/dashboard/providers.ts
-index 6a67d46c..38742d2e 100644
+index 6a67d46..38742d2 100644
 --- a/packages/core/src/usenet/integration/dashboard/providers.ts
 +++ b/packages/core/src/usenet/integration/dashboard/providers.ts
 @@ -216,7 +216,7 @@ async function resolveSpeedTestSource(
@@ -262,7 +262,7 @@ index 6a67d46c..38742d2e 100644
      const fileIndexes = dataFileIndexes(nzb);
      if (fileIndexes.length === 0) return null;
 diff --git a/packages/core/src/usenet/integration/library.ts b/packages/core/src/usenet/integration/library.ts
-index 20075d91..d432af1d 100644
+index 20075d9..3999fcf 100644
 --- a/packages/core/src/usenet/integration/library.ts
 +++ b/packages/core/src/usenet/integration/library.ts
 @@ -10,6 +10,7 @@ import {
@@ -279,7 +279,7 @@ index 20075d91..d432af1d 100644
    url: string,
 -  signal?: AbortSignal
 +  signal?: AbortSignal,
-+  // ELFHOSTED: false for callers that fetch a canned NZB (the provider speed
++  // False for callers that fetch a canned NZB (the provider speed
 +  // test), which would otherwise resubmit the same article on every run.
 +  contribute = true
  ): Promise<Buffer> {

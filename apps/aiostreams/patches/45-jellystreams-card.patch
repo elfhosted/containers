@@ -1,56 +1,33 @@
 diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
-index ec1f35a..aa05ef4 100644
+index ec1f35a..46cd3b4 100644
 --- a/packages/frontend/src/components/menu/save-install.tsx
 +++ b/packages/frontend/src/components/menu/save-install.tsx
-@@ -550,6 +550,90 @@ function InstallCard({
+@@ -550,6 +550,63 @@ function InstallCard({
    disableSearchApiCard,
    searchApiDisabledReason,
  }: InstallCardProps) {
-+  // ElfHosted: jellystreams is a native Jellyfin front end that runs only on
-+  // private instances. It USED to be path-split on this same hostname, so this
-+  // probed same-origin; it is its own host now, and the Jellyfin paths have
-+  // been removed from the addon's host entirely. Probing the old place hits the
-+  // SSO catch-all, comes back a redirect, and reads as "not present" -- which
-+  // showed a paying tenant an advert for the thing they had already bought.
-+  //
-+  // So the host is derived (-aiostreams. -> -jellystreams.) and probed
-+  // cross-origin; jellystreams answers with a permissive CORS policy and
-+  // handles the preflight itself. When present, offer a card that carries the
-+  // install address straight into its onboarding. On public instances, point at
-+  // the guide instead.
++  // Probe a jellystreams origin derived from the install address. When it is
++  // present, offer a card that carries the install address into its
++  // onboarding; on public instances, point at the guide instead.
 +  const [jellyfinAvailable, setJellyfinAvailable] = React.useState<
 +    boolean | null
 +  >(null);
-+  // Three shapes of host, wanting three different answers. Reading this as one
-+  // question -- "can I derive a jellystreams origin?" -- is what left the
-+  // PUBLIC instance showing no card at all, which is the one place this card
-+  // is pure upsell and the whole reason it exists.
 +  const jellystreams = React.useMemo((): {
 +    kind: 'public' | 'tenant' | 'unknown';
 +    origin: string;
 +  } => {
 +    try {
 +      const u = new URL(manifestUrl);
-+      // The public instance, aiostreams.<domain>: no tenant label at all, so
-+      // there is no private instance to ask about and never will be. Answer
-+      // without probing.
-+      //
-+      // The public DEV instance showed the upsell already, by accident:
-+      // "dev-aiostreams" happens to contain the hyphen, so it was read as a
-+      // tenant called "dev" and probed a host that does not exist, 404'd, and
-+      // fell into the same branch. Right answer, wrong route.
++      // Public instance: no private jellystreams to probe.
 +      if (u.hostname.split('.')[0] === 'aiostreams') {
 +        return { kind: 'public', origin: '' };
 +      }
-+      // A tenant: tenant-aiostreams.example -> tenant-jellystreams.example.
++      // Private instance: derive its jellystreams origin.
 +      if (u.hostname.includes('-aiostreams.')) {
 +        u.hostname = u.hostname.replace('-aiostreams.', '-jellystreams.');
 +        return { kind: 'tenant', origin: u.origin };
 +      }
-+      // A custom domain. It may well be a tenant WITH jellystreams and there is
-+      // nothing here to tell from, so claim nothing: defaulting to the upsell
-+      // would advertise the product to somebody who has already bought it,
-+      // which is the fault this card was rewritten to stop doing.
++      // Any other host: claim nothing.
 +      return { kind: 'unknown', origin: '' };
 +    } catch {
 +      return { kind: 'unknown', origin: '' };
@@ -80,11 +57,7 @@ index ec1f35a..aa05ef4 100644
 +  }, [jellystreams]);
 +  const jellystreamsSetupUrl = React.useMemo(() => {
 +    if (!jellystreamsOrigin) return '';
-+    // The whole install address, which carries the uuid AND the sealed
-+    // envelope. jellystreams reads both out of it, so setting up is a name and
-+    // a PIN with nothing copied by hand. This used to pull the two apart here
-+    // and link at Quick Connect's approve page; one parameter means this side
-+    // no longer needs to know the URL's shape.
++    // The whole install address; jellystreams reads what it needs from it.
 +    return `${jellystreamsOrigin}/admin?address=${encodeURIComponent(
 +      manifestUrl
 +    )}`;
@@ -93,7 +66,7 @@ index ec1f35a..aa05ef4 100644
    return (
      <SettingsCard
        title="Installation Options"
-@@ -661,6 +745,30 @@ function InstallCard({
+@@ -661,6 +718,30 @@ function InstallCard({
                author="lostb1t"
                onClick={onOpenJellyfin}
              />

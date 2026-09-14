@@ -1,11 +1,11 @@
 diff --git a/packages/core/src/debrid/rdBlocklist.ts b/packages/core/src/debrid/rdBlocklist.ts
 new file mode 100644
-index 00000000..3a66963f
+index 0000000..003ad8e
 --- /dev/null
 +++ b/packages/core/src/debrid/rdBlocklist.ts
 @@ -0,0 +1,58 @@
 +/**
-+ * RealDebrid filename blocklist (operator-configured band-aid).
++ * RealDebrid filename blocklist (operator-configured).
 + *
 + * Downgrades cached DebridDownload entries to status='unknown' if the torrent
 + * name or any file name matches RD_BLOCKED_FILENAME_REGEX. Applied at the
@@ -63,7 +63,7 @@ index 00000000..3a66963f
 +  return { ...item, status: 'unknown' };
 +}
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 6b7df158..49fa0c02 100644
+index 6b7df15..49fa0c0 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
 @@ -17,6 +17,7 @@ import {
@@ -90,7 +90,7 @@ index 6b7df158..49fa0c02 100644
  
    private async checkCacheSet(debridDownload: DebridDownload): Promise<void> {
 diff --git a/packages/core/src/streams/filterer.ts b/packages/core/src/streams/filterer.ts
-index dc4820a9..576bc767 100644
+index dc4820a..6910cac 100644
 --- a/packages/core/src/streams/filterer.ts
 +++ b/packages/core/src/streams/filterer.ts
 @@ -33,6 +33,25 @@ import { StreamContext, ExtendedMetadata } from './context.js';
@@ -123,7 +123,7 @@ index dc4820a9..576bc767 100644
      const shouldKeepStream = (stream: ParsedStream): boolean => {
        const file = stream.parsedFile;
  
-+      // RD blocklist band-aid: drop ONLY the RD-routed entry for streams whose
++      // RD filename blocklist: drop ONLY the RD-routed entry for streams whose
 +      // filename or folder name matches RD's known-blocked patterns. Each
 +      // ParsedStream is bound to a specific debrid via stream.service.id, so
 +      // gating per-stream (not per-user) leaves AllDebrid / TorBox / etc.

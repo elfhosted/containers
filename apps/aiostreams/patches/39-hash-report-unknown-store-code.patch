@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/builtins/utils/hashReport.ts b/packages/core/src/builtins/utils/hashReport.ts
-index 0f351201..faccf74e 100644
+index 0f35120..e36762a 100644
 --- a/packages/core/src/builtins/utils/hashReport.ts
 +++ b/packages/core/src/builtins/utils/hashReport.ts
 @@ -16,10 +16,47 @@ export interface HashReportRow {
@@ -24,9 +24,9 @@ index 0f351201..faccf74e 100644
 + * Intentionally a copy rather than a lookup: it changes rarely, and the cost of
 + * it drifting stale is a downgrade to metadata-only, not an outage.
 + *
-+ * Deliberately NOT the same set as our own service ids. A meta-store fronting
-+ * whichever accounts a user brought cannot report a portable "cached" fact
-+ * about a hash the way a single upstream can, so those are omitted.
++ * Deliberately NOT the same set as the service ids. Services that aggregate
++ * several user accounts cannot report a portable "cached" fact about a hash
++ * the way a single upstream can, so those are omitted.
 + */
 +const KNOWN_STORE_CODES = new Set([
 +  'rd',

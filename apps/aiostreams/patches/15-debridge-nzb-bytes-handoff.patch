@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index d6b5143a..9aad46b0 100644
+index 692d61b..8ce63c1 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
 @@ -8,6 +8,7 @@ import {
@@ -10,12 +10,12 @@ index d6b5143a..9aad46b0 100644
    makeUrlLogSafe,
  } from '../utils/index.js';
  import {
-@@ -675,9 +676,141 @@ export class StremThruService
+@@ -674,9 +675,137 @@ export class StremThruService
      }
    }
  
-+  // stremthru's debridge adapter caps the NZB at 32 MiB (maxNZBBytes = 32 <<
-+  // 20). Stay just under it so an oversize body fails here with a clear error
++  // The store rejects NZB uploads over 32 MiB. Stay just under that so an
++  // oversize body fails here with a clear error
 +  // instead of being uploaded and rejected upstream. Reserve only the actual
 +  // multipart framing overhead (boundary + Content-Disposition + part
 +  // filename — well under 64 KiB), NOT a full MiB: a cap flush to the raw
@@ -84,13 +84,9 @@ index d6b5143a..9aad46b0 100644
 +  }
 +
    public async addNzb(nzb: string, name: string): Promise<DebridDownload> {
-+    // The NZB URL handed to us may be wrapped by the AIOStreams replay shim
-+    // (builtins.nab.replayDownloadUrl). That forwarder is reachable only from the
-+    // AIOStreams process, so the inner upstream URL is not fetchable from the
-+    // stremthru pod. AIOStreams — the only party that can reach it — fetches
-+    // the NZB bytes
-+    // itself (through the wrapper, NOT stripping it) and uploads the raw bytes
-+    // via addNewz({ file }). stremthru does no outbound NZB fetch at all.
++    // The NZB URL may be wrapped by builtins.nab.replayDownloadUrl, which is
++    // only reachable from this process, so fetch the NZB bytes here (through
++    // the wrapper) and upload them via addNewz({ file }).
 +    let bytes: Buffer;
 +    try {
 +      const res = await makeRequest(nzb, {

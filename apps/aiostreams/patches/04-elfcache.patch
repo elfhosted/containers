@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index c8f7d8cc..d38d10e0 100644
+index b347936..6123cf8 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
 @@ -698,6 +698,26 @@ export const builtinsSchema = {
@@ -31,7 +31,7 @@ index c8f7d8cc..d38d10e0 100644
        schema: urlString,
 diff --git a/packages/core/src/presets/elfcache.ts b/packages/core/src/presets/elfcache.ts
 new file mode 100644
-index 00000000..33edd38b
+index 0000000..33edd38
 --- /dev/null
 +++ b/packages/core/src/presets/elfcache.ts
 @@ -0,0 +1,98 @@
@@ -134,7 +134,7 @@ index 00000000..33edd38b
 +  }
 +}
 diff --git a/packages/core/src/presets/presetManager.ts b/packages/core/src/presets/presetManager.ts
-index 00573ebb..74251d0c 100644
+index 00573eb..74251d0 100644
 --- a/packages/core/src/presets/presetManager.ts
 +++ b/packages/core/src/presets/presetManager.ts
 @@ -60,6 +60,7 @@ import { TorBoxSearchPreset } from './torboxSearch.js';
@@ -163,14 +163,14 @@ index 00573ebb..74251d0c 100644
          return AnimeToshoPreset;
        case 'anime-tosho-new':
 diff --git a/packages/core/src/streams/deduplicator.ts b/packages/core/src/streams/deduplicator.ts
-index 8fad618c..15f31935 100644
+index 8fad618..d2b618b 100644
 --- a/packages/core/src/streams/deduplicator.ts
 +++ b/packages/core/src/streams/deduplicator.ts
 @@ -436,6 +436,15 @@ class StreamDeduplicator {
      const lc = libraryCmp(a, b);
      if (lc !== 0) return lc;
  
-+    // ElfHosted: elfcache results always win ties immediately after the
++    // elfcache results always win ties immediately after the
 +    // library-preference check and ahead of service/tiebreaker ordering, so a
 +    // cache hit is surfaced first. Centralised here since upstream routed every
 +    // sort site through compareByPriority.
@@ -183,7 +183,7 @@ index 8fad618c..15f31935 100644
        this.userData.services
          ?.filter((service) => service.enabled)
 diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
-index 43c0c733..ec1f35a9 100644
+index 43c0c73..ec1f35a 100644
 --- a/packages/frontend/src/components/menu/save-install.tsx
 +++ b/packages/frontend/src/components/menu/save-install.tsx
 @@ -1,7 +1,11 @@

@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/metadata/imdb.ts b/packages/core/src/metadata/imdb.ts
-index 4ebad4b1..64e7559e 100644
+index 4ebad4b..64e7559 100644
 --- a/packages/core/src/metadata/imdb.ts
 +++ b/packages/core/src/metadata/imdb.ts
 @@ -1,5 +1,5 @@
@@ -22,7 +22,7 @@ index 4ebad4b1..64e7559e 100644
      this.titleCache = Cache.getInstance('imdb-title');
      this.cinemetaCache = Cache.getInstance('cinemeta');
 diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
-index 0c0bb20d..6ce37169 100644
+index 0c0bb20..6ce3716 100644
 --- a/packages/core/src/metadata/tmdb.ts
 +++ b/packages/core/src/metadata/tmdb.ts
 @@ -2,6 +2,7 @@
@@ -43,7 +43,7 @@ index 0c0bb20d..6ce37169 100644
  const MOVIE_DETAILS_PATH = '/movie';
  const MOVIE_TRANSLATIONS_PATH = (id: string) => `/movie/${id}/translations`;
 diff --git a/packages/core/src/metadata/trakt.ts b/packages/core/src/metadata/trakt.ts
-index 844ff16f..60d9cad6 100644
+index 844ff16..60d9cad 100644
 --- a/packages/core/src/metadata/trakt.ts
 +++ b/packages/core/src/metadata/trakt.ts
 @@ -23,7 +23,7 @@ const TraktAliasSchema = z.array(
@@ -56,7 +56,7 @@ index 844ff16f..60d9cad6 100644
  const logger = createLogger('trakt');
  
 diff --git a/packages/core/src/metadata/tvdb.ts b/packages/core/src/metadata/tvdb.ts
-index fa39dbdb..1e4f7548 100644
+index fa39dbd..8d1d3f3 100644
 --- a/packages/core/src/metadata/tvdb.ts
 +++ b/packages/core/src/metadata/tvdb.ts
 @@ -1,5 +1,11 @@
@@ -81,20 +81,19 @@ index fa39dbdb..1e4f7548 100644
  const TVDBAliasSchema = z.object({
    language: z.string(), // A 3-4 character string indicating the language of the alias, as defined in Language
    name: z.string(),
-@@ -654,7 +660,10 @@ class TVDBApi {
+@@ -654,7 +660,9 @@ class TVDBApi {
    ): Promise<T> {
      const { schema, body, method = 'GET' } = options;
      const path = `/v${API_VERSION}/${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}`;
 -    const url = new URL(path, API_BASE_URL);
 +    // Concatenate rather than `new URL(path, base)`: an absolute path as the
-+    // first argument would discard any path prefix on the base URL (which a
-+    // caching proxy base like http://host/tvdb relies on).
++    // first argument would discard any path prefix on the base URL.
 +    const url = new URL(`${API_BASE_URL}${path}`);
  
      logger.debug(`Making ${method} request to ${path}`);
  
 diff --git a/packages/core/src/poster/rpdb.ts b/packages/core/src/poster/rpdb.ts
-index fd5d3158..875a591d 100644
+index fd5d315..875a591 100644
 --- a/packages/core/src/poster/rpdb.ts
 +++ b/packages/core/src/poster/rpdb.ts
 @@ -1,4 +1,5 @@
@@ -117,7 +116,7 @@ index fd5d3158..875a591d 100644
          timeout: 10000,
          ignoreRecursion: true,
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index f055b8f4..394d8fb2 100644
+index 695c2f6..a18658f 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
 @@ -219,6 +219,35 @@ export const Env = cleanEnv(process.env, {

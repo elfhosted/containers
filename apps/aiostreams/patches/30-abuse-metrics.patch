@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/analytics/index.ts b/packages/core/src/analytics/index.ts
-index d5f978f3..ce80b00f 100644
+index d5f978f..a82c3de 100644
 --- a/packages/core/src/analytics/index.ts
 +++ b/packages/core/src/analytics/index.ts
 @@ -1,4 +1,5 @@
@@ -23,7 +23,7 @@ index d5f978f3..ce80b00f 100644
    feature_key?: string | null;
    /** Anonymised client IP — IPv4 first 3 octets / IPv6 first 3 hextets only. Never a full address. */
    ip_prefix?: string | null;
-@@ -115,14 +120,94 @@ function dayKeyFromMs(ms: number): string {
+@@ -115,14 +120,88 @@ function dayKeyFromMs(ms: number): string {
    return new Date(ms).toISOString().slice(0, 10);
  }
  
@@ -32,15 +32,9 @@ index d5f978f3..ce80b00f 100644
 + * *account*. Only these are fingerprinted.
 + *
 + * Everything else in `constants.SERVICES` is deliberately excluded because
-+ * its credential is legitimately shared across a tenant's configs, which
-+ * would peg `debrid_account_max_configs` to the config count on every
-+ * instance and make the metric meaningless:
-+ *   - `aiostreams`  — an instance-wide token, so it is per-instance rather
-+ *                     than per-config.
-+ *   - `nzbdav`, `altmount` — self-hosted; one tenant-owned instance backing
-+ *                     all of that tenant's configs.
-+ *   - `easynews`, `stremio_nntp`, `stremthru_newz` — usenet, not debrid, and
-+ *                     issued per tenant rather than per config.
++ * its credential is not a personal third-party account (instance tokens,
++ * self-hosted services, usenet), so counting configs per credential would
++ * not be meaningful.
 + */
 +const DEBRID_ACCOUNT_SERVICES: ReadonlySet<string> = new Set([
 +  'realdebrid',
@@ -119,7 +113,7 @@ index d5f978f3..ce80b00f 100644
    if (!uuid) return;
  
    let uuidHash: string;
-@@ -142,8 +227,16 @@ export function sampleConfigFeatures(args: {
+@@ -142,8 +221,16 @@ export function sampleConfigFeatures(args: {
    if (featureSampledToday.has(dedupKey)) return;
    featureSampledToday.add(dedupKey);
  
@@ -137,7 +131,7 @@ index d5f978f3..ce80b00f 100644
      feature_key: string
    ) => {
      track({
-@@ -151,12 +244,16 @@ export function sampleConfigFeatures(args: {
+@@ -151,12 +238,16 @@ export function sampleConfigFeatures(args: {
        uuid_hash: uuidHash,
        feature_dim,
        feature_key,
@@ -154,7 +148,7 @@ index d5f978f3..ce80b00f 100644
    if (formatterId) emitOne('formatter', formatterId);
    for (const t of new Set(presetTypes)) {
      if (t) emitOne('preset', t);
-@@ -171,11 +268,17 @@ export function hmac(value: string): string {
+@@ -171,11 +262,17 @@ export function hmac(value: string): string {
      .slice(0, 32);
  }
  
@@ -176,7 +170,7 @@ index d5f978f3..ce80b00f 100644
  
  /** Map a caught error at a resource stage to a consistent classification. */
 diff --git a/packages/core/src/analytics/repository.ts b/packages/core/src/analytics/repository.ts
-index c439f95c..98dbb1d8 100644
+index c439f95..1bda41d 100644
 --- a/packages/core/src/analytics/repository.ts
 +++ b/packages/core/src/analytics/repository.ts
 @@ -78,6 +78,119 @@ export const AnalyticsRepository = {
@@ -184,7 +178,7 @@ index c439f95c..98dbb1d8 100644
    },
  
 +  /**
-+   * Fleet-abuse snapshot, sized for a Prometheus scrape.
++   * Instance usage snapshot, sized for a Prometheus scrape.
 +   *
 +   * Reads raw `analytics_events` rather than the `analytics_daily` rollup:
 +   * the rollup only runs nightly, and a metric that lags 24h is useless for
@@ -195,7 +189,7 @@ index c439f95c..98dbb1d8 100644
 +   * credential ever leaves this function — the fingerprints are consumed
 +   * here to produce cardinalities and then dropped.
 +   */
-+  async abuseSnapshot() {
++  async usageSnapshot() {
 +    const db = getDb();
 +    const count = (frag: ReturnType<typeof sql>) => db.count(frag);
 +
@@ -300,7 +294,7 @@ index c439f95c..98dbb1d8 100644
    async userGrowth(range: AnalyticsRange) {
      const db = getDb();
 diff --git a/packages/core/src/config/bootstrap.ts b/packages/core/src/config/bootstrap.ts
-index 27181396..3cb5000e 100644
+index 2718139..3cb5000 100644
 --- a/packages/core/src/config/bootstrap.ts
 +++ b/packages/core/src/config/bootstrap.ts
 @@ -7,6 +7,7 @@ import { Env } from '../utils/env.js';
@@ -312,7 +306,7 @@ index 27181396..3cb5000e 100644
    internalUrl: Env.INTERNAL_URL,
    internalSecret: Env.INTERNAL_SECRET,
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index 2c78d30b..7163c640 100644
+index 2c78d30..7163c64 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
 @@ -41,6 +41,7 @@ import {
@@ -349,7 +343,7 @@ index 2c78d30b..7163c640 100644
        presetTypes,
      });
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index 394d8fb2..d7309ebc 100644
+index a18658f..db009fd 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
 @@ -252,6 +252,10 @@ export const Env = cleanEnv(process.env, {
@@ -358,24 +352,22 @@ index 394d8fb2..d7309ebc 100644
    }),
 +  METRICS_PORT: num({
 +    default: 0,
-+    desc: 'Port to expose the Prometheus metrics endpoint on. 0 disables it. Deliberately a SEPARATE listener from PORT so /metrics is never reachable through the public ingress — scrape the pod IP directly.',
++    desc: 'Port for a separate Prometheus metrics listener. 0 disables it.',
 +  }),
    SECRET_KEY: secretKey({
      desc: 'Session/encryption secret used to derive keys for stored configurations. Must be a 64-character hex string. Generate with `openssl rand -hex 32`. Cannot be changed after first run. (Legacy alias `SESSION_SECRET` is still accepted for one minor release.)',
      example: 'Generate using: openssl rand -hex 32',
 diff --git a/packages/server/src/metrics.ts b/packages/server/src/metrics.ts
 new file mode 100644
-index 00000000..4d2ee5c5
+index 0000000..a2895db
 --- /dev/null
 +++ b/packages/server/src/metrics.ts
-@@ -0,0 +1,205 @@
+@@ -0,0 +1,203 @@
 +/**
-+ * Prometheus metrics listener (ElfHosted).
++ * Prometheus metrics listener.
 + *
-+ * Deliberately a SEPARATE http.Server on its own port rather than a route on
-+ * the main express app. Instances are internet-facing, so a `/metrics` route
-+ * mounted there would be world-readable.
-+ * Prometheus scrapes the pod IP on METRICS_PORT, which no ingress maps.
++ * A separate http.Server on its own port rather than a route on the main
++ * express app, so /metrics is not exposed wherever the main app is.
 + *
 + * No prom-client dependency: the text exposition format is a handful of
 + * lines, and adding a runtime dep here would mean regenerating
@@ -421,7 +413,7 @@ index 00000000..4d2ee5c5
 +}
 +
 +export async function collect(): Promise<string> {
-+  const s = await AnalyticsRepository.abuseSnapshot();
++  const s = await AnalyticsRepository.usageSnapshot();
 +
 +  const serviceLines: Line[] = [...s.serviceUsers.entries()].map(
 +    ([service, value]) => ({
@@ -575,7 +567,7 @@ index 00000000..4d2ee5c5
 +  server = null;
 +}
 diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
-index 57ccf0ae..d0554cc4 100644
+index 57ccf0a..d0554cc 100644
 --- a/packages/server/src/server.ts
 +++ b/packages/server/src/server.ts
 @@ -6,6 +6,7 @@ import {

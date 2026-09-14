@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index 7163c640..ff1f6b2b 100644
+index 7163c64..ff1f6b2 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
 @@ -14,7 +14,12 @@ import { getAddonName } from '../utils/general.js';
@@ -46,7 +46,7 @@ index 7163c640..ff1f6b2b 100644
      filterMs = Date.now() - filterStart;
 diff --git a/packages/core/src/streams/enricher.ts b/packages/core/src/streams/enricher.ts
 new file mode 100644
-index 00000000..518cfa5a
+index 0000000..242c15d
 --- /dev/null
 +++ b/packages/core/src/streams/enricher.ts
 @@ -0,0 +1,359 @@
@@ -314,7 +314,7 @@ index 00000000..518cfa5a
 + *
 + * Must run before filtering, so that keyword filters see the borrowed
 + * filename - that is the whole point. Otherwise a release the user excluded
-+ * survives under our branding purely because we had no filename to test.
++ * survives purely because there was no filename to test.
 + *
 + * @returns the number of streams enriched
 + */
@@ -410,7 +410,7 @@ index 00000000..518cfa5a
 +  return enriched;
 +}
 diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
-index fb52dd00..a844e9f5 100644
+index fb52dd0..a844e9f 100644
 --- a/packages/core/src/streams/fetcher.ts
 +++ b/packages/core/src/streams/fetcher.ts
 @@ -14,6 +14,7 @@ import StreamFilter from './filterer.js';
@@ -434,7 +434,7 @@ index fb52dd00..a844e9f5 100644
        // as a failover variant harvested from discarded duplicates.
        const filteredStreams = await this.deduplicate.deduplicate(
 diff --git a/packages/core/src/streams/index.ts b/packages/core/src/streams/index.ts
-index 7753d634..c252bc7c 100644
+index 7753d63..c252bc7 100644
 --- a/packages/core/src/streams/index.ts
 +++ b/packages/core/src/streams/index.ts
 @@ -5,6 +5,7 @@ import StreamDeduplicator from './deduplicator.js';

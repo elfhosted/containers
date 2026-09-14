@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/builtins/library/addon.ts b/packages/core/src/builtins/library/addon.ts
-index ef72dc05..a4fa8983 100644
+index ef72dc0..16f20ee 100644
 --- a/packages/core/src/builtins/library/addon.ts
 +++ b/packages/core/src/builtins/library/addon.ts
 @@ -138,10 +138,21 @@ export class LibraryAddon extends BaseDebridAddon<LibraryAddonConfig> {
@@ -12,7 +12,7 @@ index ef72dc05..a4fa8983 100644
      );
    }
  
-+  // ELFHOSTED: user-supplied TMDB credentials for library title/poster
++  // User-supplied TMDB credentials for library title/poster
 +  // resolution; TMDBMetadata falls back to deployment-level credentials
 +  // when these are absent.
 +  private get tmdbAuth() {
@@ -35,7 +35,7 @@ index ef72dc05..a4fa8983 100644
  
    /**
 diff --git a/packages/core/src/builtins/library/catalog.ts b/packages/core/src/builtins/library/catalog.ts
-index 4ed90058..a7f4118d 100644
+index 4ed9005..f8d210a 100644
 --- a/packages/core/src/builtins/library/catalog.ts
 +++ b/packages/core/src/builtins/library/catalog.ts
 @@ -15,6 +15,11 @@ import { ParsedResult } from '@viren070/parse-torrent-title';
@@ -65,7 +65,7 @@ index 4ed90058..a7f4118d 100644
  
    const page = results.slice(skip, skip + CATALOG_PAGE_SIZE);
 -  return page.map((entry) => createMetaPreview(entry));
-+  // ELFHOSTED: best-effort canonical-title/poster resolution for the page
++  // Best-effort canonical-title/poster resolution for the page
 +  // (gated on BUILTIN_LIBRARY_METADATA_RESOLUTION + TMDB credentials; null
 +  // entries render exactly as before).
 +  const resolved = await resolveLibraryMetas(
@@ -117,7 +117,7 @@ index 4ed90058..a7f4118d 100644
  }
  
 diff --git a/packages/core/src/builtins/library/meta.ts b/packages/core/src/builtins/library/meta.ts
-index c08be755..43149b9c 100644
+index c08be75..05f8a6e 100644
 --- a/packages/core/src/builtins/library/meta.ts
 +++ b/packages/core/src/builtins/library/meta.ts
 @@ -15,6 +15,7 @@ import { Meta } from '../../db/schemas.js';
@@ -145,7 +145,7 @@ index c08be755..43149b9c 100644
    logger.debug({ item, id }, 'Building library meta for item');
    const videos = buildVideos(item, id);
    const parsed = parseTorrentTitleCached(item.name ?? '');
-+  // ELFHOSTED: best-effort canonical-title/poster resolution (same gating
++  // Best-effort canonical-title/poster resolution (same gating
 +  // as the catalog page — feature flag + TMDB credentials; null keeps the
 +  // unresolved presentation).
 +  const resolved = await resolveLibraryMeta(parsed, tmdbAuth);
@@ -179,15 +179,15 @@ index c08be755..43149b9c 100644
        defaultVideoId: videos.length === 1 ? videos[0].id : undefined,
 diff --git a/packages/core/src/builtins/library/resolve.ts b/packages/core/src/builtins/library/resolve.ts
 new file mode 100644
-index 00000000..ae89ec2d
+index 0000000..561cf9f
 --- /dev/null
 +++ b/packages/core/src/builtins/library/resolve.ts
 @@ -0,0 +1,185 @@
-+// ELFHOSTED: canonical-title + poster resolution for Library entries.
++// Canonical-title + poster resolution for Library entries.
 +//
 +// Library items are raw release names; this resolves each (parsed) title
-+// against TMDB's search API — pointable at the EMDB caching proxy via
-+// TMDB_API_URL — so catalog tiles get a real title and poster instead of a
++// against TMDB's search API (honours TMDB_API_URL) so catalog tiles get a
++// real title and poster instead of a
 +// posterless filename. Strictly best-effort: any failure (no credentials,
 +// feature disabled, no match, upstream error) yields null for that entry
 +// and the caller renders the unresolved presentation.
@@ -331,7 +331,7 @@ index 00000000..ae89ec2d
 +      // populates searchTitle's cache — only the wait is abandoned. But once
 +      // the deadline has fired, queued (not-yet-started) jobs must NOT open
 +      // fresh TMDB lookups: draining ~100 more requests in the background piles
-+      // load on an already-slow proxy. Return immediately so the queue empties
++      // load on an already-slow endpoint. Return immediately so the queue empties
 +      // as no-ops; in-flight lookups still finish and warm the cache.
 +      const outcome = await Promise.race([
 +        limit(() =>
@@ -369,22 +369,21 @@ index 00000000..ae89ec2d
 +  return resolved;
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 6330541a..28d6f9d2 100644
+index 04181f1..3bcf308 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -182,7 +182,10 @@ export const builtinsSchema = {
+@@ -182,7 +182,9 @@ export const builtinsSchema = {
      },
      libraryPageLimit: {
        schema: positiveInt,
 -      default: 1,
-+      // ELFHOSTED: was 1 — a single 500-item page silently truncated large
-+      // libraries (a cross-provider aggregate can exceed 500), showing only
-+      // the newest page and hiding older direct adds.
++      // Was 1: a single 500-item page silently truncated large libraries,
++      // showing only the newest page.
 +      default: 4,
        label: 'Library page limit',
        description: 'Maximum pages fetched per listMagnets / listNzbs request.',
        env: 'BUILTIN_DEBRID_LIBRARY_PAGE_LIMIT',
-@@ -580,6 +583,18 @@ export const builtinsSchema = {
+@@ -580,6 +582,18 @@ export const builtinsSchema = {
        secret: false,
      },
    },
@@ -395,7 +394,7 @@ index 6330541a..28d6f9d2 100644
 +      label: 'Library metadata resolution',
 +      env: 'BUILTIN_LIBRARY_METADATA_RESOLUTION',
 +      description:
-+        'Resolve library item release names to canonical titles and posters via the TMDB search API (honours TMDB_API_URL, so lookups can ride a caching proxy such as EMDB). Requires TMDB credentials (user-supplied or deployment-level).',
++        'Resolve library item release names to canonical titles and posters via the TMDB search API (honours TMDB_API_URL). Requires TMDB credentials (user-supplied or deployment-level).',
 +      requiresRestart: false,
 +      secret: false,
 +    },
@@ -404,7 +403,7 @@ index 6330541a..28d6f9d2 100644
      searchTimeout: {
        schema: positiveInt,
 diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
-index 6ce37169..ed2c7c84 100644
+index 6ce3716..ed2c7c8 100644
 --- a/packages/core/src/metadata/tmdb.ts
 +++ b/packages/core/src/metadata/tmdb.ts
 @@ -195,6 +195,34 @@ const IdTypeMap: Partial<Record<IdType, TMDBIdType>> = {

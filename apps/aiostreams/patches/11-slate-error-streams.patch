@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index 5fcf56e3..c3b17312 100644
+index 5fcf56e..8aa8e0f 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
 @@ -275,4 +275,16 @@ export const Env = cleanEnv(process.env, {
@@ -12,7 +12,7 @@ index 5fcf56e3..c3b17312 100644
 +  // either is empty, slate is disabled and the static MP4s are used.
 +  SLATE_URL: str({
 +    default: undefined,
-+    desc: 'Base URL of the slate error-video service, e.g. https://slate.elfhosted.com. Leave empty to fall back to bundled static error videos.',
++    desc: 'Base URL of the slate error-video service, e.g. https://slate.example.com. Leave empty to fall back to bundled static error videos.',
 +  }),
 +  SLATE_SECRET: str({
 +    default: undefined,
@@ -20,7 +20,7 @@ index 5fcf56e3..c3b17312 100644
 +  }),
  });
 diff --git a/packages/server/src/routes/api/debrid.ts b/packages/server/src/routes/api/debrid.ts
-index 402b9cc2..4ea0ee7c 100644
+index 402b9cc..4ea0ee7 100644
 --- a/packages/server/src/routes/api/debrid.ts
 +++ b/packages/server/src/routes/api/debrid.ts
 @@ -25,6 +25,7 @@ import {
@@ -55,7 +55,7 @@ index 402b9cc2..4ea0ee7c 100644
        }
  
 diff --git a/packages/server/src/routes/api/proxy.ts b/packages/server/src/routes/api/proxy.ts
-index 86585525..0e480491 100644
+index 8658552..0e48049 100644
 --- a/packages/server/src/routes/api/proxy.ts
 +++ b/packages/server/src/routes/api/proxy.ts
 @@ -31,6 +31,7 @@ import { Transform } from 'stream';
@@ -78,7 +78,7 @@ index 86585525..0e480491 100644
          }
          // A full-buffered player never notices a clean FIN.
 diff --git a/packages/server/src/routes/builtins/library.ts b/packages/server/src/routes/builtins/library.ts
-index 819c1b5f..113b78c1 100644
+index 819c1b5..113b78c 100644
 --- a/packages/server/src/routes/builtins/library.ts
 +++ b/packages/server/src/routes/builtins/library.ts
 @@ -12,6 +12,7 @@ import {
@@ -134,10 +134,10 @@ index 819c1b5f..113b78c1 100644
  );
 diff --git a/packages/server/src/utils/slate.ts b/packages/server/src/utils/slate.ts
 new file mode 100644
-index 00000000..73f5f1db
+index 0000000..8cb83ca
 --- /dev/null
 +++ b/packages/server/src/utils/slate.ts
-@@ -0,0 +1,183 @@
+@@ -0,0 +1,182 @@
 +import crypto from 'crypto';
 +import { Response } from 'express';
 +import { Env } from '@aiostreams/core';
@@ -153,9 +153,8 @@ index 00000000..73f5f1db
 + * that renders a *custom* message (title + body + QR code) as the video.
 + *
 + * This is purely URL construction — we build a signed URL and redirect to it.
-+ * slate owns rendering, caching and HLS/MP4 muxing. The contract (canonical
-+ * string, HMAC, ts freshness) is documented in slate's src/index.ts
-+ * (themeVersion:1).
++ * The slate service owns rendering, caching and muxing; the signing contract
++ * (canonical string, HMAC, ts freshness) is implemented below.
 + */
 +
 +const SLATE_W = '1280';

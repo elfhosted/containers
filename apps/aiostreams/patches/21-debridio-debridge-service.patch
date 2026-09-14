@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/presets/debridioScraper.ts b/packages/core/src/presets/debridioScraper.ts
-index f9221bf3..ffa2846e 100644
+index f9221bf..f8eb187 100644
 --- a/packages/core/src/presets/debridioScraper.ts
 +++ b/packages/core/src/presets/debridioScraper.ts
 @@ -3,6 +3,7 @@ import { Preset, baseOptions } from './preset.js';
@@ -14,7 +14,7 @@ index f9221bf3..ffa2846e 100644
        constants.TORBOX_SERVICE,
        constants.EASYDEBRID_SERVICE,
        constants.DEBRIDER_SERVICE,
-+      // ElfHosted: debridge is a StremThru store rather than a Debridio
++      // debridge is a StremThru store rather than a Debridio
 +      // provider, and exposes a Debridio-compatible endpoint of its own.
 +      // generateManifestUrl routes this service there
 +      // (Env.DEBRIDGE_DEBRIDIO_URL).
@@ -22,26 +22,15 @@ index f9221bf3..ffa2846e 100644
      ];
      const supportedResources = [constants.STREAM_RESOURCE];
  
-@@ -161,7 +167,25 @@ export class DebridioPreset extends Preset {
+@@ -161,7 +167,14 @@ export class DebridioPreset extends Preset {
      options: Record<string, any>,
      service?: ServiceId
    ) {
 -    const url = options?.url || this.DEFAULT_URL;
-+    // ElfHosted: debridge isn't a Debridio provider, so route the debridge
-+    // service to its Debridio-compatible endpoint instead of the public
-+    // Debridio host.
-+    //
-+    // Why a separate endpoint: Debridio returns no raw infohashes, and a
-+    // request upstream for them had no response. Without this a user with a
-+    // paid Debridio subscription gets no results from it at all when
-+    // resolving through debridge. It also lets playability be checked rather than
-+    // assumed: a debrid service's own infringing-file filter can report an
-+    // item as present in a library while still refusing to serve it, so a
-+    // listing on its own is not a playable result. The config segment below already carries the account
-+    // key (api_key) and the debridge key (providerKey), which is what that
-+    // endpoint expects.
-+    // No deployment-specific default: the endpoint is supplied by config, and
-+    // without it the service falls back to the ordinary Debridio host.
++    // debridge isn't a Debridio provider, so the debridge service uses a
++    // separately configured Debridio-compatible endpoint, which receives the
++    // account key (api_key) and the debridge key (providerKey) in the config
++    // segment below. Without that setting it falls back to the Debridio host.
 +    const url =
 +      service === constants.DEBRIDGE_SERVICE && Env.DEBRIDGE_DEBRIDIO_URL
 +        ? Env.DEBRIDGE_DEBRIDIO_URL
@@ -50,7 +39,7 @@ index f9221bf3..ffa2846e 100644
        return url;
      }
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index 85eaeec4..f055b8f4 100644
+index 806bf3c..695c2f6 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
 @@ -280,6 +280,11 @@ export const Env = cleanEnv(process.env, {
