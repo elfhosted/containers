@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/p-stream/simple-proxy.git /source
 
-FROM node:20-alpine as base
+FROM node:24-alpine as base
 WORKDIR /app
 
 # Build layer

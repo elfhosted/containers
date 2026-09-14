@@ -11,7 +11,7 @@ RUN git clone -b $(echo $VERSION | cut -d'-' -f1)  https://github.com/xXCrash2Bo
 
 # Use an official Node.js runtime as a parent image
 # Using the Long-Term Support (LTS) version is a good practice
-FROM node:22-slim
+FROM node:24-slim
 
 # Install Python and yt-dlp
 # We switch to root to perform these operations and then switch back to the node user.
