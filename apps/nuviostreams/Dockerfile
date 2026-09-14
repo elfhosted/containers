@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION https://github.com/tapframe/NuvioStreamsAddon.git /source
 
-FROM node:20-alpine
+FROM node:24-alpine
 
 # Set working directory
 WORKDIR /app

@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/funkypenguin/stremio-internet-archive-addon.git /source
 
-FROM node:20-slim
+FROM node:24-slim
 
 WORKDIR /app
 ENV NODE_ENV=production
