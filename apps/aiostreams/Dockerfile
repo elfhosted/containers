@@ -12,10 +12,8 @@ RUN git clone -b $VERSION https://github.com/Viren070/AIOStreams.git /source
 COPY apps/aiostreams/patches/ /patches/
 
 # Fail the build on any failed patch. Without `set -e` the loop swallows
-# `git apply` failures and we silently ship an image missing features
-# (cost us an "undefined variable: keyword" prod incident — see
-# https://github.com/Viren070/AIOStreams keyword() commit on v2.29.6+).
-RUN set -e; cd /source; for p in /patches/*.patch; do echo "Applying $p..."; git apply "$p"; done
+# `git apply` failures and the image silently ships without some patches.
+RUN set -e; cd /source; pn=0; for p in /patches/*.patch; do pn=$((pn+1)); echo "Applying patch $pn"; git apply "$p"; done
 
 WORKDIR /source
 
