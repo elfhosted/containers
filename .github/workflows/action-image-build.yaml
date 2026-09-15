@@ -282,11 +282,14 @@ jobs:
               -e POSTGRES_PASSWORD=mediastorm \
               postgres:16-alpine
             for i in {1..60}; do
-              if docker exec "$PG" pg_isready -U mediastorm -d mediastorm >/dev/null 2>&1; then
+              if docker run --rm --network "$NET" postgres:16-alpine \
+                pg_isready -h "$PG" -U mediastorm -d mediastorm >/dev/null 2>&1; then
                 break
               fi
               sleep 1
             done
+            docker run --rm --network "$NET" postgres:16-alpine \
+              pg_isready -h "$PG" -U mediastorm -d mediastorm
             DGOSS_RUN_ARGS+=(--network "$NET" -e DATABASE_URL="postgres://mediastorm:mediastorm@$PG:5432/mediastorm?sslmode=disable")
           elif [[ "${{ matrix.image.app }}" == "hound" ]]; then
             NET="${NAME}-net"
