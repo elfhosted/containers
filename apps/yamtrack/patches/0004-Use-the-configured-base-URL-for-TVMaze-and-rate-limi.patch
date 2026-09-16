@@ -1,0 +1,169 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ElfHosted <noreply@elfhosted.com>
+Date: Thu, 17 Sep 2026 10:58:01 +1200
+Subject: [PATCH 4/4] Use the configured base URL for TVMaze and rate limit it
+
+Build TVMaze lookup and show URLs from settings.TVMAZE_BASE_URL. The
+TVMaze rate limiter is mounted on the configured base URL as well as the
+public API, so requests to a mirror are paced the same way.
+---
+ src/app/providers/services.py             | 20 +++++--
+ src/app/tests/providers/test_base_urls.py | 70 ++++++++++++++++++++++-
+ src/events/calendar/tv.py                 |  5 +-
+ 3 files changed, 88 insertions(+), 7 deletions(-)
+
+diff --git a/src/app/providers/services.py b/src/app/providers/services.py
+index d45c19c..af47c07 100644
+--- a/src/app/providers/services.py
++++ b/src/app/providers/services.py
+@@ -34,6 +34,21 @@ def get_redis_client():
+     return Redis.from_url(settings.REDIS_URL)
+ 
+ 
++TVMAZE_PUBLIC_URL = "https://api.tvmaze.com"
++
++
++def mount_base_url_limiters(target_session):
++    """Mount rate limiters for providers whose base URL is configurable.
++
++    The limiter is mounted on the public API URL and, when it differs, on the
++    configured base URL, so requests sent to a mirror or caching proxy are
++    paced the same way as requests sent to the public API.
++    """
++    tvmaze_limiter = LimiterAdapter(per_second=2)
++    for prefix in dict.fromkeys((TVMAZE_PUBLIC_URL, settings.TVMAZE_BASE_URL)):
++        target_session.mount(prefix, tvmaze_limiter)
++
++
+ redis_db = get_redis_client()
+ bucket_key = f"{settings.REDIS_PREFIX}_api" if settings.REDIS_PREFIX else "api"
+ 
+@@ -58,10 +73,7 @@ session.mount(
+     "https://api.igdb.com/v4",
+     LimiterAdapter(per_second=3),
+ )
+-session.mount(
+-    "https://api.tvmaze.com",
+-    LimiterAdapter(per_second=2),
+-)
++mount_base_url_limiters(session)
+ session.mount(
+     "https://comicvine.gamespot.com/api",
+     LimiterAdapter(per_hour=190),
+diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
+index f701ffd..6d1deca 100644
+--- a/src/app/tests/providers/test_base_urls.py
++++ b/src/app/tests/providers/test_base_urls.py
+@@ -3,9 +3,12 @@ from unittest.mock import patch
+ 
+ from django.core.cache import cache
+ from django.test import SimpleTestCase, override_settings
++from requests.adapters import HTTPAdapter
++from requests_ratelimiter import LimiterAdapter, LimiterSession
+ 
+-from app.providers import tmdb, tvdb
++from app.providers import services, tmdb, tvdb
+ from config import settings as project_settings
++from events.calendar.tv import get_tvmaze_response
+ 
+ MIRROR = "http://mirror.local:8080"
+ 
+@@ -124,3 +127,68 @@ class TVDBBaseUrlTests(SimpleTestCase):
+             urls,
+             [f"{MIRROR}/tvdb/v4/login", f"{MIRROR}/tvdb/v4/episodes/12345"],
+         )
++
++
++@override_settings(TVMAZE_BASE_URL=f"{MIRROR}/tvmaze")
++class TVMazeBaseUrlTests(SimpleTestCase):
++    """Test that TVMaze requests and rate limiting follow the base URL."""
++
++    @patch("events.calendar.tv.services.api_request")
++    def test_lookup_and_show_use_configured_base_url(self, mock_api_request):
++        """Lookup and show requests go to the configured base URL."""
++        mock_api_request.side_effect = [{"id": 123}, {"_embedded": {}}]
++
++        get_tvmaze_response("81189")
++
++        urls = [call.args[2] for call in mock_api_request.call_args_list]
++        self.assertEqual(
++            urls,
++            [
++                f"{MIRROR}/tvmaze/lookup/shows?thetvdb=81189",
++                f"{MIRROR}/tvmaze/shows/123?embed=episodes",
++            ],
++        )
++
++    def test_limiter_mounted_on_configured_base_url(self):
++        """The TVMaze limiter covers both the public API and the override."""
++        target_session = LimiterSession(per_second=5)
++        target_session.mount("http://", HTTPAdapter(max_retries=3))
++        target_session.mount("https://", HTTPAdapter(max_retries=3))
++
++        services.mount_base_url_limiters(target_session)
++
++        override = target_session.get_adapter(
++            f"{MIRROR}/tvmaze/lookup/shows?thetvdb=81189",
++        )
++        public = target_session.get_adapter(
++            "https://api.tvmaze.com/lookup/shows?thetvdb=81189",
++        )
++        self.assertIsInstance(override, LimiterAdapter)
++        self.assertIs(override, public)
++        self.assertNotIsInstance(
++            target_session.get_adapter(f"{MIRROR}/other/path"),
++            LimiterAdapter,
++        )
++
++
++class TVMazeDefaultLimiterTests(SimpleTestCase):
++    """Test the TVMaze limiter when no base URL override is configured."""
++
++    @override_settings(TVMAZE_BASE_URL="https://api.tvmaze.com")
++    def test_limiter_mounted_once_on_public_url(self):
++        """Without an override the limiter is mounted only on the public API."""
++        target_session = LimiterSession(per_second=5)
++
++        services.mount_base_url_limiters(target_session)
++
++        tvmaze_prefixes = [
++            prefix for prefix in target_session.adapters if "tvmaze" in prefix
++        ]
++        self.assertEqual(tvmaze_prefixes, ["https://api.tvmaze.com"])
++
++    def test_module_session_limits_public_tvmaze(self):
++        """The shared provider session rate limits the public TVMaze API."""
++        self.assertIsInstance(
++            services.session.get_adapter("https://api.tvmaze.com/shows/1"),
++            LimiterAdapter,
++        )
+diff --git a/src/events/calendar/tv.py b/src/events/calendar/tv.py
+index 7f267a9..93dec55 100644
+--- a/src/events/calendar/tv.py
++++ b/src/events/calendar/tv.py
+@@ -2,6 +2,7 @@ import logging
+ from datetime import datetime
+ 
+ import requests
++from django.conf import settings
+ from django.core.cache import cache
+ from django.db import transaction
+ from django.db.models import Prefetch
+@@ -353,7 +354,7 @@ def get_tvmaze_episode_map(tvdb_id):
+ 
+ def get_tvmaze_response(tvdb_id):
+     """Fetch episode data from TVMaze using TVDB ID."""
+-    lookup_url = f"https://api.tvmaze.com/lookup/shows?thetvdb={tvdb_id}"
++    lookup_url = f"{settings.TVMAZE_BASE_URL}/lookup/shows?thetvdb={tvdb_id}"
+     try:
+         lookup_response = services.api_request("TVMaze", "GET", lookup_url)
+     except requests.exceptions.HTTPError as err:
+@@ -381,7 +382,7 @@ def get_tvmaze_response(tvdb_id):
+         logger.warning("%s - TVMaze ID not found for TVDB ID", tvdb_id)
+         return {}
+ 
+-    show_url = f"https://api.tvmaze.com/shows/{tvmaze_id}?embed=episodes"
++    show_url = f"{settings.TVMAZE_BASE_URL}/shows/{tvmaze_id}?embed=episodes"
+ 
+     try:
+         return services.api_request("TVMaze", "GET", show_url)

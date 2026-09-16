@@ -7,8 +7,17 @@
 # network, which is exactly how a hosted instance is used. The build recipe we
 # run it with (this Dockerfile, the launcher and the nginx config beside it) is
 # part of what we offer, so it lives here in public: upstream at v${VERSION}
-# plus the files in this directory is the complete recipe. No upstream source is
-# patched; everything below is packaging.
+# plus the files in this directory is the complete recipe.
+#
+# patches/ holds the only changes to upstream source, applied in order right
+# after the clone. They are git format-patch output against the tag, so they can
+# be offered upstream as is:
+#   0001-0004  TMDB_BASE_URL, TVDB_BASE_URL and TVMAZE_BASE_URL, each defaulting
+#              to the public API, so a provider can be pointed at a compatible
+#              mirror or caching proxy. The TVMaze rate limiter follows the
+#              configured URL.
+# A version bump must re-check that every patch still applies; the build fails
+# if one does not.
 #
 # ci/goss.yaml stays in containers-private, matching the usual split (ci/latest.sh
 # public, ci/goss.yaml private). It is test configuration, not Corresponding Source.
@@ -37,6 +46,16 @@ ARG VERSION
 
 RUN apk add --no-cache git
 RUN git clone --depth 1 --branch "v${VERSION}" https://github.com/FuzzyGrim/Yamtrack.git /source
+
+# Apply every patch, failing the build on the first one that does not apply. A
+# plain "for ...; do git apply ...; done" would only report the last status.
+COPY apps/yamtrack/patches/ /patches/
+RUN set -e; \
+    cd /source; \
+    for p in /patches/*.patch; do \
+      echo "Applying ${p}"; \
+      git apply "${p}" || exit 1; \
+    done
 
 
 # Both stages must use the same Python version, otherwise the virtualenv copied
