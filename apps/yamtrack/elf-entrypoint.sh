@@ -75,5 +75,18 @@ wait -n || status=$?
 trap - TERM INT
 log "A process exited (status ${status}); stopping the rest"
 kill -TERM "${pids[@]}" 2>/dev/null || true
+
+# Celery's warm shutdown waits for running tasks, and imports may run for hours.
+# Bound the wait so a dead web tier restarts the container promptly.
+grace="${YAMTRACK_SHUTDOWN_GRACE:-25}"
+for _ in $(seq "${grace}"); do
+    alive=0
+    for pid in "${pids[@]}"; do
+        kill -0 "${pid}" 2>/dev/null && alive=1
+    done
+    [ "${alive}" -eq 0 ] && break
+    sleep 1
+done
+kill -KILL "${pids[@]}" 2>/dev/null || true
 wait || true
 exit "${status}"
