@@ -18,7 +18,7 @@
 # work under runAsNonRoot + readOnlyRootFilesystem. Here the image runs directly
 # as elfie (568) and all state lives under /config.
 
-FROM public.ecr.aws/docker/library/alpine:3.22 AS cloner
+FROM public.ecr.aws/docker/library/alpine:3.24 AS cloner
 ARG VERSION
 
 # hadolint ignore=DL3018

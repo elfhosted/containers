@@ -30,7 +30,7 @@
 # the tag; bump them only when upstream does.
 
 ARG PYTHON_VERSION=3.12
-ARG ALPINE_VERSION=3.23
+ARG ALPINE_VERSION=3.24
 
 FROM public.ecr.aws/docker/library/alpine:${ALPINE_VERSION} AS cloner
 ARG VERSION
