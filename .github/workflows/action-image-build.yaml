@@ -47,12 +47,12 @@ jobs:
         image: ["${{ fromJson(inputs.imagesToBuild) }}"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
       - name: Checkout private repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           repository: elfhosted/containers-private
           path: containers-private
