@@ -331,6 +331,13 @@ jobs:
               -e STORAGE_TYPE=filesystem
               -e ENCRYPTION_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
             )
+          elif [[ "${{ matrix.image.app }}" == "wealthfolio" ]]; then
+            # The server refuses to start without a master key, and refuses to
+            # listen on 0.0.0.0 without auth unless told a proxy handles it.
+            DGOSS_RUN_ARGS+=(
+              -e WF_SECRET_KEY="AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+              -e WF_AUTH_REQUIRED=false
+            )
           elif [[ "${{ matrix.image.app }}" == "zurg" ]]; then
             # zurg-public ships no config.yml (the chart seeds one from a
             # ConfigMap at runtime). Started bare, zurg writes a default config
