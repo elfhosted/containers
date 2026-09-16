@@ -1,0 +1,153 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ElfHosted <noreply@elfhosted.com>
+Date: Thu, 17 Sep 2026 10:56:37 +1200
+Subject: [PATCH 2/4] Use the configured base URL for TMDB API requests
+
+Build TMDB request URLs from settings.TMDB_BASE_URL instead of a
+hardcoded module constant. Image and web links are unchanged.
+---
+ src/app/providers/tmdb.py                 | 17 +++++-----
+ src/app/tests/providers/test_base_urls.py | 39 ++++++++++++++++++++++-
+ 2 files changed, 46 insertions(+), 10 deletions(-)
+
+diff --git a/src/app/providers/tmdb.py b/src/app/providers/tmdb.py
+index ea35675..38b3cd1 100644
+--- a/src/app/providers/tmdb.py
++++ b/src/app/providers/tmdb.py
+@@ -11,7 +11,6 @@ from app.models import MediaTypes, Sources
+ from app.providers import services
+ 
+ logger = logging.getLogger(__name__)
+-base_url = "https://api.themoviedb.org/3"
+ base_params = {
+     "api_key": settings.TMDB_API,
+     "language": settings.TMDB_LANG,
+@@ -76,7 +75,7 @@ def search(media_type, query, page):
+     data = cache.get(cache_key)
+ 
+     if data is None:
+-        url = f"{base_url}/search/{media_type}"
++        url = f"{settings.TMDB_BASE_URL}/search/{media_type}"
+ 
+         params = {
+             **base_params,
+@@ -128,7 +127,7 @@ def find(external_id, external_source):
+     data = cache.get(cache_key)
+ 
+     if data is None:
+-        url = f"{base_url}/find/{external_id}"
++        url = f"{settings.TMDB_BASE_URL}/find/{external_id}"
+ 
+         params = {
+             **base_params,
+@@ -157,7 +156,7 @@ def movie(media_id):
+     data = cache.get(cache_key)
+ 
+     if data is None:
+-        url = f"{base_url}/movie/{media_id}"
++        url = f"{settings.TMDB_BASE_URL}/movie/{media_id}"
+         appends = ["recommendations", "external_ids", "credits", "watch/providers"]
+         params = {
+             **base_params,
+@@ -179,7 +178,7 @@ def movie(media_id):
+                     collection_response = services.api_request(
+                         Sources.TMDB.value,
+                         "GET",
+-                        f"{base_url}/collection/{collection_id}",
++                        f"{settings.TMDB_BASE_URL}/collection/{collection_id}",
+                         params={**base_params},
+                     )
+                 except requests.exceptions.HTTPError as error:
+@@ -288,7 +287,7 @@ def enrich_season_with_tv_data(season_data, tv_data, media_id, season_number):
+ 
+ def fetch_and_cache_seasons(media_id, season_numbers, tv_data):
+     """Fetch uncached seasons from API and cache them."""
+-    url = f"{base_url}/tv/{media_id}"
++    url = f"{settings.TMDB_BASE_URL}/tv/{media_id}"
+     base_append = "recommendations,external_ids,watch/providers"
+     max_seasons_per_request = 8
+     fetched_tv_data = tv_data
+@@ -390,7 +389,7 @@ def tv(media_id):
+     data = cache.get(cache_key)
+ 
+     if data is None:
+-        url = f"{base_url}/tv/{media_id}"
++        url = f"{settings.TMDB_BASE_URL}/tv/{media_id}"
+         params = {
+             **base_params,
+             "append_to_response": "recommendations,external_ids,watch/providers",
+@@ -786,7 +785,7 @@ def watch_provider_regions():
+     data = cache.get(cache_key)
+ 
+     if data is None:
+-        url = f"{base_url}/watch/providers/regions"
++        url = f"{settings.TMDB_BASE_URL}/watch/providers/regions"
+         params = {**base_params}
+ 
+         try:
+@@ -816,7 +815,7 @@ def watch_provider_regions():
+ 
+ def get_changed_ids(media_type):
+     """Return changed TMDB ids for the given media type over the last days."""
+-    url = f"{base_url}/{media_type}/changes"
++    url = f"{settings.TMDB_BASE_URL}/{media_type}/changes"
+     end_date = timezone.localdate()
+     start_date = end_date - timedelta(days=3)
+     changed_ids = set()
+diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
+index 05e69d6..85b53d0 100644
+--- a/src/app/tests/providers/test_base_urls.py
++++ b/src/app/tests/providers/test_base_urls.py
+@@ -1,10 +1,14 @@
+ import os
+ from unittest.mock import patch
+ 
+-from django.test import SimpleTestCase
++from django.core.cache import cache
++from django.test import SimpleTestCase, override_settings
+ 
++from app.providers import tmdb
+ from config import settings as project_settings
+ 
++MIRROR = "http://mirror.local:8080"
++
+ 
+ class ProviderBaseUrlSettingTests(SimpleTestCase):
+     """Test reading provider API base URLs from the environment."""
+@@ -62,3 +66,36 @@ class ProviderBaseUrlSettingTests(SimpleTestCase):
+                     project_settings.provider_base_url(key, expected),
+                     expected,
+                 )
++
++
++@override_settings(TMDB_BASE_URL=f"{MIRROR}/tmdb/3")
++class TMDBBaseUrlTests(SimpleTestCase):
++    """Test that TMDB requests use the configured base URL."""
++
++    def setUp(self):
++        """Start each test with an empty cache."""
++        cache.clear()
++
++    @patch("app.providers.tmdb.services.api_request")
++    def test_search_uses_configured_base_url(self, mock_api_request):
++        """Search requests go to the configured base URL."""
++        mock_api_request.return_value = {"results": [], "total_results": 0}
++
++        tmdb.search("movie", "base-url-test", 1)
++
++        self.assertEqual(
++            mock_api_request.call_args.args[2],
++            f"{MIRROR}/tmdb/3/search/movie",
++        )
++
++    @patch("app.providers.tmdb.services.api_request")
++    def test_find_uses_configured_base_url(self, mock_api_request):
++        """Find requests go to the configured base URL."""
++        mock_api_request.return_value = {"movie_results": []}
++
++        tmdb.find("tt0078748", "imdb_id")
++
++        self.assertEqual(
++            mock_api_request.call_args.args[2],
++            f"{MIRROR}/tmdb/3/find/tt0078748",
++        )

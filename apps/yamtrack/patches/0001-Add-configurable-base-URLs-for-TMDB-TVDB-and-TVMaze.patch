@@ -1,0 +1,133 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ElfHosted <noreply@elfhosted.com>
+Date: Thu, 17 Sep 2026 10:55:57 +1200
+Subject: [PATCH 1/4] Add configurable base URLs for TMDB, TVDB and TVMaze
+
+Read TMDB_BASE_URL, TVDB_BASE_URL and TVMAZE_BASE_URL from the
+environment so these providers can be pointed at a compatible mirror or
+caching proxy. Each defaults to the public API, so behaviour is unchanged
+when they are unset. Trailing slashes are stripped.
+---
+ docs/env-variables.md                     | 10 ++++
+ src/app/tests/providers/test_base_urls.py | 64 +++++++++++++++++++++++
+ src/config/settings.py                    | 15 ++++++
+ 3 files changed, 89 insertions(+)
+ create mode 100644 src/app/tests/providers/test_base_urls.py
+
+diff --git a/docs/env-variables.md b/docs/env-variables.md
+index 4d14a11..8fb8a83 100644
+--- a/docs/env-variables.md
++++ b/docs/env-variables.md
+@@ -18,6 +18,16 @@ This page outlines the environment variables used in the YamTrack project.
+ | `HARDCOVER_API` | Hardcover API key for books. A default key is provided, but it's recommended to get your own as it has a low rate limit. Custom values must include the `Bearer ` prefix.                                                                              |
+ | `COMICVINE_API` | ComicVine API key for comics. A default key is provided, but it's recommended to get your own as it has a low rate limit.                                                                                                                             |
+ 
++## Provider API Base URLs
++
++Point a metadata provider at a compatible mirror or caching proxy. Each defaults to the public API, so leave them unset unless you run such a service. A trailing slash is ignored.
++
++| Name              | Notes                                          |
++| ----------------- | ---------------------------------------------- |
++| `TMDB_BASE_URL`   | Default to `https://api.themoviedb.org/3`.     |
++| `TVDB_BASE_URL`   | Default to `https://api4.thetvdb.com/v4`.      |
++| `TVMAZE_BASE_URL` | Default to `https://api.tvmaze.com`.           |
++
+ ## Media Import
+ 
+ See [media-imports](media-imports.md).
+diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
+new file mode 100644
+index 0000000..05e69d6
+--- /dev/null
++++ b/src/app/tests/providers/test_base_urls.py
+@@ -0,0 +1,64 @@
++import os
++from unittest.mock import patch
++
++from django.test import SimpleTestCase
++
++from config import settings as project_settings
++
++
++class ProviderBaseUrlSettingTests(SimpleTestCase):
++    """Test reading provider API base URLs from the environment."""
++
++    def test_default_when_unset(self):
++        """An unset variable falls back to the public API."""
++        with patch.dict(os.environ, {}, clear=False):
++            os.environ.pop("EXAMPLE_BASE_URL", None)
++            self.assertEqual(
++                project_settings.provider_base_url(
++                    "EXAMPLE_BASE_URL",
++                    "https://api.example.com/v1",
++                ),
++                "https://api.example.com/v1",
++            )
++
++    def test_default_when_empty(self):
++        """An empty variable falls back to the public API."""
++        with patch.dict(os.environ, {"EXAMPLE_BASE_URL": ""}):
++            self.assertEqual(
++                project_settings.provider_base_url(
++                    "EXAMPLE_BASE_URL",
++                    "https://api.example.com/v1",
++                ),
++                "https://api.example.com/v1",
++            )
++
++    def test_override_strips_trailing_slash(self):
++        """A configured value is used with any trailing slash removed."""
++        with patch.dict(
++            os.environ,
++            {"EXAMPLE_BASE_URL": "http://mirror.local:8080/example/v1/"},
++        ):
++            self.assertEqual(
++                project_settings.provider_base_url(
++                    "EXAMPLE_BASE_URL",
++                    "https://api.example.com/v1",
++                ),
++                "http://mirror.local:8080/example/v1",
++            )
++
++    @patch.dict(os.environ, {}, clear=False)
++    def test_public_defaults(self):
++        """Without overrides the settings point at the public provider APIs."""
++        for key in ("TMDB_BASE_URL", "TVDB_BASE_URL", "TVMAZE_BASE_URL"):
++            os.environ.pop(key, None)
++        defaults = {
++            "TMDB_BASE_URL": "https://api.themoviedb.org/3",
++            "TVDB_BASE_URL": "https://api4.thetvdb.com/v4",
++            "TVMAZE_BASE_URL": "https://api.tvmaze.com",
++        }
++        for key, expected in defaults.items():
++            with self.subTest(key=key):
++                self.assertEqual(
++                    project_settings.provider_base_url(key, expected),
++                    expected,
++                )
+diff --git a/src/config/settings.py b/src/config/settings.py
+index bb74b85..aa21666 100644
+--- a/src/config/settings.py
++++ b/src/config/settings.py
+@@ -375,6 +375,21 @@ TVDB_API = config(
+     ),
+ )
+ 
++
++def provider_base_url(key, default):
++    """Return a provider API base URL, overridable through the environment.
++
++    Lets a provider be pointed at a compatible mirror or caching proxy. An unset
++    or empty value falls back to the public API. Trailing slashes are stripped
++    because request URLs are built as f"{base_url}/path".
++    """
++    return (config(key, default="") or default).rstrip("/")
++
++
++TMDB_BASE_URL = provider_base_url("TMDB_BASE_URL", "https://api.themoviedb.org/3")
++TVDB_BASE_URL = provider_base_url("TVDB_BASE_URL", "https://api4.thetvdb.com/v4")
++TVMAZE_BASE_URL = provider_base_url("TVMAZE_BASE_URL", "https://api.tvmaze.com")
++
+ MAL_API = config(
+     "MAL_API",
+     default=secret(

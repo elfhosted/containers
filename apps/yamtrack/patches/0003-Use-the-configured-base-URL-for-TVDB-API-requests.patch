@@ -1,0 +1,133 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ElfHosted <noreply@elfhosted.com>
+Date: Thu, 17 Sep 2026 10:57:07 +1200
+Subject: [PATCH 3/4] Use the configured base URL for TVDB API requests
+
+Build TVDB request URLs, including the login used to obtain an access
+token, from settings.TVDB_BASE_URL instead of a hardcoded module
+constant.
+---
+ src/app/providers/tvdb.py                 |  7 +++---
+ src/app/tests/providers/test_base_urls.py | 27 ++++++++++++++++++++++-
+ src/app/tests/providers/test_tvdb.py      |  7 +++---
+ 3 files changed, 33 insertions(+), 8 deletions(-)
+
+diff --git a/src/app/providers/tvdb.py b/src/app/providers/tvdb.py
+index a11b882..338db3a 100644
+--- a/src/app/providers/tvdb.py
++++ b/src/app/providers/tvdb.py
+@@ -9,7 +9,6 @@ from app.providers import services
+ logger = logging.getLogger(__name__)
+ 
+ PROVIDER = "TVDB"
+-BASE_URL = "https://api4.thetvdb.com/v4"
+ ACCESS_TOKEN_CACHE_KEY = "tvdb_access_token"  # noqa: S105
+ ACCESS_TOKEN_TIMEOUT = 60 * 60 * 24 * 29  # tokens are valid for 1 month
+ TMDB_REMOTE_ID_TYPE = 12
+@@ -43,7 +42,7 @@ def get_access_token():
+             response = services.api_request(
+                 PROVIDER,
+                 "POST",
+-                f"{BASE_URL}/login",
++                f"{settings.TVDB_BASE_URL}/login",
+                 params=payload,
+             )
+         except requests.exceptions.HTTPError as error:
+@@ -74,7 +73,7 @@ def episode(episode_id):
+         return None
+ 
+     headers = {"Authorization": f"Bearer {access_token}"}
+-    url = f"{BASE_URL}/episodes/{episode_id}"
++    url = f"{settings.TVDB_BASE_URL}/episodes/{episode_id}"
+ 
+     try:
+         response = services.api_request(
+@@ -127,7 +126,7 @@ def series_tmdb_id(series_id):
+         return None
+ 
+     headers = {"Authorization": f"Bearer {access_token}"}
+-    url = f"{BASE_URL}/series/{series_id}/extended"
++    url = f"{settings.TVDB_BASE_URL}/series/{series_id}/extended"
+ 
+     try:
+         response = services.api_request(
+diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
+index 85b53d0..f701ffd 100644
+--- a/src/app/tests/providers/test_base_urls.py
++++ b/src/app/tests/providers/test_base_urls.py
+@@ -4,7 +4,7 @@ from unittest.mock import patch
+ from django.core.cache import cache
+ from django.test import SimpleTestCase, override_settings
+ 
+-from app.providers import tmdb
++from app.providers import tmdb, tvdb
+ from config import settings as project_settings
+ 
+ MIRROR = "http://mirror.local:8080"
+@@ -99,3 +99,28 @@ class TMDBBaseUrlTests(SimpleTestCase):
+             mock_api_request.call_args.args[2],
+             f"{MIRROR}/tmdb/3/find/tt0078748",
+         )
++
++
++@override_settings(TVDB_API="test-tvdb-key", TVDB_BASE_URL=f"{MIRROR}/tvdb/v4")
++class TVDBBaseUrlTests(SimpleTestCase):
++    """Test that TVDB requests, including login, use the configured base URL."""
++
++    def setUp(self):
++        """Start each test with an empty cache."""
++        cache.clear()
++
++    @patch("app.providers.tvdb.services.api_request")
++    def test_login_and_episode_use_configured_base_url(self, mock_api_request):
++        """Login and episode lookups go to the configured base URL."""
++        mock_api_request.side_effect = [
++            {"data": {"token": "test-token"}},
++            {"data": {"id": 12345}},
++        ]
++
++        tvdb.episode(12345)
++
++        urls = [call.args[2] for call in mock_api_request.call_args_list]
++        self.assertEqual(
++            urls,
++            [f"{MIRROR}/tvdb/v4/login", f"{MIRROR}/tvdb/v4/episodes/12345"],
++        )
+diff --git a/src/app/tests/providers/test_tvdb.py b/src/app/tests/providers/test_tvdb.py
+index 2285cae..50323fa 100644
+--- a/src/app/tests/providers/test_tvdb.py
++++ b/src/app/tests/providers/test_tvdb.py
+@@ -1,5 +1,6 @@
+ from unittest.mock import patch
+ 
++from django.conf import settings
+ from django.test import TestCase, override_settings
+ 
+ from app.providers import tvdb
+@@ -30,7 +31,7 @@ class TVDBProviderTests(TestCase):
+         mock_api_request.assert_called_once_with(
+             tvdb.PROVIDER,
+             "POST",
+-            f"{tvdb.BASE_URL}/login",
++            f"{settings.TVDB_BASE_URL}/login",
+             params={"apikey": "test-tvdb-key"},
+         )
+         mock_cache.set.assert_called_once_with(
+@@ -74,7 +75,7 @@ class TVDBProviderTests(TestCase):
+         mock_api_request.assert_called_once_with(
+             tvdb.PROVIDER,
+             "GET",
+-            f"{tvdb.BASE_URL}/episodes/12345",
++            f"{settings.TVDB_BASE_URL}/episodes/12345",
+             headers={"Authorization": "Bearer test-token"},
+         )
+         mock_cache.set.assert_called_once_with(
+@@ -122,7 +123,7 @@ class TVDBProviderTests(TestCase):
+         mock_api_request.assert_called_once_with(
+             tvdb.PROVIDER,
+             "GET",
+-            f"{tvdb.BASE_URL}/series/459821/extended",
++            f"{settings.TVDB_BASE_URL}/series/459821/extended",
+             headers={"Authorization": "Bearer test-token"},
+         )
+         mock_cache.set.assert_called_once_with(
