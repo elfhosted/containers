@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+version=$(curl -L -sX GET "https://api.github.com/repos/grocy/grocy/releases/latest" --header "Authorization: Bearer ${TOKEN}" | jq --raw-output '.tag_name')
+version="${version#*v}"
+printf "%s" "${version}"
