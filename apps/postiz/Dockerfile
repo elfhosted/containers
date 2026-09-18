@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 # for now, just clone latest
 RUN git clone -b $VERSION https://github.com/gitroomhq/postiz-app.git /source
 
-FROM node:20-alpine3.19
+FROM node:22-alpine3.19
 ARG NEXT_PUBLIC_VERSION
 ENV NEXT_PUBLIC_VERSION=$NEXT_PUBLIC_VERSION
 RUN apk add --no-cache g++ make py3-pip bash nginx
