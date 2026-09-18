@@ -444,7 +444,7 @@ jobs:
       # the two outcomes that mean "it ran" rather than excluding 'skipped'.
       - name: Upload Trivy scan report
         if: ${{ !cancelled() && (steps.trivy_scan.outcome == 'success' || steps.trivy_scan.outcome == 'failure') }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
           category: containers/${{ matrix.image.app }}-${{ matrix.image.channel }}
