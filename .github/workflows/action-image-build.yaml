@@ -434,8 +434,16 @@ jobs:
           ignore-unfixed: true
           timeout: '20m'
 
+      # Upload whenever the scan actually RAN, including when it found
+      # CRITICAL/HIGH and trivy_gate below is about to fail the job, which is
+      # the case the previous always() existed to protect. A never-run scan
+      # (earlier step failed) leaves no SARIF, and always() made the upload
+      # error "Path does not exist: trivy-<app>-<channel>.sarif" the last and
+      # loudest line in the log, masking the real build failure.
+      # NB: a step that never ran has outcome '', NOT 'skipped', so test for
+      # the two outcomes that mean "it ran" rather than excluding 'skipped'.
       - name: Upload Trivy scan report
-        if: ${{ always() }}
+        if: ${{ !cancelled() && (steps.trivy_scan.outcome == 'success' || steps.trivy_scan.outcome == 'failure') }}
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
