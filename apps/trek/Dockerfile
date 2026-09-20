@@ -42,6 +42,9 @@ WORKDIR /app
 COPY --from=cloner /source/package.json /source/package-lock.json ./
 COPY --from=cloner /source/shared/package.json ./shared/
 COPY --from=cloner /source/client/package.json ./client/
+# TREK v4.3.0 added a client postinstall hook that patches MapLibre; copy the
+# hook scripts before npm ci so lifecycle scripts can run against release source.
+COPY --from=cloner /source/client/scripts/ ./client/scripts/
 RUN npm ci --workspace=client
 COPY --from=shared-builder /app/shared/dist ./shared/dist
 COPY --from=cloner /source/client/ ./client/
