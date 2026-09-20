@@ -42,6 +42,9 @@ WORKDIR /app
 COPY --from=cloner /source/package.json /source/package-lock.json ./
 COPY --from=cloner /source/shared/package.json ./shared/
 COPY --from=cloner /source/client/package.json ./client/
+# TREK v4.3.0+ runs this postinstall helper during npm ci; copy it before
+# installing so npm lifecycle scripts do not fail in the reduced Docker layer.
+COPY --from=cloner /source/client/scripts/patch-maplibre.mjs ./client/scripts/patch-maplibre.mjs
 RUN npm ci --workspace=client
 COPY --from=shared-builder /app/shared/dist ./shared/dist
 COPY --from=cloner /source/client/ ./client/
