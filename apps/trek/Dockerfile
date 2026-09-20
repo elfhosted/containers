@@ -42,6 +42,9 @@ WORKDIR /app
 COPY --from=cloner /source/package.json /source/package-lock.json ./
 COPY --from=cloner /source/shared/package.json ./shared/
 COPY --from=cloner /source/client/package.json ./client/
+# TREK 4.3.0 runs client/scripts/patch-maplibre.mjs from the client postinstall.
+# Keep the pre-install COPY narrow so npm ci can run before the full source copy.
+COPY --from=cloner /source/client/scripts/patch-maplibre.mjs ./client/scripts/patch-maplibre.mjs
 RUN npm ci --workspace=client
 COPY --from=shared-builder /app/shared/dist ./shared/dist
 COPY --from=cloner /source/client/ ./client/
@@ -86,7 +89,7 @@ COPY --from=cloner /source/server/package.json ./server/
 # removed afterwards, as upstream does.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends tzdata dumb-init wget ca-certificates python3 build-essential \
-      libkitinerary-bin && \
+      libkitinerary-bin libsqlite3-0 && \
     npm ci --workspace=server --omit=dev && \
     ln -sf "$(find /usr/lib -name kitinerary-extractor -type f | head -1)" /usr/local/bin/kitinerary-extractor && \
     test -x /usr/local/bin/kitinerary-extractor && \
