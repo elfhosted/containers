@@ -42,9 +42,13 @@ WORKDIR /app
 COPY --from=cloner /source/package.json /source/package-lock.json ./
 COPY --from=cloner /source/shared/package.json ./shared/
 COPY --from=cloner /source/client/package.json ./client/
+# TREK 4.3.0 added a client postinstall hook that executes
+# client/scripts/patch-maplibre.mjs during npm ci, so scripts must be present
+# before dependency installation. Keep the package-json-only pattern for the
+# other workspaces, but copy client source before npm ci.
+COPY --from=cloner /source/client/ ./client/
 RUN npm ci --workspace=client
 COPY --from=shared-builder /app/shared/dist ./shared/dist
-COPY --from=cloner /source/client/ ./client/
 RUN npm run build --workspace=client
 
 
