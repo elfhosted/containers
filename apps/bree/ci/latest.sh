@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# In-house image: Bree, the crossroads every ElfHosted app's AI request passes through.
-# It is a FastAPI app, and the Dockerfile installs FastAPI at exactly this
-# version, so a new FastAPI release rebuilds the image. Same arrangement as
-# smtp-relay, which anchors on aiosmtpd.
+# Bree is OURS, so its version is ours: release-please cuts it in
+# elfhosted/bree from conventional commits, exactly as gandalf does.
 #
-# The gateway's own code lives in containers-private and changes with its own
-# commits, which trigger a build directly -- this only governs the version
-# LABEL and the dependency floor.
-version=$(curl -sL "https://pypi.org/pypi/fastapi/json" | jq --raw-output '.info.version')
+# This used to read FastAPI's current PyPI release, which made the image version
+# a fact about a dependency rather than about the service -- eleven commits of
+# our own shipped under one unchanged 0.141.1. It did have one merit: a FastAPI
+# release rebuilt the image, so dependency fixes shipped without anybody
+# deciding to. Renovate on elfhosted/bree replaces that on purpose; see the
+# comment in that repo's requirements.txt.
+#
+# The repo is private, hence the token -- the same one the Dockerfile clones with.
+version=$(curl -L -sX GET https://api.github.com/repos/elfhosted/bree/releases/latest --header "Authorization: Bearer ${ZURG_GH_CREDS}" | jq --raw-output '. | .tag_name')
 printf "%s" "${version}"
