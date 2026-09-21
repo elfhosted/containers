@@ -42,6 +42,11 @@ WORKDIR /app
 COPY --from=cloner /source/package.json /source/package-lock.json ./
 COPY --from=cloner /source/shared/package.json ./shared/
 COPY --from=cloner /source/client/package.json ./client/
+# TREK v4.3.0 runs client/scripts/patch-maplibre.mjs from the client
+# postinstall hook during npm ci, before the full client source is copied.
+# Copy the whole scripts directory so older tags that only have other
+# install/build helpers still remain rebuildable.
+COPY --from=cloner /source/client/scripts ./client/scripts
 RUN npm ci --workspace=client
 COPY --from=shared-builder /app/shared/dist ./shared/dist
 COPY --from=cloner /source/client/ ./client/
