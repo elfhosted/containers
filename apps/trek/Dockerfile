@@ -42,6 +42,12 @@ WORKDIR /app
 COPY --from=cloner /source/package.json /source/package-lock.json ./
 COPY --from=cloner /source/shared/package.json ./shared/
 COPY --from=cloner /source/client/package.json ./client/
+# TREK 4.3.0 added a client postinstall hook that runs
+# client/scripts/patch-maplibre.mjs during npm ci, before the full client tree
+# is copied for the build. Mirror upstream by copying only that build hook early
+# so install-time hooks can run without pulling the whole client source tree
+# into the dependency layer.
+COPY --from=cloner /source/client/scripts/patch-maplibre.mjs ./client/scripts/
 RUN npm ci --workspace=client
 COPY --from=shared-builder /app/shared/dist ./shared/dist
 COPY --from=cloner /source/client/ ./client/
