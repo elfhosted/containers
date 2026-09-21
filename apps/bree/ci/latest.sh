@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# In-house image: the OpenAI-compatible chat gateway tenant apps are pointed at.
+# In-house image: Bree, the crossroads every ElfHosted app's AI request passes through.
 # It is a FastAPI app, and the Dockerfile installs FastAPI at exactly this
 # version, so a new FastAPI release rebuilds the image. Same arrangement as
 # smtp-relay, which anchors on aiosmtpd.
