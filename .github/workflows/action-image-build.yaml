@@ -346,6 +346,18 @@ jobs:
             # config and stays up retrying auth, so feed it a well-formed dummy.
             # Real-Debrid still rejects it, which is what we want in CI.
             DGOSS_RUN_ARGS+=(-e TOKEN="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+          elif [[ "${{ matrix.image.app }}" == "bree" ]]; then
+            # The tenant-key and cut-off checks need a signing secret and a
+            # tenant to refuse. Throwaway values: the suite mints its own keys
+            # from this secret, so it has to match nothing outside this run.
+            # UPSTREAM_API_KEY is set only because the app declines to start
+            # without one -- no check here reaches a provider.
+            DGOSS_RUN_ARGS+=(
+              -e UPSTREAM_API_KEY="goss-not-a-real-key"
+              -e TENANT_AUTH_SECRET="goss-signing-secret"
+              -e ALLOWANCE_USD="starter=1.00,boost=10.00"
+              -e BLOCKED_TENANTS="goss-blocked"
+            )
           fi
 
           cleanup() {
