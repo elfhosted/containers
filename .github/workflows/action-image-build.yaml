@@ -255,6 +255,15 @@ jobs:
               -e MEDIAFUSION_AUTO_MIGRATE=true
               -e SECRET_KEY="mediafusion-goss-secret-key-32b"
             )
+          elif [[ "${{ matrix.image.app }}" == "tuwunel" ]]; then
+            # tuwunel will not start without a server_name. Supply a throwaway one
+            # for the test only; the image deliberately has no default, because a
+            # wrong server_name is permanent. The token file must be writable.
+            DGOSS_RUN_ARGS+=(
+              -e TUWUNEL_SERVER_NAME=goss.test
+              -e TUWUNEL_DATABASE_PATH=/tmp/db
+              -e REGISTRATION_TOKEN_FILE=/tmp/.registration-token
+            )
           elif [[ "${{ matrix.image.app }}" == "nightscout" ]]; then
             NET="${NAME}-net"
             MONGO="${NAME}-mongo"
