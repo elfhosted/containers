@@ -24,6 +24,20 @@ jobs:
         with:
           token: ${{ env.TOKEN }}
 
+      # Same overlay as action-image-build.yaml, so an app's ci/latest.sh (and
+      # metadata.json) may live in containers-private.
+      - name: Checkout private repo
+        uses: actions/checkout@v3
+        with:
+          repository: elfhosted/containers-private
+          path: containers-private
+          token: ${{ secrets.GH_TOKEN_CONTAINERS_PRIVATE }}
+          fetch-depth: 1
+
+      - name: Overlay /apps/ from external repo
+        run: |
+          cp -r containers-private/apps/* apps/
+
       - name: Install tools
         run: |
           sudo apt-get update 
