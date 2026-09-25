@@ -1,0 +1,223 @@
+From 6068d093abb030521267971781da5b2a6898c319 Mon Sep 17 00:00:00 2001
+From: David Young <davidy@funkypenguin.co.nz>
+Date: Sat, 26 Sep 2026 10:57:35 +1200
+Subject: [PATCH] feat: make querying the health index follow contribution,
+ under a shared name
+
+The index is built from the NZBs its clients contribute, so reading it and
+writing to it are one decision, not two. This was already half true here: the
+gated indexer is refused unless BUILTIN_NAB_HEALTH_CONTRIBUTE is on. The
+queries were not -- an instance could contribute nothing and still ask the
+index about every release it found.
+
+fetchZyclopsHealth now returns no verdicts when not participating, so all
+three consequences follow the one decision: no contribution, no queries, no
+gated indexer.
+
+Adds ZYCLOPS_INGEST (default true) as a second way to say the same thing.
+This is the name shared with the other clients of this index, so one
+documented setting means the same thing wherever it is set. Either setting
+being false opts out.
+
+Note the consequence for an instance that sets a health API URL without
+turning contribution on: its queries now return nothing where before they
+were answered. That is the intended reciprocity, and the gated indexer has
+always been refused under exactly that condition.
+
+The refusal message names both settings, since either explains it.
+
+TESTS
+
+The rule is expressed as a pure function of the two settings, so it can be
+exercised directly -- appConfig is not resolved at module-load time and no
+test in this package initialises it. Four tests cover both settings agreeing,
+either one opting out, and each default.
+
+Two one-line wrappers that could not be reached by a test were removed rather
+than left as uncovered indirection; the three call sites ask the rule
+directly.
+
+Mutation-checked: ignoring either setting, and treating an unset contribution
+setting as participating, each fail an assertion.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+---
+ .../src/builtins/utils/nzbContribution.ts     |  4 +-
+ .../src/builtins/utils/sharedIndex.test.ts    | 28 ++++++++++++++
+ .../core/src/builtins/utils/sharedIndex.ts    | 38 +++++++++++++++++++
+ .../core/src/builtins/utils/zyclopsHealth.ts  |  4 ++
+ packages/core/src/config/schema/builtins.ts   | 10 +++++
+ packages/core/src/presets/newznab.ts          |  5 ++-
+ 6 files changed, 86 insertions(+), 3 deletions(-)
+ create mode 100644 packages/core/src/builtins/utils/sharedIndex.test.ts
+ create mode 100644 packages/core/src/builtins/utils/sharedIndex.ts
+
+diff --git a/packages/core/src/builtins/utils/nzbContribution.ts b/packages/core/src/builtins/utils/nzbContribution.ts
+index 0278e43..73484d8 100644
+--- a/packages/core/src/builtins/utils/nzbContribution.ts
++++ b/packages/core/src/builtins/utils/nzbContribution.ts
+@@ -3,6 +3,7 @@ import crypto from 'crypto';
+ import { createLogger } from '../../utils/index.js';
+ import { makeUrlLogSafe } from '../../utils/http.js';
+ import { config as appConfig } from '../../config/index.js';
++import { isOptedOut } from './sharedIndex.js';
+ 
+ const logger = createLogger('nzb-contribution');
+ 
+@@ -32,7 +33,8 @@ export function contributeNzb(
+   source: string,
+   name?: string
+ ): void {
+-  if (!appConfig.builtins.nab.healthContribute) return;
++  // Contributing and querying are one decision -- see sharedIndex.
++  if (isOptedOut()) return;
+   const url = appConfig.builtins.nab.healthIngestUrl;
+   if (!url) {
+     logger.debug('NZB contribution enabled but no ingest endpoint is set.');
+diff --git a/packages/core/src/builtins/utils/sharedIndex.test.ts b/packages/core/src/builtins/utils/sharedIndex.test.ts
+new file mode 100644
+index 0000000..9a04f83
+--- /dev/null
++++ b/packages/core/src/builtins/utils/sharedIndex.test.ts
+@@ -0,0 +1,28 @@
++import { describe, it } from 'node:test';
++import assert from 'node:assert/strict';
++import { optedOutFor } from './sharedIndex.js';
++
++describe('shared index participation', () => {
++  it('participates only when both settings agree', () => {
++    assert.equal(optedOutFor(true, true), false);
++  });
++
++  it('opts out on either setting', () => {
++    // Reading and contributing are one decision, so neither survives alone.
++    assert.equal(optedOutFor(false, true), true);
++    assert.equal(optedOutFor(true, false), true);
++    assert.equal(optedOutFor(false, false), true);
++  });
++
++  it('treats an unset contribute setting as not participating', () => {
++    // It defaults to false, and the gated indexer has always been refused on
++    // that basis -- querying now follows the same rule.
++    assert.equal(optedOutFor(true, undefined), true);
++  });
++
++  it('treats an unset participation setting as participating', () => {
++    // Its default is true, so only an explicit false opts out through it.
++    assert.equal(optedOutFor(undefined, true), false);
++    assert.equal(optedOutFor(undefined, false), true);
++  });
++});
+diff --git a/packages/core/src/builtins/utils/sharedIndex.ts b/packages/core/src/builtins/utils/sharedIndex.ts
+new file mode 100644
+index 0000000..088932c
+--- /dev/null
++++ b/packages/core/src/builtins/utils/sharedIndex.ts
+@@ -0,0 +1,38 @@
++import { config as appConfig } from '../../config/index.js';
++
++/**
++ * Participation in the shared health index.
++ *
++ * The index is built from the NZBs its participants contribute, so reading it
++ * and writing to it are one decision, not two. An instance that is not
++ * contributing does not query the index and cannot use the gated indexer.
++ * There is deliberately no "read but do not write" mode.
++ *
++ * Two settings say the same thing:
++ *
++ *   ZYCLOPS_INGEST                  false opts out. This is the name shared
++ *                                   with the other clients of the index, so
++ *                                   one documented setting means the same
++ *                                   thing wherever it is set.
++ *   BUILTIN_NAB_HEALTH_CONTRIBUTE   false also opts out. It predates the
++ *                                   shared name and already governed both
++ *                                   contribution and the gated indexer.
++ *
++ * Either being false is enough.
++ */
++/**
++ * The rule itself, as a function of the two settings. Kept separate from the
++ * settings read so it can be exercised directly: appConfig is not resolved at
++ * module-load time, so a test cannot read it.
++ */
++export const optedOutFor = (
++  zyclopsIngest: boolean | undefined,
++  healthContribute: boolean | undefined
++): boolean => zyclopsIngest === false || healthContribute !== true;
++
++/** Binds the rule to the resolved settings. */
++export const isOptedOut = (): boolean =>
++  optedOutFor(
++    appConfig.builtins.nab.zyclopsIngest,
++    appConfig.builtins.nab.healthContribute
++  );
+diff --git a/packages/core/src/builtins/utils/zyclopsHealth.ts b/packages/core/src/builtins/utils/zyclopsHealth.ts
+index 93f2823..9a096a2 100644
+--- a/packages/core/src/builtins/utils/zyclopsHealth.ts
++++ b/packages/core/src/builtins/utils/zyclopsHealth.ts
+@@ -1,6 +1,7 @@
+ import { fetch } from 'undici';
+ import { createLogger } from '../../utils/index.js';
+ import { config as appConfig } from '../../config/index.js';
++import { isOptedOut } from './sharedIndex.js';
+ 
+ const logger = createLogger('zyclops-health');
+ 
+@@ -102,6 +103,9 @@ export async function fetchZyclopsHealth(
+   );
+   if (!descriptors.length || !hosts.length) return result;
+ 
++  // Querying the index is a benefit of contributing to it.
++  if (isOptedOut()) return result;
++
+   const url = appConfig.builtins.nab.zyclopsHealthApiUrl;
+   if (!url) return result;
+ 
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index 5f4ad7f..fccf4eb 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -669,6 +669,16 @@ export const builtinsSchema = {
+       requiresRestart: false,
+       secret: false,
+     },
++    zyclopsIngest: {
++      schema: z.boolean(),
++      default: true,
++      label: 'Participate in the shared health index',
++      env: 'ZYCLOPS_INGEST',
++      description:
++        'When false, this instance neither contributes to nor queries the shared health index, and cannot use the gated indexer. Reading and contributing are one setting.',
++      requiresRestart: false,
++      secret: false,
++    },
+     healthContribute: {
+       schema: z.boolean(),
+       default: false,
+diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
+index 2519ef7..ff2b4a1 100644
+--- a/packages/core/src/presets/newznab.ts
++++ b/packages/core/src/presets/newznab.ts
+@@ -2,6 +2,7 @@ import { Addon, Option, ParsedStream, Stream, UserData } from '../db/index.js';
+ import { Preset, baseOptions } from './preset.js';
+ import { appConfig, RESOURCES, ServiceId, constants } from '../utils/index.js';
+ import { BuiltinAddonPreset, BuiltinStreamParser } from './builtin.js';
++import { isOptedOut } from '../builtins/utils/sharedIndex.js';
+ 
+ class NewznabStreamParser extends BuiltinStreamParser {
+   protected override getMessage(
+@@ -379,11 +380,11 @@ export class NewznabPreset extends BuiltinAddonPreset {
+     options: Record<string, any>
+   ): Promise<Addon[]> {
+     const gatedIndexer = appConfig.builtins.nab.healthIndexerUrl;
+-    if (gatedIndexer && !appConfig.builtins.nab.healthContribute) {
++    if (gatedIndexer && isOptedOut()) {
+       const configured = options.api?.url;
+       if (configured && sameEndpoint(configured, gatedIndexer)) {
+         throw new Error(
+-          `${this.METADATA.NAME}: this indexer requires NZB contribution to be enabled (BUILTIN_NAB_HEALTH_CONTRIBUTE).`
++          `${this.METADATA.NAME}: this indexer requires participation in the shared health index (ZYCLOPS_INGEST / BUILTIN_NAB_HEALTH_CONTRIBUTE).`
+         );
+       }
+     }
