@@ -1,6 +1,6 @@
-From 81eb77a4c9d8648707c8fc833b87b6c4166932c8 Mon Sep 17 00:00:00 2001
+From 13b4960c067437c553e5c885f635e2cf3fe5c416 Mon Sep 17 00:00:00 2001
 From: David Young <davidy@funkypenguin.co.nz>
-Date: Sat, 26 Sep 2026 06:06:14 +1200
+Date: Sat, 26 Sep 2026 09:16:11 +1200
 Subject: [PATCH] feat: add REPLAY_BYPASS_HOSTS for the built-in Newznab client
 
 Hosts named in REPLAY_BYPASS_HOSTS are requested directly rather than through
@@ -17,19 +17,35 @@ Entry forms:
   .domain     the domain and any subdomain
   *.domain    subdomains only, not the domain itself
 
-Entries may be separated by commas, semicolons or whitespace, and a bare `*`
-is ignored -- the list selects individual hosts and has no catch-all form.
-Comparison is case-insensitive and ignores any port, credentials or IPv6
-brackets on either side.
+Entries are bare hostnames, optionally with a port, and may be separated by
+commas, semicolons or whitespace in any mix.
+
+Anything carrying a scheme, path, query, fragment or credentials is rejected
+rather than trimmed down to the host it appears to name. Separators are
+applied first, so a pasted URL cannot be read back reliably: a semicolon
+inside a password splits one value into several entries, and
+`https://user:p;*.com;ss@host.example/` would otherwise contribute `*.com` as
+a rule of its own.
+
+For the same reason a wildcard needs at least two labels. `*`, `*.`, `.`,
+`*.com` and `.com` are all dropped: the list selects individual hosts and has
+no catch-all form.
+
+Comparison ignores case, port, IPv6 brackets, the trailing DNS root dot and
+IDN spelling on both sides. Three IPv6 cases a naive host:port split gets
+wrong are handled explicitly: a bracketed literal must not be cut at its
+first colon; an unbracketed one has no port to strip, and cutting `::1` there
+yields the empty string; and a scope id is dropped, since URL.host drops it
+and an entry keeping one could never match its own destination.
 
 Unset or empty leaves behaviour unchanged.
 ---
- packages/core/src/builtins/base/nab/api.ts    |  9 ++-
- packages/core/src/builtins/newznab/addon.ts   | 15 +++++
- .../src/builtins/utils/replayBypass.test.ts   | 53 ++++++++++++++++++
- .../core/src/builtins/utils/replayBypass.ts   | 56 +++++++++++++++++++
- packages/core/src/config/schema/builtins.ts   | 10 ++++
- 5 files changed, 142 insertions(+), 1 deletion(-)
+ packages/core/src/builtins/base/nab/api.ts    |   9 +-
+ packages/core/src/builtins/newznab/addon.ts   |  15 ++
+ .../src/builtins/utils/replayBypass.test.ts   | 111 +++++++++++++++
+ .../core/src/builtins/utils/replayBypass.ts   | 128 ++++++++++++++++++
+ packages/core/src/config/schema/builtins.ts   |  10 ++
+ 5 files changed, 272 insertions(+), 1 deletion(-)
  create mode 100644 packages/core/src/builtins/utils/replayBypass.test.ts
  create mode 100644 packages/core/src/builtins/utils/replayBypass.ts
 
@@ -95,10 +111,10 @@ index 49c0aa0..dfbc3ef 100644
      replayUrl.searchParams.set('url', originalUrl);
 diff --git a/packages/core/src/builtins/utils/replayBypass.test.ts b/packages/core/src/builtins/utils/replayBypass.test.ts
 new file mode 100644
-index 0000000..7011694
+index 0000000..a6e0c96
 --- /dev/null
 +++ b/packages/core/src/builtins/utils/replayBypass.test.ts
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,111 @@
 +import { describe, it } from 'node:test';
 +import assert from 'node:assert/strict';
 +import { isBypassedHost, parseBypassHosts } from './replayBypass.js';
@@ -108,94 +124,221 @@ index 0000000..7011694
 +    isBypassedHost(host, parseBypassHosts(raw));
 +
 +  it('matches an exact host and nothing below it', () => {
-+    assert.equal(on('example.com', 'example.com'), true);
-+    assert.equal(on('example.com', 'api.example.com'), false);
++    assert.equal(on('host.example', 'host.example'), true);
++    assert.equal(on('host.example', 'api.host.example'), false);
++    assert.equal(on('host.example', 'nothost.example'), false);
 +  });
 +
 +  it('matches the domain and its subdomains for a leading dot', () => {
-+    assert.equal(on('.example.com', 'example.com'), true);
-+    assert.equal(on('.example.com', 'api.example.com'), true);
-+    assert.equal(on('.example.com', 'notexample.com'), false);
++    assert.equal(on('.host.example', 'host.example'), true);
++    assert.equal(on('.host.example', 'api.host.example'), true);
++    assert.equal(on('.host.example', 'nothost.example'), false);
 +  });
 +
-+  it('matches only subdomains for *.domain', () => {
-+    assert.equal(on('*.example.com', 'api.example.com'), true);
-+    assert.equal(on('*.example.com', 'example.com'), false);
-+    assert.equal(on('*.example.com', 'notexample.com'), false);
++  it('matches subdomains but not the domain for a star', () => {
++    assert.equal(on('*.host.example', 'api.host.example'), true);
++    assert.equal(on('*.host.example', 'host.example'), false);
++    assert.equal(on('*.host.example', 'nothost.example'), false);
 +  });
 +
-+  it('separates entries on commas, semicolons or whitespace', () => {
-+    const want = ['a.example.com', 'b.example.com', 'c.example.com'];
-+    assert.deepEqual(parseBypassHosts('a.example.com,b.example.com,c.example.com'), want);
-+    assert.deepEqual(parseBypassHosts('a.example.com b.example.com c.example.com'), want);
-+    assert.deepEqual(parseBypassHosts('a.example.com; b.example.com,  c.example.com'), want);
-+    assert.deepEqual(parseBypassHosts('\n a.example.com \t b.example.com\nc.example.com '), want);
++  it('accepts commas, semicolons and whitespace between entries', () => {
++    for (const raw of [
++      'a.example,b.example',
++      'a.example b.example',
++      'a.example;b.example',
++      ' a.example ,;  b.example\n',
++    ]) {
++      assert.equal(on(raw, 'a.example'), true, raw);
++      assert.equal(on(raw, 'b.example'), true, raw);
++      assert.equal(on(raw, 'c.example'), false, raw);
++    }
 +  });
 +
-+  it('ignores a bare catch-all but keeps the rest of the list', () => {
++  it('drops a bare catch-all without dropping the rest', () => {
 +    assert.deepEqual(parseBypassHosts('*'), []);
-+    assert.equal(on('*', 'example.com'), false);
-+    assert.deepEqual(parseBypassHosts('* example.com'), ['example.com']);
++    assert.deepEqual(parseBypassHosts('* ; host.example , *'), ['host.example']);
++    assert.equal(on('*, host.example', 'other.example'), false);
 +  });
 +
-+  it('ignores port, case, credentials and IPv6 brackets', () => {
-+    assert.equal(on('example.com', 'example.com:443'), true);
-+    assert.equal(on('Example.COM', 'example.com'), true);
-+    assert.equal(on('example.com', 'user:pw@example.com:443'), true);
-+    assert.equal(on('[::1]', '[::1]:8080'), true);
++  it('ignores case and port', () => {
++    assert.equal(on('Host.EXAMPLE', 'host.example'), true);
++    assert.equal(on('host.example', 'HOST.example:443'), true);
++    assert.equal(on('host.example:8080', 'host.example'), true);
++  });
++
++  it('ignores the trailing DNS root dot', () => {
++    assert.equal(on('host.example', 'host.example.'), true);
++    assert.equal(on('host.example.', 'host.example'), true);
++    assert.equal(on('*.host.example', 'api.host.example.'), true);
++    assert.equal(on('*.host.example', 'host.example.'), false);
++  });
++
++  it('ignores IDN spelling', () => {
++    assert.equal(on('bücher.example', 'xn--bcher-kva.example'), true);
++    assert.equal(on('xn--bcher-kva.example', 'bücher.example'), true);
++    assert.equal(on('*.bücher.example', 'api.xn--bcher-kva.example'), true);
++  });
++
++  it('matches IPv6 literals however they are written', () => {
++    assert.equal(on('::1', '[::1]'), true);
++    assert.equal(on('[::1]', '[::1]'), true);
++    assert.equal(on('[::1]:8080', '[::1]'), true);
++    assert.equal(on('0:0:0:0:0:0:0:1', '[::1]'), true);
++    assert.equal(on('[2001:0DB8::1]', '[2001:db8::1]'), true);
++    assert.equal(on('[fe80::1%1]', '[fe80::1]'), true);
++    assert.equal(on('::2', '[::1]'), false);
++    assert.equal(on('::1', 'host.example'), false);
++  });
++
++  it('rejects URL-shaped entries rather than salvaging them', () => {
++    // Separators are applied before anything parses an entry, so a pasted URL
++    // cannot be read back reliably.
++    for (const raw of [
++      'https://host.example/api',
++      'user:pw@host.example',
++      'host.example/path',
++      'host.example?t=caps',
++      'host.example#frag',
++    ]) {
++      assert.deepEqual(parseBypassHosts(raw), [], raw);
++    }
++
++    const injected = parseBypassHosts('https://user:p;*.com;ss@host.example/');
++    assert.ok(!injected.includes('*.com'));
++    assert.equal(isBypassedHost('unrelated.com', injected), false);
++    assert.equal(isBypassedHost('host.example', injected), false);
++  });
++
++  it('requires a wildcard to name at least two labels', () => {
++    for (const raw of ['*.', '.', '*.com', '.com', '*..']) {
++      assert.deepEqual(parseBypassHosts(raw), [], raw);
++      assert.equal(on(raw, 'unrelated.example.'), false, raw);
++      assert.equal(on(raw, 'unrelated.com'), false, raw);
++    }
++    assert.equal(on('*.host.example', 'api.host.example'), true);
++    assert.equal(on('.host.example', 'host.example'), true);
 +  });
 +
 +  it('is inert when unset or empty', () => {
-+    assert.equal(on('', 'example.com'), false);
-+    assert.equal(on('   ', 'example.com'), false);
-+    assert.equal(isBypassedHost('example.com', []), false);
-+    assert.equal(isBypassedHost(undefined, ['example.com']), false);
++    assert.equal(on('', 'host.example'), false);
++    assert.equal(on('   ', 'host.example'), false);
++    assert.equal(isBypassedHost('host.example', []), false);
++    assert.equal(isBypassedHost(undefined, ['host.example']), false);
 +  });
 +});
 diff --git a/packages/core/src/builtins/utils/replayBypass.ts b/packages/core/src/builtins/utils/replayBypass.ts
 new file mode 100644
-index 0000000..270035a
+index 0000000..0c46042
 --- /dev/null
 +++ b/packages/core/src/builtins/utils/replayBypass.ts
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,128 @@
++import { domainToASCII } from 'node:url';
++
 +/**
 + * Hosts configured to be requested directly rather than through the forwarding
 + * endpoints, applied to both the search call and the NZB fetch.
 + *
-+ * Entry forms, all accepted:
++ * Entry forms:
 + *
 + *   host        exact match
 + *   .domain     the domain and any subdomain
 + *   *.domain    subdomains only, not the domain itself
 + *
-+ * Entries may be separated by commas, semicolons or whitespace. A bare `*` is
-+ * ignored: the list selects individual hosts and has no catch-all form.
++ * Entries are bare hostnames, optionally with a port, separated by commas,
++ * semicolons or whitespace in any mix.
 + *
-+ * Comparison is case-insensitive and ignores any port, credentials or IPv6
-+ * brackets present on either side.
++ * Anything carrying a scheme, path, query, fragment or credentials is rejected
++ * rather than trimmed down to the host it appears to name. Separators are
++ * applied first, so a pasted URL cannot be read back reliably: a semicolon
++ * inside a password splits one value into several entries, and
++ * `https://user:p;*.com;ss@host.example/` would contribute `*.com` as a rule
++ * of its own.
++ *
++ * For the same reason a wildcard needs at least two labels. `*`, `*.`, `.`,
++ * `*.com` and `.com` are all dropped: the list selects individual hosts and
++ * has no catch-all form.
++ *
++ * Comparison ignores case, port, IPv6 brackets, the trailing DNS root dot and
++ * IDN spelling on both sides.
++ */
++
++/** Collapses the spellings of one IPv6 address to the form the URL parser prints. */
++const canonicaliseIpv6 = (literal: string): string => {
++  // A scope id is dropped by URL.host, so an entry that keeps one could never
++  // match its own destination.
++  const percent = literal.indexOf('%');
++  const bare = percent === -1 ? literal : literal.slice(0, percent);
++  try {
++    const { hostname } = new URL(`http://[${bare}]/`);
++    return hostname.startsWith('[') ? hostname.slice(1, -1) : hostname;
++  } catch {
++    return bare;
++  }
++};
++
++/** Converts a unicode domain to punycode; left alone if it will not convert. */
++const toAsciiHost = (host: string): string => {
++  // eslint-disable-next-line no-control-regex
++  if (host.length === 0 || /^[\x00-\x7f]*$/.test(host)) return host;
++  const ascii = domainToASCII(host);
++  return ascii.length > 0 ? ascii : host;
++};
++
++/**
++ * Reduces a host, or the host part of an entry, to one comparable spelling.
++ * Run on both sides, so the two cannot disagree about what counts as the same
++ * name.
 + */
 +const normaliseHost = (host: string): string => {
 +  let h = host.trim().toLowerCase();
 +
-+  const at = h.lastIndexOf('@');
-+  if (at !== -1) h = h.slice(at + 1);
-+
 +  // A bracketed IPv6 literal must not be cut at its first colon.
 +  if (h.startsWith('[')) {
 +    const close = h.indexOf(']');
-+    if (close !== -1) return h.slice(1, close);
++    if (close !== -1) return canonicaliseIpv6(h.slice(1, close));
 +  }
 +
 +  const colon = h.indexOf(':');
-+  return colon === -1 ? h : h.slice(0, colon);
++  if (colon !== -1) {
++    // Unbracketed with more than one colon is an IPv6 literal written without
++    // brackets, which has no port to strip. Cutting `::1` at its first colon
++    // yields the empty string and drops the entry with nothing to show for it.
++    if (h.lastIndexOf(':') !== colon) return canonicaliseIpv6(h);
++    h = h.slice(0, colon);
++  }
++
++  // `host.example.` and `host.example` are the same name. Only the root dot
++  // goes: a leading dot is the entry grammar and is stripped before this runs.
++  return toAsciiHost(h.replace(/\.+$/, ''));
++};
++
++/**
++ * Validates one written entry and reduces it to a comparable pattern, or
++ * returns null. Rejecting is the right default: an entry that cannot be read
++ * as a hostname is a mistake, and guessing at it risks widening the list
++ * rather than narrowing it.
++ */
++const parseEntry = (raw: string): string | null => {
++  const entry = raw.trim();
++  if (entry.length === 0) return null;
++  if (/[/?#@\\]/.test(entry) || entry.includes('://')) return null;
++
++  const prefix = entry.startsWith('*.') ? '*.' : entry.startsWith('.') ? '.' : '';
++  const host = normaliseHost(entry.slice(prefix.length));
++  if (host.length === 0 || host === '*') return null;
++
++  // A one-label wildcard covers an entire suffix, which is a catch-all by
++  // another name and is also what an accidentally-split entry looks like.
++  if (prefix.length > 0 && host.split('.').filter(Boolean).length < 2) return null;
++
++  return prefix + host;
 +};
 +
 +export const parseBypassHosts = (raw?: string | null): string[] =>
 +  (raw ?? '')
 +    .split(/[\s,;]+/)
-+    .map((e) => e.trim().toLowerCase())
-+    .map((e) => (e.startsWith('[') && e.endsWith(']') ? e.slice(1, -1) : e))
-+    .filter((e) => e.length > 0 && e !== '*');
++    .map(parseEntry)
++    .filter((entry): entry is string => entry !== null);
 +
 +export const isBypassedHost = (
 +  host: string | undefined,
@@ -203,12 +346,15 @@ index 0000000..270035a
 +): boolean => {
 +  if (!host || entries.length === 0) return false;
 +  const h = normaliseHost(host);
++  if (h.length === 0) return false;
 +
 +  return entries.some((entry) => {
 +    if (entry.startsWith('*.')) {
++      // `*.host.example` covers sub.host.example but NOT host.example.
 +      return h.endsWith(entry.slice(1)) && h !== entry.slice(2);
 +    }
 +    if (entry.startsWith('.')) {
++      // `.host.example` covers host.example as well as sub.host.example.
 +      return h === entry.slice(1) || h.endsWith(entry);
 +    }
 +    return h === entry;
@@ -235,6 +381,3 @@ index 5e9ce1b..5f4ad7f 100644
      replayDownloadUrl: {
        schema: nullableUrl,
        default: null,
--- 
-2.54.0
-
