@@ -1,7 +1,0 @@
----
-process:
-  ttyd:
-    running: true
-http:
-  http://localhost:3001:
-    status: 200

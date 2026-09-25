@@ -1,9 +1,0 @@
----
-process:
-  node:
-    running: true
-
-http:
-  http://localhost:1337/api/v1/status.json:
-    status: 200
-    timeout: 5000
