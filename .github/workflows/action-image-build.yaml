@@ -64,7 +64,7 @@ jobs:
           # These apps publish their complete build (Dockerfile and patches) in
           # this repository. The overlay below would silently replace any
           # same-named file, so the private tree may only carry documentation.
-          for app in aiostreams trek; do
+          for app in aiostreams; do
             dir="containers-private/apps/${app}"
             [ -d "$dir" ] || continue
             offending=$(find "$dir" -type f ! -name '*.md' ! -name '.gitattributes')
