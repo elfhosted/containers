@@ -1,6 +1,0 @@
-[
-  {
-    "color": "success",
-    "text": "Build $BUILD_NAME passed!"
-  }
-]
