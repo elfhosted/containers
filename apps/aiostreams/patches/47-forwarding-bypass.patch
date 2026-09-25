@@ -1,0 +1,240 @@
+From 81eb77a4c9d8648707c8fc833b87b6c4166932c8 Mon Sep 17 00:00:00 2001
+From: David Young <davidy@funkypenguin.co.nz>
+Date: Sat, 26 Sep 2026 06:06:14 +1200
+Subject: [PATCH] feat: add REPLAY_BYPASS_HOSTS for the built-in Newznab client
+
+Hosts named in REPLAY_BYPASS_HOSTS are requested directly rather than through
+the forwarding endpoints configured by BUILTIN_NAB_REPLAY_ENDPOINT and
+BUILTIN_NZB_REPLAY_DOWNLOAD_URL.
+
+Applies to both paths: the search call matches on the upstream host, and the
+NZB fetch matches on the enclosure's own host, which is not always the same
+host.
+
+Entry forms:
+
+  host        exact match
+  .domain     the domain and any subdomain
+  *.domain    subdomains only, not the domain itself
+
+Entries may be separated by commas, semicolons or whitespace, and a bare `*`
+is ignored -- the list selects individual hosts and has no catch-all form.
+Comparison is case-insensitive and ignores any port, credentials or IPv6
+brackets on either side.
+
+Unset or empty leaves behaviour unchanged.
+---
+ packages/core/src/builtins/base/nab/api.ts    |  9 ++-
+ packages/core/src/builtins/newznab/addon.ts   | 15 +++++
+ .../src/builtins/utils/replayBypass.test.ts   | 53 ++++++++++++++++++
+ .../core/src/builtins/utils/replayBypass.ts   | 56 +++++++++++++++++++
+ packages/core/src/config/schema/builtins.ts   | 10 ++++
+ 5 files changed, 142 insertions(+), 1 deletion(-)
+ create mode 100644 packages/core/src/builtins/utils/replayBypass.test.ts
+ create mode 100644 packages/core/src/builtins/utils/replayBypass.ts
+
+diff --git a/packages/core/src/builtins/base/nab/api.ts b/packages/core/src/builtins/base/nab/api.ts
+index c095def..ef6f6bb 100644
+--- a/packages/core/src/builtins/base/nab/api.ts
++++ b/packages/core/src/builtins/base/nab/api.ts
+@@ -13,6 +13,7 @@ import {
+ import { config as appConfig } from '../../../config/index.js';
+ import type { Logger } from '../../../logging/logger.js';
+ import { searchWithBackgroundRefresh } from '../../utils/general.js';
++import { isBypassedHost, parseBypassHosts } from '../../utils/replayBypass.js';
+ 
+ // --- Generic Custom Error ---
+ export class NabApiError extends Error {
+@@ -610,7 +611,13 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
+     const shouldUseReplay =
+       this.namespace === 'newznab' &&
+       !this.disableReplay &&
+-      Boolean(appConfig.builtins.nab.replayEndpoint);
++      Boolean(appConfig.builtins.nab.replayEndpoint) &&
++      // Matched on the upstream host, not the forwarding endpoint's. The NZB
++      // leg in newznab/addon.ts applies the same list.
++      !isBypassedHost(
++        url.host,
++        parseBypassHosts(appConfig.builtins.nab.replayBypassHosts)
++      );
+ 
+     if (shouldUseReplay) {
+       this.logger.info(
+diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
+index 49c0aa0..dfbc3ef 100644
+--- a/packages/core/src/builtins/newznab/addon.ts
++++ b/packages/core/src/builtins/newznab/addon.ts
+@@ -30,6 +30,7 @@ import {
+ } from '../utils/zyclopsHealth.js';
+ import type { BuiltinServiceId } from '../../utils/index.js';
+ import type { Stream } from '../../db/index.js';
++import { isBypassedHost, parseBypassHosts } from '../utils/replayBypass.js';
+ 
+ const logger = createLogger('newznab');
+ 
+@@ -73,6 +74,20 @@ const buildReplayDownloadUrl = (originalUrl: string): string => {
+     return originalUrl;
+   }
+ 
++  // Matched on the enclosure's own host, which is not always the API host.
++  try {
++    if (
++      isBypassedHost(
++        new URL(originalUrl).host,
++        parseBypassHosts(appConfig.builtins.nab.replayBypassHosts)
++      )
++    ) {
++      return originalUrl;
++    }
++  } catch {
++    // unparseable enclosure URL -- fall through and let the existing handling deal with it
++  }
++
+   try {
+     const replayUrl = new URL(replayBase);
+     replayUrl.searchParams.set('url', originalUrl);
+diff --git a/packages/core/src/builtins/utils/replayBypass.test.ts b/packages/core/src/builtins/utils/replayBypass.test.ts
+new file mode 100644
+index 0000000..7011694
+--- /dev/null
++++ b/packages/core/src/builtins/utils/replayBypass.test.ts
+@@ -0,0 +1,53 @@
++import { describe, it } from 'node:test';
++import assert from 'node:assert/strict';
++import { isBypassedHost, parseBypassHosts } from './replayBypass.js';
++
++describe('bypass host matching', () => {
++  const on = (raw: string, host: string) =>
++    isBypassedHost(host, parseBypassHosts(raw));
++
++  it('matches an exact host and nothing below it', () => {
++    assert.equal(on('example.com', 'example.com'), true);
++    assert.equal(on('example.com', 'api.example.com'), false);
++  });
++
++  it('matches the domain and its subdomains for a leading dot', () => {
++    assert.equal(on('.example.com', 'example.com'), true);
++    assert.equal(on('.example.com', 'api.example.com'), true);
++    assert.equal(on('.example.com', 'notexample.com'), false);
++  });
++
++  it('matches only subdomains for *.domain', () => {
++    assert.equal(on('*.example.com', 'api.example.com'), true);
++    assert.equal(on('*.example.com', 'example.com'), false);
++    assert.equal(on('*.example.com', 'notexample.com'), false);
++  });
++
++  it('separates entries on commas, semicolons or whitespace', () => {
++    const want = ['a.example.com', 'b.example.com', 'c.example.com'];
++    assert.deepEqual(parseBypassHosts('a.example.com,b.example.com,c.example.com'), want);
++    assert.deepEqual(parseBypassHosts('a.example.com b.example.com c.example.com'), want);
++    assert.deepEqual(parseBypassHosts('a.example.com; b.example.com,  c.example.com'), want);
++    assert.deepEqual(parseBypassHosts('\n a.example.com \t b.example.com\nc.example.com '), want);
++  });
++
++  it('ignores a bare catch-all but keeps the rest of the list', () => {
++    assert.deepEqual(parseBypassHosts('*'), []);
++    assert.equal(on('*', 'example.com'), false);
++    assert.deepEqual(parseBypassHosts('* example.com'), ['example.com']);
++  });
++
++  it('ignores port, case, credentials and IPv6 brackets', () => {
++    assert.equal(on('example.com', 'example.com:443'), true);
++    assert.equal(on('Example.COM', 'example.com'), true);
++    assert.equal(on('example.com', 'user:pw@example.com:443'), true);
++    assert.equal(on('[::1]', '[::1]:8080'), true);
++  });
++
++  it('is inert when unset or empty', () => {
++    assert.equal(on('', 'example.com'), false);
++    assert.equal(on('   ', 'example.com'), false);
++    assert.equal(isBypassedHost('example.com', []), false);
++    assert.equal(isBypassedHost(undefined, ['example.com']), false);
++  });
++});
+diff --git a/packages/core/src/builtins/utils/replayBypass.ts b/packages/core/src/builtins/utils/replayBypass.ts
+new file mode 100644
+index 0000000..270035a
+--- /dev/null
++++ b/packages/core/src/builtins/utils/replayBypass.ts
+@@ -0,0 +1,56 @@
++/**
++ * Hosts configured to be requested directly rather than through the forwarding
++ * endpoints, applied to both the search call and the NZB fetch.
++ *
++ * Entry forms, all accepted:
++ *
++ *   host        exact match
++ *   .domain     the domain and any subdomain
++ *   *.domain    subdomains only, not the domain itself
++ *
++ * Entries may be separated by commas, semicolons or whitespace. A bare `*` is
++ * ignored: the list selects individual hosts and has no catch-all form.
++ *
++ * Comparison is case-insensitive and ignores any port, credentials or IPv6
++ * brackets present on either side.
++ */
++const normaliseHost = (host: string): string => {
++  let h = host.trim().toLowerCase();
++
++  const at = h.lastIndexOf('@');
++  if (at !== -1) h = h.slice(at + 1);
++
++  // A bracketed IPv6 literal must not be cut at its first colon.
++  if (h.startsWith('[')) {
++    const close = h.indexOf(']');
++    if (close !== -1) return h.slice(1, close);
++  }
++
++  const colon = h.indexOf(':');
++  return colon === -1 ? h : h.slice(0, colon);
++};
++
++export const parseBypassHosts = (raw?: string | null): string[] =>
++  (raw ?? '')
++    .split(/[\s,;]+/)
++    .map((e) => e.trim().toLowerCase())
++    .map((e) => (e.startsWith('[') && e.endsWith(']') ? e.slice(1, -1) : e))
++    .filter((e) => e.length > 0 && e !== '*');
++
++export const isBypassedHost = (
++  host: string | undefined,
++  entries: string[]
++): boolean => {
++  if (!host || entries.length === 0) return false;
++  const h = normaliseHost(host);
++
++  return entries.some((entry) => {
++    if (entry.startsWith('*.')) {
++      return h.endsWith(entry.slice(1)) && h !== entry.slice(2);
++    }
++    if (entry.startsWith('.')) {
++      return h === entry.slice(1) || h.endsWith(entry);
++    }
++    return h === entry;
++  });
++};
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index 5e9ce1b..5f4ad7f 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -729,6 +729,16 @@ export const builtinsSchema = {
+       requiresRestart: false,
+       secret: false,
+     },
++    replayBypassHosts: {
++      schema: z.string().optional(),
++      default: undefined,
++      label: 'Forwarding bypass hosts',
++      env: 'REPLAY_BYPASS_HOSTS',
++      description:
++        'Hosts to request directly instead of through the forwarding endpoints. Separate with commas, semicolons or spaces; accepts host, .domain and *.domain. Applies to searches and NZB fetches alike.',
++      requiresRestart: false,
++      secret: false,
++    },
+     replayDownloadUrl: {
+       schema: nullableUrl,
+       default: null,
+-- 
+2.54.0
+
