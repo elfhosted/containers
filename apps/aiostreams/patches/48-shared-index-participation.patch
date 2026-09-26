@@ -1,57 +1,82 @@
-From 6068d093abb030521267971781da5b2a6898c319 Mon Sep 17 00:00:00 2001
+From 56a86e6eed825e295bf082938db611b8f68e9a64 Mon Sep 17 00:00:00 2001
 From: David Young <davidy@funkypenguin.co.nz>
-Date: Sat, 26 Sep 2026 10:57:35 +1200
-Subject: [PATCH] feat: make querying the health index follow contribution,
- under a shared name
+Date: Sat, 26 Sep 2026 15:57:51 +1200
+Subject: [PATCH] feat: make health-index use follow contribution, under a
+ shared name
 
-The index is built from the NZBs its clients contribute, so reading it and
-writing to it are one decision, not two. This was already half true here: the
-gated indexer is refused unless BUILTIN_NAB_HEALTH_CONTRIBUTE is on. The
-queries were not -- an instance could contribute nothing and still ask the
-index about every release it found.
+The index is built from what its clients contribute, so reading it and
+writing to it are one decision. That was already half true here: the gated
+indexer is refused unless BUILTIN_NAB_HEALTH_CONTRIBUTE is on. Two other
+paths were not.
 
-fetchZyclopsHealth now returns no verdicts when not participating, so all
-three consequences follow the one decision: no contribution, no queries, no
-gated indexer.
+fetchZyclopsHealth now returns no verdicts when not participating.
+
+buildZyclopsHealthProxyConfig does too, and that one is the reason this is
+worth care. Routing a search through the health proxy makes no health API
+call at all -- the search URL is simply rewritten to the proxy, and every
+result still comes from the index. Gating only the queries missed it
+completely, and a live search on a real configuration proved it: with
+participation off, requests still went to the proxy endpoint. The user's own
+zyclopsHealthProxy flag is their preference; participation is whether it may
+be honoured.
 
 Adds ZYCLOPS_INGEST (default true) as a second way to say the same thing.
-This is the name shared with the other clients of this index, so one
-documented setting means the same thing wherever it is set. Either setting
-being false opts out.
+Either setting being false opts out.
 
-Note the consequence for an instance that sets a health API URL without
-turning contribution on: its queries now return nothing where before they
-were answered. That is the intended reciprocity, and the gated indexer has
-always been refused under exactly that condition.
+Note for existing deployments: an instance that sets a health API URL, or
+enables the health proxy on a preset, without turning contribution on will
+find both stop working. That is the intended reciprocity, and the gated
+indexer has always been refused under exactly that condition.
 
-The refusal message names both settings, since either explains it.
-
-TESTS
-
-The rule is expressed as a pure function of the two settings, so it can be
-exercised directly -- appConfig is not resolved at module-load time and no
-test in this package initialises it. Four tests cover both settings agreeing,
-either one opting out, and each default.
-
-Two one-line wrappers that could not be reached by a test were removed rather
-than left as uncovered indirection; the three call sites ask the rule
-directly.
-
-Mutation-checked: ignoring either setting, and treating an unset contribution
-setting as participating, each fail an assertion.
-
-Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+The tests carry a list of every consumer of the rule. It is a checklist for
+review rather than a behavioural assertion -- the rule is shared, the call
+sites are not, and a missed call site is invisible to a test of the rule.
+That is precisely how the proxy-routing path was missed on the first cut.
 ---
+ packages/core/src/builtins/newznab/addon.ts   | 15 ++++++
  .../src/builtins/utils/nzbContribution.ts     |  4 +-
- .../src/builtins/utils/sharedIndex.test.ts    | 28 ++++++++++++++
- .../core/src/builtins/utils/sharedIndex.ts    | 38 +++++++++++++++++++
+ .../src/builtins/utils/sharedIndex.test.ts    | 46 +++++++++++++++++++
+ .../core/src/builtins/utils/sharedIndex.ts    | 38 +++++++++++++++
  .../core/src/builtins/utils/zyclopsHealth.ts  |  4 ++
- packages/core/src/config/schema/builtins.ts   | 10 +++++
- packages/core/src/presets/newznab.ts          |  5 ++-
- 6 files changed, 86 insertions(+), 3 deletions(-)
+ packages/core/src/config/schema/builtins.ts   | 10 ++++
+ packages/core/src/presets/newznab.ts          |  5 +-
+ 7 files changed, 119 insertions(+), 3 deletions(-)
  create mode 100644 packages/core/src/builtins/utils/sharedIndex.test.ts
  create mode 100644 packages/core/src/builtins/utils/sharedIndex.ts
 
+diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
+index dfbc3ef..40c3c68 100644
+--- a/packages/core/src/builtins/newznab/addon.ts
++++ b/packages/core/src/builtins/newznab/addon.ts
+@@ -31,6 +31,7 @@ import {
+ import type { BuiltinServiceId } from '../../utils/index.js';
+ import type { Stream } from '../../db/index.js';
+ import { isBypassedHost, parseBypassHosts } from '../utils/replayBypass.js';
++import { isOptedOut } from '../utils/sharedIndex.js';
+ 
+ const logger = createLogger('newznab');
+ 
+@@ -149,6 +150,20 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+       return undefined;
+     }
+ 
++    // Routing a search through the health proxy IS reading the index, so it
++    // follows participation like the queries and the gated indexer do. The
++    // user's own flag is their preference; this is whether it may be honoured.
++    //
++    // Gating only fetchZyclopsHealth would miss this entirely: no health API
++    // call is made on this path, the search URL is simply rewritten to the
++    // proxy, and every result still comes from the index.
++    if (isOptedOut()) {
++      logger.info(
++        'Not routing this search through the health proxy: this instance is not participating in the shared health index.'
++      );
++      return undefined;
++    }
++
+     const endpoint = appConfig.builtins.nab.zyclopsHealthProxyEndpoint;
+     const path = '/api';
+     const extraParams: Record<string, string | number | boolean> = {};
 diff --git a/packages/core/src/builtins/utils/nzbContribution.ts b/packages/core/src/builtins/utils/nzbContribution.ts
 index 0278e43..73484d8 100644
 --- a/packages/core/src/builtins/utils/nzbContribution.ts
@@ -76,13 +101,24 @@ index 0278e43..73484d8 100644
      logger.debug('NZB contribution enabled but no ingest endpoint is set.');
 diff --git a/packages/core/src/builtins/utils/sharedIndex.test.ts b/packages/core/src/builtins/utils/sharedIndex.test.ts
 new file mode 100644
-index 0000000..9a04f83
+index 0000000..b08a1de
 --- /dev/null
 +++ b/packages/core/src/builtins/utils/sharedIndex.test.ts
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,46 @@
 +import { describe, it } from 'node:test';
 +import assert from 'node:assert/strict';
 +import { optedOutFor } from './sharedIndex.js';
++
++// Every consequence of opting out keys off this one rule. Naming them here so
++// a later change that adds a fourth consumer has something to notice: the
++// rule is shared, the call sites are not, and a missed call site is invisible
++// to these tests.
++const CONSUMERS = [
++  'contributeNzb -- no upload',
++  'fetchZyclopsHealth -- no queries',
++  'the gated indexer -- refused',
++  'buildZyclopsHealthProxyConfig -- searches not routed through the proxy',
++];
 +
 +describe('shared index participation', () => {
 +  it('participates only when both settings agree', () => {
@@ -100,6 +136,13 @@ index 0000000..9a04f83
 +    // It defaults to false, and the gated indexer has always been refused on
 +    // that basis -- querying now follows the same rule.
 +    assert.equal(optedOutFor(true, undefined), true);
++  });
++
++  it('covers every consumer of the rule', () => {
++    // Not a behavioural assertion: a checklist that fails review, not CI, if
++    // a consumer is added without being gated. The proxy-routing one was
++    // missed on the first cut and only surfaced by driving a real search.
++    assert.equal(CONSUMERS.length, 4);
 +  });
 +
 +  it('treats an unset participation setting as participating', () => {
