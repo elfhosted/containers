@@ -22,7 +22,7 @@ index 4ebad4b..64e7559 100644
      this.titleCache = Cache.getInstance('imdb-title');
      this.cinemetaCache = Cache.getInstance('cinemeta');
 diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
-index 6accc99..268980f 100644
+index 3479cc9..95431e0 100644
 --- a/packages/core/src/metadata/tmdb.ts
 +++ b/packages/core/src/metadata/tmdb.ts
 @@ -2,6 +2,7 @@
@@ -110,7 +110,7 @@ index fd5d315..6bbca20 100644
          timeout: 10000,
          ignoreRecursion: true,
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index 22946ed..b822a67 100644
+index 5a89f8c..11b9c24 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
 @@ -219,6 +219,30 @@ export const Env = cleanEnv(process.env, {

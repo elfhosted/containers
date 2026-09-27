@@ -1,6 +1,6 @@
 diff --git a/packages/core/src/builtins/library/catalog.test.ts b/packages/core/src/builtins/library/catalog.test.ts
 new file mode 100644
-index 00000000..f77a6b0b
+index 0000000..f77a6b0
 --- /dev/null
 +++ b/packages/core/src/builtins/library/catalog.test.ts
 @@ -0,0 +1,14 @@
@@ -19,10 +19,10 @@ index 00000000..f77a6b0b
 +  });
 +});
 diff --git a/packages/core/src/builtins/library/catalog.ts b/packages/core/src/builtins/library/catalog.ts
-index a7f4118d..1a8bec2a 100644
+index 6cdf76f..c267a39 100644
 --- a/packages/core/src/builtins/library/catalog.ts
 +++ b/packages/core/src/builtins/library/catalog.ts
-@@ -51,6 +51,12 @@ interface ParsedCatalogItem {
+@@ -60,6 +60,12 @@ interface ParsedCatalogItem {
    normalisedTitle: string;
  }
  
@@ -35,7 +35,7 @@ index a7f4118d..1a8bec2a 100644
  function parseCatalogItems(items: CatalogItem[]): ParsedCatalogItem[] {
    return items.map((item) => {
      const parsed = parseTorrentTitleCached(item.name ?? '');
-@@ -166,7 +172,7 @@ export async function fetchCatalog(
+@@ -175,7 +181,7 @@ export async function fetchCatalog(
          ...item,
          serviceId,
          serviceCredential,
@@ -45,10 +45,10 @@ index a7f4118d..1a8bec2a 100644
      }
    } else {
 diff --git a/packages/core/src/debrid/base.ts b/packages/core/src/debrid/base.ts
-index b17f3179..fc6255ad 100644
+index 2364c7d..c44f2db 100644
 --- a/packages/core/src/debrid/base.ts
 +++ b/packages/core/src/debrid/base.ts
-@@ -187,6 +187,7 @@ export type DebridFile = z.infer<typeof DebridFileSchema>;
+@@ -188,6 +188,7 @@ export type DebridFile = z.infer<typeof DebridFileSchema>;
  export interface DebridDownload {
    id: string | number;
    library?: boolean;
@@ -58,7 +58,7 @@ index b17f3179..fc6255ad 100644
    private?: boolean;
 diff --git a/packages/core/src/debrid/stremthru.test.ts b/packages/core/src/debrid/stremthru.test.ts
 new file mode 100644
-index 00000000..39d8b9ae
+index 0000000..39d8b9a
 --- /dev/null
 +++ b/packages/core/src/debrid/stremthru.test.ts
 @@ -0,0 +1,65 @@
@@ -128,10 +128,10 @@ index 00000000..39d8b9ae
 +  });
 +});
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 7c88ec4f..7d6898f2 100644
+index 5571c31..671587e 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -45,6 +45,48 @@ function convertStremThruError(error: StremThruError): DebridError {
+@@ -48,6 +48,48 @@ function convertStremThruError(error: StremThruError): DebridError {
    });
  }
  
@@ -180,7 +180,7 @@ index 7c88ec4f..7d6898f2 100644
  export interface StremThruServiceConfig {
    serviceName: ServiceId;
    clientIp?: string;
-@@ -700,17 +742,12 @@ export class StremThruService
+@@ -650,17 +692,12 @@ export class StremThruService
          offset,
        });
        totalItems = Math.min(result.data.total_items, maxItems);
@@ -204,7 +204,7 @@ index 7c88ec4f..7d6898f2 100644
        offset += limit;
        if (result.data.items.length < limit) break;
      }
-@@ -1097,16 +1134,12 @@ export class StremThruService
+@@ -1029,16 +1066,12 @@ export class StremThruService
            offset,
          });
          totalItems = Math.min(result.data.total_items, maxItems);

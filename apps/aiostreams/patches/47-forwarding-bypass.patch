@@ -1,67 +1,16 @@
-From 13b4960c067437c553e5c885f635e2cf3fe5c416 Mon Sep 17 00:00:00 2001
-From: David Young <davidy@funkypenguin.co.nz>
-Date: Sat, 26 Sep 2026 09:16:11 +1200
-Subject: [PATCH] feat: add REPLAY_BYPASS_HOSTS for the built-in Newznab client
-
-Hosts named in REPLAY_BYPASS_HOSTS are requested directly rather than through
-the forwarding endpoints configured by BUILTIN_NAB_REPLAY_ENDPOINT and
-BUILTIN_NZB_REPLAY_DOWNLOAD_URL.
-
-Applies to both paths: the search call matches on the upstream host, and the
-NZB fetch matches on the enclosure's own host, which is not always the same
-host.
-
-Entry forms:
-
-  host        exact match
-  .domain     the domain and any subdomain
-  *.domain    subdomains only, not the domain itself
-
-Entries are bare hostnames, optionally with a port, and may be separated by
-commas, semicolons or whitespace in any mix.
-
-Anything carrying a scheme, path, query, fragment or credentials is rejected
-rather than trimmed down to the host it appears to name. Separators are
-applied first, so a pasted URL cannot be read back reliably: a semicolon
-inside a password splits one value into several entries, and
-`https://user:p;*.com;ss@host.example/` would otherwise contribute `*.com` as
-a rule of its own.
-
-For the same reason a wildcard needs at least two labels. `*`, `*.`, `.`,
-`*.com` and `.com` are all dropped: the list selects individual hosts and has
-no catch-all form.
-
-Comparison ignores case, port, IPv6 brackets, the trailing DNS root dot and
-IDN spelling on both sides. Three IPv6 cases a naive host:port split gets
-wrong are handled explicitly: a bracketed literal must not be cut at its
-first colon; an unbracketed one has no port to strip, and cutting `::1` there
-yields the empty string; and a scope id is dropped, since URL.host drops it
-and an entry keeping one could never match its own destination.
-
-Unset or empty leaves behaviour unchanged.
----
- packages/core/src/builtins/base/nab/api.ts    |   9 +-
- packages/core/src/builtins/newznab/addon.ts   |  15 ++
- .../src/builtins/utils/replayBypass.test.ts   | 111 +++++++++++++++
- .../core/src/builtins/utils/replayBypass.ts   | 128 ++++++++++++++++++
- packages/core/src/config/schema/builtins.ts   |  10 ++
- 5 files changed, 272 insertions(+), 1 deletion(-)
- create mode 100644 packages/core/src/builtins/utils/replayBypass.test.ts
- create mode 100644 packages/core/src/builtins/utils/replayBypass.ts
-
 diff --git a/packages/core/src/builtins/base/nab/api.ts b/packages/core/src/builtins/base/nab/api.ts
-index c095def..ef6f6bb 100644
+index 0afb5c5..08a39a0 100644
 --- a/packages/core/src/builtins/base/nab/api.ts
 +++ b/packages/core/src/builtins/base/nab/api.ts
-@@ -13,6 +13,7 @@ import {
- import { config as appConfig } from '../../../config/index.js';
- import type { Logger } from '../../../logging/logger.js';
- import { searchWithBackgroundRefresh } from '../../utils/general.js';
+@@ -25,6 +25,7 @@ import {
+   type NabSearchFunction,
+   type NabTextField,
+ } from './scan.js';
 +import { isBypassedHost, parseBypassHosts } from '../../utils/replayBypass.js';
  
  // --- Generic Custom Error ---
  export class NabApiError extends Error {
-@@ -610,7 +611,13 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
+@@ -384,7 +385,13 @@ export class BaseNabApi<N extends NabNamespace> {
      const shouldUseReplay =
        this.namespace === 'newznab' &&
        !this.disableReplay &&
@@ -77,10 +26,10 @@ index c095def..ef6f6bb 100644
      if (shouldUseReplay) {
        this.logger.info(
 diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
-index 49c0aa0..dfbc3ef 100644
+index e679078..2ff79a1 100644
 --- a/packages/core/src/builtins/newznab/addon.ts
 +++ b/packages/core/src/builtins/newznab/addon.ts
-@@ -30,6 +30,7 @@ import {
+@@ -31,6 +31,7 @@ import {
  } from '../utils/zyclopsHealth.js';
  import type { BuiltinServiceId } from '../../utils/index.js';
  import type { Stream } from '../../db/index.js';
@@ -88,7 +37,7 @@ index 49c0aa0..dfbc3ef 100644
  
  const logger = createLogger('newznab');
  
-@@ -73,6 +74,20 @@ const buildReplayDownloadUrl = (originalUrl: string): string => {
+@@ -74,6 +75,20 @@ const buildReplayDownloadUrl = (originalUrl: string): string => {
      return originalUrl;
    }
  
@@ -361,10 +310,10 @@ index 0000000..0c46042
 +  });
 +};
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 5e9ce1b..5f4ad7f 100644
+index 243c982..73b27e5 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -729,6 +729,16 @@ export const builtinsSchema = {
+@@ -756,6 +756,16 @@ export const builtinsSchema = {
        requiresRestart: false,
        secret: false,
      },

@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index 87ca150..a83f158 100644
+index 2b09c76..bba3baf 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
-@@ -302,6 +302,20 @@ export async function processStreams(
+@@ -314,6 +314,20 @@ export async function processStreams(
      serviceWrapTimings = resolvedResults.serviceTimings;
    }
  
@@ -21,10 +21,10 @@ index 87ca150..a83f158 100644
 +  }
 +
    if (resolvedResults.hasNewStreams) {
-     const filterStart = Date.now();
-     processedStreams = await ctx.filterer.filter(processedStreams, context);
+     await withRemuxDb(
+       processedStreams.filter((s) => !preServiceWrapIds.has(s.id))
 diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
-index 1dfd9bd..b63314a 100644
+index 2d7e898..22933bd 100644
 --- a/packages/core/src/main/serviceWrapper.ts
 +++ b/packages/core/src/main/serviceWrapper.ts
 @@ -79,7 +79,18 @@ export async function resolveServiceWrappedStreams(
@@ -235,10 +235,10 @@ index f541bc9..0019153 100644
    const serviceWrapPresets = userData.serviceWrap.presets;
    const isPresetInScope =
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index ccff061..d790337 100644
+index 036c6ea..f1dd494 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
-@@ -275,6 +275,11 @@ export const Env = cleanEnv(process.env, {
+@@ -279,6 +279,11 @@ export const Env = cleanEnv(process.env, {
      default: false,
      desc: 'Allow the dashboard System page to restart/stop the AIOStreams process.',
    }),

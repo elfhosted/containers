@@ -1,0 +1,129 @@
+diff --git a/packages/core/src/utils/distributed-lock.ts b/packages/core/src/utils/distributed-lock.ts
+index dcbffd6..45231ee 100644
+--- a/packages/core/src/utils/distributed-lock.ts
++++ b/packages/core/src/utils/distributed-lock.ts
+@@ -263,6 +263,9 @@ export class DistributedLock {
+     // Waiter logic
+     return new Promise((resolve, reject) => {
+       let timeoutId: NodeJS.Timeout;
++      // Set once this waiter has an outcome, so a late double-check cannot
++      // run the work again after the holder's result has been delivered.
++      let settled = false;
+ 
+       const cleanup = () => {
+         clearTimeout(timeoutId);
+@@ -273,6 +276,8 @@ export class DistributedLock {
+       };
+ 
+       const subscriber = (message: string) => {
++        if (settled) return;
++        settled = true;
+         cleanup();
+         const storedResult: StoredResult<T> = parseLockResult(message);
+         if (storedResult.error) {
+@@ -287,6 +292,8 @@ export class DistributedLock {
+       };
+ 
+       const onTimeout = () => {
++        if (settled) return;
++        settled = true;
+         cleanup();
+         const errorMessage = `Timed out waiting for redis lock on key: ${key}`;
+         logger.error(errorMessage);
+@@ -299,7 +306,7 @@ export class DistributedLock {
+           // Double-check the lock's existence to handle race conditions.
+           this.redis!.get(redisKey)
+             .then((lockValue) => {
+-              if (lockValue === null) {
++              if (lockValue === null && !settled) {
+                 /*
+                  * The holder finished between the failed acquire and the
+                  * subscription, so nothing was published to wait for. Running
+@@ -308,6 +315,7 @@ export class DistributedLock {
+                 logger.debug(
+                   `Lock for key ${key} was released before subscription completed; running it here.`
+                 );
++                settled = true;
+                 cleanup();
+                 fn().then(
+                   (result) => resolve({ result, cached: false }),
+diff --git a/packages/core/src/utils/distributed-lock.waiter.test.ts b/packages/core/src/utils/distributed-lock.waiter.test.ts
+new file mode 100644
+index 0000000..205fa95
+--- /dev/null
++++ b/packages/core/src/utils/distributed-lock.waiter.test.ts
+@@ -0,0 +1,74 @@
++import assert from 'node:assert/strict';
++import { describe, it } from 'node:test';
++
++import { DistributedLock, stringifyLockResult } from './distributed-lock.js';
++
++/**
++ * A lock whose acquire always fails, so every call takes the waiter path.
++ * `getReply` controls when the waiter's double-check GET answers.
++ */
++function waiterLock(getReply: Promise<string | null>) {
++  let listener: ((message: string) => void) | undefined;
++  const lock: any = Object.create(DistributedLock.prototype);
++  lock.redis = {
++    set: async () => null,
++    get: () => getReply,
++  };
++  lock.subRedis = {
++    subscribe: async (_channel: string, fn: (message: string) => void) => {
++      listener = fn;
++    },
++    unsubscribe: async () => {},
++  };
++  return {
++    lock,
++    publish: (value: unknown) =>
++      listener?.(stringifyLockResult({ value })),
++    subscribed: async () => {
++      while (!listener) await new Promise((r) => setImmediate(r));
++    },
++  };
++}
++
++describe('DistributedLock redis waiter', () => {
++  it('does not rerun the work when the result arrives before the double-check', async () => {
++    let answerGet!: (value: string | null) => void;
++    const { lock, publish, subscribed } = waiterLock(
++      new Promise((r) => (answerGet = r))
++    );
++    let runs = 0;
++    const pending = lock.withRedisLock(
++      'k',
++      async () => {
++        runs++;
++        return 'rerun';
++      },
++      { timeout: 1000 }
++    );
++
++    await subscribed();
++    publish('from-holder');
++    // The holder released before publishing, so the GET now sees no lock.
++    answerGet(null);
++
++    assert.deepEqual(await pending, { result: 'from-holder', cached: true });
++    await new Promise((r) => setImmediate(r));
++    assert.equal(runs, 0);
++  });
++
++  it('still runs the work when the holder finished before the subscription', async () => {
++    const { lock } = waiterLock(Promise.resolve(null));
++    let runs = 0;
++    const result = await lock.withRedisLock(
++      'k',
++      async () => {
++        runs++;
++        return 'ran-here';
++      },
++      { timeout: 1000 }
++    );
++
++    assert.deepEqual(result, { result: 'ran-here', cached: false });
++    assert.equal(runs, 1);
++  });
++});

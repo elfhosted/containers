@@ -48,6 +48,8 @@ COPY --from=cloner /source/package*.json ./
 COPY --from=cloner /source/packages/server/package*.json ./packages/server/
 COPY --from=cloner /source/packages/core/package*.json ./packages/core/
 COPY --from=cloner /source/packages/frontend/package*.json ./packages/frontend/
+COPY --from=cloner /source/packages/ui/package*.json ./packages/ui/
+COPY --from=cloner /source/packages/jellyfin-web/package*.json ./packages/jellyfin-web/
 COPY --from=cloner /source/packages/seanime-extensions/package*.json ./packages/seanime-extensions/
 COPY --from=cloner /source/packages/crypto/package*.json ./packages/crypto/
 COPY --from=cloner /source/pnpm-workspace.yaml ./pnpm-workspace.yaml
@@ -63,6 +65,8 @@ COPY --from=cloner /source/tsconfig.*json ./
 COPY --from=cloner /source/packages/server ./packages/server
 COPY --from=cloner /source/packages/core ./packages/core
 COPY --from=cloner /source/packages/frontend ./packages/frontend
+COPY --from=cloner /source/packages/ui ./packages/ui
+COPY --from=cloner /source/packages/jellyfin-web ./packages/jellyfin-web
 COPY --from=cloner /source/packages/seanime-extensions ./packages/seanime-extensions
 COPY --from=cloner /source/packages/crypto ./packages/crypto
 COPY --from=cloner /source/scripts ./scripts
@@ -77,6 +81,8 @@ RUN rm -rf node_modules
 RUN rm -rf packages/core/node_modules
 RUN rm -rf packages/server/node_modules
 RUN rm -rf packages/frontend/node_modules
+RUN rm -rf packages/ui/node_modules
+RUN rm -rf packages/jellyfin-web/node_modules
 RUN rm -rf packages/seanime-extensions/node_modules
 
 RUN pnpm install --prod --frozen-lockfile
@@ -103,6 +109,8 @@ COPY --from=builder /build/packages/core/dist ./packages/core/dist
 # v2.30 switched frontend bundler from Next.js to rsbuild — output is
 # packages/frontend/dist/ (not /out/ from the Next.js days).
 COPY --from=builder /build/packages/frontend/dist ./packages/frontend/dist
+# v2.35.0: the server serves the Jellyfin web app from packages/jellyfin-web/dist.
+COPY --from=builder /build/packages/jellyfin-web/dist ./packages/jellyfin-web/dist
 COPY --from=builder /build/packages/server/dist ./packages/server/dist
 COPY --from=builder /build/packages/server/src/static ./packages/server/dist/static
 COPY --from=builder /build/packages/seanime-extensions/dist ./packages/seanime-extensions/dist
@@ -136,6 +144,7 @@ COPY --from=busybox:1.36.0-uclibc /bin/sh /bin/sh
 # balloons RSS. LD_PRELOAD keeps memory bounded without touching app code.
 COPY --from=mimalloc /usr/local/lib/libmimalloc.so.2 /usr/local/lib/libmimalloc.so.2
 ENV LD_PRELOAD=/usr/local/lib/libmimalloc.so.2
+ENV NODE_OPTIONS="--max-semi-space-size=8 --expose-gc"
 COPY --from=runtime /runtime /app
 
 COPY --from=cloner /source /upstream-source

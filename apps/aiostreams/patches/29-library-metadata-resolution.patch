@@ -32,7 +32,7 @@ index ef72dc0..b379f7f 100644
  
    /**
 diff --git a/packages/core/src/builtins/library/catalog.ts b/packages/core/src/builtins/library/catalog.ts
-index 4ed9005..7ebc047 100644
+index b3b1809..6cdf76f 100644
 --- a/packages/core/src/builtins/library/catalog.ts
 +++ b/packages/core/src/builtins/library/catalog.ts
 @@ -15,6 +15,11 @@ import { ParsedResult } from '@viren070/parse-torrent-title';
@@ -47,7 +47,7 @@ index 4ed9005..7ebc047 100644
  
  const logger = createLogger('library:catalog');
  
-@@ -113,7 +118,8 @@ export async function fetchCatalog(
+@@ -122,7 +127,8 @@ export async function fetchCatalog(
    sort: CatalogSort,
    sortDirection: 'asc' | 'desc',
    genre?: string,
@@ -57,7 +57,7 @@ index 4ed9005..7ebc047 100644
  ): Promise<MetaPreview[]> {
    if (genre === Genre.ACTIONS) {
      if (skip > 0) {
-@@ -198,7 +204,11 @@ export async function fetchCatalog(
+@@ -206,7 +212,11 @@ export async function fetchCatalog(
    }
  
    const page = results.slice(skip, skip + CATALOG_PAGE_SIZE);
@@ -70,7 +70,7 @@ index 4ed9005..7ebc047 100644
  }
  
  export function parseExtras(extras?: string): {
-@@ -388,10 +398,14 @@ function sortParsedItems(
+@@ -396,10 +406,14 @@ function sortParsedItems(
    });
  }
  
@@ -86,7 +86,7 @@ index 4ed9005..7ebc047 100644
    if (item.size) descriptionParts.push(`📦 ${formatBytes(item.size, 1000)}`);
    if (item.addedAt) {
      descriptionParts.push(`📅 ${new Date(item.addedAt).toLocaleDateString()}`);
-@@ -400,12 +414,19 @@ function createMetaPreview(entry: ParsedCatalogItem): MetaPreview {
+@@ -408,12 +422,19 @@ function createMetaPreview(entry: ParsedCatalogItem): MetaPreview {
    const typeIcon = item.itemType === 'torrent' ? '🧲' : '📰';
    descriptionParts.push(`${typeIcon} ${item.itemType}`);
  
@@ -97,7 +97,7 @@ index 4ed9005..7ebc047 100644
 +    : undefined;
 +
    return {
-     id: `${LIBRARY_ID_PREFIX}${item.serviceId}.${item.itemType}.${item.id}`,
+     id: buildLibraryId(item.serviceId, item.itemType, item.id),
      type: 'library',
 -    name: item.name ?? 'Unknown',
 +    name: resolvedName ?? item.name ?? 'Unknown',
@@ -109,18 +109,18 @@ index 4ed9005..7ebc047 100644
  }
  
 diff --git a/packages/core/src/builtins/library/meta.ts b/packages/core/src/builtins/library/meta.ts
-index c08be75..f9844f5 100644
+index 98227fd..52e51b8 100644
 --- a/packages/core/src/builtins/library/meta.ts
 +++ b/packages/core/src/builtins/library/meta.ts
 @@ -15,6 +15,7 @@ import { Meta } from '../../db/schemas.js';
  import { formatSmartBytes } from '../../formatters/utils.js';
  import { parseTorrentTitleCached } from '../../parser/title.js';
- import { LIBRARY_ID_PREFIX } from './catalog.js';
+ import { LIBRARY_ID_PREFIX, buildLibraryId } from './catalog.js';
 +import { resolveLibraryMeta, TmdbAuth } from './resolve.js';
  
  const logger = createLogger('library:meta');
  
-@@ -88,16 +89,19 @@ export async function fetchItem(
+@@ -96,17 +97,20 @@ export async function fetchItem(
    throw new Error(`Service ${serviceId} does not support getNzb or listNzbs`);
  }
  
@@ -135,7 +135,8 @@ index c08be75..f9844f5 100644
 +  tmdbAuth?: TmdbAuth
 +): Promise<Meta> {
    logger.debug({ item, id }, 'Building library meta for item');
-   const videos = buildVideos(item, id);
+   const { serviceId, itemId } = parseLibraryId(id);
+   const videos = buildVideos(item, buildLibraryId(serviceId, itemType, itemId));
    const parsed = parseTorrentTitleCached(item.name ?? '');
 +  const resolved = await resolveLibraryMeta(parsed, tmdbAuth);
    const descriptionParts: string[] = [];
@@ -143,7 +144,7 @@ index c08be75..f9844f5 100644
  
    const padNumber = (num: number) => num.toString().padStart(2, '0');
  
-@@ -129,12 +133,20 @@ export function buildMeta(
+@@ -138,12 +142,20 @@ export function buildMeta(
      descriptionParts.push(`🖥️ ${parsed.resolution}`);
    }
  
@@ -322,7 +323,7 @@ index 0000000..0c8c79b
 +  return resolved;
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 1ae4396..90e5073 100644
+index 7ac2ae1..89ab75d 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
 @@ -182,7 +182,7 @@ export const builtinsSchema = {
@@ -354,10 +355,10 @@ index 1ae4396..90e5073 100644
      searchTimeout: {
        schema: positiveInt,
 diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
-index 268980f..a779cee 100644
+index 95431e0..85e53e5 100644
 --- a/packages/core/src/metadata/tmdb.ts
 +++ b/packages/core/src/metadata/tmdb.ts
-@@ -195,6 +195,33 @@ const IdTypeMap: Partial<Record<IdType, TMDBIdType>> = {
+@@ -298,6 +298,33 @@ const IdTypeMap: Partial<Record<IdType, TMDBIdType>> = {
    themoviedbId: 'tmdb_id',
  };
  
@@ -391,10 +392,10 @@ index 268980f..a779cee 100644
  export class TMDBMetadata {
    private readonly TMDB_ID_REGEX = /^(?:tmdb)[-:](\d+)(?::\d+:\d+)?$/;
    private readonly TVDB_ID_REGEX = /^(?:tvdb)[-:](\d+)(?::\d+:\d+)?$/;
-@@ -213,6 +240,12 @@ export class TMDBMetadata {
-     Cache.getInstance<string, EpisodeDetails>('tmdb_episode_v2');
-   private static readonly searchCache: Cache<string, TMDBSeriesSearchResult[]> =
-     Cache.getInstance<string, TMDBSeriesSearchResult[]>('tmdb_search');
+@@ -324,6 +351,12 @@ export class TMDBMetadata {
+     Cache.getInstance<string, TMDBTitle[]>('tmdb_recommendations');
+   private static readonly imdbIdCache: Cache<string, string> =
+     Cache.getInstance<string, string>('tmdb_imdb_id');
 +  private static readonly titleSearchCache: Cache<
 +    string,
 +    TitleSearchResult | 'miss'
@@ -404,7 +405,7 @@ index 268980f..a779cee 100644
    public static getImageUrl(
      p: string | null | undefined,
      size:
-@@ -557,6 +590,97 @@ export class TMDBMetadata {
+@@ -668,6 +701,97 @@ export class TMDBMetadata {
      }
    }
  

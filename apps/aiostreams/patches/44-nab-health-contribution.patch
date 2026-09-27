@@ -90,10 +90,10 @@ index 0000000..0278e43
 +    });
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 90e5073..5e9ce1b 100644
+index 89ab75d..243c982 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -669,6 +669,36 @@ export const builtinsSchema = {
+@@ -696,6 +696,36 @@ export const builtinsSchema = {
        requiresRestart: false,
        secret: false,
      },
@@ -131,19 +131,19 @@ index 90e5073..5e9ce1b 100644
        schema: nullableString,
        default: null,
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 37f87e0..88d9680 100644
+index d59a64b..f78b36c 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -32,6 +32,8 @@ import { ParsedResult } from '@viren070/parse-torrent-title';
- import { parseTorrentTitleCached } from '../parser/title.js';
+@@ -33,6 +33,8 @@ import {
+ } from './base.js';
  import assert from 'assert';
  
 +import { contributeNzb } from '../builtins/utils/nzbContribution.js';
 +
  const logger = createLogger('debrid:stremthru');
  
- function convertStremThruError(error: StremThruError): DebridError {
-@@ -933,6 +935,7 @@ export class StremThruService
+ const CHECK_CACHE_READ_BATCH = 500;
+@@ -968,6 +970,7 @@ export class StremThruService
          res,
          StremThruService.MAX_NZB_BYTES
        );
@@ -184,10 +184,10 @@ index 33edd38..d851246 100644
      const config = {
        ...this.getBaseConfig(userData, services),
 diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
-index 38d39e9..2519ef7 100644
+index 94138c1..d92ac31 100644
 --- a/packages/core/src/presets/newznab.ts
 +++ b/packages/core/src/presets/newznab.ts
-@@ -109,6 +109,17 @@ const NEWZNAB_INDEXERS: {
+@@ -155,6 +155,17 @@ const NEWZNAB_INDEXERS: {
    },
  ];
  
@@ -205,7 +205,7 @@ index 38d39e9..2519ef7 100644
  export class NewznabPreset extends BuiltinAddonPreset {
    static override getParser() {
      return NewznabStreamParser;
-@@ -367,6 +378,16 @@ export class NewznabPreset extends BuiltinAddonPreset {
+@@ -413,6 +424,16 @@ export class NewznabPreset extends BuiltinAddonPreset {
      userData: UserData,
      options: Record<string, any>
    ): Promise<Addon[]> {
@@ -236,10 +236,10 @@ index 6a67d46..38742d2 100644
      const fileIndexes = dataFileIndexes(nzb);
      if (fileIndexes.length === 0) return null;
 diff --git a/packages/core/src/usenet/integration/library.ts b/packages/core/src/usenet/integration/library.ts
-index 20075d9..f1e5cf3 100644
+index f249dbc..aea6d91 100644
 --- a/packages/core/src/usenet/integration/library.ts
 +++ b/packages/core/src/usenet/integration/library.ts
-@@ -10,6 +10,7 @@ import {
+@@ -8,6 +8,7 @@ import {
  } from '../../utils/index.js';
  import { getDataFolder } from '../../utils/general.js';
  import { createLogger } from '../../logging/logger.js';
@@ -247,7 +247,7 @@ index 20075d9..f1e5cf3 100644
  import {
    DebridError,
    DebridDownload,
-@@ -230,7 +231,8 @@ export async function canonicaliseNzbHash(
+@@ -232,7 +233,8 @@ export async function canonicaliseNzbHash(
   */
  export async function fetchNzb(
    url: string,
@@ -257,7 +257,7 @@ index 20075d9..f1e5cf3 100644
  ): Promise<Buffer> {
    if (url.startsWith(LOCAL_NZB_SCHEME)) {
      const hash = url.slice(LOCAL_NZB_SCHEME.length);
-@@ -249,7 +251,9 @@ export async function fetchNzb(
+@@ -251,7 +253,9 @@ export async function fetchNzb(
      }
    }
    try {

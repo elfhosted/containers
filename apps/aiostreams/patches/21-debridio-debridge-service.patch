@@ -31,10 +31,10 @@ index f9221bf..a25d393 100644
        return url;
      }
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index d790337..22946ed 100644
+index f1dd494..5a89f8c 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
-@@ -280,6 +280,11 @@ export const Env = cleanEnv(process.env, {
+@@ -284,6 +284,11 @@ export const Env = cleanEnv(process.env, {
      desc: 'When true, P2P streams that were not resolved by a debrid service are removed from results.',
    }),
  

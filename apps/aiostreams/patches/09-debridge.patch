@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/builtins/base/debrid.ts b/packages/core/src/builtins/base/debrid.ts
-index 6b13952..f2e9324 100644
+index bf0f12a..f772f1b 100644
 --- a/packages/core/src/builtins/base/debrid.ts
 +++ b/packages/core/src/builtins/base/debrid.ts
-@@ -309,6 +309,7 @@ export abstract class BaseDebridAddon<T extends BaseDebridConfig> {
+@@ -475,6 +475,7 @@ export abstract class BaseDebridAddon<T extends BaseDebridConfig> {
          'torbox',
          'stremio_nntp',
          'stremthru_newz',
@@ -23,10 +23,10 @@ index aefe158..aabb579 100644
        )
      ) {
 diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
-index b7375e8..36666f3 100644
+index 51eb75a..b4955d6 100644
 --- a/packages/core/src/builtins/newznab/addon.ts
 +++ b/packages/core/src/builtins/newznab/addon.ts
-@@ -109,7 +109,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -110,7 +110,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
        )
      ) {
        throw new Error(
@@ -36,10 +36,10 @@ index b7375e8..36666f3 100644
      }
      const zyclopsHealthProxyConfig = this.buildZyclopsHealthProxyConfig();
 diff --git a/packages/core/src/db/schemas.ts b/packages/core/src/db/schemas.ts
-index 087d598..41bad04 100644
+index fe2114e..44523f1 100644
 --- a/packages/core/src/db/schemas.ts
 +++ b/packages/core/src/db/schemas.ts
-@@ -203,6 +203,7 @@ const AddonSchema = z.object({
+@@ -377,6 +377,7 @@ const AddonSchema = z.object({
    // forceToTop: z.boolean().optional(),
    pinPosition: z.enum(['top', 'bottom']).optional(),
    serviceWrapped: z.boolean().optional(),
@@ -79,10 +79,10 @@ index 6fc1149..56d1657 100644
        return new NativeUsenetService(config);
      default:
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 37787db..9b0aeac 100644
+index 7a372dd..96dc8ce 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -218,6 +218,9 @@ export class StremThruService
+@@ -242,6 +242,9 @@ export class StremThruService
    // Torrent methods (TorrentDebridService)
  
    public async listMagnets(): Promise<DebridDownload[]> {
@@ -93,7 +93,7 @@ index 37787db..9b0aeac 100644
        'torrent',
        (cacheKey, limit) => this.fetchAndCacheMagnets(cacheKey, limit),
 diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
-index dca64b1..1dfd9bd 100644
+index 6422b5b..2d7e898 100644
 --- a/packages/core/src/main/serviceWrapper.ts
 +++ b/packages/core/src/main/serviceWrapper.ts
 @@ -72,20 +72,30 @@ export async function resolveServiceWrappedStreams(
@@ -143,7 +143,7 @@ index dca64b1..1dfd9bd 100644
    const debridServices: BuiltinDebridServices = [];
  
 diff --git a/packages/core/src/main/setup.ts b/packages/core/src/main/setup.ts
-index 3408600..a230b77 100644
+index e566214..401fab2 100644
 --- a/packages/core/src/main/setup.ts
 +++ b/packages/core/src/main/setup.ts
 @@ -32,14 +32,24 @@ export async function applyPresets(ctx: AIOStreamsContext): Promise<void> {
@@ -251,10 +251,10 @@ index 86e3006..0c8079c 100644
        constants.TORBOX_SERVICE,
        constants.DEBRIDLINK_SERVICE,
 diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
-index 532a404..38d39e9 100644
+index b0aadcd..94138c1 100644
 --- a/packages/core/src/presets/newznab.ts
 +++ b/packages/core/src/presets/newznab.ts
-@@ -122,6 +122,7 @@ export class NewznabPreset extends BuiltinAddonPreset {
+@@ -168,6 +168,7 @@ export class NewznabPreset extends BuiltinAddonPreset {
        constants.ALTMOUNT_SERVICE,
        constants.STREMIO_NNTP_SERVICE,
        constants.STREMTHRU_NEWZ_SERVICE,
@@ -275,10 +275,10 @@ index 9167d03..b80ab68 100644
      const options: Option[] = [
        {
 diff --git a/packages/core/src/presets/stremthru.ts b/packages/core/src/presets/stremthru.ts
-index ac2a6fb..33655f1 100644
+index 02147b1..e21e419 100644
 --- a/packages/core/src/presets/stremthru.ts
 +++ b/packages/core/src/presets/stremthru.ts
-@@ -90,6 +90,7 @@ export class StremThruPreset extends Preset {
+@@ -147,6 +147,7 @@ export class StremThruPreset extends Preset {
      constants.EASYDEBRID_SERVICE,
      constants.OFFCLOUD_SERVICE,
      constants.PREMIUMIZE_SERVICE,
@@ -287,10 +287,10 @@ index ac2a6fb..33655f1 100644
      constants.REALDEBRID_SERVICE,
      constants.TORBOX_SERVICE,
 diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
-index e14fa42..0f693ba 100644
+index ff2b8e8..4315192 100644
 --- a/packages/core/src/streams/fetcher.ts
 +++ b/packages/core/src/streams/fetcher.ts
-@@ -200,7 +200,7 @@ class StreamFetcher {
+@@ -204,7 +204,7 @@ class StreamFetcher {
            success: true as const,
            streams: usableStreams,
            errors: addonErrors,
@@ -315,10 +315,10 @@ index 55488ef..f541bc9 100644
    const serviceWrapPresets = userData.serviceWrap.presets;
    const isPresetInScope =
 diff --git a/packages/core/src/utils/constants.ts b/packages/core/src/utils/constants.ts
-index ff2ce37..4d53567 100644
+index 40d896a..dbf7ead 100644
 --- a/packages/core/src/utils/constants.ts
 +++ b/packages/core/src/utils/constants.ts
-@@ -354,6 +354,7 @@ export type FormatterType = (typeof FORMATTERS)[number];
+@@ -356,6 +356,7 @@ export type FormatterType = (typeof FORMATTERS)[number];
  const REALDEBRID_SERVICE = 'realdebrid';
  const DEBRIDLINK_SERVICE = 'debridlink';
  const PREMIUMIZE_SERVICE = 'premiumize';
@@ -326,7 +326,7 @@ index ff2ce37..4d53567 100644
  const ALLDEBRID_SERVICE = 'alldebrid';
  const TORBOX_SERVICE = 'torbox';
  const EASYDEBRID_SERVICE = 'easydebrid';
-@@ -374,6 +375,7 @@ const SERVICES = [
+@@ -376,6 +377,7 @@ const SERVICES = [
    REALDEBRID_SERVICE,
    DEBRIDLINK_SERVICE,
    PREMIUMIZE_SERVICE,
@@ -334,7 +334,7 @@ index ff2ce37..4d53567 100644
    ALLDEBRID_SERVICE,
    TORBOX_SERVICE,
    EASYDEBRID_SERVICE,
-@@ -395,6 +397,7 @@ export const BUILTIN_SUPPORTED_SERVICES = [
+@@ -397,6 +399,7 @@ export const BUILTIN_SUPPORTED_SERVICES = [
    REALDEBRID_SERVICE,
    DEBRIDLINK_SERVICE,
    PREMIUMIZE_SERVICE,
@@ -342,7 +342,7 @@ index ff2ce37..4d53567 100644
    ALLDEBRID_SERVICE,
    TORBOX_SERVICE,
    EASYDEBRID_SERVICE,
-@@ -469,6 +472,24 @@ const SERVICE_DETAILS: Record<
+@@ -471,6 +474,24 @@ const SERVICE_DETAILS: Record<
      credentials: Option[];
    }
  > = {
@@ -367,8 +367,8 @@ index ff2ce37..4d53567 100644
    [REALDEBRID_SERVICE]: {
      id: REALDEBRID_SERVICE,
      name: 'Real-Debrid',
-@@ -1766,6 +1787,7 @@ export {
-   ADDON_CATALOG_RESOURCE,
+@@ -1827,6 +1848,7 @@ export {
+   WATCH_STATE_RESOURCE,
    REALDEBRID_SERVICE,
    PREMIUMIZE_SERVICE,
 +  DEBRIDGE_SERVICE,
@@ -376,10 +376,10 @@ index ff2ce37..4d53567 100644
    DEBRIDLINK_SERVICE,
    TORBOX_SERVICE,
 diff --git a/packages/frontend/src/components/menu/addons/_components/addon-card.tsx b/packages/frontend/src/components/menu/addons/_components/addon-card.tsx
-index 82d162d..43b276f 100644
+index 042460e..930b921 100644
 --- a/packages/frontend/src/components/menu/addons/_components/addon-card.tsx
 +++ b/packages/frontend/src/components/menu/addons/_components/addon-card.tsx
-@@ -7,6 +7,7 @@ import { Alert } from '../../../ui/alert';
+@@ -7,6 +7,7 @@ import { Alert } from '@aiostreams/ui/alert';
  import MarkdownLite from '../../../shared/markdown-lite';
  import { PlusIcon } from 'lucide-react';
  import * as constants from '../../../../../../core/src/utils/constants';
@@ -423,7 +423,7 @@ index 82d162d..43b276f 100644
                <span
                  key={res}
 diff --git a/packages/frontend/src/components/menu/services/_components/stream-services.tsx b/packages/frontend/src/components/menu/services/_components/stream-services.tsx
-index f859deb..5dce7d0 100644
+index 22f6218..3fc9f4d 100644
 --- a/packages/frontend/src/components/menu/services/_components/stream-services.tsx
 +++ b/packages/frontend/src/components/menu/services/_components/stream-services.tsx
 @@ -99,14 +99,26 @@ export function StreamServices() {

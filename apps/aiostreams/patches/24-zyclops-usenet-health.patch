@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
-index 36666f3..49c0aa0 100644
+index b4955d6..e679078 100644
 --- a/packages/core/src/builtins/newznab/addon.ts
 +++ b/packages/core/src/builtins/newznab/addon.ts
 @@ -6,6 +6,7 @@ import {
@@ -10,9 +10,9 @@ index 36666f3..49c0aa0 100644
  } from '../../debrid/index.js';
  import { SearchMetadata } from '../base/debrid.js';
  import { hashNzbUrl } from '../../debrid/utils.js';
-@@ -22,6 +23,11 @@ import {
-   parseNabParsedFileInfo,
+@@ -23,6 +24,11 @@ import {
  } from '../base/nab/addon.js';
+ import { ageInHoursSince } from '../utils/general.js';
  import { BuiltinProxy, createProxy } from '../../proxy/index.js';
 +import {
 +  fetchZyclopsHealth,
@@ -22,7 +22,7 @@ index 36666f3..49c0aa0 100644
  import type { BuiltinServiceId } from '../../utils/index.js';
  import type { Stream } from '../../db/index.js';
  
-@@ -198,12 +204,99 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -199,12 +205,99 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
      };
    }
  
@@ -122,7 +122,7 @@ index 36666f3..49c0aa0 100644
      for (const result of results) {
        const enclosure = this.getEnclosure(result);
        const enclosureUrl = enclosure?.url;
-@@ -284,8 +377,11 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -282,8 +375,11 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
        }
  
        nzbs.push(nzb);
@@ -134,7 +134,7 @@ index 36666f3..49c0aa0 100644
      if (this.userData.proxyAuth) {
        const auth = this.userData.proxyAuth;
        BuiltinProxy.validateAuth(auth);
-@@ -296,8 +392,9 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -294,8 +390,9 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
        });
        let zyclopsOrigin: string | undefined;
        try {
@@ -316,10 +316,10 @@ index 0000000..93f2823
 +  return result;
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index c86db81..1ae4396 100644
+index e386e4f..7ac2ae1 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -657,6 +657,26 @@ export const builtinsSchema = {
+@@ -684,6 +684,26 @@ export const builtinsSchema = {
        requiresRestart: false,
        secret: false,
      },
@@ -347,10 +347,10 @@ index c86db81..1ae4396 100644
        schema: nullableUrl,
        default: null,
 diff --git a/packages/core/src/db/schemas.ts b/packages/core/src/db/schemas.ts
-index 41bad04..10755b6 100644
+index 44523f1..361d05b 100644
 --- a/packages/core/src/db/schemas.ts
 +++ b/packages/core/src/db/schemas.ts
-@@ -1284,6 +1284,7 @@ export const ParsedStreamSchema = z.object({
+@@ -1526,6 +1526,7 @@ export const ParsedStreamSchema = z.object({
    passthrough: PassthroughSchema.optional(),
    url: z.string().optional(),
    nzbUrl: z.string().optional(),
@@ -359,10 +359,10 @@ index 41bad04..10755b6 100644
    // Same-release failover targets harvested from discarded duplicates by the
    // deduplicator merge step. Each is another playback URL for the *same*
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 57e7e11..9b9e7c5 100644
+index d6a7259..4683c27 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -101,6 +101,9 @@ export class StremThruService
+@@ -104,6 +104,9 @@ export class StremThruService
    private static libraryCache = Cache.getInstance<string, DebridDownload[]>(
      'st:library'
    );
@@ -372,7 +372,7 @@ index 57e7e11..9b9e7c5 100644
  
    constructor(private readonly config: StremThruServiceConfig) {
      this.serviceName = config.serviceName;
-@@ -134,6 +137,50 @@ export class StremThruService
+@@ -137,6 +140,50 @@ export class StremThruService
      });
    }
  
@@ -422,20 +422,20 @@ index 57e7e11..9b9e7c5 100644
 +
    //  Shared check cache helpers
  
-   private async checkCacheGet(
+   private checkCacheKey(hash: string): string {
 diff --git a/packages/core/src/main/play-chain.ts b/packages/core/src/main/play-chain.ts
-index d4dc2a2..e949747 100644
+index ebc409a..bb6e6e1 100644
 --- a/packages/core/src/main/play-chain.ts
 +++ b/packages/core/src/main/play-chain.ts
-@@ -82,6 +82,7 @@ export interface PlayChainRecord {
-   sameReleaseLimit: number;
-   /** Delay between launching same-release variant attempts (ms). */
+@@ -84,6 +84,7 @@ export interface PlayChainRecord {
    duplicateStaggerMs: number;
+   /** When true, only same-release variants of the clicked item are ever tried. */
+   onlySameReleaseFailover: boolean;
 +  healthSorted?: boolean;
  }
  
  /** Build-time options derived from the user's `failover` config. */
-@@ -157,6 +158,31 @@ function streamIdentity(s: ParsedStream): string {
+@@ -161,6 +162,31 @@ function streamIdentity(s: ParsedStream): string {
   * eligible results, and stamp each result's playback URL with its position in
   * that chain. Replaces the old NZB-only `populateNzbFallbacks`.
   */
@@ -467,9 +467,9 @@ index d4dc2a2..e949747 100644
  export async function buildPlayChain(
    streams: ParsedStream[],
    opts: BuildPlayChainOptions,
-@@ -178,6 +204,15 @@ export async function buildPlayChain(
-     return;
-   }
+@@ -175,6 +201,15 @@ export async function buildPlayChain(
+       (opts.includeExternal && isExternalDebridFailover(s))
+   );
  
 +  const unknownRank = zyclopsHealthRank(undefined);
 +  const healthSorted = eligible.some(
@@ -483,34 +483,36 @@ index d4dc2a2..e949747 100644
    const items: PlayChainItem[] = eligible.map((s) => {
      const variants: PlayChainItem[] = (s.failoverVariants ?? [])
        .filter((v) => opts.contentTypes.includes(v.type))
-@@ -215,6 +250,7 @@ export async function buildPlayChain(
-     proxyConfig: opts.proxyConfig?.enabled ? opts.proxyConfig : undefined,
+@@ -221,6 +256,7 @@ export async function buildPlayChain(
      sameReleaseLimit: opts.sameReleaseLimit,
      duplicateStaggerMs: opts.duplicateStaggerMs,
+     onlySameReleaseFailover: opts.onlySameReleaseFailover,
 +    healthSorted,
    };
    await chainCache().set(
      listKey,
-@@ -355,9 +391,12 @@ export async function getPlayChain(
-   // Rank 0: same-release alternatives of the clicked item.
+@@ -362,9 +398,15 @@ export async function getPlayChain(
    addVariants(clickedItem?.variants, 0);
  
--  // Then each subsequent distinct release (increasing rank) + its variants.
-+  const hasHealthData = record.healthSorted ?? false;
-+  const failoverCandidates = hasHealthData
-+    ? record.items.filter((_, i) => i !== decoded.index)
-+    : record.items.slice(decoded.index + 1);
-   let rank = 1;
--  for (const item of record.items.slice(decoded.index + 1)) {
-+  for (const item of failoverCandidates) {
-     if (fallbacks.length >= maxAttempts) break;
-     if (!passesFilter(item)) continue;
-     const key = targetIdentity(item);
+   // Then each subsequent distinct release (increasing rank) + its variants.
++  // With health data the list is health-ranked, so releases above the clicked
++  // one are candidates too.
+   if (!record.onlySameReleaseFailover) {
++    const hasHealthData = record.healthSorted ?? false;
++    const failoverCandidates = hasHealthData
++      ? record.items.filter((_, i) => i !== decoded.index)
++      : record.items.slice(decoded.index + 1);
+     let rank = 1;
+-    for (const item of record.items.slice(decoded.index + 1)) {
++    for (const item of failoverCandidates) {
+       if (fallbacks.length >= maxAttempts) break;
+       if (!passesFilter(item)) continue;
+       const key = targetIdentity(item);
 diff --git a/packages/core/src/parser/streams.ts b/packages/core/src/parser/streams.ts
-index 122562e..41c8bf9 100644
+index 676ee28..d3910d6 100644
 --- a/packages/core/src/parser/streams.ts
 +++ b/packages/core/src/parser/streams.ts
-@@ -95,6 +95,7 @@ class StreamParser {
+@@ -112,6 +112,7 @@ class StreamParser {
        proxied: this.isProxied(stream),
        url: this.applyUrlModifications(stream.url ?? undefined),
        nzbUrl: stream.nzbUrl || undefined,

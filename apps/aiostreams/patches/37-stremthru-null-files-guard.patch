@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 390403a..37f87e0 100644
+index 671587e..d59a64b 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -527,22 +527,23 @@ export class StremThruService
+@@ -556,23 +556,24 @@ export class StremThruService
            }
          );
  
@@ -13,12 +13,13 @@ index 390403a..37f87e0 100644
 -          size: Math.round(
 -            item.files.reduce((acc, file) => acc + file.size, 0)
 -          ),
--          files: item.files.map((file) => {
+-          files: selectableFiles(item.files).map((file) => {
 -            return {
 -              name: file.name,
 -              size: file.size,
 -              index: file.index,
 -              mediaInfo: (file as any).media_info,
+-              videoHash: (file as any).video_hash,
 -            };
 -          }),
 -        }));
@@ -29,12 +30,13 @@ index 390403a..37f87e0 100644
 +            hash: item.hash,
 +            status: item.status,
 +            size: Math.round(files.reduce((acc, file) => acc + file.size, 0)),
-+            files: files.map((file) => {
++            files: selectableFiles(files).map((file) => {
 +              return {
 +                name: file.name,
 +                size: file.size,
 +                index: file.index,
 +                mediaInfo: (file as any).media_info,
++                videoHash: (file as any).video_hash,
 +              };
 +            }),
 +          };

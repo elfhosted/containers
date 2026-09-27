@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index 5fcf56e..ccff061 100644
+index 5191272..036c6ea 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
-@@ -275,4 +275,12 @@ export const Env = cleanEnv(process.env, {
+@@ -279,4 +279,12 @@ export const Env = cleanEnv(process.env, {
      default: false,
      desc: 'Allow the dashboard System page to restart/stop the AIOStreams process.',
    }),
@@ -51,7 +51,7 @@ index 402b9cc..4ea0ee7 100644
        }
  
 diff --git a/packages/server/src/routes/api/proxy.ts b/packages/server/src/routes/api/proxy.ts
-index 8658552..0e48049 100644
+index db7d3c0..abe7aca 100644
 --- a/packages/server/src/routes/api/proxy.ts
 +++ b/packages/server/src/routes/api/proxy.ts
 @@ -31,6 +31,7 @@ import { Transform } from 'stream';
@@ -62,7 +62,7 @@ index 8658552..0e48049 100644
  
  const logger = createLogger('server');
  const router: Router = Router();
-@@ -424,9 +425,7 @@ router.all(
+@@ -391,9 +392,7 @@ router.all(
              clientIp,
              reason: session.verdict.reason,
            });
@@ -74,18 +74,18 @@ index 8658552..0e48049 100644
          }
          // A full-buffered player never notices a clean FIN.
 diff --git a/packages/server/src/routes/builtins/library.ts b/packages/server/src/routes/builtins/library.ts
-index 819c1b5..113b78c 100644
+index 264d908..2ce6477 100644
 --- a/packages/server/src/routes/builtins/library.ts
 +++ b/packages/server/src/routes/builtins/library.ts
-@@ -12,6 +12,7 @@ import {
- } from '@aiostreams/core';
+@@ -13,6 +13,7 @@ import {
  import { createLogger } from '@aiostreams/core';
  import { StaticFiles } from '../../utils/static-errors.js';
+ import { rawExtras } from '../../utils/extras.js';
 +import { slateRedirect } from '../../utils/slate.js';
  const router: Router = Router();
  
  const logger = createLogger('server');
-@@ -167,7 +168,7 @@ router.get(
+@@ -169,7 +170,7 @@ router.get(
      try {
        const decrypted = decryptString(decodeURIComponent(encryptedCredential));
        if (!decrypted.data) {
@@ -94,7 +94,7 @@ index 819c1b5..113b78c 100644
        }
  
        const parsed = JSON.parse(decrypted.data);
-@@ -179,7 +180,7 @@ router.get(
+@@ -181,7 +182,7 @@ router.get(
          svcId !== serviceId ||
          !constants.BUILTIN_SUPPORTED_SERVICES.includes(svcId as any)
        ) {
@@ -103,7 +103,7 @@ index 819c1b5..113b78c 100644
        }
  
        // Rate limit: max once per 5 minutes per service+credential
-@@ -195,9 +196,9 @@ router.get(
+@@ -197,9 +198,9 @@ router.get(
            `Refresh rate limited for ${svcId}, ${remaining}s remaining`
          );
          if (timeElapsed < 30) {
@@ -115,7 +115,7 @@ index 819c1b5..113b78c 100644
        }
  
        await lastRefreshMap.set(rateKey, now, REFRESH_COOLDOWN_MS);
-@@ -215,10 +216,10 @@ router.get(
+@@ -217,10 +218,10 @@ router.get(
          })
        );
  
