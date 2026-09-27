@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 9df2dc7..57e7e11 100644
+index 363eab2..d6a7259 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
 @@ -8,6 +8,7 @@ import {
@@ -10,7 +10,7 @@ index 9df2dc7..57e7e11 100644
    makeUrlLogSafe,
  } from '../utils/index.js';
  import {
-@@ -665,9 +666,118 @@ export class StremThruService
+@@ -700,9 +701,118 @@ export class StremThruService
      }
    }
  

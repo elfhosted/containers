@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 6d547cc..b5b2a83 100644
+index 6e266a0..915610b 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -698,6 +698,26 @@ export const builtinsSchema = {
+@@ -725,6 +725,26 @@ export const builtinsSchema = {
        secret: false,
      },
    },
@@ -134,7 +134,7 @@ index 0000000..33edd38
 +  }
 +}
 diff --git a/packages/core/src/presets/presetManager.ts b/packages/core/src/presets/presetManager.ts
-index 00573eb..74251d0 100644
+index b8fb659..d23751b 100644
 --- a/packages/core/src/presets/presetManager.ts
 +++ b/packages/core/src/presets/presetManager.ts
 @@ -60,6 +60,7 @@ import { TorBoxSearchPreset } from './torboxSearch.js';
@@ -145,7 +145,7 @@ index 00573eb..74251d0 100644
  import { AnimeToshoPreset } from './animetosho.js';
  import { AnimeToshoNewPreset } from './animeToshoNew.js';
  import { NewznabPreset } from './newznab.js';
-@@ -87,6 +88,7 @@ import { Preset } from './index.js';
+@@ -89,6 +90,7 @@ import { Preset } from './index.js';
  
  let PRESET_LIST: string[] = [
    'custom',
@@ -153,7 +153,7 @@ index 00573eb..74251d0 100644
    'torznab',
    'newznab',
    'aiostreams',
-@@ -313,6 +315,8 @@ export class PresetManager {
+@@ -319,6 +321,8 @@ export class PresetManager {
          return NewznabPreset;
        case 'zilean':
          return ZileanPreset;
@@ -163,10 +163,10 @@ index 00573eb..74251d0 100644
          return AnimeToshoPreset;
        case 'anime-tosho-new':
 diff --git a/packages/core/src/streams/deduplicator.ts b/packages/core/src/streams/deduplicator.ts
-index 8fad618..2f98678 100644
+index 12705a5..770b5b2 100644
 --- a/packages/core/src/streams/deduplicator.ts
 +++ b/packages/core/src/streams/deduplicator.ts
-@@ -436,6 +436,11 @@ class StreamDeduplicator {
+@@ -440,6 +440,11 @@ class StreamDeduplicator {
      const lc = libraryCmp(a, b);
      if (lc !== 0) return lc;
  
@@ -179,13 +179,13 @@ index 8fad618..2f98678 100644
        this.userData.services
          ?.filter((service) => service.enabled)
 diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
-index 43c0c73..44e22c4 100644
+index 3cf1094..05c08d0 100644
 --- a/packages/frontend/src/components/menu/save-install.tsx
 +++ b/packages/frontend/src/components/menu/save-install.tsx
 @@ -1,7 +1,11 @@
  import React from 'react';
- import { Button } from '@/components/ui/button';
- import { TextInput } from '@/components/ui/text-input';
+ import { Button } from '@aiostreams/ui/button';
+ import { TextInput } from '@aiostreams/ui/text-input';
 -import { applyMigrations, useUserData } from '@/context/userData';
 +import {
 +  applyMigrations,
@@ -195,7 +195,7 @@ index 43c0c73..44e22c4 100644
  import {
    createUserConfig,
    deleteUserConfig,
-@@ -1628,9 +1632,18 @@ function Content() {
+@@ -1776,9 +1780,18 @@ function Content() {
  
    const handleExport = () => {
      try {

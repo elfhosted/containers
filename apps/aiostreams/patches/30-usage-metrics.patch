@@ -213,7 +213,7 @@ index c439f95..1f789c8 100644
    async userGrowth(range: AnalyticsRange) {
      const db = getDb();
 diff --git a/packages/core/src/config/bootstrap.ts b/packages/core/src/config/bootstrap.ts
-index 2718139..3cb5000 100644
+index 5d9eced..dc3a336 100644
 --- a/packages/core/src/config/bootstrap.ts
 +++ b/packages/core/src/config/bootstrap.ts
 @@ -7,6 +7,7 @@ import { Env } from '../utils/env.js';
@@ -225,18 +225,18 @@ index 2718139..3cb5000 100644
    internalUrl: Env.INTERNAL_URL,
    internalSecret: Env.INTERNAL_SECRET,
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index a83f158..892d4a1 100644
+index bba3baf..553a80b 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
-@@ -41,6 +41,7 @@ import {
-   convertDiscoverDeepLinks,
+@@ -43,6 +43,7 @@ import {
+   withQualifiedCollection,
  } from './catalog.js';
  import {
 +  fingerprintServiceAccount,
    hmac,
    sampleConfigFeatures,
    track,
-@@ -972,8 +973,13 @@ export async function getStreams(
+@@ -996,8 +997,13 @@ export async function getStreams(
  
    if (ctx.userData?.uuid) {
      const serviceIds: string[] = [];
@@ -251,7 +251,7 @@ index a83f158..892d4a1 100644
      }
      const presetTypes: string[] = [];
      for (const p of ctx.userData.presets ?? []) {
-@@ -982,6 +988,7 @@ export async function getStreams(
+@@ -1006,6 +1012,7 @@ export async function getStreams(
      sampleConfigFeatures({
        uuid: ctx.userData.uuid,
        serviceIds,
@@ -260,7 +260,7 @@ index a83f158..892d4a1 100644
        presetTypes,
      });
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index b822a67..c4b2e03 100644
+index 11b9c24..82a583d 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
 @@ -247,6 +247,10 @@ export const Env = cleanEnv(process.env, {
@@ -470,10 +470,10 @@ index 0000000..f542e2c
 +  server = null;
 +}
 diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
-index 57ccf0a..d0554cc 100644
+index 018e793..c4c1171 100644
 --- a/packages/server/src/server.ts
 +++ b/packages/server/src/server.ts
-@@ -6,6 +6,7 @@ import {
+@@ -10,6 +10,7 @@ import {
  } from './utils/system-metrics.js';
  import { startNfsShare, stopNfsShare } from './nfs.js';
  import { startFuseMount, stopFuseMount } from './fuse.js';
@@ -481,7 +481,7 @@ index 57ccf0a..d0554cc 100644
  
  import {
    Env,
-@@ -377,6 +378,7 @@ async function start() {
+@@ -384,6 +385,7 @@ async function start() {
      startAnalytics();
      await startNfsShare();
      await startFuseMount();
@@ -489,7 +489,7 @@ index 57ccf0a..d0554cc 100644
      const server = app.listen(appConfig.bootstrap.port, (error) => {
        if (error) {
          logger.error('Failed to start server:', error);
-@@ -399,6 +401,7 @@ async function shutdown() {
+@@ -407,6 +409,7 @@ async function shutdown() {
    stopMetricsHistory();
    await stopFuseMount().catch(() => undefined);
    await stopNfsShare().catch(() => undefined);

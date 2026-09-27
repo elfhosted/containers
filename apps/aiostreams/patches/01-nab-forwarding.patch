@@ -1,10 +1,10 @@
 diff --git a/packages/core/src/builtins/base/nab/api.ts b/packages/core/src/builtins/base/nab/api.ts
-index c798133..c095def 100644
+index 3e6947d..0afb5c5 100644
 --- a/packages/core/src/builtins/base/nab/api.ts
 +++ b/packages/core/src/builtins/base/nab/api.ts
-@@ -270,6 +270,10 @@ type RawSearchResponse = {
-   results: (TorznabSearchResultItem | NewznabSearchResultItem)[];
- };
+@@ -129,6 +129,10 @@ type NabRequestResult<
+   K extends NabRequestKind,
+ > = K extends 'caps' ? Capabilities : SearchResponse<N>;
  
 +export interface NabApiOptions {
 +  disableReplay?: boolean;
@@ -13,7 +13,7 @@ index c798133..c095def 100644
  // --- Connection test ---
  const NAB_TEST_TIMEOUT = 15000;
  
-@@ -346,6 +350,7 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
+@@ -202,6 +206,7 @@ export class BaseNabApi<N extends NabNamespace> {
    private readonly params: Record<string, string>;
    private readonly userAgent: string;
    private readonly httpProxy: string | undefined;
@@ -21,7 +21,7 @@ index c798133..c095def 100644
  
    constructor(
      public readonly namespace: N,
-@@ -353,11 +358,13 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
+@@ -209,11 +214,13 @@ export class BaseNabApi<N extends NabNamespace> {
      private readonly baseUrl: string,
      private readonly apiKey?: string,
      private readonly apiPath: string = '/api',
@@ -36,7 +36,7 @@ index c798133..c095def 100644
      this.params = Object.fromEntries(
        Object.entries(params).map(([key, value]) => [key, String(value)])
      );
-@@ -600,20 +607,44 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
+@@ -374,20 +381,45 @@ export class BaseNabApi<N extends NabNamespace> {
      url.search = searchParams.toString();
      const urlString = url.toString();
  
@@ -77,6 +77,7 @@ index c798133..c095def 100644
 +              'Content-Type': 'application/json',
 +            },
 +            timeout: timeout ?? appConfig.builtins.nab.searchTimeout,
++            cooldownTarget: urlString,
 +            body: JSON.stringify({
 +              host: url.host,
 +              path: `${url.pathname}${url.search}`,
@@ -91,10 +92,10 @@ index c798133..c095def 100644
 +            context: this.namespace,
 +          });
  
-       const data = await response.text();
- 
+       const {
+         body,
 diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
-index 5096e46..b7375e8 100644
+index eacf2b4..51eb75a 100644
 --- a/packages/core/src/builtins/newznab/addon.ts
 +++ b/packages/core/src/builtins/newznab/addon.ts
 @@ -10,7 +10,11 @@ import {
@@ -110,7 +111,7 @@ index 5096e46..b7375e8 100644
  import {
    BaseNabAddon,
    NabAddonConfigSchema,
-@@ -28,9 +32,10 @@ class NewznabApi extends BaseNabApi<'newznab'> {
+@@ -29,9 +33,10 @@ class NewznabApi extends BaseNabApi<'newznab'> {
      baseUrl: string,
      apiKey?: string,
      apiPath?: string,
@@ -123,7 +124,7 @@ index 5096e46..b7375e8 100644
    }
  }
  
-@@ -54,6 +59,30 @@ interface HealthProxyConfig {
+@@ -55,6 +60,30 @@ interface HealthProxyConfig {
    extraParams: Record<string, string | number | boolean>;
  }
  
@@ -154,7 +155,7 @@ index 5096e46..b7375e8 100644
  // Addon class
  export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
    readonly name = 'Newznab';
-@@ -61,6 +90,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -62,6 +91,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
    readonly id = 'newznab';
    readonly logger = logger;
    readonly api: NewznabApi;
@@ -162,7 +163,7 @@ index 5096e46..b7375e8 100644
    constructor(userData: NewznabAddonConfig, clientIp?: string) {
      super(userData, NewznabAddonConfigSchema, clientIp);
  
-@@ -73,6 +103,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -74,6 +104,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
              constants.ALTMOUNT_SERVICE,
              constants.STREMIO_NNTP_SERVICE,
              constants.STREMTHRU_NEWZ_SERVICE,
@@ -170,7 +171,7 @@ index 5096e46..b7375e8 100644
              constants.AIOSTREAMS_SERVICE,
            ].includes(s.id)
        )
-@@ -82,11 +113,13 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -83,11 +114,13 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
        );
      }
      const zyclopsHealthProxyConfig = this.buildZyclopsHealthProxyConfig();
@@ -185,7 +186,7 @@ index 5096e46..b7375e8 100644
      );
    }
  
-@@ -173,13 +206,17 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -174,19 +207,35 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
      const nzbs: NZB[] = [];
      for (const result of results) {
        const enclosure = this.getEnclosure(result);
@@ -206,10 +207,9 @@ index 5096e46..b7375e8 100644
  
        let date = result.pubDate?.toString();
        if (typeof result.newznab?.usenetdate === 'string') {
-@@ -189,6 +226,18 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
-         Math.abs(new Date().getTime() - new Date(date).getTime()) /
-           (1000 * 60 * 60)
-       );
+         date = result.newznab.usenetdate;
+       }
+       const age = date ? ageInHoursSince(date) : undefined;
 +
 +      const enclosureSize = (() => {
 +        if (typeof enclosure?.length === 'number') {
@@ -225,7 +225,7 @@ index 5096e46..b7375e8 100644
        const parsedMediaInfo = parseNabParsedFileInfo({
          audioLanguages: result.newznab?.language,
          subtitleLanguages: result.newznab?.subs,
-@@ -207,7 +256,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -205,7 +254,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
          size:
            result.size ??
            (result.newznab?.size ? Number(result.newznab.size) : undefined) ??
@@ -234,7 +234,7 @@ index 5096e46..b7375e8 100644
            0,
          type: 'usenet',
          parsedMediaInfo,
-@@ -245,24 +294,34 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -243,24 +292,34 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
          url: appConfig.bootstrap.baseUrl,
          credentials: auth,
        });
@@ -287,7 +287,7 @@ index 5096e46..b7375e8 100644
        }
      }
      return nzbs;
-@@ -295,7 +354,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -293,7 +352,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
      return stream;
    }
  
@@ -297,10 +297,10 @@ index 5096e46..b7375e8 100644
        e.type?.toLowerCase().includes('nzb')
      );
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index e1b14b1..6d547cc 100644
+index a1ab8ca..6e266a0 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -657,6 +657,26 @@ export const builtinsSchema = {
+@@ -684,6 +684,26 @@ export const builtinsSchema = {
        requiresRestart: false,
        secret: false,
      },
@@ -328,7 +328,7 @@ index e1b14b1..6d547cc 100644
    zilean: {
      url: {
 diff --git a/packages/core/src/debrid/usenet-stream-base.ts b/packages/core/src/debrid/usenet-stream-base.ts
-index 33cdb0b..2f1fc7e 100644
+index b313e3d..0b41352 100644
 --- a/packages/core/src/debrid/usenet-stream-base.ts
 +++ b/packages/core/src/debrid/usenet-stream-base.ts
 @@ -254,10 +254,11 @@ export class SABnzbdApi {
@@ -381,3 +381,248 @@ index 33cdb0b..2f1fc7e 100644
    async history(
      params: {
        start?: number;
+diff --git a/packages/core/src/utils/http.cooldown.test.ts b/packages/core/src/utils/http.cooldown.test.ts
+new file mode 100644
+index 0000000..438171b
+--- /dev/null
++++ b/packages/core/src/utils/http.cooldown.test.ts
+@@ -0,0 +1,147 @@
++import assert from 'node:assert/strict';
++import { describe, it, mock } from 'node:test';
++import {
++  getGlobalDispatcher,
++  Headers,
++  MockAgent,
++  setGlobalDispatcher,
++} from 'undici';
++
++// Read when the settings store initialises.
++process.env.BUILTIN_NZB_REPLAY_DOWNLOAD_URL = 'https://forwarder.test/nzb';
++process.env.REQUEST_URL_MAPPINGS = JSON.stringify({
++  'https://forwarder.test': 'http://forwarder.internal:8080',
++});
++
++const { settingsStore } = await import('../config/index.js');
++const { SettingsRepository } = await import('../db/repositories/settings.js');
++const { cooldownKey, cooldownTargetUrl, makeRequest, RateLimitedError } =
++  await import('./http.js');
++
++const FORWARDER = 'https://forwarder.example/nzb';
++
++function forwarded(inner: string): URL {
++  const url = new URL(FORWARDER);
++  url.searchParams.set('url', inner);
++  return url;
++}
++
++function keyFor(url: URL, explicitTarget?: string): string {
++  return cooldownKey(
++    cooldownTargetUrl(url, FORWARDER, explicitTarget),
++    new Headers(),
++    ''
++  ).key;
++}
++
++describe('cooldownTargetUrl', () => {
++  it('keys forwarded downloads on their target, per indexer and account', () => {
++    const a = forwarded('https://indexer-a.example/api?t=get&id=1&apikey=aaa');
++    const a2 = forwarded('https://indexer-a.example/api?t=get&id=2&apikey=aaa');
++    const b = forwarded('https://indexer-b.example/api?t=get&id=1&apikey=aaa');
++    const other = forwarded(
++      'https://indexer-a.example/api?t=get&id=1&apikey=bbb'
++    );
++
++    assert.equal(keyFor(a), keyFor(a2));
++    assert.notEqual(keyFor(a), keyFor(b));
++    assert.notEqual(keyFor(a), keyFor(other));
++    assert.equal(
++      cooldownKey(cooldownTargetUrl(a, FORWARDER), new Headers(), '').anon,
++      false
++    );
++  });
++
++  it('keys a forwarded search on the explicit target', () => {
++    const endpoint = new URL('https://forwarder.example/search');
++    assert.notEqual(
++      keyFor(endpoint, 'https://indexer-a.example/api?t=search&apikey=aaa'),
++      keyFor(endpoint, 'https://indexer-b.example/api?t=search&apikey=aaa')
++    );
++  });
++
++  it('leaves other URLs alone', () => {
++    const direct = new URL('https://indexer-a.example/api?t=get&apikey=aaa');
++    assert.equal(cooldownTargetUrl(direct, FORWARDER), direct);
++    assert.equal(cooldownTargetUrl(direct, undefined), direct);
++    const samePathElsewhere = new URL('https://elsewhere.example/nzb?url=x');
++    assert.equal(
++      cooldownTargetUrl(samePathElsewhere, FORWARDER),
++      samePathElsewhere
++    );
++  });
++
++  it('falls back to the request URL when the target is unparseable', () => {
++    const bad = forwarded('not a url');
++    assert.equal(cooldownTargetUrl(bad, FORWARDER), bad);
++  });
++});
++
++describe('makeRequest cooldowns through the forwarding endpoints', () => {
++  it('keeps one target\'s 429 from holding back another, with URL mappings', async (t) => {
++    mock.method(SettingsRepository, 'getAll', async () => []);
++    mock.method(SettingsRepository, 'getVersion', async () => 0);
++    await settingsStore.initialise();
++    const agent = new MockAgent();
++    agent.disableNetConnect();
++    const previous = getGlobalDispatcher();
++    setGlobalDispatcher(agent);
++    t.after(() => setGlobalDispatcher(previous));
++
++    const limited = 'https://indexer-a.test/api?t=get&id=1&apikey=aaa';
++    const fine = 'https://indexer-b.test/api?t=get&id=1&apikey=aaa';
++    const download = (target: string) => {
++      const url = new URL('https://forwarder.test/nzb');
++      url.searchParams.set('url', target);
++      return url.toString();
++    };
++    const pool = agent.get('http://forwarder.internal:8080');
++    for (const [target, status] of [
++      [limited, 429],
++      [fine, 200],
++    ] as const) {
++      const path = new URL(download(target));
++      pool
++        .intercept({ path: `${path.pathname}${path.search}` })
++        .reply(status, 'nzb', { headers: { 'Retry-After': '60' } })
++        .persist();
++    }
++    pool
++      .intercept({ path: '/search', method: 'POST' })
++      .reply(200, 'ok')
++      .persist();
++
++    assert.equal(
++      (await makeRequest(download(limited), { timeout: 1000 })).status,
++      429
++    );
++    assert.equal(
++      (await makeRequest(download(fine), { timeout: 1000 })).status,
++      200
++    );
++    await assert.rejects(
++      makeRequest(download(limited), { timeout: 1000 }),
++      RateLimitedError
++    );
++
++    // A forwarded search names its target explicitly.
++    await assert.rejects(
++      makeRequest('https://forwarder.test/search', {
++        method: 'POST',
++        timeout: 1000,
++        cooldownTarget: limited,
++      }),
++      RateLimitedError
++    );
++    assert.equal(
++      (
++        await makeRequest('https://forwarder.test/search', {
++          method: 'POST',
++          timeout: 1000,
++          cooldownTarget: fine,
++        })
++      ).status,
++      200
++    );
++  });
++});
+diff --git a/packages/core/src/utils/http.ts b/packages/core/src/utils/http.ts
+index a8805cb..313fcbe 100644
+--- a/packages/core/src/utils/http.ts
++++ b/packages/core/src/utils/http.ts
+@@ -108,6 +108,11 @@ export interface RequestOptions {
+   rawOptions?: RequestInit;
+   /** Still arms 429 cooldowns, but is never refused by one. */
+   ignoreCooldown?: boolean;
++  /**
++   * The URL a forwarding endpoint relays this request to. Its origin and
++   * credentials key the 429 cooldown in place of the endpoint's own.
++   */
++  cooldownTarget?: string;
+ }
+ 
+ const CREDENTIAL_PARAM = /apikey|api_key|token|secret|password|passwd|passkey/i;
+@@ -148,6 +153,43 @@ export function cooldownKey(
+   };
+ }
+ 
++/**
++ * The URL whose origin and credentials identify a request for cooldowns.
++ * Forwarded NZB downloads carry their target in the `url` parameter of the
++ * forwarding URL; keyed on the forwarding endpoint, one upstream's 429 would
++ * hold back every indexer and account routed through it.
++ */
++export function cooldownTargetUrl(
++  urlObj: URL,
++  forwardingDownloadUrl: string | null | undefined,
++  explicitTarget?: string
++): URL {
++  try {
++    if (explicitTarget) return new URL(explicitTarget);
++    if (!forwardingDownloadUrl) return urlObj;
++    const base = new URL(forwardingDownloadUrl);
++    if (urlObj.origin !== base.origin || urlObj.pathname !== base.pathname) {
++      return urlObj;
++    }
++    const inner = urlObj.searchParams.get('url');
++    return inner ? new URL(inner) : urlObj;
++  } catch {
++    return urlObj;
++  }
++}
++
++// Request URLs reach the cooldown check already rewritten, so the base they
++// are matched against is rewritten the same way.
++function forwardingDownloadBase(): string | undefined {
++  const base = appConfig.builtins.nab.replayDownloadUrl;
++  if (!base) return undefined;
++  try {
++    return rewriteRequestUrl(new URL(base)).toString();
++  } catch {
++    return undefined;
++  }
++}
++
+ function getEgress(urlObj: URL, options: RequestOptions): string {
+   if (options.forceProxy) return options.forceProxy;
+   const { useProxy, proxyIndex } = shouldProxy(urlObj, options.context);
+@@ -157,9 +199,15 @@ function getEgress(urlObj: URL, options: RequestOptions): string {
+ async function checkCooldown(
+   urlObj: URL,
+   headers: Headers,
+-  options: RequestOptions
++  options: RequestOptions,
++  explicitTarget?: string
+ ): Promise<CooldownKey> {
+-  const cooldown = cooldownKey(urlObj, headers, getEgress(urlObj, options));
++  const target = cooldownTargetUrl(
++    urlObj,
++    forwardingDownloadBase(),
++    explicitTarget
++  );
++  const cooldown = cooldownKey(target, headers, getEgress(urlObj, options));
+   if (options.ignoreCooldown) return cooldown;
+   const entry = await cooldowns.get(cooldown.key);
+   const remaining = entry ? entry.until - Date.now() : 0;
+@@ -217,7 +265,12 @@ export async function makeRequest(url: string, options: RequestOptions) {
+ 
+   // Checked before recursion accounting so an active cooldown isn't
+   // misreported as a possible recursive request.
+-  let cooldown = await checkCooldown(urlObj, headers, options);
++  let cooldown = await checkCooldown(
++    urlObj,
++    headers,
++    options,
++    options.cooldownTarget
++  );
+ 
+   // block recursive requests
+   const key = `${urlObj.toString()}-${options.forwardIp}`;

@@ -1,8 +1,8 @@
 diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
-index 44e22c4..d826652 100644
+index 05c08d0..60899ef 100644
 --- a/packages/frontend/src/components/menu/save-install.tsx
 +++ b/packages/frontend/src/components/menu/save-install.tsx
-@@ -550,6 +550,56 @@ function InstallCard({
+@@ -660,6 +660,56 @@ function InstallCard({
    disableSearchApiCard,
    searchApiDisabledReason,
  }: InstallCardProps) {
@@ -59,9 +59,9 @@ index 44e22c4..d826652 100644
    return (
      <SettingsCard
        title="Installation Options"
-@@ -661,6 +711,30 @@ function InstallCard({
-               author="lostb1t"
-               onClick={onOpenJellyfin}
+@@ -772,6 +822,30 @@ function InstallCard({
+               disabled={disableJellyfinCard}
+               disabledReason={jellyfinDisabledReason}
              />
 +            {jellyfinAvailable === true ? (
 +              <AppCard

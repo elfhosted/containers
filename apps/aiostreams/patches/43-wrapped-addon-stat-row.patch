@@ -1,11 +1,11 @@
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index 065a626..73f4a80 100644
+index e2df01a..69ba793 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
-@@ -22,7 +22,10 @@ import {
- } from '../streams/index.js';
+@@ -23,7 +23,10 @@ import {
  import { buildPlayChain, type FailoverContentType } from './play-chain.js';
  import { resolveServiceWrappedStreams } from './serviceWrapper.js';
+ import { resolveRemuxDbMediaInfo } from '../remuxdb/wrap.js';
 -import type { ServiceWrapServiceTiming } from './serviceWrapper.js';
 +import type {
 +  ServiceWrapServiceTiming,
@@ -14,7 +14,7 @@ index 065a626..73f4a80 100644
  import type { PrecomputeSubTimings } from '../streams/precomputer.js';
  import { StreamSelector } from '../parser/streamExpression.js';
  import type {
-@@ -270,6 +273,7 @@ export async function processStreams(
+@@ -274,6 +277,7 @@ export async function processStreams(
      limitMs: number;
      selMs: number;
    };
@@ -22,15 +22,15 @@ index 065a626..73f4a80 100644
  }> {
    const { type, id } = context;
    let processedStreams = streams;
-@@ -278,6 +282,7 @@ export async function processStreams(
-   let metaFilterMs = 0;
+@@ -283,6 +287,7 @@ export async function processStreams(
    let serviceWrapMs = 0;
    let serviceWrapTimings: Record<string, ServiceWrapServiceTiming> | undefined;
+   let remuxDbMs = 0;
 +  let wrapStats: Record<string, WrappedAddonStat> | undefined;
    let filterMs = 0;
    let deduplicationMs = 0;
    let precomputeMs = 0;
-@@ -310,6 +315,9 @@ export async function processStreams(
+@@ -322,6 +327,9 @@ export async function processStreams(
    if (resolvedResults.serviceTimings) {
      serviceWrapTimings = resolvedResults.serviceTimings;
    }
@@ -40,7 +40,7 @@ index 065a626..73f4a80 100644
  
    if (Env.PROHIBIT_P2P_STREAMS) {
      const beforeCount = processedStreams.length;
-@@ -508,6 +516,7 @@ export async function processStreams(
+@@ -527,6 +535,7 @@ export async function processStreams(
        limitMs,
        selMs,
      },
@@ -48,7 +48,7 @@ index 065a626..73f4a80 100644
    };
  }
  
-@@ -947,7 +956,9 @@ export async function getStreams(
+@@ -971,7 +980,9 @@ export async function getStreams(
        },
        finalStreams,
        fetchMs,
@@ -60,7 +60,7 @@ index 065a626..73f4a80 100644
    );
  
 diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
-index b63314a..2094c3b 100644
+index 22933bd..73cbee5 100644
 --- a/packages/core/src/main/serviceWrapper.ts
 +++ b/packages/core/src/main/serviceWrapper.ts
 @@ -22,6 +22,7 @@ import { StreamContext } from '../streams/context.js';
@@ -229,12 +229,12 @@ index b63314a..2094c3b 100644
    const torrents: Torrent[] = streams
      .filter((s) => s.torrent?.infoHash)
 diff --git a/packages/core/src/main/statistics.ts b/packages/core/src/main/statistics.ts
-index 374af5d..f180d97 100644
+index f1ec3b6..20d016f 100644
 --- a/packages/core/src/main/statistics.ts
 +++ b/packages/core/src/main/statistics.ts
-@@ -1,6 +1,9 @@
- import { constants, formatMilliseconds } from '../utils/index.js';
+@@ -2,6 +2,9 @@ import { constants, formatMilliseconds } from '../utils/index.js';
  import type { ParsedStream } from '../db/schemas.js';
+ import { isRemuxDbEnabled } from '../remuxdb/wrap.js';
  import type { AIOStreamsContext, StatEntry, PipelineTimings } from './types.js';
 +import type { WrappedAddonStat } from './serviceWrapper.js';
 +import type { AddonDispositionMap } from '../streams/fetcher.js';
@@ -242,7 +242,7 @@ index 374af5d..f180d97 100644
  
  /** Split a flat filter-details array into per-📌-header groups. */
  export function splitByPin(details: string[]): string[][] {
-@@ -46,12 +49,99 @@ export function buildStatistics(
+@@ -47,12 +50,99 @@ export function buildStatistics(
    ctx: Pick<AIOStreamsContext, 'userData' | 'filterer' | 'precomputer'>,
    finalStreams: ParsedStream[],
    fetchMs: number,
@@ -344,10 +344,10 @@ index 374af5d..f180d97 100644
    const { filterDetails, includedDetails } =
      filterer.getFormattedFilterDetails();
 diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
-index fffa02c..5da792c 100644
+index 9102595..e278f9a 100644
 --- a/packages/core/src/streams/fetcher.ts
 +++ b/packages/core/src/streams/fetcher.ts
-@@ -40,6 +40,7 @@ export interface AddonDispositionInfo {
+@@ -41,6 +41,7 @@ export interface AddonDispositionInfo {
    latencyMs: number;
    status: AnalyticsStatus;
    errorKind?: AnalyticsErrorKind;
@@ -355,7 +355,7 @@ index fffa02c..5da792c 100644
  }
  
  export type AddonDispositionMap = Map<string, AddonDispositionInfo>;
-@@ -162,6 +163,7 @@ class StreamFetcher {
+@@ -166,6 +167,7 @@ class StreamFetcher {
            rawCount: usableStreams.length,
            latencyMs,
            status,

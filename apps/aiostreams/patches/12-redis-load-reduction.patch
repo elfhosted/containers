@@ -1,8 +1,29 @@
+diff --git a/packages/core/src/debrid/stremthru.checkcache.test.ts b/packages/core/src/debrid/stremthru.checkcache.test.ts
+index cd249a1..bc128d7 100644
+--- a/packages/core/src/debrid/stremthru.checkcache.test.ts
++++ b/packages/core/src/debrid/stremthru.checkcache.test.ts
+@@ -58,3 +58,16 @@ describe('StremThru check cache: RD filename blocklist', () => {
+     assert.equal(item?.status, 'cached');
+   });
+ });
++
++describe('StremThru check cache: debridge', () => {
++  it('never reads the shared check cache, single or batched', async () => {
++    const svc = service('debridge');
++    seed(svc, download('dg-hash', 'Some.File.mkv'));
++
++    assert.equal(await svc.checkCacheGet('dg-hash'), undefined);
++    assert.deepEqual(await svc.checkCacheGetMany(['dg-hash', 'other']), [
++      undefined,
++      undefined,
++    ]);
++  });
++});
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 9b0aeac..9df2dc7 100644
+index 96dc8ce..363eab2 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -138,6 +138,9 @@ export class StremThruService
+@@ -145,6 +145,9 @@ export class StremThruService
    private async checkCacheGet(
      hash: string
    ): Promise<DebridDownload | undefined> {
@@ -10,9 +31,19 @@ index 9b0aeac..9df2dc7 100644
 +      return undefined;
 +    }
      const cached = await StremThruService.checkCache.get(
-       `${this.serviceName}:${getSimpleTextHash(hash)}`
+       this.checkCacheKey(hash)
      );
-@@ -145,6 +148,9 @@ export class StremThruService
+@@ -154,6 +157,9 @@ export class StremThruService
+   private async checkCacheGetMany(
+     hashes: string[]
+   ): Promise<(DebridDownload | undefined)[]> {
++    if (this.serviceName === 'debridge') {
++      return hashes.map(() => undefined);
++    }
+     const results: (DebridDownload | undefined)[] = [];
+     for (let i = 0; i < hashes.length; i += CHECK_CACHE_READ_BATCH) {
+       const batch = hashes.slice(i, i + CHECK_CACHE_READ_BATCH);
+@@ -169,6 +175,9 @@ export class StremThruService
    }
  
    private async checkCacheSet(debridDownload: DebridDownload): Promise<void> {
@@ -21,9 +52,9 @@ index 9b0aeac..9df2dc7 100644
 +    }
      try {
        await StremThruService.checkCache.set(
-         `${this.serviceName}:${getSimpleTextHash(debridDownload.hash!)}`,
+         this.checkCacheKey(debridDownload.hash!),
 diff --git a/packages/core/src/debrid/usenet-stream-base.ts b/packages/core/src/debrid/usenet-stream-base.ts
-index 2f1fc7e..e72e30b 100644
+index 0b41352..cce611e 100644
 --- a/packages/core/src/debrid/usenet-stream-base.ts
 +++ b/packages/core/src/debrid/usenet-stream-base.ts
 @@ -470,7 +470,9 @@ export abstract class UsenetStreamService implements UsenetDebridService {

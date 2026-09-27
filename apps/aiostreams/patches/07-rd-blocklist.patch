@@ -43,38 +43,115 @@ index 0000000..a6f3a0a
 +  if (!nameMatches && !fileMatches) return item;
 +  return { ...item, status: 'unknown' };
 +}
+diff --git a/packages/core/src/debrid/stremthru.checkcache.test.ts b/packages/core/src/debrid/stremthru.checkcache.test.ts
+new file mode 100644
+index 0000000..cd249a1
+--- /dev/null
++++ b/packages/core/src/debrid/stremthru.checkcache.test.ts
+@@ -0,0 +1,60 @@
++import assert from 'node:assert/strict';
++import { describe, it } from 'node:test';
++
++import type { DebridDownload } from './base.js';
++
++// Read once at module load, so it must be set before the import.
++process.env.RD_BLOCKED_FILENAME_REGEX = 'blocked';
++const { StremThruService } = await import('./stremthru.js');
++
++// The real cache and constructor both need the runtime config; the
++// check-cache helpers only need serviceName and the static cache.
++const store = new Map<string, DebridDownload>();
++(StremThruService as any).checkCache = {
++  get: async (key: string) => store.get(key),
++  getMany: async (keys: string[]) => keys.map((key) => store.get(key)),
++};
++
++function seed(svc: any, item: DebridDownload): void {
++  store.set(svc.checkCacheKey(item.hash!), item);
++}
++
++function service(serviceName: string): any {
++  return Object.assign(Object.create(StremThruService.prototype), {
++    serviceName,
++  });
++}
++
++function download(hash: string, name: string): DebridDownload {
++  return {
++    id: -1,
++    hash,
++    name,
++    status: 'cached',
++    files: [{ name, size: 1, index: 0 }],
++  } as DebridDownload;
++}
++
++describe('StremThru check cache: RD filename blocklist', () => {
++  it('downgrades a blocked realdebrid entry on single and batched reads', async () => {
++    const svc = service('realdebrid');
++    seed(svc, download('rd-blocked', 'Some.blocked.File.mkv'));
++    seed(svc, download('rd-clean', 'Some.Clean.File.mkv'));
++
++    assert.equal((await svc.checkCacheGet('rd-blocked'))?.status, 'unknown');
++    assert.equal((await svc.checkCacheGet('rd-clean'))?.status, 'cached');
++
++    const batched = await svc.checkCacheGetMany(['rd-blocked', 'rd-clean']);
++    assert.deepEqual(
++      batched.map((d: DebridDownload | undefined) => d?.status),
++      ['unknown', 'cached']
++    );
++  });
++
++  it('leaves other services alone', async () => {
++    const svc = service('torbox');
++    seed(svc, download('tb-blocked', 'Some.blocked.File.mkv'));
++    const [item] = await svc.checkCacheGetMany(['tb-blocked']);
++    assert.equal(item?.status, 'cached');
++  });
++});
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 6b7df15..37787db 100644
+index b2e1905..7a372dd 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -17,6 +17,7 @@ import {
-   buildResolveKey,
-   removeDownloadOnAbort,
+@@ -20,6 +20,7 @@ import {
+   selectableFileNames,
+   selectableFiles,
  } from './utils.js';
 +import { downgradeIfBlocked as rdBlocklistDowngrade } from './rdBlocklist.js';
  import {
    DebridServiceConfig,
    DebridDownload,
-@@ -137,9 +138,10 @@ export class StremThruService
+@@ -144,7 +145,10 @@ export class StremThruService
    private async checkCacheGet(
      hash: string
    ): Promise<DebridDownload | undefined> {
--    return await StremThruService.checkCache.get(
+-    return await StremThruService.checkCache.get(this.checkCacheKey(hash));
 +    const cached = await StremThruService.checkCache.get(
-       `${this.serviceName}:${getSimpleTextHash(hash)}`
-     );
++      this.checkCacheKey(hash)
++    );
 +    return rdBlocklistDowngrade(cached, this.serviceName);
+   }
+ 
+   private async checkCacheGetMany(
+@@ -159,7 +163,9 @@ export class StremThruService
+         ))
+       );
+     }
+-    return results;
++    return results.map((cached) =>
++      rdBlocklistDowngrade(cached, this.serviceName)
++    );
    }
  
    private async checkCacheSet(debridDownload: DebridDownload): Promise<void> {
 diff --git a/packages/core/src/streams/filterer.ts b/packages/core/src/streams/filterer.ts
-index dc4820a..5e23092 100644
+index 14b1f7f..c20857c 100644
 --- a/packages/core/src/streams/filterer.ts
 +++ b/packages/core/src/streams/filterer.ts
-@@ -33,6 +33,20 @@ import { StreamContext, ExtendedMetadata } from './context.js';
- 
- const logger = createLogger('filterer');
- 
+@@ -46,6 +46,19 @@ const formatReleaseDate = (date: string | Date): string => {
+   const d = new Date(date);
+   return isNaN(d.getTime()) ? 'Invalid Date' : releaseDateFormat.format(d);
+ };
 +const RD_BLOCKLIST_REGEX: RegExp | null = (() => {
 +  const raw = (process.env.RD_BLOCKED_FILENAME_REGEX || '').trim();
 +  if (!raw) return null;
@@ -88,12 +165,11 @@ index dc4820a..5e23092 100644
 +    );
 +  }
 +})();
-+
+ 
  interface Reason {
    total: number;
-   details: Record<string, number>;
-@@ -1446,6 +1460,16 @@ class StreamFilterer {
-     const shouldKeepStream = (stream: ParsedStream): boolean => {
+@@ -1545,6 +1558,16 @@ class StreamFilterer {
+ 
        const file = stream.parsedFile;
  
 +      if (

@@ -1,54 +1,8 @@
-From 56a86e6eed825e295bf082938db611b8f68e9a64 Mon Sep 17 00:00:00 2001
-From: David Young <davidy@funkypenguin.co.nz>
-Date: Sat, 26 Sep 2026 15:57:51 +1200
-Subject: [PATCH] feat: make health-index use follow contribution, under a
- shared name
-
-The index is built from what its clients contribute, so reading it and
-writing to it are one decision. That was already half true here: the gated
-indexer is refused unless BUILTIN_NAB_HEALTH_CONTRIBUTE is on. Two other
-paths were not.
-
-fetchZyclopsHealth now returns no verdicts when not participating.
-
-buildZyclopsHealthProxyConfig does too, and that one is the reason this is
-worth care. Routing a search through the health proxy makes no health API
-call at all -- the search URL is simply rewritten to the proxy, and every
-result still comes from the index. Gating only the queries missed it
-completely, and a live search on a real configuration proved it: with
-participation off, requests still went to the proxy endpoint. The user's own
-zyclopsHealthProxy flag is their preference; participation is whether it may
-be honoured.
-
-Adds ZYCLOPS_INGEST (default true) as a second way to say the same thing.
-Either setting being false opts out.
-
-Note for existing deployments: an instance that sets a health API URL, or
-enables the health proxy on a preset, without turning contribution on will
-find both stop working. That is the intended reciprocity, and the gated
-indexer has always been refused under exactly that condition.
-
-The tests carry a list of every consumer of the rule. It is a checklist for
-review rather than a behavioural assertion -- the rule is shared, the call
-sites are not, and a missed call site is invisible to a test of the rule.
-That is precisely how the proxy-routing path was missed on the first cut.
----
- packages/core/src/builtins/newznab/addon.ts   | 15 ++++++
- .../src/builtins/utils/nzbContribution.ts     |  4 +-
- .../src/builtins/utils/sharedIndex.test.ts    | 46 +++++++++++++++++++
- .../core/src/builtins/utils/sharedIndex.ts    | 38 +++++++++++++++
- .../core/src/builtins/utils/zyclopsHealth.ts  |  4 ++
- packages/core/src/config/schema/builtins.ts   | 10 ++++
- packages/core/src/presets/newznab.ts          |  5 +-
- 7 files changed, 119 insertions(+), 3 deletions(-)
- create mode 100644 packages/core/src/builtins/utils/sharedIndex.test.ts
- create mode 100644 packages/core/src/builtins/utils/sharedIndex.ts
-
 diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
-index dfbc3ef..40c3c68 100644
+index 2ff79a1..d1e67e4 100644
 --- a/packages/core/src/builtins/newznab/addon.ts
 +++ b/packages/core/src/builtins/newznab/addon.ts
-@@ -31,6 +31,7 @@ import {
+@@ -32,6 +32,7 @@ import {
  import type { BuiltinServiceId } from '../../utils/index.js';
  import type { Stream } from '../../db/index.js';
  import { isBypassedHost, parseBypassHosts } from '../utils/replayBypass.js';
@@ -56,7 +10,7 @@ index dfbc3ef..40c3c68 100644
  
  const logger = createLogger('newznab');
  
-@@ -149,6 +150,20 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -150,6 +151,20 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
        return undefined;
      }
  
@@ -218,10 +172,10 @@ index 93f2823..9a096a2 100644
    if (!url) return result;
  
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 5f4ad7f..fccf4eb 100644
+index 73b27e5..54e9a4e 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -669,6 +669,16 @@ export const builtinsSchema = {
+@@ -696,6 +696,16 @@ export const builtinsSchema = {
        requiresRestart: false,
        secret: false,
      },
@@ -239,7 +193,7 @@ index 5f4ad7f..fccf4eb 100644
        schema: z.boolean(),
        default: false,
 diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
-index 2519ef7..ff2b4a1 100644
+index d92ac31..83ab863 100644
 --- a/packages/core/src/presets/newznab.ts
 +++ b/packages/core/src/presets/newznab.ts
 @@ -2,6 +2,7 @@ import { Addon, Option, ParsedStream, Stream, UserData } from '../db/index.js';
@@ -250,7 +204,7 @@ index 2519ef7..ff2b4a1 100644
  
  class NewznabStreamParser extends BuiltinStreamParser {
    protected override getMessage(
-@@ -379,11 +380,11 @@ export class NewznabPreset extends BuiltinAddonPreset {
+@@ -425,11 +426,11 @@ export class NewznabPreset extends BuiltinAddonPreset {
      options: Record<string, any>
    ): Promise<Addon[]> {
      const gatedIndexer = appConfig.builtins.nab.healthIndexerUrl;

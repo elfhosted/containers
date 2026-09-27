@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index 892d4a1..065a626 100644
+index 553a80b..e2df01a 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
 @@ -14,7 +14,12 @@ import { getAddonName } from '../utils/general.js';
@@ -15,25 +15,25 @@ index 892d4a1..065a626 100644
 +} from '../streams/index.js';
  import { buildPlayChain, type FailoverContentType } from './play-chain.js';
  import { resolveServiceWrappedStreams } from './serviceWrapper.js';
- import type { ServiceWrapServiceTiming } from './serviceWrapper.js';
-@@ -281,6 +286,9 @@ export async function processStreams(
-   let limitMs = 0;
-   let selMs = 0;
+ import { resolveRemuxDbMediaInfo } from '../remuxdb/wrap.js';
+@@ -292,6 +297,9 @@ export async function processStreams(
+     remuxDbMs += Date.now() - start;
+   };
  
 +  const enrichmentRequest = await buildEnrichmentRequest(context);
 +  enrichFromDuplicates(processedStreams, enrichmentRequest);
 +
    if (isMeta) {
      await ctx.precomputer.precomputeSeaDexOnly(processedStreams, context);
-     const metaFilterStart = Date.now();
-@@ -318,6 +326,7 @@ export async function processStreams(
+     await withRemuxDb(processedStreams);
+@@ -330,6 +338,7 @@ export async function processStreams(
    }
  
    if (resolvedResults.hasNewStreams) {
 +    enrichFromDuplicates(processedStreams, enrichmentRequest);
-     const filterStart = Date.now();
-     processedStreams = await ctx.filterer.filter(processedStreams, context);
-     filterMs = Date.now() - filterStart;
+     await withRemuxDb(
+       processedStreams.filter((s) => !preServiceWrapIds.has(s.id))
+     );
 diff --git a/packages/core/src/streams/enricher.ts b/packages/core/src/streams/enricher.ts
 new file mode 100644
 index 0000000..b970d8f
@@ -317,7 +317,7 @@ index 0000000..b970d8f
 +  return enriched;
 +}
 diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
-index 0f693ba..fffa02c 100644
+index 4315192..9102595 100644
 --- a/packages/core/src/streams/fetcher.ts
 +++ b/packages/core/src/streams/fetcher.ts
 @@ -14,6 +14,7 @@ import StreamFilter from './filterer.js';
@@ -328,15 +328,15 @@ index 0f693ba..fffa02c 100644
  import {
    classifyAddonError,
    type AnalyticsDisposition,
-@@ -247,6 +248,8 @@ class StreamFetcher {
+@@ -251,6 +252,8 @@ class StreamFetcher {
        // Now uses context's cached SeaDex data when available
        await this.precompute.precomputeSeaDexOnly(groupStreams, context);
  
 +      enrichFromDuplicates(groupStreams, await buildEnrichmentRequest(context));
 +
-       // Blocklist runs before dedup so a flagged candidate never survives
-       // as a failover variant harvested from discarded duplicates.
-       const filteredStreams = await this.deduplicate.deduplicate(
+       const remuxDbStart = Date.now();
+       await resolveRemuxDbMediaInfo(groupStreams, context, this.userData);
+       remuxDbMs += Date.now() - remuxDbStart;
 diff --git a/packages/core/src/streams/index.ts b/packages/core/src/streams/index.ts
 index 7753d63..c252bc7 100644
 --- a/packages/core/src/streams/index.ts

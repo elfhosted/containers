@@ -1000,7 +1000,7 @@ index 0000000..a10add8
 +  }
 +};
 diff --git a/packages/core/src/builtins/index.ts b/packages/core/src/builtins/index.ts
-index 81691c9..0468687 100644
+index c4ad64f..4eb18f7 100644
 --- a/packages/core/src/builtins/index.ts
 +++ b/packages/core/src/builtins/index.ts
 @@ -2,6 +2,7 @@ export * from './base/nab/test.js';
@@ -1012,10 +1012,10 @@ index 81691c9..0468687 100644
  export * from './prowlarr/index.js';
  export * from './knaben/index.js';
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index e6861ca..c86db81 100644
+index bdef959..e386e4f 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -768,6 +768,47 @@ export const builtinsSchema = {
+@@ -795,6 +795,47 @@ export const builtinsSchema = {
        secret: false,
      },
    },
@@ -1064,10 +1064,10 @@ index e6861ca..c86db81 100644
      url: {
        schema: urlString,
 diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
-index 62ae05c..ee75aac 100644
+index 81d6561..8cc974b 100644
 --- a/packages/core/src/index.ts
 +++ b/packages/core/src/index.ts
-@@ -28,6 +28,12 @@ export {
+@@ -30,6 +30,12 @@ export {
    GoogleOAuth,
    GDriveAPI,
    TorznabAddon,
@@ -1081,10 +1081,10 @@ index 62ae05c..ee75aac 100644
    ProwlarrAddon,
    KnabenAddon,
 diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
-index 9cb1526..6accc99 100644
+index 8892eee..3479cc9 100644
 --- a/packages/core/src/metadata/tmdb.ts
 +++ b/packages/core/src/metadata/tmdb.ts
-@@ -49,6 +49,8 @@ const MovieDetailsSchema = z.object({
+@@ -51,6 +51,8 @@ const MovieDetailsSchema = z.object({
    origin_country: z.array(z.string()).optional(),
    runtime: z.number().nullable().optional(),
    genres: z.array(GenreSchema).optional(),
@@ -1093,7 +1093,7 @@ index 9cb1526..6accc99 100644
  });
  
  const TVDetailsSchema = z.object({
-@@ -68,6 +70,8 @@ const TVDetailsSchema = z.object({
+@@ -70,6 +72,8 @@ const TVDetailsSchema = z.object({
      })
    ),
    genres: z.array(GenreSchema).optional(),
@@ -1102,10 +1102,10 @@ index 9cb1526..6accc99 100644
  });
  
  const MovieAlternativeTitlesSchema = z.object({
-@@ -208,6 +212,22 @@ export class TMDBMetadata {
-     Cache.getInstance<string, EpisodeDetails>('tmdb_episode_v2');
-   private static readonly searchCache: Cache<string, TMDBSeriesSearchResult[]> =
-     Cache.getInstance<string, TMDBSeriesSearchResult[]>('tmdb_search');
+@@ -319,6 +323,22 @@ export class TMDBMetadata {
+     Cache.getInstance<string, TMDBTitle[]>('tmdb_recommendations');
+   private static readonly imdbIdCache: Cache<string, string> =
+     Cache.getInstance<string, string>('tmdb_imdb_id');
 +  public static getImageUrl(
 +    p: string | null | undefined,
 +    size:
@@ -1125,7 +1125,7 @@ index 9cb1526..6accc99 100644
    public constructor(auth?: { accessToken?: string; apiKey?: string }) {
      if (
        !auth?.accessToken &&
-@@ -354,8 +374,7 @@ export class TMDBMetadata {
+@@ -465,8 +485,7 @@ export class TMDBMetadata {
  
      const tmdbId = await this.convertToTmdbId(parsedId);
  
@@ -1135,7 +1135,7 @@ index 9cb1526..6accc99 100644
      const cachedMetadata = await TMDBMetadata.metadataCache.get(cacheKey);
      if (cachedMetadata) {
        if (
-@@ -405,9 +424,13 @@ export class TMDBMetadata {
+@@ -516,9 +535,13 @@ export class TMDBMetadata {
      let genres: string[] = [];
      let firstAiredDate: string | undefined;
      let lastAiredDate: string | undefined;
@@ -1149,7 +1149,7 @@ index 9cb1526..6accc99 100644
        if (movieData.original_title) {
          allTitles.push({
            title: movieData.original_title,
-@@ -427,6 +450,8 @@ export class TMDBMetadata {
+@@ -538,6 +561,8 @@ export class TMDBMetadata {
        genres = movieData.genres?.map((g) => g.name) ?? [];
      } else {
        const tvData = TVDetailsSchema.parse(detailsJson);
@@ -1158,7 +1158,7 @@ index 9cb1526..6accc99 100644
        if (tvData.original_name) {
          allTitles.push({
            title: tvData.original_name,
-@@ -517,6 +542,8 @@ export class TMDBMetadata {
+@@ -628,6 +653,8 @@ export class TMDBMetadata {
        genres: genres.length > 0 ? genres : undefined,
        firstAiredDate,
        lastAiredDate,
@@ -1168,7 +1168,7 @@ index 9cb1526..6accc99 100644
      // Cache the result
      TMDBMetadata.metadataCache.set(cacheKey, metadata, TITLE_CACHE_TTL);
 diff --git a/packages/core/src/metadata/utils.ts b/packages/core/src/metadata/utils.ts
-index 4dee13a..9758ea7 100644
+index f3566ec..d3f80c5 100644
 --- a/packages/core/src/metadata/utils.ts
 +++ b/packages/core/src/metadata/utils.ts
 @@ -100,6 +100,8 @@ export interface Metadata {
@@ -1290,7 +1290,7 @@ index 0000000..ab7a2d5
 +  }
 +}
 diff --git a/packages/core/src/presets/presetManager.ts b/packages/core/src/presets/presetManager.ts
-index 74251d0..2179bbc 100644
+index d23751b..f518c32 100644
 --- a/packages/core/src/presets/presetManager.ts
 +++ b/packages/core/src/presets/presetManager.ts
 @@ -61,6 +61,7 @@ import { TorznabPreset } from './torznab.js';
@@ -1301,7 +1301,7 @@ index 74251d0..2179bbc 100644
  import { AnimeToshoPreset } from './animetosho.js';
  import { AnimeToshoNewPreset } from './animeToshoNew.js';
  import { NewznabPreset } from './newznab.js';
-@@ -89,6 +90,7 @@ import { Preset } from './index.js';
+@@ -91,6 +92,7 @@ import { Preset } from './index.js';
  let PRESET_LIST: string[] = [
    'custom',
    'elfcache',
@@ -1309,7 +1309,7 @@ index 74251d0..2179bbc 100644
    'torznab',
    'newznab',
    'aiostreams',
-@@ -317,6 +319,8 @@ export class PresetManager {
+@@ -323,6 +325,8 @@ export class PresetManager {
          return ZileanPreset;
        case 'elfcache':
          return ElfCachePreset;
@@ -1319,10 +1319,10 @@ index 74251d0..2179bbc 100644
          return AnimeToshoPreset;
        case 'anime-tosho-new':
 diff --git a/packages/server/src/app.ts b/packages/server/src/app.ts
-index 774b789..0e9b292 100644
+index 163d127..6a8a10a 100644
 --- a/packages/server/src/app.ts
 +++ b/packages/server/src/app.ts
-@@ -44,6 +44,7 @@ import {
+@@ -46,6 +46,7 @@ import {
    gdrive,
    torboxSearch,
    torznab,
@@ -1330,7 +1330,7 @@ index 774b789..0e9b292 100644
    newznab,
    prowlarr,
    knaben,
-@@ -55,6 +56,7 @@ import {
+@@ -58,6 +59,7 @@ import {
    easynews,
    library,
  } from './routes/builtins/index.js';
@@ -1338,7 +1338,7 @@ index 774b789..0e9b292 100644
  import {
    ipMiddleware,
    loggerMiddleware,
-@@ -217,6 +219,7 @@ builtinsRouter.use(internalMiddleware);
+@@ -223,6 +225,7 @@ builtinsRouter.use(internalMiddleware);
  builtinsRouter.use('/gdrive', gdrive);
  builtinsRouter.use('/torbox-search', torboxSearch);
  builtinsRouter.use('/torznab', torznab);
@@ -1346,7 +1346,7 @@ index 774b789..0e9b292 100644
  builtinsRouter.use('/newznab', newznab);
  builtinsRouter.use('/prowlarr', prowlarr);
  builtinsRouter.use('/knaben', knaben);
-@@ -229,6 +232,8 @@ builtinsRouter.use('/easynews', easynews);
+@@ -236,6 +239,8 @@ builtinsRouter.use('/easynews', easynews);
  builtinsRouter.use('/library', library);
  app.use('/builtins', builtinsRouter);
  
@@ -1459,7 +1459,7 @@ index 0000000..67631e0
 +
 +export default router;
 diff --git a/packages/server/src/routes/builtins/index.ts b/packages/server/src/routes/builtins/index.ts
-index e811809..7ca58f5 100644
+index 5e61a8b..1b32610 100644
 --- a/packages/server/src/routes/builtins/index.ts
 +++ b/packages/server/src/routes/builtins/index.ts
 @@ -1,6 +1,7 @@

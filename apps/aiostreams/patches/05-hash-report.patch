@@ -58,7 +58,7 @@ index cd57b07..9da2bfb 100644
    }
  }
 diff --git a/packages/core/src/builtins/library/matching.ts b/packages/core/src/builtins/library/matching.ts
-index ea03ea3..4a3b332 100644
+index bb9b0fb..07606b0 100644
 --- a/packages/core/src/builtins/library/matching.ts
 +++ b/packages/core/src/builtins/library/matching.ts
 @@ -16,6 +16,7 @@ import {
@@ -69,10 +69,10 @@ index ea03ea3..4a3b332 100644
  
  const logger = createLogger('library');
  
-@@ -176,6 +177,17 @@ export async function searchTorrents(
-       const searchTime = getTimeTakenSincePoint(start);
-       start = Date.now();
-       const matched = matchTorrents(items, metadata, parsedId, service.id);
+@@ -196,6 +197,17 @@ export async function searchTorrents(
+         parsedId,
+         service.id
+       );
 +      reportHashes(
 +        matched
 +          .filter((t) => t.hash)
@@ -360,10 +360,10 @@ index 0000000..a83f8bc
 +  );
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index b5b2a83..e6861ca 100644
+index 915610b..bdef959 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -678,6 +678,56 @@ export const builtinsSchema = {
+@@ -705,6 +705,56 @@ export const builtinsSchema = {
        secret: false,
      },
    },
