@@ -352,13 +352,13 @@ index 40d896a..dbf7ead 100644
 +    shortName: 'DG',
 +    knownNames: ['DG', 'Debridge'],
 +    signUpText:
-+      "Debridge is an ElfHosted exclusive. Get your API key [here](https://store.elfhosted.com/my-account/debridge) or [learn more](https://store.elfhosted.com/debridge).",
++      "Debridge is ElfHosted's aggregator for your own debrid and Usenet providers. Get your API key from your [Debridge dashboard](https://debridge.elfhosted.com) or [learn more](https://store.elfhosted.com/debridge).",
 +    credentials: [
 +      {
 +        id: 'apiKey',
 +        name: 'API Key',
 +        description:
-+          'Your Debridge API key. Obtain it from [here](https://store.elfhosted.com/my-account/debridge).',
++          'Your Debridge API key, from your [Debridge dashboard](https://debridge.elfhosted.com).',
 +        type: 'password',
 +        required: true,
 +      },
