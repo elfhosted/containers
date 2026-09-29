@@ -2,10 +2,11 @@ diff --git a/packages/core/src/builtins/base/nab/api.ts b/packages/core/src/buil
 index 0afb5c5..08a39a0 100644
 --- a/packages/core/src/builtins/base/nab/api.ts
 +++ b/packages/core/src/builtins/base/nab/api.ts
-@@ -25,6 +25,7 @@ import {
-   type NabSearchFunction,
-   type NabTextField,
- } from './scan.js';
+@@ -29,7 +29,8 @@ import {
+ import {
+   extractInfoHashFromMagnet,
+   validateInfoHash,
+ } from '../../utils/debrid.js';
 +import { isBypassedHost, parseBypassHosts } from '../../utils/replayBypass.js';
  
  // --- Generic Custom Error ---
