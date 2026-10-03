@@ -18,7 +18,7 @@ they are interacting with.
 ## Reproducing the build
 
 ```sh
-docker build --build-arg VERSION=v2.34.0 -f apps/aiostreams/Dockerfile .
+docker build --build-arg VERSION=v2.35.8 -f apps/aiostreams/Dockerfile .
 ```
 
 The cloner stage runs each patch with `git apply` and `set -e`, so any patch that
