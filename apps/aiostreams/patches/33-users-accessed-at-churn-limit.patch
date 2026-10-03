@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/db/repositories/users.ts b/packages/core/src/db/repositories/users.ts
-index b0b6d46..a6cb1bb 100644
+index edcd2ca..d4a756d 100644
 --- a/packages/core/src/db/repositories/users.ts
 +++ b/packages/core/src/db/repositories/users.ts
 @@ -26,6 +26,8 @@ import { LinkedAccountRepository } from './linked-accounts.js';
@@ -11,22 +11,16 @@ index b0b6d46..a6cb1bb 100644
  interface UserRow {
    uuid: string;
    password_hash: string;
-@@ -241,7 +243,13 @@ export class UserRepository {
-     const key = await this.resolveConfigKey(uuid, password, row);
- 
+@@ -243,7 +245,7 @@ export class UserRepository {
      await db.exec(
--      sql`UPDATE users SET accessed_at = CURRENT_TIMESTAMP WHERE uuid = ${uuid}`
-+      sql`UPDATE users SET accessed_at = CURRENT_TIMESTAMP
-+           WHERE uuid = ${uuid}
-+             AND (accessed_at IS NULL
-+                  OR accessed_at < ${db.intervalAgo(
-+                    ACCESSED_AT_STAMP_WINDOW_HOURS,
-+                    'hours'
-+                  )})`
+       sql`UPDATE users SET accessed_at = CURRENT_TIMESTAMP
+            WHERE uuid = ${uuid}
+-             AND (accessed_at IS NULL OR accessed_at < ${db.intervalAgo(1, 'hours')})`
++             AND (accessed_at IS NULL OR accessed_at < ${db.intervalAgo(ACCESSED_AT_STAMP_WINDOW_HOURS, 'hours')})`
      );
  
      const decryptedConfig = this.decryptConfigWithKey(row.config, key);
-@@ -476,8 +484,9 @@ export class UserRepository {
+@@ -478,8 +480,9 @@ export class UserRepository {
      }
      try {
        const db = getDb();
