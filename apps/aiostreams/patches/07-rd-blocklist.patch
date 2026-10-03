@@ -11,7 +11,7 @@ index 0000000..a6f3a0a
 +let _pattern: RegExp | null = null;
 +if (_raw) {
 +  try {
-+    _pattern = new RegExp(_raw, 'i');
++    _pattern = new RegExp(_raw);
 +    console.log(`rdBlocklist: RD filename blocklist active: ${_raw}`);
 +  } catch (err) {
 +    throw new Error(
@@ -48,7 +48,7 @@ new file mode 100644
 index 0000000..cd249a1
 --- /dev/null
 +++ b/packages/core/src/debrid/stremthru.checkcache.test.ts
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,66 @@
 +import assert from 'node:assert/strict';
 +import { describe, it } from 'node:test';
 +
@@ -100,6 +100,12 @@ index 0000000..cd249a1
 +      batched.map((d: DebridDownload | undefined) => d?.status),
 +      ['unknown', 'cached']
 +    );
++  });
++
++  it('matches case-sensitively', async () => {
++    const svc = service('realdebrid');
++    seed(svc, download('rd-upper', 'Some.BLOCKED.File.mkv'));
++    assert.equal((await svc.checkCacheGet('rd-upper'))?.status, 'cached');
 +  });
 +
 +  it('leaves other services alone', async () => {
@@ -156,7 +162,7 @@ index 14b1f7f..c20857c 100644
 +  const raw = (process.env.RD_BLOCKED_FILENAME_REGEX || '').trim();
 +  if (!raw) return null;
 +  try {
-+    return new RegExp(raw, 'i');
++    return new RegExp(raw);
 +  } catch (err) {
 +    throw new Error(
 +      `filterer: invalid RD_BLOCKED_FILENAME_REGEX: ${
