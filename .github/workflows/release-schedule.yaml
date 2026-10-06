@@ -20,14 +20,14 @@ jobs:
     outputs:
       matrix: ${{ steps.fetch.outputs.changes }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           token: ${{ env.TOKEN }}
 
       # Same overlay as action-image-build.yaml, so an app's ci/latest.sh (and
       # metadata.json) may live in containers-private.
       - name: Checkout private repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           repository: elfhosted/containers-private
           path: containers-private
