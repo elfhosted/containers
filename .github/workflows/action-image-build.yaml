@@ -367,6 +367,12 @@ jobs:
               -e ALLOWANCE_USD="starter=1.00,boost=10.00"
               -e BLOCKED_TENANTS="goss-blocked"
             )
+          elif [[ "${{ matrix.image.app }}" == "watchly" ]]; then
+            # Watchly refuses to start in production with the insecure default.
+            # This throwaway value only lets the web smoke bind in CI.
+            DGOSS_RUN_ARGS+=(
+              -e TOKEN_SALT="watchly-goss-token-salt-32-byte-value"
+            )
           fi
 
           cleanup() {
