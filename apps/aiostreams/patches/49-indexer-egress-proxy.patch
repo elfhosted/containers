@@ -1,0 +1,1382 @@
+diff --git a/packages/core/src/builtins/base/nab/api.ts b/packages/core/src/builtins/base/nab/api.ts
+index 04c26948..35476065 100644
+--- a/packages/core/src/builtins/base/nab/api.ts
++++ b/packages/core/src/builtins/base/nab/api.ts
+@@ -30,6 +30,8 @@ import {
+   validateInfoHash,
+ } from '../../utils/debrid.js';
+ import { isBypassedHost, parseBypassHosts } from '../../utils/replayBypass.js';
++import { indexerEgressFor } from '../../../utils/indexer-egress.js';
++import { rewriteRequestUrl } from '../../../utils/http.js';
+ 
+ // --- Generic Custom Error ---
+ export class NabApiError extends Error {
+@@ -429,8 +431,18 @@ export class BaseNabApi<N extends NabNamespace> {
+     url.search = searchParams.toString();
+     const urlString = url.toString();
+ 
++    // INDEXER_EGRESS_PROXY replaces the forwarding endpoint; the direct
++    // request below then goes through it (see utils/indexer-egress.ts).
++    // Classified where the request actually goes, after URL mappings.
++    const useIndexerEgress =
++      this.namespace === 'newznab' &&
++      Boolean(
++        await indexerEgressFor(rewriteRequestUrl(new URL(urlString)), true)
++      );
++
+     const shouldUseReplay =
+       this.namespace === 'newznab' &&
++      !useIndexerEgress &&
+       !this.disableReplay &&
+       Boolean(appConfig.builtins.nab.replayEndpoint) &&
+       // Matched on the upstream host, not the forwarding endpoint's. The NZB
+@@ -461,6 +473,9 @@ export class BaseNabApi<N extends NabNamespace> {
+             },
+             timeout: timeout ?? appConfig.builtins.nab.searchTimeout,
+             cooldownTarget: urlString,
++            // Kept on its route (it is internal), but a redirect elsewhere
++            // is classified again.
++            indexerRequest: true,
+             body: JSON.stringify({
+               host: url.host,
+               path: `${url.pathname}${url.search}`,
+diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
+index d1e67e45..6ff648d9 100644
+--- a/packages/core/src/builtins/newznab/addon.ts
++++ b/packages/core/src/builtins/newznab/addon.ts
+@@ -32,6 +32,8 @@ import {
+ import type { BuiltinServiceId } from '../../utils/index.js';
+ import type { Stream } from '../../db/index.js';
+ import { isBypassedHost, parseBypassHosts } from '../utils/replayBypass.js';
++import { indexerEgressFor } from '../../utils/indexer-egress.js';
++import { rewriteRequestUrl } from '../../utils/http.js';
+ import { isOptedOut } from '../utils/sharedIndex.js';
+ 
+ const logger = createLogger('newznab');
+@@ -70,7 +72,7 @@ interface HealthProxyConfig {
+ 
+ let hasLoggedReplayError = false;
+ 
+-const buildReplayDownloadUrl = (originalUrl: string): string => {
++const buildReplayDownloadUrl = async (originalUrl: string): Promise<string> => {
+   const replayBase = appConfig.builtins.nab.replayDownloadUrl;
+   if (!replayBase) {
+     return originalUrl;
+@@ -78,9 +80,15 @@ const buildReplayDownloadUrl = (originalUrl: string): string => {
+ 
+   // Matched on the enclosure's own host, which is not always the API host.
+   try {
++    const enclosure = new URL(originalUrl);
++    // INDEXER_EGRESS_PROXY: the link is left as-is and fetched through the
++    // proxy wherever this process grabs it.
++    if (await indexerEgressFor(rewriteRequestUrl(new URL(originalUrl)), true)) {
++      return originalUrl;
++    }
+     if (
+       isBypassedHost(
+-        new URL(originalUrl).host,
++        enclosure.host,
+         parseBypassHosts(appConfig.builtins.nab.replayBypassHosts)
+       )
+     ) {
+@@ -335,7 +343,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+ 
+       const nzbUrl = this.disableReplayEndpoints
+         ? enclosureUrl
+-        : buildReplayDownloadUrl(enclosureUrl);
++        : await buildReplayDownloadUrl(enclosureUrl);
+       if (seenNzbs.has(nzbUrl)) continue;
+       seenNzbs.add(nzbUrl);
+ 
+diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
+index f78b36c1..97ef8a90 100644
+--- a/packages/core/src/debrid/stremthru.ts
++++ b/packages/core/src/debrid/stremthru.ts
+@@ -952,6 +952,7 @@ export class StremThruService
+         method: 'GET',
+         timeout: 30000,
+         headers: { 'User-Agent': appConfig.http.defaultUserAgent },
++        indexerRequest: true,
+       });
+       if (!res.ok) {
+         throw new DebridError(
+diff --git a/packages/core/src/utils/http.ts b/packages/core/src/utils/http.ts
+index 09fbe5ea..74d8a630 100644
+--- a/packages/core/src/utils/http.ts
++++ b/packages/core/src/utils/http.ts
+@@ -23,6 +23,12 @@ import { socksDispatcher } from 'fetch-socks';
+ import { createLogger } from '../logging/logger.js';
+ import { resolveHeaderPreset } from './header-presets.js';
+ import { PrivateAddressError } from './private-addresses.js';
++import {
++  getIndexerEgress,
++  indexerEgressFor,
++  isInternalDestination,
++  type IndexerEgress,
++} from './indexer-egress.js';
+ 
+ const logger = createLogger('http');
+ const urlCount = Cache.getInstance<string, number>(
+@@ -114,6 +120,22 @@ export interface RequestOptions {
+    * credentials key the 429 cooldown in place of the endpoint's own.
+    */
+   cooldownTarget?: string;
++  /**
++   * Fetches an NZB from an indexer without the `nzb_grabs` context. Requests
++   * in the `newznab` and `nzb_grabs` contexts are indexer requests already.
++   * See `indexer-egress.ts`.
++   */
++  indexerRequest?: boolean;
++}
++
++/** Whether a request is Usenet indexer traffic for `INDEXER_EGRESS_PROXY`. */
++export function isIndexerRequest(
++  context: FetchContext | undefined,
++  indexerRequest?: boolean
++): boolean {
++  return (
++    indexerRequest === true || context === 'newznab' || context === 'nzb_grabs'
++  );
+ }
+ 
+ const CREDENTIAL_PARAM = /apikey|api_key|token|secret|password|passwd|passkey/i;
+@@ -191,7 +213,69 @@ function forwardingDownloadBase(): string | undefined {
+   }
+ }
+ 
+-function getEgress(urlObj: URL, options: RequestOptions): string {
++const MAX_FORWARDING_LAYERS = 8;
++
++/**
++ * An NZB URL wrapped by `BUILTIN_NZB_REPLAY_DOWNLOAD_URL` before
++ * `INDEXER_EGRESS_PROXY` was set (a stored library entry, a cached stream) is
++ * fetched from its original target instead, unless that target is internal.
++ * Anything else, and everything while the variable is unset, is returned
++ * unchanged. A link wrapped more than `MAX_FORWARDING_LAYERS` times is
++ * refused rather than handed to the forwarding endpoint.
++ */
++export async function unwrapForIndexerEgress(rawUrl: string): Promise<string> {
++  if (!getIndexerEgress()) return rawUrl;
++  const base = appConfig.builtins.nab.replayDownloadUrl;
++  if (!base) return rawUrl;
++
++  let bases: URL[];
++  try {
++    // Compared as configured and as rewritten by URL mappings: a stored
++    // link may carry either origin.
++    bases = [new URL(base), rewriteRequestUrl(new URL(base))];
++  } catch {
++    return rawUrl;
++  }
++  const peel = (raw: string): string | undefined => {
++    try {
++      const url = new URL(raw);
++      const mapped = rewriteRequestUrl(new URL(raw));
++      const isWrapper = [url, mapped].some((u) =>
++        bases.some((b) => u.origin === b.origin && u.pathname === b.pathname)
++      );
++      return isWrapper ? (url.searchParams.get('url') ?? undefined) : undefined;
++    } catch {
++      return undefined;
++    }
++  };
++
++  // A link can be wrapped more than once; every layer comes off.
++  let current = rawUrl;
++  for (let depth = 0; ; depth++) {
++    const inner = peel(current);
++    if (inner === undefined) break;
++    if (depth >= MAX_FORWARDING_LAYERS) {
++      throw new Error(
++        `NZB link has more than ${MAX_FORWARDING_LAYERS} forwarding layers`
++      );
++    }
++    current = inner;
++  }
++  if (current === rawUrl) return rawUrl;
++  try {
++    const target = rewriteRequestUrl(new URL(current));
++    return (await isInternalDestination(target)) ? rawUrl : current;
++  } catch {
++    return rawUrl;
++  }
++}
++
++function getEgress(
++  urlObj: URL,
++  options: RequestOptions,
++  indexerEgress?: IndexerEgress
++): string {
++  if (indexerEgress) return `indexer-egress:${indexerEgress.target}`;
+   if (options.forceProxy) return options.forceProxy;
+   const { useProxy, proxyIndex } = shouldProxy(urlObj, options.context);
+   return useProxy ? String(proxyIndex) : '';
+@@ -201,14 +285,19 @@ async function checkCooldown(
+   urlObj: URL,
+   headers: Headers,
+   options: RequestOptions,
+-  explicitTarget?: string
++  explicitTarget?: string,
++  indexerEgress?: IndexerEgress
+ ): Promise<CooldownKey> {
+   const target = cooldownTargetUrl(
+     urlObj,
+     forwardingDownloadBase(),
+     explicitTarget
+   );
+-  const cooldown = cooldownKey(target, headers, getEgress(urlObj, options));
++  const cooldown = cooldownKey(
++    target,
++    headers,
++    getEgress(urlObj, options, indexerEgress)
++  );
+   if (options.ignoreCooldown) return cooldown;
+   const entry = await cooldowns.get(cooldown.key);
+   const remaining = entry ? entry.until - Date.now() : 0;
+@@ -256,7 +345,14 @@ async function recordCooldown(
+ }
+ 
+ export async function makeRequest(url: string, options: RequestOptions) {
+-  let urlObj = rewriteRequestUrl(new URL(url));
++  const indexerRequest = isIndexerRequest(
++    options.context,
++    options.indexerRequest
++  );
++  let urlObj = rewriteRequestUrl(
++    new URL(indexerRequest ? await unwrapForIndexerEgress(url) : url)
++  );
++  let indexerEgress = await indexerEgressFor(urlObj, indexerRequest);
+   const headers = new Headers(options.headers);
+   if (options.forwardIp) {
+     for (const header of HEADERS_FOR_IP_FORWARDING) {
+@@ -270,7 +366,8 @@ export async function makeRequest(url: string, options: RequestOptions) {
+     urlObj,
+     headers,
+     options,
+-    options.cooldownTarget
++    options.cooldownTarget,
++    indexerEgress
+   );
+ 
+   // block recursive requests
+@@ -308,13 +405,21 @@ export async function makeRequest(url: string, options: RequestOptions) {
+   // URL rewrites and internal-secret handling are re-evaluated on every hop.
+   for (let redirects = 0; ; redirects++) {
+     if (redirects > 0) {
+-      cooldown = await checkCooldown(urlObj, headers, options);
++      indexerEgress = await indexerEgressFor(urlObj, indexerRequest);
++      cooldown = await checkCooldown(
++        urlObj,
++        headers,
++        options,
++        undefined,
++        indexerEgress
++      );
+     }
+ 
+     const { dispatcher, useProxy, proxyIndex } = resolveDispatcher(
+       urlObj,
+       options.context,
+-      options.forceProxy
++      options.forceProxy,
++      indexerEgress
+     );
+ 
+     const basicAuth = takeBasicAuthFromUrl(urlObj);
+@@ -351,14 +456,21 @@ export async function makeRequest(url: string, options: RequestOptions) {
+         ...(redirects > 0 ? { redirects } : {}),
+         tunneled: !!dispatcher
+           ? 'true' +
+-            (options.forceProxy ? ' (forced)' : ` (proxy index ${proxyIndex})`)
++            (indexerEgress
++              ? ` (indexer egress ${indexerEgress.target})`
++              : options.forceProxy
++                ? ' (forced)'
++                : ` (proxy index ${proxyIndex})`)
+           : 'false',
+         ...(appConfig.logging.logSensitiveInfo
+           ? {
+               headers: Object.fromEntries(headers.entries()),
+-              dispatcher:
+-                options.forceProxy ??
+-                (useProxy ? appConfig.http.addonProxy[proxyIndex] : undefined),
++              dispatcher: indexerEgress
++                ? undefined
++                : (options.forceProxy ??
++                  (useProxy
++                    ? appConfig.http.addonProxy[proxyIndex]
++                    : undefined)),
+             }
+           : {}),
+       },
+@@ -420,7 +532,13 @@ export async function makeRequest(url: string, options: RequestOptions) {
+       );
+     }
+ 
+-    const nextUrl = rewriteRequestUrl(new URL(hop.location));
++    const nextUrl = rewriteRequestUrl(
++      new URL(
++        indexerRequest
++          ? await unwrapForIndexerEgress(hop.location)
++          : hop.location
++      )
++    );
+     if (nextUrl.origin !== urlObj.origin) {
+       for (const header of CROSS_ORIGIN_SENSITIVE_HEADERS) {
+         headers.delete(header);
+@@ -585,16 +703,28 @@ export function rewriteRequestUrl(urlObj: URL): URL {
+  * an optional `context`. `forceProxy` overrides the configured addon-proxy
+  * selection. Also returns the {@link shouldProxy} decision (for logging). Shared
+  * by {@link makeRequest} and the streaming proxy route.
++ *
++ * `indexerEgress` (from {@link indexerEgressFor}) overrides both: it is set
++ * only for indexer requests to non-internal destinations while
++ * `INDEXER_EGRESS_PROXY` is configured.
+  */
+ export function resolveDispatcher(
+   urlObj: URL,
+   context?: FetchContext,
+-  forceProxy?: string
++  forceProxy?: string,
++  indexerEgress?: IndexerEgress
+ ): {
+   dispatcher: Dispatcher | undefined;
+   useProxy: boolean;
+   proxyIndex: number;
+ } {
++  if (indexerEgress) {
++    return {
++      dispatcher: indexerEgress.dispatcher,
++      useProxy: false,
++      proxyIndex: -1,
++    };
++  }
+   const { useProxy, proxyIndex } = shouldProxy(urlObj, context);
+   let dispatcher: Dispatcher | undefined;
+   if (forceProxy) {
+diff --git a/packages/core/src/utils/index.ts b/packages/core/src/utils/index.ts
+index ebfc1701..24de63a2 100644
+--- a/packages/core/src/utils/index.ts
++++ b/packages/core/src/utils/index.ts
+@@ -14,6 +14,7 @@ export * from './config-alias.js';
+ export * from './auth.js';
+ export * from './oidc.js';
+ export * from './http.js';
++export * from './indexer-egress.js';
+ export * from './github.js';
+ export * from './header-presets.js';
+ export * as constants from './constants.js';
+diff --git a/packages/core/src/utils/indexer-egress.test.ts b/packages/core/src/utils/indexer-egress.test.ts
+new file mode 100644
+index 00000000..f2882596
+--- /dev/null
++++ b/packages/core/src/utils/indexer-egress.test.ts
+@@ -0,0 +1,625 @@
++import assert from 'node:assert/strict';
++import dns from 'node:dns';
++import { mkdtempSync, rmSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { Agent, type Dispatcher, setGlobalDispatcher } from 'undici';
++import { createServer, type IncomingMessage, type Server } from 'node:http';
++import type { AddressInfo, Socket } from 'node:net';
++import { after, before, beforeEach, describe, it, mock } from 'node:test';
++
++// Every module under test is imported dynamically, after the environment
++// below is in place: the settings store and the logger read it on load.
++process.env.LOG_LEVEL = 'debug';
++// Request headers and dispatchers are logged too; the proxy's must not be.
++process.env.LOG_SENSITIVE_INFO = 'true';
++// A grab cache of its own, so no earlier run can answer for the stubs.
++const scratch = mkdtempSync(join(tmpdir(), 'indexer-egress-'));
++process.env.DISK_CACHE_DIR = join(scratch, 'cache');
++
++const PROXY_USER = 'egress-user';
++const PROXY_PASS = 'egress-pass-7d1c';
++
++interface Seen {
++  /** Absolute-form request lines, e.g. `GET http://host/path`. */
++  requests: string[];
++  /** CONNECT targets, e.g. `host:443`. */
++  connects: string[];
++  proxyAuth: (string | undefined)[];
++}
++
++const fresh = (): Seen => ({ requests: [], connects: [], proxyAuth: [] });
++
++const CAPS = `<?xml version="1.0" encoding="UTF-8"?>
++<caps>
++  <server title="Stub"/>
++  <limits max="100" default="100"/>
++  <searching>
++    <search available="yes" supportedParams="q,imdbid"/>
++    <movie-search available="yes" supportedParams="q,imdbid"/>
++  </searching>
++  <categories><category id="2000" name="Movies"/></categories>
++</caps>`;
++
++const searchXml = (enclosure: string) => `<?xml version="1.0" encoding="UTF-8"?>
++<rss version="2.0" xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/">
++  <channel>
++    <item>
++      <title>Some.Movie.2020.1080p.WEB-DL.x264-GRP</title>
++      <guid>1</guid>
++      <pubDate>Mon, 01 Jan 2024 00:00:00 +0000</pubDate>
++      <enclosure url="${enclosure}" length="1000" type="application/x-nzb"/>
++      <newznab:attr name="size" value="1000"/>
++    </item>
++  </channel>
++</rss>`;
++
++const NZB = `<?xml version="1.0" encoding="UTF-8"?>
++<nzb>
++  <file poster="p" date="1" subject="s">
++    <groups><group>alt.binaries.test</group></groups>
++    <segments><segment bytes="1" number="1">a@b</segment></segments>
++  </file>
++</nzb>`;
++
++/** Answers an indexer request for `target` the way an indexer would. */
++function answer(target: URL): { status: number; body: string } {
++  const t = target.searchParams.get('t');
++  if (t === 'caps') return { status: 200, body: CAPS };
++  if (t) {
++    return {
++      status: 200,
++      body: searchXml(
++        `http://dl.example.com/getnzb/${target.hostname}.nzb?apikey=KEY`
++      ),
++    };
++  }
++  return { status: 200, body: NZB };
++}
++
++/** A forward proxy that serves indexer answers for plain-HTTP targets. */
++function stubProxy(seen: () => Seen, serve: boolean): Server {
++  const server = createServer((req: IncomingMessage, res) => {
++    seen().requests.push(`${req.method} ${req.url}`);
++    seen().proxyAuth.push(req.headers['proxy-authorization']);
++    if (!serve || !req.url?.startsWith('http')) {
++      res.writeHead(502).end();
++      return;
++    }
++    const target = new URL(req.url);
++    if (target.hostname.startsWith('denied')) {
++      res.writeHead(407, { 'Proxy-Authenticate': 'Basic' }).end();
++      return;
++    }
++    if (target.hostname.startsWith('redirect')) {
++      // An indexer redirecting a grab to a forwarding-wrapped link.
++      const location = new URL(`${FORWARDER}/nzb`);
++      location.searchParams.set(
++        'url',
++        `http://after-${target.hostname}/getnzb/1.nzb?apikey=KEY`
++      );
++      res.writeHead(302, { Location: location.toString() }).end();
++      return;
++    }
++    const { status, body } = answer(target);
++    res.writeHead(status, { 'Content-Type': 'application/xml' }).end(body);
++  });
++  server.on('connect', (req: IncomingMessage, socket: Socket) => {
++    seen().connects.push(req.url ?? '');
++    seen().proxyAuth.push(req.headers['proxy-authorization']);
++    socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
++  });
++  return server;
++}
++
++/** The forwarding endpoints: a search relay and an NZB download wrapper. */
++function stubForwarder(seen: () => Seen): Server {
++  return createServer((req, res) => {
++    let raw = '';
++    req.on('data', (c) => (raw += c));
++    req.on('end', () => {
++      seen().requests.push(`${req.method} ${req.url}`);
++      const url = new URL(req.url ?? '/', 'http://localhost');
++      let target: URL;
++      if (url.pathname === '/search') {
++        const { host, path } = JSON.parse(raw);
++        target = new URL(`http://${host}${path}`);
++      } else {
++        target = new URL(
++          url.searchParams.get('url') ?? 'http://x.example.com/'
++        );
++      }
++      const { status, body } = answer(target);
++      res.writeHead(status, { 'Content-Type': 'application/xml' }).end(body);
++    });
++  });
++}
++
++const listen = (server: Server) =>
++  new Promise<number>((resolve) =>
++    server.listen(0, () => resolve((server.address() as AddressInfo).port))
++  );
++
++/** Origins of requests sent without any proxy. */
++let directSeen: string[] = [];
++class RecordingAgent extends Agent {
++  override dispatch(
++    opts: Dispatcher.DispatchOptions,
++    handler: Dispatcher.DispatchHandler
++  ): boolean {
++    directSeen.push(String(opts.origin));
++    return super.dispatch(opts, handler);
++  }
++}
++setGlobalDispatcher(new RecordingAgent());
++
++/** Nothing went to an indexer host without a proxy. */
++const assertNoDirect = () =>
++  assert.deepEqual(
++    directSeen.filter((o) => o.includes('example.com')),
++    []
++  );
++
++let egressSeen = fresh();
++let normalSeen = fresh();
++let forwarderSeen = fresh();
++const egressServer = stubProxy(() => egressSeen, true);
++const normalServer = stubProxy(() => normalSeen, false);
++const forwarderServer = stubForwarder(() => forwarderSeen);
++const egressPort = await listen(egressServer);
++const normalPort = await listen(normalServer);
++const forwarderPort = await listen(forwarderServer);
++
++const EGRESS = `http://${PROXY_USER}:${PROXY_PASS}@127.0.0.1:${egressPort}`;
++const NORMAL = `http://127.0.0.1:${normalPort}`;
++const FORWARDER = `http://localhost:${forwarderPort}`;
++
++// The routes the variable has to win over.
++process.env.BUILTIN_NAB_REPLAY_ENDPOINT = `${FORWARDER}/search`;
++process.env.BUILTIN_NZB_REPLAY_DOWNLOAD_URL = `${FORWARDER}/nzb`;
++process.env.REPLAY_BYPASS_HOSTS = 'bypass.example.com';
++process.env.BUILTIN_NAB_HTTP_PROXY = `newznab:${NORMAL}`;
++process.env.ADDON_PROXY = NORMAL;
++process.env.ADDON_PROXY_CONFIG = '[nzb_grabs]:0';
++delete process.env.INDEXER_EGRESS_PROXY;
++
++const { settingsStore } = await import('../config/index.js');
++const { initDb, closeDb } = await import('../db/db.js');
++const { SettingsRepository } = await import('../db/repositories/settings.js');
++// The package entry point, so modules load in the order the app loads them.
++await import('../index.js');
++const { BaseNabApi } = await import('../builtins/base/nab/api.js');
++const { NewznabAddon } = await import('../builtins/newznab/addon.js');
++const { downloadManager } = await import('./download-manager.js');
++const { StremThruService } = await import('../debrid/stremthru.js');
++const { createLogger } = await import('../logging/logger.js');
++const { logRingBuffer } = await import('../logging/ring-buffer.js');
++const egressModule = await import('./indexer-egress.js');
++const { parseIndexerEgressProxy, getIndexerEgress, logIndexerEgressStatus } =
++  egressModule;
++
++const testLogger = createLogger('indexer-egress-test');
++
++let hostSeq = 0;
++/** A host no earlier test has used, so no cache answers for it. */
++const host = (label: string) => `${label}${++hostSeq}.example.com`;
++
++const caps = (baseUrl: string) =>
++  new BaseNabApi(
++    'newznab',
++    testLogger,
++    baseUrl,
++    'KEY',
++    '/api'
++  ).getCapabilities();
++
++const grab = (url: string) => downloadManager.fetchNzb(url);
++
++const logLines = async (): Promise<string> => {
++  // pino hands lines to the ring stream asynchronously.
++  await new Promise((r) => setTimeout(r, 50));
++  return logRingBuffer
++    .query({ limit: 100000 })
++    .records.map((r) => r.line)
++    .join('\n');
++};
++
++const PROXY_BASIC = Buffer.from(`${PROXY_USER}:${PROXY_PASS}`).toString(
++  'base64'
++);
++
++const assertNoSecrets = (text: string) => {
++  assert.ok(!text.includes(PROXY_BASIC), 'proxy credentials reached the log');
++  assert.ok(!text.includes(PROXY_PASS), 'proxy password reached the log');
++  assert.ok(!text.includes(PROXY_USER), 'proxy username reached the log');
++  assert.ok(!text.includes(EGRESS), 'proxy URL reached the log');
++};
++
++before(async () => {
++  mock.method(SettingsRepository, 'getAll', async () => []);
++  mock.method(SettingsRepository, 'getVersion', async () => 0);
++  // No real DNS: `private*` names resolve to a private address, the rest to
++  // nothing (and so count as external).
++  mock.method(dns.promises, 'lookup', async (name: string) => {
++    if (name.startsWith('private')) return [{ address: '10.1.2.3', family: 4 }];
++    throw Object.assign(new Error(`getaddrinfo ENOTFOUND ${name}`), {
++      code: 'ENOTFOUND',
++    });
++  });
++  await settingsStore.initialise();
++  // Nab requests are single-flighted under a lock kept in the database.
++  await initDb(`sqlite://${join(scratch, 'db.sqlite')}`);
++});
++
++beforeEach(() => {
++  egressSeen = fresh();
++  normalSeen = fresh();
++  forwarderSeen = fresh();
++  directSeen = [];
++  logRingBuffer.clear();
++});
++
++after(async () => {
++  delete process.env.INDEXER_EGRESS_PROXY;
++  await closeDb();
++  rmSync(scratch, { recursive: true, force: true });
++  egressServer.close();
++  normalServer.close();
++  forwarderServer.close();
++});
++
++describe('INDEXER_EGRESS_PROXY parsing', () => {
++  it('accepts an http(s) proxy with optional credentials, port and slash', () => {
++    for (const raw of [
++      'http://proxy.example.com',
++      'http://proxy.example.com:3128',
++      'http://proxy.example.com:3128/',
++      'https://u:p@proxy.example.com',
++      ' http://[2001:db8::1]:8080 ',
++    ]) {
++      assert.equal(parseIndexerEgressProxy(raw).kind, 'valid', raw);
++    }
++    const parsed = parseIndexerEgressProxy('http://u:p%40ss@proxy.example.com');
++    assert.equal(parsed.kind, 'valid');
++    if (parsed.kind === 'valid') {
++      assert.equal(parsed.target, 'proxy.example.com:80');
++      assert.equal(parsed.origin, 'http://proxy.example.com');
++      assert.equal(
++        parsed.authorization,
++        `Basic ${Buffer.from('u:p@ss').toString('base64')}`
++      );
++    }
++  });
++
++  it('treats empty as unset', () => {
++    for (const raw of [undefined, null, '', '   ']) {
++      assert.equal(parseIndexerEgressProxy(raw).kind, 'unset');
++    }
++  });
++
++  it('rejects everything else without echoing the value', () => {
++    for (const raw of [
++      'proxy.example.com:3128',
++      'socks5://proxy.example.com:1080',
++      'ftp://proxy.example.com',
++      'http://proxy.example.com/path',
++      'http://proxy.example.com/?x=1',
++      'http://proxy.example.com/?',
++      'http://proxy.example.com#frag',
++      'http://',
++      'not a url',
++    ]) {
++      const parsed = parseIndexerEgressProxy(raw);
++      assert.equal(parsed.kind, 'invalid', raw);
++      if (parsed.kind === 'invalid') {
++        assert.ok(!parsed.reason.includes('proxy.example.com'), raw);
++      }
++    }
++  });
++});
++
++describe('INDEXER_EGRESS_PROXY unset', () => {
++  before(() => delete process.env.INDEXER_EGRESS_PROXY);
++
++  it('sends searches to the forwarding endpoint', async () => {
++    await caps(`http://${host('indexer')}`);
++    // the direct-request recorder is live
++    assert.ok(directSeen.includes(FORWARDER), directSeen.join());
++    assert.equal(forwarderSeen.requests.length, 1);
++    assert.match(forwarderSeen.requests[0], /^POST \/search$/);
++    assert.deepEqual(egressSeen, fresh());
++  });
++
++  it('sends a bypassed host through BUILTIN_NAB_HTTP_PROXY', async () => {
++    const h = host('bypass');
++    process.env.REPLAY_BYPASS_HOSTS = h;
++    await settingsStore.initialise();
++    try {
++      await assert.rejects(caps(`http://${h}`));
++      assert.deepEqual(normalSeen.connects, [`${h}:80`]);
++      assert.deepEqual(forwarderSeen.requests, []);
++      assert.deepEqual(egressSeen, fresh());
++    } finally {
++      process.env.REPLAY_BYPASS_HOSTS = 'bypass.example.com';
++      await settingsStore.initialise();
++    }
++  });
++
++  it('wraps NZB links for the forwarding endpoint and grabs them there', async () => {
++    const nzbs = await searchNzbs(host('indexer'));
++    assert.equal(nzbs.length, 1);
++    assert.ok(nzbs[0].nzb.startsWith(`${FORWARDER}/nzb?url=`), nzbs[0].nzb);
++    forwarderSeen = fresh();
++    await grab(nzbs[0].nzb);
++    assert.equal(forwarderSeen.requests.length, 1);
++    assert.match(forwarderSeen.requests[0], /^GET \/nzb\?url=/);
++    assert.deepEqual(egressSeen, fresh());
++  });
++
++  it('grabs an unwrapped NZB link through the [nzb_grabs] addon proxy', async () => {
++    const h = host('dl');
++    await assert.rejects(grab(`http://${h}/getnzb/1.nzb?apikey=KEY`));
++    assert.deepEqual(normalSeen.connects, [`${h}:80`]);
++    assert.deepEqual(egressSeen, fresh());
++  });
++
++  it('logs nothing about a custom proxy at startup', async () => {
++    logIndexerEgressStatus();
++    assert.ok(!(await logLines()).includes('custom egress proxy'));
++  });
++});
++
++describe('INDEXER_EGRESS_PROXY set', () => {
++  before(() => {
++    process.env.INDEXER_EGRESS_PROXY = EGRESS;
++  });
++  after(() => delete process.env.INDEXER_EGRESS_PROXY);
++
++  const basic = `Basic ${Buffer.from(`${PROXY_USER}:${PROXY_PASS}`).toString('base64')}`;
++
++  it('sends a search through the proxy, not the forwarding endpoint', async () => {
++    const h = host('indexer');
++    await caps(`http://${h}`);
++    assert.equal(egressSeen.requests.length, 1);
++    assert.match(
++      egressSeen.requests[0],
++      new RegExp(`^GET http://${h}/api\\?t=caps&apikey=KEY$`)
++    );
++    assert.deepEqual(egressSeen.proxyAuth, [basic]);
++    assert.deepEqual(forwarderSeen.requests, []);
++    assert.deepEqual(normalSeen, fresh());
++    assertNoDirect();
++  });
++
++  it('sends a bypassed host through the proxy, not BUILTIN_NAB_HTTP_PROXY', async () => {
++    const h = host('bypass');
++    process.env.REPLAY_BYPASS_HOSTS = h;
++    await settingsStore.initialise();
++    try {
++      await caps(`http://${h}`);
++      assert.equal(egressSeen.requests.length, 1);
++      assert.deepEqual(normalSeen, fresh());
++      assertNoDirect();
++      assert.deepEqual(forwarderSeen.requests, []);
++    } finally {
++      process.env.REPLAY_BYPASS_HOSTS = 'bypass.example.com';
++      await settingsStore.initialise();
++    }
++  });
++
++  it('tunnels an https indexer with CONNECT', async () => {
++    const h = host('secure');
++    await assert.rejects(caps(`https://${h}`));
++    assert.deepEqual(egressSeen.connects, [`${h}:443`]);
++    assert.deepEqual(egressSeen.proxyAuth, [basic]);
++    assert.deepEqual(forwarderSeen.requests, []);
++    assert.deepEqual(normalSeen, fresh());
++    assertNoDirect();
++  });
++
++  it('leaves NZB links unwrapped and grabs them through the proxy', async () => {
++    const h = host('indexer');
++    const nzbs = await searchNzbs(h);
++    assert.equal(nzbs.length, 1);
++    const enclosure = `http://dl.example.com/getnzb/${h}.nzb?apikey=KEY`;
++    assert.equal(nzbs[0].nzb, enclosure);
++    // caps + search, both through the proxy
++    assert.equal(egressSeen.requests.length, 2);
++
++    egressSeen = fresh();
++    const bytes = await grab(nzbs[0].nzb);
++    assert.ok(bytes.toString('utf8').includes('<nzb'));
++    assert.deepEqual(egressSeen.requests, [`GET ${enclosure}`]);
++    assert.deepEqual(egressSeen.proxyAuth, [basic]);
++    assert.deepEqual(forwarderSeen.requests, []);
++    assert.deepEqual(normalSeen, fresh());
++    assertNoDirect();
++  });
++
++  it('grabs a link wrapped before the proxy was set from its original target', async () => {
++    const inner = `http://${host('dl')}/getnzb/2.nzb?apikey=KEY`;
++    const wrapped = new URL(`${FORWARDER}/nzb`);
++    wrapped.searchParams.set('url', inner);
++    await grab(wrapped.toString());
++    assert.deepEqual(egressSeen.requests, [`GET ${inner}`]);
++    assert.deepEqual(forwarderSeen.requests, []);
++    assert.deepEqual(normalSeen, fresh());
++    assertNoDirect();
++  });
++
++  it('keeps internal destinations on their current route', async () => {
++    // single-label in-cluster name: still forwarded as before
++    await caps(`http://indexer${++hostSeq}`);
++    assert.equal(forwarderSeen.requests.length, 1);
++    // the forwarding endpoint itself, and loopback
++    forwarderSeen = fresh();
++    await grab(
++      `${FORWARDER}/nzb?url=${encodeURIComponent(`http://nzbhost${++hostSeq}/x.nzb`)}`
++    );
++    assert.equal(forwarderSeen.requests.length, 1);
++    await assert.rejects(
++      grab(`http://127.0.0.1:${normalPort}/x${++hostSeq}.nzb`)
++    );
++    assert.deepEqual(egressSeen, fresh());
++  });
++
++  it('keeps a name that resolves to a private address on its current route', async () => {
++    await caps(`http://${host('private')}`);
++    assert.equal(forwarderSeen.requests.length, 1);
++    assert.match(forwarderSeen.requests[0], /^POST \/search$/);
++    assert.deepEqual(egressSeen, fresh());
++  });
++
++  it('unwraps every layer of a link wrapped more than once', async () => {
++    const inner = `http://${host('dl')}/getnzb/5.nzb?apikey=KEY`;
++    let url = inner;
++    for (let i = 0; i < 2; i++) {
++      const wrapped = new URL(`${FORWARDER}/nzb`);
++      wrapped.searchParams.set('url', url);
++      url = wrapped.toString();
++    }
++    await grab(url);
++    assert.deepEqual(egressSeen.requests, [`GET ${inner}`]);
++    assert.deepEqual(forwarderSeen.requests, []);
++  });
++
++  it('refuses a link wrapped too many times instead of forwarding it', async () => {
++    let url = `http://${host('dl')}/getnzb/6.nzb?apikey=KEY`;
++    for (let i = 0; i < 9; i++) {
++      const wrapped = new URL(`${FORWARDER}/nzb`);
++      wrapped.searchParams.set('url', url);
++      url = wrapped.toString();
++    }
++    await assert.rejects(grab(url), /forwarding layers/);
++    assert.deepEqual(forwarderSeen.requests, []);
++    assert.deepEqual(egressSeen, fresh());
++  });
++
++  it('unwraps a forwarding-wrapped redirect target', async () => {
++    const h = host('redirect');
++    await grab(`http://${h}/getnzb/1.nzb?apikey=KEY`);
++    assert.deepEqual(egressSeen.requests, [
++      `GET http://${h}/getnzb/1.nzb?apikey=KEY`,
++      `GET http://after-${h}/getnzb/1.nzb?apikey=KEY`,
++    ]);
++    assert.deepEqual(forwarderSeen.requests, []);
++    assert.deepEqual(normalSeen, fresh());
++    assertNoDirect();
++  });
++
++  it('fails a request the proxy refuses, without trying another route', async () => {
++    const h = host('denied');
++    await assert.rejects(caps(`http://${h}`));
++    await assert.rejects(grab(`http://${h}/getnzb/1.nzb?apikey=KEY`));
++    assert.equal(egressSeen.requests.length, 2);
++    assert.deepEqual(forwarderSeen.requests, []);
++    assert.deepEqual(normalSeen, fresh());
++    assertNoDirect();
++    assertNoSecrets(await logLines());
++  });
++
++  it('fails when the proxy is unreachable, without trying another route', async () => {
++    const closed = createServer();
++    const port = await listen(closed);
++    await new Promise((r) => closed.close(r));
++    process.env.INDEXER_EGRESS_PROXY = `http://${PROXY_USER}:${PROXY_PASS}@127.0.0.1:${port}`;
++    try {
++      await assert.rejects(caps(`http://${host('indexer')}`));
++      await assert.rejects(
++        grab(`http://${host('dl')}/getnzb/1.nzb?apikey=KEY`)
++      );
++      assert.deepEqual(forwarderSeen.requests, []);
++      assert.deepEqual(normalSeen, fresh());
++      assertNoDirect();
++      const logs = await logLines();
++      assert.ok(!logs.includes(PROXY_PASS) && !logs.includes(PROXY_USER));
++    } finally {
++      process.env.INDEXER_EGRESS_PROXY = EGRESS;
++    }
++  });
++
++  it('logs the route as host:port only', async () => {
++    logIndexerEgressStatus();
++    await caps(`http://${host('indexer')}`);
++    await grab(`http://${host('dl')}/getnzb/3.nzb?apikey=KEY`);
++    const logs = await logLines();
++    assert.ok(
++      logs.includes(`custom egress proxy (127.0.0.1:${egressPort})`),
++      'startup line missing'
++    );
++    assert.ok(logs.includes(`indexer egress 127.0.0.1:${egressPort}`));
++    assertNoSecrets(logs);
++  });
++
++  it('fetches the NZB for a StremThru upload through the proxy', async () => {
++    const inner = `http://${host('dl')}/getnzb/4.nzb?apikey=KEY`;
++    const wrapped = new URL(`${FORWARDER}/nzb`);
++    wrapped.searchParams.set('url', inner);
++    const service = new StremThruService({
++      serviceName: 'stremthru' as any,
++      // The upload itself fails: nothing listens on port 1.
++      stremthru: { baseUrl: 'http://localhost:1', store: 'x', token: 'x' },
++      capabilities: { torrents: false, usenet: true },
++    } as any);
++    await assert.rejects(service.addNzb(wrapped.toString(), 'name'));
++    assert.deepEqual(egressSeen.requests, [`GET ${inner}`]);
++    assert.deepEqual(forwarderSeen.requests, []);
++  });
++
++  it('leaves Torznab alone', async () => {
++    await assert.rejects(
++      new BaseNabApi(
++        'torznab',
++        testLogger,
++        `http://${host('torznab')}`,
++        'KEY',
++        '/api'
++      ).getCapabilities()
++    );
++    assert.deepEqual(egressSeen, fresh());
++  });
++});
++
++describe('INDEXER_EGRESS_PROXY invalid', () => {
++  const INVALID = `ftp://${PROXY_USER}:${PROXY_PASS}@proxy.example.com:21`;
++  before(() => {
++    process.env.INDEXER_EGRESS_PROXY = INVALID;
++  });
++  after(() => delete process.env.INDEXER_EGRESS_PROXY);
++
++  it('logs one error without the value and keeps the usual route', async () => {
++    assert.equal(getIndexerEgress(), undefined);
++    await caps(`http://${host('indexer')}`);
++    await caps(`http://${host('indexer')}`);
++    assert.equal(forwarderSeen.requests.length, 2);
++    assert.deepEqual(egressSeen, fresh());
++
++    const errors = (await logLines())
++      .split('\n')
++      .filter((l) => l.includes('INDEXER_EGRESS_PROXY'));
++    assert.equal(errors.length, 1, errors.join('\n'));
++    assert.match(errors[0], /ignored because the scheme must be http or https/);
++    assert.ok(!errors[0].includes('proxy.example.com'));
++    assertNoSecrets(errors[0]);
++  });
++});
++
++/** Runs the Newznab addon's own search and returns the NZBs it built. */
++async function searchNzbs(indexerHost: string) {
++  const addon = new NewznabAddon({
++    url: `http://${indexerHost}`,
++    apiKey: 'KEY',
++    services: [{ id: 'nzbdav', credential: 'x' }],
++  } as any);
++  (addon as any).getSearchMetadata = async () => ({
++    primaryTitle: 'Some Movie',
++    titles: ['Some Movie'],
++    year: 2020,
++    imdbId: 'tt0000001',
++  });
++  return (addon as any)._searchNzbs({
++    mediaType: 'movie',
++    type: 'imdbId',
++    value: 'tt0000001',
++  });
++}
+diff --git a/packages/core/src/utils/indexer-egress.ts b/packages/core/src/utils/indexer-egress.ts
+new file mode 100644
+index 00000000..8b603116
+--- /dev/null
++++ b/packages/core/src/utils/indexer-egress.ts
+@@ -0,0 +1,290 @@
++import dns from 'node:dns';
++import { isIP } from 'node:net';
++import { Dispatcher, ProxyAgent } from 'undici';
++import { config as appConfig } from '../config/index.js';
++import { createLogger } from '../logging/logger.js';
++import { isBlockedAddress } from './url-safety.js';
++
++/**
++ * INDEXER_EGRESS_PROXY: one HTTP(S) forward proxy that carries every Usenet
++ * indexer request.
++ *
++ * When set to a valid proxy URL, these requests are sent through it:
++ *
++ *   - built-in Newznab API calls (caps, searches, connection tests)
++ *   - NZB grabs made by this process: the grab cache behind the NZB proxy
++ *     route, the native usenet engine, the SABnzbd-compatible addurl
++ *     endpoint, library rechecks, and the StremThru NZB upload
++ *
++ * For those requests it takes the place of the forwarding endpoints
++ * (`BUILTIN_NAB_REPLAY_ENDPOINT`, `BUILTIN_NZB_REPLAY_DOWNLOAD_URL`, which are
++ * then neither called nor wrapped around NZB URLs), `REPLAY_BYPASS_HOSTS`,
++ * `BUILTIN_NAB_HTTP_PROXY` and any `ADDON_PROXY` / `ADDON_PROXY_CONFIG` match.
++ * Request headers are the ones the direct path already sends.
++ *
++ * Not covered: Torznab, debrid and NNTP traffic, and NZB links that are only
++ * handed to another service (nzbdav, AltMount, TorBox and similar fetch those
++ * themselves, from their own network).
++ *
++ * Destinations a remote proxy could not reach keep their current route:
++ * loopback and private addresses (as literals, or names that resolve to
++ * them), `localhost`, single-label names, cluster service names (`*.svc`,
++ * `*.cluster.local`) and the hosts of this instance's own configured
++ * endpoints (internal URL, forwarding and health proxy endpoints).
++ *
++ * Accepted value: an absolute `http://` or `https://` URL with a host,
++ * optional `user:password@` and optional port, and no path, query or
++ * fragment. Anything else is reported once, without the value, and ignored.
++ * A failure reaching the proxy fails that request; it is never retried on
++ * another route.
++ *
++ * Neither the URL nor its credentials are logged; where the route is logged
++ * at all, it is as `host:port`.
++ */
++export const INDEXER_EGRESS_PROXY_ENV = 'INDEXER_EGRESS_PROXY';
++
++const logger = createLogger('indexer-egress');
++
++export type IndexerEgressParse =
++  | { kind: 'unset' }
++  | { kind: 'invalid'; reason: string }
++  | {
++      kind: 'valid';
++      /** Proxy origin without credentials. */
++      origin: string;
++      /** `host:port`, the only form that is ever logged. */
++      target: string;
++      /** `Proxy-Authorization` value, when the URL carried credentials. */
++      authorization?: string;
++    };
++
++const DEFAULT_PORTS: Record<string, string> = {
++  'http:': '80',
++  'https:': '443',
++};
++
++/** Validates a raw value. Never echoes the value back in `reason`. */
++export function parseIndexerEgressProxy(
++  raw: string | undefined | null
++): IndexerEgressParse {
++  const value = (raw ?? '').trim();
++  if (!value) return { kind: 'unset' };
++
++  // Checked on the raw text: `http://host/?` parses with an empty search.
++  if (/[?#]/.test(value)) {
++    return { kind: 'invalid', reason: 'it has a query or fragment' };
++  }
++  let url: URL;
++  try {
++    url = new URL(value);
++  } catch {
++    return { kind: 'invalid', reason: 'it is not a valid absolute URL' };
++  }
++  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
++    return { kind: 'invalid', reason: 'the scheme must be http or https' };
++  }
++  if (!url.hostname) {
++    return { kind: 'invalid', reason: 'it has no host' };
++  }
++  if (url.pathname !== '/' && url.pathname !== '') {
++    return { kind: 'invalid', reason: 'it has a path' };
++  }
++
++  let authorization: string | undefined;
++  if (url.username || url.password) {
++    let user: string;
++    let pass: string;
++    try {
++      user = decodeURIComponent(url.username);
++      pass = decodeURIComponent(url.password);
++    } catch {
++      return {
++        kind: 'invalid',
++        reason: 'its credentials are not valid percent-encoding',
++      };
++    }
++    authorization =
++      'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
++  }
++
++  const port = url.port || DEFAULT_PORTS[url.protocol];
++  return {
++    kind: 'valid',
++    origin: `${url.protocol}//${url.host}`,
++    target: `${url.hostname}:${port}`,
++    authorization,
++  };
++}
++
++export interface IndexerEgress {
++  dispatcher: Dispatcher;
++  /** `host:port` of the proxy, for logs. */
++  target: string;
++}
++
++let memo: {
++  raw: string | undefined;
++  egress: IndexerEgress | undefined;
++} | null = null;
++
++/**
++ * The configured proxy, or undefined when unset or invalid. Re-read whenever
++ * the variable's value changes; an invalid value is reported once per value.
++ */
++export function getIndexerEgress(): IndexerEgress | undefined {
++  const raw = process.env[INDEXER_EGRESS_PROXY_ENV];
++  if (memo && memo.raw === raw) return memo.egress;
++
++  const previous = memo?.egress;
++  const parsed = parseIndexerEgressProxy(raw);
++  let egress: IndexerEgress | undefined;
++  if (parsed.kind === 'invalid') {
++    logger.error(
++      `${INDEXER_EGRESS_PROXY_ENV} is ignored because ${parsed.reason}; indexer requests use their usual route`
++    );
++  } else if (parsed.kind === 'valid') {
++    egress = {
++      target: parsed.target,
++      // Plain-HTTP targets go as absolute-form requests; HTTPS targets are
++      // tunnelled with CONNECT. Credentials travel as a header built here, so
++      // the agent never holds them inside a URL that could reach an error.
++      dispatcher: new ProxyAgent({
++        uri: parsed.origin,
++        proxyTunnel: false,
++        ...(parsed.authorization ? { token: parsed.authorization } : {}),
++      }),
++    };
++  }
++  memo = { raw, egress };
++  if (previous) void previous.dispatcher.close().catch(() => undefined);
++  return egress;
++}
++
++/** Logs, once at startup, whether indexer requests use the proxy. */
++export function logIndexerEgressStatus(): void {
++  const egress = getIndexerEgress();
++  if (egress) {
++    logger.info(
++      `Indexer requests are using a custom egress proxy (${egress.target})`
++    );
++  }
++}
++
++const hostOf = (raw: string | null | undefined): string | undefined => {
++  if (!raw) return undefined;
++  try {
++    return normaliseHostname(new URL(raw).hostname);
++  } catch {
++    return undefined;
++  }
++};
++
++const normaliseHostname = (hostname: string): string =>
++  hostname
++    .replace(/^\[|\]$/g, '')
++    .toLowerCase()
++    .replace(/\.+$/, '');
++
++/**
++ * Hosts of this instance's own configured endpoints, as configured and as
++ * rewritten by `REQUEST_URL_MAPPINGS` (requests are classified after it).
++ */
++function configuredInternalHosts(): Set<string> {
++  const nab = appConfig.builtins.nab;
++  const mappings = appConfig.http.requestUrlMappings ?? {};
++  const hosts = new Set<string>();
++  for (const raw of [
++    appConfig.bootstrap.internalUrl,
++    nab.replayEndpoint,
++    nab.replayDownloadUrl,
++    nab.zyclopsHealthProxyEndpoint,
++  ]) {
++    const host = hostOf(raw);
++    if (host) hosts.add(host);
++    let origin: string | undefined;
++    try {
++      origin = raw ? new URL(raw).origin : undefined;
++    } catch {
++      origin = undefined;
++    }
++    const mapped = origin ? hostOf(mappings[origin]) : undefined;
++    if (mapped) hosts.add(mapped);
++  }
++  return hosts;
++}
++
++const RESOLVE_TTL_MS = 60_000;
++const RESOLVE_TIMEOUT_MS = 2_000;
++const RESOLVE_CACHE_MAX = 1_000;
++const resolved = new Map<string, { internal: boolean; until: number }>();
++
++/**
++ * Whether a name resolves to a loopback, private, link-local or CGNAT
++ * address, which a remote proxy could not reach. A name that does not
++ * resolve here counts as external: the proxy may still resolve it.
++ */
++async function resolvesInternally(host: string): Promise<boolean> {
++  const now = Date.now();
++  const hit = resolved.get(host);
++  if (hit && hit.until > now) return hit.internal;
++
++  let internal = false;
++  let timer: ReturnType<typeof setTimeout> | undefined;
++  try {
++    const addresses = await Promise.race([
++      dns.promises.lookup(host, { all: true }),
++      new Promise<never>((_, reject) => {
++        timer = setTimeout(
++          () => reject(new Error('lookup timed out')),
++          RESOLVE_TIMEOUT_MS
++        );
++      }),
++    ]);
++    internal = addresses.some((a) => isBlockedAddress(a.address));
++  } catch {
++    internal = false;
++  } finally {
++    if (timer) clearTimeout(timer);
++  }
++
++  if (resolved.size >= RESOLVE_CACHE_MAX) resolved.clear();
++  resolved.set(host, { internal, until: now + RESOLVE_TTL_MS });
++  return internal;
++}
++
++/**
++ * True for a destination an external proxy could not reach: loopback and
++ * private addresses (written as literals or resolved from the name),
++ * `localhost`, single-label names, `*.svc` / `*.cluster.local`, and the hosts
++ * of this instance's own configured endpoints. Pass the URL after
++ * `rewriteRequestUrl`, which is where the request actually goes.
++ */
++export async function isInternalDestination(url: URL): Promise<boolean> {
++  const host = normaliseHostname(url.hostname);
++  if (!host) return true;
++  if (host === 'localhost' || host.endsWith('.localhost')) return true;
++  if (configuredInternalHosts().has(host)) return true;
++  if (isIP(host)) return isBlockedAddress(host);
++  if (!host.includes('.')) return true;
++  if (host.endsWith('.svc') || host.endsWith('.cluster.local')) return true;
++  return resolvesInternally(host);
++}
++
++/**
++ * The proxy for this request, when the variable is set, the request is
++ * indexer traffic and its (rewritten) destination is not internal.
++ */
++export async function indexerEgressFor(
++  url: URL,
++  isIndexerRequest: boolean
++): Promise<IndexerEgress | undefined> {
++  if (!isIndexerRequest) return undefined;
++  const egress = getIndexerEgress();
++  if (!egress) return undefined;
++  return (await isInternalDestination(url)) ? undefined : egress;
++}
++
++/** Clears the resolution cache. For tests. */
++export function resetIndexerEgressCache(): void {
++  resolved.clear();
++}
+diff --git a/packages/server/src/routes/api/proxy.ts b/packages/server/src/routes/api/proxy.ts
+index abe7aca2..35859e98 100644
+--- a/packages/server/src/routes/api/proxy.ts
++++ b/packages/server/src/routes/api/proxy.ts
+@@ -11,6 +11,8 @@ import {
+   makeUrlLogSafe,
+   rewriteRequestUrl,
+   resolveDispatcher,
++  indexerEgressFor,
++  unwrapForIndexerEgress,
+   getRedirectHop,
+   takeBasicAuthFromUrl,
+   MAX_REDIRECTS,
+@@ -403,7 +405,10 @@ router.all(
+       }
+ 
+       const upstreamStartTime = Date.now();
+-      let currentUrl = data.url;
++      // An NZB link wrapped for the forwarding endpoint before
++      // INDEXER_EGRESS_PROXY was set goes to its original target instead.
++      let currentUrl =
++        data.type === 'nzb' ? await unwrapForIndexerEgress(data.url) : data.url;
+ 
+       let redirectCount = 0;
+       let method = req.method as Dispatcher.HttpMethod;
+@@ -414,9 +419,15 @@ router.all(
+       while (true) {
+         const grabContext = data.type === 'nzb' ? 'nzb_grabs' : undefined;
+         const urlObj = rewriteRequestUrl(new URL(currentUrl));
++        const indexerEgress = await indexerEgressFor(
++          urlObj,
++          data.type === 'nzb'
++        );
+         const { dispatcher, useProxy, proxyIndex } = resolveDispatcher(
+           urlObj,
+-          grabContext
++          grabContext,
++          undefined,
++          indexerEgress
+         );
+         const headers = buildOutboundHeaders(
+           clientHeaders,
+@@ -436,7 +447,11 @@ router.all(
+             username: auth.username,
+             url: makeUrlLogSafe(currentUrl),
+             method,
+-            tunneled: dispatcher ? `true (proxy index ${proxyIndex})` : 'false',
++            tunneled: dispatcher
++              ? indexerEgress
++                ? `true (indexer egress ${indexerEgress.target})`
++                : `true (proxy index ${proxyIndex})`
++              : 'false',
+             ...(appConfig.logging.logSensitiveInfo
+               ? {
+                   headers,
+@@ -470,7 +485,10 @@ router.all(
+         redirectCount++;
+         // Release the pooled connection held by the intermediate response.
+         await upstreamResponse.body.dump().catch(() => {});
+-        currentUrl = hop.location;
++        currentUrl =
++          data.type === 'nzb'
++            ? await unwrapForIndexerEgress(hop.location)
++            : hop.location;
+         method = hop.method as Dispatcher.HttpMethod;
+         if (hop.methodChanged) {
+           bodyDropped = true;
+diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
+index e1a01d1d..03d7e915 100644
+--- a/packages/server/src/server.ts
++++ b/packages/server/src/server.ts
+@@ -26,6 +26,7 @@ import {
+   closeDb,
+   UserRepository,
+   logStartupInfo,
++  logIndexerEgressStatus,
+   Cache,
+   RegexAccess,
+   SelAccess,
+@@ -372,6 +373,7 @@ async function start() {
+     TaskManager.setInstanceId(instanceId());
+     await initialiseTemplates();
+     logStartupInfo();
++    logIndexerEgressStatus();
+     await initialiseRedis();
+     RegexAccess.initialise();
+     SelAccess.initialise();
