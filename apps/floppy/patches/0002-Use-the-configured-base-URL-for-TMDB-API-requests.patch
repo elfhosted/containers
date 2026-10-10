@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ElfHosted <noreply@elfhosted.com>
+Date: Sat, 10 Oct 2026 16:55:15 +1300
+Subject: [PATCH 2/3] Use the configured base URL for TMDB API requests
+
+Build TMDB request URLs, including the Discover adapter and the
+backfill command, from settings.TMDB_BASE_URL instead of hardcoded
+constants. Image and web links are unchanged.
+---
+ src/app/discover/providers/tmdb_adapter.py    |  2 +-
+ .../commands/backfill_discover_metadata.py    |  2 +-
+ src/app/providers/tmdb.py                     |  4 +-
+ src/app/tests/providers/test_base_urls.py     | 60 ++++++++++++++++++-
+ 4 files changed, 64 insertions(+), 4 deletions(-)
+
+diff --git a/src/app/discover/providers/tmdb_adapter.py b/src/app/discover/providers/tmdb_adapter.py
+index 87abdfc..25d5eb6 100644
+--- a/src/app/discover/providers/tmdb_adapter.py
++++ b/src/app/discover/providers/tmdb_adapter.py
+@@ -14,7 +14,7 @@ from app.providers import credentials, services
+ 
+ logger = logging.getLogger(__name__)
+ 
+-TMDB_BASE_URL = "https://api.themoviedb.org/3"
++TMDB_BASE_URL = settings.TMDB_BASE_URL
+ def tmdb_base_params():
+     """Return TMDB auth params, resolved per call so UI changes take effect."""
+     return {
+diff --git a/src/app/management/commands/backfill_discover_metadata.py b/src/app/management/commands/backfill_discover_metadata.py
+index 82ed5f6..72621cd 100644
+--- a/src/app/management/commands/backfill_discover_metadata.py
++++ b/src/app/management/commands/backfill_discover_metadata.py
+@@ -9,7 +9,7 @@ from django.utils import timezone
+ from app.models import Item, MediaTypes, Sources
+ from app.providers import credentials, services
+ 
+-TMDB_BASE_URL = "https://api.themoviedb.org/3"
++TMDB_BASE_URL = settings.TMDB_BASE_URL
+ 
+ 
+ class Command(BaseCommand):
+diff --git a/src/app/providers/tmdb.py b/src/app/providers/tmdb.py
+index 166b58e..142189c 100644
+--- a/src/app/providers/tmdb.py
++++ b/src/app/providers/tmdb.py
+@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
+ YEAR_STRING_LENGTH = 4
+ TMDB_GENDER_MALE = 2
+ TMDB_GENDER_NON_BINARY = 3
+-base_url = "https://api.themoviedb.org/3"
++# settings.TMDB_BASE_URL defaults to the public API; it can point at a
++# compatible mirror or caching proxy.
++base_url = settings.TMDB_BASE_URL
+ TVDB_OVERRIDE_CACHE_TIMEOUT = 60 * 60 * 24 * 30
+ # The /changes result for a given day doesn't change once fetched, and the
+ # calendar reload is the only caller.
+diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
+index f5d964c..0cd0157 100644
+--- a/src/app/tests/providers/test_base_urls.py
++++ b/src/app/tests/providers/test_base_urls.py
+@@ -1,10 +1,31 @@
++import importlib
+ import os
++from contextlib import contextmanager
+ from unittest.mock import patch
+ 
+-from django.test import SimpleTestCase
++from django.core.cache import cache
++from django.test import SimpleTestCase, TestCase, override_settings
+ 
++from app.discover.providers import tmdb_adapter
++from app.providers import tmdb
+ from config import settings as project_settings
+ 
++MIRROR = "http://mirror.local:8080"
++
++
++@contextmanager
++def reloaded_with(module, **overrides):
++    """Re-import a provider module under overridden settings, then restore it.
++
++    Provider modules read their base URL from settings once, at import, so the
++    override only takes effect for a module imported while it is active.
++    """
++    try:
++        with override_settings(**overrides):
++            yield importlib.reload(module)
++    finally:
++        importlib.reload(module)
++
+ 
+ class ProviderBaseUrlSettingTests(SimpleTestCase):
+     """Test reading provider API base URLs from the environment."""
+@@ -45,3 +66,40 @@ class ProviderBaseUrlSettingTests(SimpleTestCase):
+                 ),
+                 "http://mirror.local:8080/example/v1",
+             )
++
++
++class TMDBBaseUrlTests(TestCase):
++    """Test that TMDB requests use the configured base URL."""
++
++    def setUp(self):
++        """Start each test with an empty cache."""
++        cache.clear()
++
++    def test_find_uses_configured_base_url(self):
++        """Find requests go to the configured base URL."""
++        with (
++            reloaded_with(tmdb, TMDB_BASE_URL=f"{MIRROR}/tmdb/3") as module,
++            patch.object(
++                module.services,
++                "api_request",
++                return_value={"movie_results": []},
++            ) as mock_api_request,
++        ):
++            module.find("tt0078748", "imdb_id")
++
++        self.assertEqual(
++            mock_api_request.call_args.args[2],
++            f"{MIRROR}/tmdb/3/find/tt0078748",
++        )
++
++    def test_public_api_restored_after_override(self):
++        """Without an override the module points at the public API."""
++        self.assertEqual(tmdb.base_url, "https://api.themoviedb.org/3")
++
++    def test_discover_adapter_uses_configured_base_url(self):
++        """The Discover adapter builds its URLs from the same setting."""
++        with reloaded_with(
++            tmdb_adapter,
++            TMDB_BASE_URL=f"{MIRROR}/tmdb/3",
++        ) as module:
++            self.assertEqual(module.TMDB_BASE_URL, f"{MIRROR}/tmdb/3")
