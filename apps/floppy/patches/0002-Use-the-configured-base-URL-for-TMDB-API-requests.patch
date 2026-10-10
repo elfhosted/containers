@@ -3,15 +3,16 @@ From: ElfHosted <noreply@elfhosted.com>
 Date: Sat, 10 Oct 2026 16:55:15 +1300
 Subject: [PATCH 2/3] Use the configured base URL for TMDB API requests
 
-Build TMDB request URLs, including the Discover adapter and the
-backfill command, from settings.TMDB_BASE_URL instead of hardcoded
-constants. Image and web links are unchanged.
+Build TMDB request URLs, including the Discover adapter, the backfill
+command and the API key check in Settings, from settings.TMDB_BASE_URL
+instead of hardcoded constants. Image and web links are unchanged.
 ---
  src/app/discover/providers/tmdb_adapter.py    |  2 +-
  .../commands/backfill_discover_metadata.py    |  2 +-
+ src/app/providers/credentials.py              |  2 +-
  src/app/providers/tmdb.py                     |  4 +-
- src/app/tests/providers/test_base_urls.py     | 60 ++++++++++++++++++-
- 4 files changed, 64 insertions(+), 4 deletions(-)
+ src/app/tests/providers/test_base_urls.py     | 74 ++++++++++++++++++-
+ 5 files changed, 79 insertions(+), 5 deletions(-)
 
 diff --git a/src/app/discover/providers/tmdb_adapter.py b/src/app/discover/providers/tmdb_adapter.py
 index 87abdfc..25d5eb6 100644
@@ -39,6 +40,19 @@ index 82ed5f6..72621cd 100644
  
  
  class Command(BaseCommand):
+diff --git a/src/app/providers/credentials.py b/src/app/providers/credentials.py
+index 4794ee9..50b8755 100644
+--- a/src/app/providers/credentials.py
++++ b/src/app/providers/credentials.py
+@@ -220,7 +220,7 @@ def _validate_tmdb(values):
+         return None
+     return _probe(
+         "GET",
+-        "https://api.themoviedb.org/3/configuration",
++        f"{settings.TMDB_BASE_URL}/configuration",
+         params={"api_key": api_key},
+     )
+ 
 diff --git a/src/app/providers/tmdb.py b/src/app/providers/tmdb.py
 index 166b58e..142189c 100644
 --- a/src/app/providers/tmdb.py
@@ -55,7 +69,7 @@ index 166b58e..142189c 100644
  # The /changes result for a given day doesn't change once fetched, and the
  # calendar reload is the only caller.
 diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
-index f5d964c..0cd0157 100644
+index f5d964c..409bb9f 100644
 --- a/src/app/tests/providers/test_base_urls.py
 +++ b/src/app/tests/providers/test_base_urls.py
 @@ -1,10 +1,31 @@
@@ -69,7 +83,7 @@ index f5d964c..0cd0157 100644
 +from django.test import SimpleTestCase, TestCase, override_settings
  
 +from app.discover.providers import tmdb_adapter
-+from app.providers import tmdb
++from app.providers import credentials, tmdb
  from config import settings as project_settings
  
 +MIRROR = "http://mirror.local:8080"
@@ -91,7 +105,7 @@ index f5d964c..0cd0157 100644
  
  class ProviderBaseUrlSettingTests(SimpleTestCase):
      """Test reading provider API base URLs from the environment."""
-@@ -45,3 +66,40 @@ class ProviderBaseUrlSettingTests(SimpleTestCase):
+@@ -45,3 +66,54 @@ class ProviderBaseUrlSettingTests(SimpleTestCase):
                  ),
                  "http://mirror.local:8080/example/v1",
              )
@@ -132,3 +146,17 @@ index f5d964c..0cd0157 100644
 +            TMDB_BASE_URL=f"{MIRROR}/tmdb/3",
 +        ) as module:
 +            self.assertEqual(module.TMDB_BASE_URL, f"{MIRROR}/tmdb/3")
++
++
++class TMDBCredentialProbeTests(SimpleTestCase):
++    """Test that a TMDB key is validated against the configured base URL."""
++
++    @override_settings(TMDB_BASE_URL=f"{MIRROR}/tmdb/3")
++    @patch("requests.request")
++    def test_validation_uses_configured_base_url(self, mock_request):
++        """The key check goes to the mirror the key will be used through."""
++        mock_request.return_value.status_code = 200
++
++        self.assertIsNone(credentials._validate_tmdb({"api_key": "test-key"}))
++
++        self.assertEqual(mock_request.call_args.args[1], f"{MIRROR}/tmdb/3/configuration")

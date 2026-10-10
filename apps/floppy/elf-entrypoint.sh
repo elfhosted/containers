@@ -25,38 +25,36 @@ cd /floppy
 if [ -f /etc/floppy-build-info ]; then
     # shellcheck disable=SC1091
     . /etc/floppy-build-info
-    export VERSION COMMIT_SHA
+    export VERSION
 fi
 
 # /floppy/db and /floppy/backups are build-time symlinks into /config. Upstream
 # creates both lazily; create them here so the symlinks resolve on first boot.
 mkdir -p /config/backups /config/logs
 
-# SECRET signs sessions and CSRF tokens and encrypts stored provider
-# credentials. Upstream only generates one when /.dockerenv exists, which it
-# does not under Kubernetes, and otherwise refuses to start. Generate a random
-# per-instance key once, at the same path upstream uses inside Docker
-# (FLOPPY_DATA_DIR/secret_key), so an upstream db/ directory dropped into
-# /config keeps its key.
-if [ -z "${SECRET:-}" ] && [ -z "${SECRET_FILE:-}" ]; then
-    secret_path=/config/secret_key
-    if [ ! -s "${secret_path}" ]; then
-        log "SECRET not set; generating a per-instance key at ${secret_path}"
-        (umask 077 && python -c 'import secrets; print(secrets.token_urlsafe(50), end="")' > "${secret_path}.tmp")
-        mv "${secret_path}.tmp" "${secret_path}"
-    fi
-    SECRET="$(cat "${secret_path}")"
-    export SECRET
+# SECRET: see elf-secret.py. The image sets SECRET_FILE=/config/secret_key, so
+# every process, including `kubectl exec` management commands, reads the same
+# key. Skipped when the operator supplies SECRET or points SECRET_FILE elsewhere.
+if [ -z "${SECRET:-}" ] && [ "${SECRET_FILE:-}" = /config/secret_key ]; then
+    python /usr/local/bin/elf-secret.py /config/secret_key.sqlite3 /config/secret_key
 fi
 
-log "Floppy runtime: version=${VERSION:-unknown} commit=${COMMIT_SHA:-unknown}"
+log "Floppy runtime: version=${VERSION:-unknown}"
 
-db_file=/config/db.sqlite3
+# The SQLite file Django will open, resolved with settings.py's precedence
+# (FLOPPY_DB_PATH, else FLOPPY_DATA_DIR/db.sqlite3, else /floppy/db/db.sqlite3,
+# which is /config/db.sqlite3). The chart's backup sidecar assumes the default.
+db_file="$(python -c 'import os, sys; from pathlib import Path; d = os.environ.get("FLOPPY_DATA_DIR") or "/floppy/db"; print(Path(os.environ.get("FLOPPY_DB_PATH") or Path(d) / "db.sqlite3").resolve())')"
 
 # Upstream's startup gate: check SQLite storage and relationships before
-# migrating. On failure it parks: a recovery page is served on the app port
-# (behind SSO, like the rest of the UI) and startup resumes only once a choice is
-# submitted there. See src/config/sqlite_recovery_policy.py.
+# migrating. On failure startup parks until an operator chooses what to do on
+# upstream's recovery page. Upstream serves that page on the app port; here it
+# is on 8002, which the Service does not expose, because the page answers every
+# path without checking anything -- including the anonymous webhook routes the
+# IngressRoute lets past SSO -- and lists the affected titles. Reach it with
+# `kubectl port-forward pod/<pod> 8002`. While parked the probes fail, so the
+# container restarts and re-checks every half hour or so.
+# See src/config/sqlite_recovery_policy.py.
 if [ -z "${DB_HOST:-}" ] && [ -f "${db_file}" ]; then
     while :; do
         log "Checking SQLite storage and relationships for ${db_file}"
@@ -68,10 +66,11 @@ if [ -z "${DB_HOST:-}" ] && [ -f "${db_file}" ]; then
             break
         fi
         log "SQLite startup is paused (check exited ${integrity_status}); migrations and services were not started"
-        log "For a full diagnosis run: kubectl exec <pod> -c main -- python manage.py floppy_preflight"
+        log "For a full diagnosis run: kubectl exec <pod> -- python manage.py floppy_preflight"
+        log "Recovery page: kubectl port-forward pod/<pod> 8002, then open http://localhost:8002/"
         decision_file="${db_file}.integrity.decision"
         rm -f "${decision_file}"
-        python -m config.sqlite_recovery_server "${db_file}" 8000 || true
+        python -m config.sqlite_recovery_server "${db_file}" 8002 || true
         if [ ! -f "${decision_file}" ]; then
             # No choice was made; stay parked rather than spin.
             while :; do sleep 86400; done

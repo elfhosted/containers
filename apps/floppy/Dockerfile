@@ -26,8 +26,9 @@
 # root to usermod/groupmod/chown a PUID/PGID user, then supervisord (as root)
 # starts nginx as root and drops the Python processes to "abc". This image
 # instead runs every process as 568 under a read-only root filesystem:
-#   - tini is PID 1 and runs elf-entrypoint.sh, which runs upstream's SQLite
-#     startup check and migrations, then starts nginx (:8000), gunicorn
+#   - tini is PID 1 and runs elf-entrypoint.sh, which provisions SECRET
+#     (elf-secret.py), runs upstream's SQLite startup check and migrations,
+#     then starts nginx (:8000), gunicorn
 #     (127.0.0.1:8001) and the celery workers upstream's sizing logic selects,
 #     exiting (so the pod restarts) as soon as any one of them dies.
 #   - nginx's pid, temp paths and rendered config live in /tmp.
@@ -101,15 +102,19 @@ RUN apk add --no-cache bash nginx tini && \
     mkdir -p /config && \
     chown elfie:elfie /config
 
-# VERSION/COMMIT_SHA are read by settings.py (About page, update checks).
+# VERSION is read by settings.py (About page, update checks). No COMMIT_SHA:
+# CI does not pass one, and upstream's preflight flags an environment value that
+# differs from the one baked into /etc/floppy-build-info.
 # FLOPPY_PORT=8000 makes the environment own the listener, so Settings >
 # Advanced cannot save a port this image's fixed nginx config would ignore.
 # FLOPPY_URL is the bundled MCP server's default target.
+# SECRET_FILE points every process, kubectl exec included, at the per-instance
+# key elf-secret.py keeps in /config (see that file for why it also lives in a
+# one-row SQLite store).
 # ALLOWED_HOSTS mirrors upstream's Docker default ("*" when /.dockerenv
 # exists, which it does not under Kubernetes); without it kubelet probes and
 # in-cluster health checks, which use the pod IP or service name as Host, get 400.
 ENV VERSION=$VERSION \
-    COMMIT_SHA=$APP_REVISION \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
@@ -117,9 +122,10 @@ ENV VERSION=$VERSION \
     HOME=/tmp \
     FLOPPY_PORT=8000 \
     FLOPPY_URL=http://127.0.0.1:8000 \
+    SECRET_FILE=/config/secret_key \
     ALLOWED_HOSTS="*"
 
-RUN printf 'VERSION=%s\nCOMMIT_SHA=%s\n' "${VERSION}" "${APP_REVISION:-unknown}" > /etc/floppy-build-info && \
+RUN printf 'VERSION=%s\n' "${VERSION}" > /etc/floppy-build-info && \
     mkdir -p /etc/floppy && \
     printf 'dannyvfilms' > /etc/floppy/fork_owner
 
@@ -147,6 +153,7 @@ RUN ln -s /opt/venv /floppy/.venv && \
 
 COPY apps/floppy/nginx.conf /etc/nginx/floppy.conf
 COPY apps/floppy/elf-entrypoint.sh /usr/local/bin/elf-entrypoint.sh
+COPY apps/floppy/elf-secret.py /usr/local/bin/elf-secret.py
 RUN sed -i 's/\r$//' /usr/local/bin/elf-entrypoint.sh && \
     chmod +x /usr/local/bin/elf-entrypoint.sh
 

@@ -4,17 +4,32 @@ Date: Sat, 10 Oct 2026 16:55:53 +1300
 Subject: [PATCH 3/3] Use the configured base URLs for TVDB and TVMaze
 
 Build TVDB and TVMaze request URLs, including the calendar's TVMaze
-lookups, from settings.TVDB_BASE_URL and settings.TVMAZE_BASE_URL. When
-either points at a mirror, the public host's rate limiter is mounted on
-the mirror too, so requests to it are paced the same way.
+lookups and the TVDB key check in Settings, from settings.TVDB_BASE_URL
+and settings.TVMAZE_BASE_URL. When either points at a mirror, the public
+host's rate limiter is mounted on the mirror too, so requests to it are
+paced the same way.
 ---
+ src/app/providers/credentials.py          |   2 +-
  src/app/providers/services.py             |  19 ++++
  src/app/providers/tvdb.py                 |   4 +-
  src/app/providers/tvmaze.py               |   5 +-
- src/app/tests/providers/test_base_urls.py | 109 +++++++++++++++++++++-
+ src/app/tests/providers/test_base_urls.py | 122 +++++++++++++++++++++-
  src/events/calendar/tv.py                 |   4 +-
- 5 files changed, 136 insertions(+), 5 deletions(-)
+ 6 files changed, 150 insertions(+), 6 deletions(-)
 
+diff --git a/src/app/providers/credentials.py b/src/app/providers/credentials.py
+index 50b8755..765d6be 100644
+--- a/src/app/providers/credentials.py
++++ b/src/app/providers/credentials.py
+@@ -152,7 +152,7 @@ def _validate_tvdb(values):
+         payload["pin"] = values["pin"]
+     return _probe(
+         "POST",
+-        "https://api4.thetvdb.com/v4/login",
++        f"{settings.TVDB_BASE_URL}/login",
+         json=payload,
+         headers={"Content-Type": "application/json"},
+     )
 diff --git a/src/app/providers/services.py b/src/app/providers/services.py
 index 282ea14..6aef729 100644
 --- a/src/app/providers/services.py
@@ -83,27 +98,28 @@ index 46c9203..2663343 100644
  
  
 diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
-index 0cd0157..fbfd7ef 100644
+index 409bb9f..7258c33 100644
 --- a/src/app/tests/providers/test_base_urls.py
 +++ b/src/app/tests/providers/test_base_urls.py
-@@ -7,8 +7,12 @@ from django.core.cache import cache
- from django.test import SimpleTestCase, TestCase, override_settings
+@@ -5,10 +5,13 @@ from unittest.mock import patch
  
- from app.discover.providers import tmdb_adapter
--from app.providers import tmdb
+ from django.core.cache import cache
+ from django.test import SimpleTestCase, TestCase, override_settings
 +from requests.adapters import HTTPAdapter
 +from requests_ratelimiter import LimiterAdapter, LimiterSession
-+
-+from app.providers import services, tmdb, tvdb, tvmaze
+ 
+ from app.discover.providers import tmdb_adapter
+-from app.providers import credentials, tmdb
++from app.providers import credentials, services, tmdb, tvdb, tvmaze
  from config import settings as project_settings
 +from events.calendar.tv import get_tvmaze_response
  
  MIRROR = "http://mirror.local:8080"
  
-@@ -103,3 +107,106 @@ class TMDBBaseUrlTests(TestCase):
-             TMDB_BASE_URL=f"{MIRROR}/tmdb/3",
-         ) as module:
-             self.assertEqual(module.TMDB_BASE_URL, f"{MIRROR}/tmdb/3")
+@@ -117,3 +120,120 @@ class TMDBCredentialProbeTests(SimpleTestCase):
+         self.assertIsNone(credentials._validate_tmdb({"api_key": "test-key"}))
+ 
+         self.assertEqual(mock_request.call_args.args[1], f"{MIRROR}/tmdb/3/configuration")
 +
 +
 +class TVDBBaseUrlTests(SimpleTestCase):
@@ -207,6 +223,20 @@ index 0cd0157..fbfd7ef 100644
 +        services.mount_mirror_limiters(target_session)
 +
 +        self.assertEqual(list(target_session.adapters), before)
++
++
++class TVDBCredentialProbeTests(SimpleTestCase):
++    """Test that a TVDB key is validated against the configured base URL."""
++
++    @override_settings(TVDB_BASE_URL=f"{MIRROR}/tvdb/v4")
++    @patch("requests.request")
++    def test_validation_uses_configured_base_url(self, mock_request):
++        """The login check goes to the mirror the key will be used through."""
++        mock_request.return_value.status_code = 200
++
++        self.assertIsNone(credentials._validate_tvdb({"api_key": "test-key"}))
++
++        self.assertEqual(mock_request.call_args.args[1], f"{MIRROR}/tvdb/v4/login")
 diff --git a/src/events/calendar/tv.py b/src/events/calendar/tv.py
 index 3010566..ef66e9a 100644
 --- a/src/events/calendar/tv.py
