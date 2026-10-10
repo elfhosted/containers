@@ -10,12 +10,12 @@ host's rate limiter is mounted on the mirror too, so requests to it are
 paced the same way.
 ---
  src/app/providers/credentials.py          |   2 +-
- src/app/providers/services.py             |  19 ++++
+ src/app/providers/services.py             |  28 +++++
  src/app/providers/tvdb.py                 |   4 +-
  src/app/providers/tvmaze.py               |   5 +-
- src/app/tests/providers/test_base_urls.py | 122 +++++++++++++++++++++-
+ src/app/tests/providers/test_base_urls.py | 133 +++++++++++++++++++++-
  src/events/calendar/tv.py                 |   4 +-
- 6 files changed, 150 insertions(+), 6 deletions(-)
+ 6 files changed, 170 insertions(+), 6 deletions(-)
 
 diff --git a/src/app/providers/credentials.py b/src/app/providers/credentials.py
 index 50b8755..765d6be 100644
@@ -31,10 +31,18 @@ index 50b8755..765d6be 100644
          headers={"Content-Type": "application/json"},
      )
 diff --git a/src/app/providers/services.py b/src/app/providers/services.py
-index 282ea14..6aef729 100644
+index 282ea14..9c473df 100644
 --- a/src/app/providers/services.py
 +++ b/src/app/providers/services.py
-@@ -459,6 +459,25 @@ session.mount(
+@@ -10,6 +10,7 @@ from contextlib import contextmanager
+ from difflib import SequenceMatcher
+ from http import HTTPStatus
+ from pathlib import Path
++from urllib.parse import urlparse
+ 
+ import requests
+ from defusedxml import ElementTree
+@@ -459,6 +460,33 @@ session.mount(
  )
  
  
@@ -42,16 +50,24 @@ index 282ea14..6aef729 100644
 +    """Pace a provider pointed at a mirror the same way as its public API.
 +
 +    TVDB_BASE_URL and TVMAZE_BASE_URL can send these providers to a compatible
-+    mirror or caching proxy. When one does, the public host's limiter adapter is
-+    mounted on the configured base URL as well, so requests to the mirror draw
-+    from the same budget as requests to the public API.
++    mirror or caching proxy. When one does, the configured base URL gets a
++    limiter that shares the public host's limiter and is pinned to the public
++    host's bucket, so requests to the mirror draw from the same budget as
++    requests to the public API. The bucket is pinned because adapters key their
++    buckets by hostname, and several providers may share one proxy host.
 +    """
 +    for public, configured in (
 +        ("https://api4.thetvdb.com", settings.TVDB_BASE_URL),
 +        ("https://api.tvmaze.com", settings.TVMAZE_BASE_URL),
 +    ):
 +        if not configured.startswith(public):
-+            target_session.mount(configured, target_session.adapters[public])
++            target_session.mount(
++                configured,
++                LimiterAdapter(
++                    limiter=target_session.adapters[public].limiter,
++                    bucket_name=urlparse(public).netloc,
++                ),
++            )
 +
 +
 +mount_mirror_limiters(session)
@@ -98,13 +114,14 @@ index 46c9203..2663343 100644
  
  
 diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
-index 409bb9f..7258c33 100644
+index 409bb9f..853e559 100644
 --- a/src/app/tests/providers/test_base_urls.py
 +++ b/src/app/tests/providers/test_base_urls.py
-@@ -5,10 +5,13 @@ from unittest.mock import patch
+@@ -5,10 +5,14 @@ from unittest.mock import patch
  
  from django.core.cache import cache
  from django.test import SimpleTestCase, TestCase, override_settings
++from requests import Request
 +from requests.adapters import HTTPAdapter
 +from requests_ratelimiter import LimiterAdapter, LimiterSession
  
@@ -116,7 +133,7 @@ index 409bb9f..7258c33 100644
  
  MIRROR = "http://mirror.local:8080"
  
-@@ -117,3 +120,120 @@ class TMDBCredentialProbeTests(SimpleTestCase):
+@@ -117,3 +121,130 @@ class TMDBCredentialProbeTests(SimpleTestCase):
          self.assertIsNone(credentials._validate_tmdb({"api_key": "test-key"}))
  
          self.assertEqual(mock_request.call_args.args[1], f"{MIRROR}/tmdb/3/configuration")
@@ -192,20 +209,30 @@ index 409bb9f..7258c33 100644
 +        TVDB_BASE_URL=f"{MIRROR}/tvdb/v4",
 +        TVMAZE_BASE_URL=f"{MIRROR}/tvmaze",
 +    )
-+    def test_limiters_mounted_on_configured_base_urls(self):
-+        """A mirror shares the public host's limiter; other paths do not."""
++    def test_mirrors_share_their_public_hosts_budget(self):
++        """A mirror draws from its public host's bucket; other paths do not."""
 +        target_session = self._session()
 +
 +        services.mount_mirror_limiters(target_session)
 +
++        buckets = {}
 +        for mirror_url, public_url in (
 +            (f"{MIRROR}/tvdb/v4/series/1", "https://api4.thetvdb.com/v4/series/1"),
 +            (f"{MIRROR}/tvmaze/shows/1", "https://api.tvmaze.com/shows/1"),
 +        ):
 +            with self.subTest(mirror_url=mirror_url):
 +                mirrored = target_session.get_adapter(mirror_url)
++                public = target_session.get_adapter(public_url)
 +                self.assertIsInstance(mirrored, LimiterAdapter)
-+                self.assertIs(mirrored, target_session.get_adapter(public_url))
++                self.assertIs(mirrored.limiter, public.limiter)
++                bucket = mirrored._bucket_name(Request("GET", mirror_url).prepare())
++                self.assertEqual(
++                    bucket,
++                    public._bucket_name(Request("GET", public_url).prepare()),
++                )
++                buckets[mirror_url] = bucket
++        # Both mirrors live on one host, yet keep separate budgets.
++        self.assertEqual(len(set(buckets.values())), 2)
 +        self.assertNotIsInstance(
 +            target_session.get_adapter(f"{MIRROR}/other/path"),
 +            LimiterAdapter,
