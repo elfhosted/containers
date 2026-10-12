@@ -1,0 +1,220 @@
+From 559d14e2854f8bc6a792346e69588e1071251abb Mon Sep 17 00:00:00 2001
+From: ElfHosted <hello@elfhosted.com>
+Date: Mon, 12 Oct 2026 16:37:18 +1300
+Subject: [PATCH] Optionally make the first account a superuser
+
+FIRST_USER_SUPERUSER (default off) promotes the earliest real account
+when the instance has no superuser, on account creation and after
+migrations, for hosts where the owner cannot run promote_superuser.
+---
+ src/config/settings.py                       |   6 ++
+ src/users/signals.py                         |  62 ++++++++++-
+ src/users/tests/test_first_user_superuser.py | 105 +++++++++++++++++++
+ 3 files changed, 172 insertions(+), 1 deletion(-)
+ create mode 100644 src/users/tests/test_first_user_superuser.py
+
+diff --git a/src/config/settings.py b/src/config/settings.py
+index 575503f..967aede 100644
+--- a/src/config/settings.py
++++ b/src/config/settings.py
+@@ -2100,3 +2100,9 @@ REDIRECT_LOGIN_TO_SSO = config("REDIRECT_LOGIN_TO_SSO", default=False, cast=bool
+ # this setting gates provisioning, not the account itself (see
+ # floppy_preflight's demo check for how to notice and retire it).
+ DEMO_ACCOUNT_ENABLED = config("DEMO_ACCOUNT_ENABLED", default=False, cast=bool)
++
++# Make the instance's first real account a superuser, for hosts where the owner
++# cannot run `manage.py promote_superuser`. Off by default (upstream behaviour).
++# Applies when an account is created and after migrations, and only while the
++# instance has no superuser at all, so it never adds a second one.
++FIRST_USER_SUPERUSER = config("FIRST_USER_SUPERUSER", default=False, cast=bool)
+diff --git a/src/users/signals.py b/src/users/signals.py
+index bb0730e..31cecab 100644
+--- a/src/users/signals.py
++++ b/src/users/signals.py
+@@ -2,7 +2,8 @@ from django.conf import settings
+ from django.contrib.auth import get_user_model
+ from django.contrib.auth.signals import user_logged_in
+ from django.db import connection
+-from django.db.models.signals import post_migrate
++from django.db.models import Exists
++from django.db.models.signals import post_migrate, post_save
+ from django.db.utils import OperationalError, ProgrammingError
+ from django.dispatch import receiver
+ 
+@@ -59,3 +60,62 @@ def ensure_demo_user_after_migrate(sender, **kwargs):
+         return
+ 
+     ensure_demo_user()
++
++
++def promote_first_account():
++    """Make the earliest real account a superuser if the instance has none.
++
++    Returns the promoted user's pk, or None when nothing changed. The update is
++    a single conditional UPDATE, so two accounts created together cannot both
++    be promoted: whichever runs second finds a superuser and changes nothing.
++    """
++    user_model = get_user_model()
++    owner = (
++        user_model.objects.filter(is_demo=False, is_active=True)
++        .order_by("date_joined", "pk")
++        .values_list("pk", flat=True)
++        .first()
++    )
++    if owner is None:
++        return None
++    updated = (
++        user_model.objects.filter(pk=owner)
++        .filter(~Exists(user_model.objects.filter(is_superuser=True)))
++        .update(is_superuser=True, is_staff=True)
++    )
++    return owner if updated else None
++
++
++@receiver(post_save, sender=settings.AUTH_USER_MODEL)
++def promote_first_account_on_signup(sender, instance, created, raw=False, **kwargs):
++    """Promote the first account as it is created (FIRST_USER_SUPERUSER)."""
++    if not created or raw or not getattr(settings, "FIRST_USER_SUPERUSER", False):
++        return
++    promote_first_account()
++    # Re-read the flags even when this call promoted nobody: a concurrent signup
++    # may have promoted this account, and the signup flow saves the instance
++    # again afterwards (allauth's social path does a full save), so stale
++    # in-memory flags would write the promotion back out.
++    flags = (
++        get_user_model()
++        .objects.filter(pk=instance.pk)
++        .values("is_superuser", "is_staff")
++        .first()
++    )
++    if flags:
++        instance.is_superuser = flags["is_superuser"]
++        instance.is_staff = flags["is_staff"]
++
++
++@receiver(post_migrate)
++def promote_first_account_after_migrate(sender, **kwargs):
++    """Cover instances whose accounts predate FIRST_USER_SUPERUSER."""
++    if getattr(settings, "TESTING", False):
++        return
++    if not getattr(settings, "FIRST_USER_SUPERUSER", False):
++        return
++    if getattr(sender, "label", None) != "users":
++        return
++    if not _demo_user_schema_ready():
++        return
++    promote_first_account()
+diff --git a/src/users/tests/test_first_user_superuser.py b/src/users/tests/test_first_user_superuser.py
+new file mode 100644
+index 0000000..715a33f
+--- /dev/null
++++ b/src/users/tests/test_first_user_superuser.py
+@@ -0,0 +1,105 @@
++"""Coverage for FIRST_USER_SUPERUSER (ElfHosted patch)."""
++
++from types import SimpleNamespace
++
++from django.contrib.auth import get_user_model
++from django.test import TestCase, override_settings
++
++from users.signals import (
++    promote_first_account,
++    promote_first_account_after_migrate,
++    promote_first_account_on_signup,
++)
++
++
++def _make(username, **extra):
++    return get_user_model().objects.create_user(
++        username=username,
++        password="a-long-test-password",
++        **extra,
++    )
++
++
++def _flags(username):
++    user = get_user_model().objects.get(username=username)
++    return user.is_superuser, user.is_staff
++
++
++@override_settings(FIRST_USER_SUPERUSER=True)
++class FirstUserSuperuserTests(TestCase):
++    def test_first_account_becomes_superuser(self):
++        user = _make("owner")
++
++        self.assertEqual(_flags("owner"), (True, True))
++        # The instance handed back to the signup flow agrees with the database.
++        self.assertTrue(user.is_superuser)
++
++    def test_second_account_stays_regular(self):
++        _make("owner")
++        _make("family")
++
++        self.assertEqual(_flags("family"), (False, False))
++
++    def test_existing_superuser_blocks_promotion(self):
++        _make("admin", is_superuser=True, is_staff=True)
++        _make("later")
++
++        self.assertEqual(_flags("later"), (False, False))
++
++    def test_a_later_superuser_still_blocks_promoting_the_earliest(self):
++        with override_settings(FIRST_USER_SUPERUSER=False):
++            _make("early")
++        _make("admin", is_superuser=True, is_staff=True)
++        _make("later")
++
++        self.assertEqual(_flags("early"), (False, False))
++        self.assertEqual(_flags("later"), (False, False))
++
++    def test_promotion_by_a_concurrent_signup_survives_a_later_full_save(self):
++        # Request A inserted the earliest account, but request B promoted it
++        # before A's own signal ran, so A still holds stale flags.
++        with override_settings(FIRST_USER_SUPERUSER=False):
++            stale = _make("owner")
++        promote_first_account()
++        self.assertFalse(stale.is_superuser)
++
++        promote_first_account_on_signup(
++            get_user_model(), instance=stale, created=True
++        )
++        stale.save()  # the signup flow's later full save
++
++        self.assertEqual(_flags("owner"), (True, True))
++
++    def test_demo_account_is_never_the_owner(self):
++        _make("demo", is_demo=True)
++        _make("owner")
++
++        self.assertEqual(_flags("demo"), (False, False))
++        self.assertEqual(_flags("owner"), (True, True))
++
++    def test_after_migrate_promotes_the_earliest_existing_account(self):
++        with override_settings(FIRST_USER_SUPERUSER=False):
++            _make("first")
++            _make("second")
++        self.assertEqual(_flags("first"), (False, False))
++
++        with override_settings(TESTING=False):
++            promote_first_account_after_migrate(SimpleNamespace(label="users"))
++
++        self.assertEqual(_flags("first"), (True, True))
++        self.assertEqual(_flags("second"), (False, False))
++
++
++class FirstUserSuperuserOffTests(TestCase):
++    def test_off_by_default(self):
++        _make("owner")
++
++        self.assertEqual(_flags("owner"), (False, False))
++
++    def test_after_migrate_does_nothing_when_off(self):
++        _make("owner")
++
++        with override_settings(TESTING=False):
++            promote_first_account_after_migrate(SimpleNamespace(label="users"))
++
++        self.assertEqual(_flags("owner"), (False, False))
+-- 
+2.54.0
+
