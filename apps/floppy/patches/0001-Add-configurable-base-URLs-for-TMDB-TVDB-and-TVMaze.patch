@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ElfHosted <noreply@elfhosted.com>
+Date: Sat, 10 Oct 2026 16:54:52 +1300
+Subject: [PATCH 1/3] Add configurable base URLs for TMDB, TVDB and TVMaze
+
+Read TMDB_BASE_URL, TVDB_BASE_URL and TVMAZE_BASE_URL from the
+environment so these providers can be pointed at a compatible mirror or
+caching proxy. Each defaults to the public API, so behaviour is unchanged
+when they are unset. Trailing slashes are stripped.
+---
+ src/app/tests/providers/test_base_urls.py | 47 +++++++++++++++++++++++
+ src/config/settings.py                    | 15 ++++++++
+ 2 files changed, 62 insertions(+)
+ create mode 100644 src/app/tests/providers/test_base_urls.py
+
+diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
+new file mode 100644
+index 0000000..f5d964c
+--- /dev/null
++++ b/src/app/tests/providers/test_base_urls.py
+@@ -0,0 +1,47 @@
++import os
++from unittest.mock import patch
++
++from django.test import SimpleTestCase
++
++from config import settings as project_settings
++
++
++class ProviderBaseUrlSettingTests(SimpleTestCase):
++    """Test reading provider API base URLs from the environment."""
++
++    def test_default_when_unset(self):
++        """An unset variable falls back to the public API."""
++        with patch.dict(os.environ, {}, clear=False):
++            os.environ.pop("EXAMPLE_BASE_URL", None)
++            self.assertEqual(
++                project_settings.provider_base_url(
++                    "EXAMPLE_BASE_URL",
++                    "https://api.example.com/v1",
++                ),
++                "https://api.example.com/v1",
++            )
++
++    def test_default_when_empty(self):
++        """An empty variable falls back to the public API."""
++        with patch.dict(os.environ, {"EXAMPLE_BASE_URL": ""}):
++            self.assertEqual(
++                project_settings.provider_base_url(
++                    "EXAMPLE_BASE_URL",
++                    "https://api.example.com/v1",
++                ),
++                "https://api.example.com/v1",
++            )
++
++    def test_override_strips_trailing_slash(self):
++        """A configured value is used with any trailing slash removed."""
++        with patch.dict(
++            os.environ,
++            {"EXAMPLE_BASE_URL": "http://mirror.local:8080/example/v1/"},
++        ):
++            self.assertEqual(
++                project_settings.provider_base_url(
++                    "EXAMPLE_BASE_URL",
++                    "https://api.example.com/v1",
++                ),
++                "http://mirror.local:8080/example/v1",
++            )
+diff --git a/src/config/settings.py b/src/config/settings.py
+index e66c46f..575503f 100644
+--- a/src/config/settings.py
++++ b/src/config/settings.py
+@@ -1217,6 +1217,21 @@ TMDB_API = config(
+ TMDB_NSFW = config("TMDB_NSFW", default=False, cast=bool)
+ TMDB_LANG = config("TMDB_LANG", default="en")
+ 
++
++def provider_base_url(key, default):
++    """Return a provider API base URL, overridable through the environment.
++
++    Lets a provider be pointed at a compatible mirror or caching proxy. An unset
++    or empty value falls back to the public API. Trailing slashes are stripped
++    because request URLs are built as f"{base_url}/path".
++    """
++    return (config(key, default="") or default).rstrip("/")
++
++
++TMDB_BASE_URL = provider_base_url("TMDB_BASE_URL", "https://api.themoviedb.org/3")
++TVDB_BASE_URL = provider_base_url("TVDB_BASE_URL", "https://api4.thetvdb.com/v4")
++TVMAZE_BASE_URL = provider_base_url("TVMAZE_BASE_URL", "https://api.tvmaze.com")
++
+ SEERR_GLOBAL_WEBHOOK_SECRET = config(
+     "SEERR_GLOBAL_WEBHOOK_SECRET",
+     default=secret("SEERR_GLOBAL_WEBHOOK_SECRET_FILE", ""),

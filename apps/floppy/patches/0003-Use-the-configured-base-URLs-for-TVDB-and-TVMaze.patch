@@ -1,0 +1,288 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ElfHosted <noreply@elfhosted.com>
+Date: Sat, 10 Oct 2026 16:55:53 +1300
+Subject: [PATCH 3/3] Use the configured base URLs for TVDB and TVMaze
+
+Build TVDB and TVMaze request URLs, including the calendar's TVMaze
+lookups and the TVDB key check in Settings, from settings.TVDB_BASE_URL
+and settings.TVMAZE_BASE_URL. When either points at a mirror, the public
+host's rate limiter is mounted on the mirror too, so requests to it are
+paced the same way.
+---
+ src/app/providers/credentials.py          |   2 +-
+ src/app/providers/services.py             |  28 +++++
+ src/app/providers/tvdb.py                 |   4 +-
+ src/app/providers/tvmaze.py               |   5 +-
+ src/app/tests/providers/test_base_urls.py | 133 +++++++++++++++++++++-
+ src/events/calendar/tv.py                 |   4 +-
+ 6 files changed, 170 insertions(+), 6 deletions(-)
+
+diff --git a/src/app/providers/credentials.py b/src/app/providers/credentials.py
+index 50b8755..765d6be 100644
+--- a/src/app/providers/credentials.py
++++ b/src/app/providers/credentials.py
+@@ -152,7 +152,7 @@ def _validate_tvdb(values):
+         payload["pin"] = values["pin"]
+     return _probe(
+         "POST",
+-        "https://api4.thetvdb.com/v4/login",
++        f"{settings.TVDB_BASE_URL}/login",
+         json=payload,
+         headers={"Content-Type": "application/json"},
+     )
+diff --git a/src/app/providers/services.py b/src/app/providers/services.py
+index 282ea14..9c473df 100644
+--- a/src/app/providers/services.py
++++ b/src/app/providers/services.py
+@@ -10,6 +10,7 @@ from contextlib import contextmanager
+ from difflib import SequenceMatcher
+ from http import HTTPStatus
+ from pathlib import Path
++from urllib.parse import urlparse
+ 
+ import requests
+ from defusedxml import ElementTree
+@@ -459,6 +460,33 @@ session.mount(
+ )
+ 
+ 
++def mount_mirror_limiters(target_session):
++    """Pace a provider pointed at a mirror the same way as its public API.
++
++    TVDB_BASE_URL and TVMAZE_BASE_URL can send these providers to a compatible
++    mirror or caching proxy. When one does, the configured base URL gets a
++    limiter that shares the public host's limiter and is pinned to the public
++    host's bucket, so requests to the mirror draw from the same budget as
++    requests to the public API. The bucket is pinned because adapters key their
++    buckets by hostname, and several providers may share one proxy host.
++    """
++    for public, configured in (
++        ("https://api4.thetvdb.com", settings.TVDB_BASE_URL),
++        ("https://api.tvmaze.com", settings.TVMAZE_BASE_URL),
++    ):
++        if not configured.startswith(public):
++            target_session.mount(
++                configured,
++                LimiterAdapter(
++                    limiter=target_session.adapters[public].limiter,
++                    bucket_name=urlparse(public).netloc,
++                ),
++            )
++
++
++mount_mirror_limiters(session)
++
++
+ @request_timing.timed_provider_call
+ def resilient_request(method, url, **kwargs):
+     """GET/POST through the shared rate-limited session.
+diff --git a/src/app/providers/tvdb.py b/src/app/providers/tvdb.py
+index c1719cf..78ac4cb 100644
+--- a/src/app/providers/tvdb.py
++++ b/src/app/providers/tvdb.py
+@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
+ RATING_SCALE_MAX = 10  # upper bound of a 0-10 rating scale
+ PERCENT_SCALE_MAX = 100  # upper bound of a 0-100 percent-style rating scale
+ 
+-base_url = "https://api4.thetvdb.com/v4"
++# settings.TVDB_BASE_URL defaults to the public API; it can point at a
++# compatible mirror or caching proxy.
++base_url = settings.TVDB_BASE_URL
+ TVDB_CACHE_NAMESPACE = f"{Sources.TVDB.value}_v4"
+ TOKEN_CACHE_KEY = f"{TVDB_CACHE_NAMESPACE}_access_token"
+ TOKEN_CACHE_TIMEOUT = 60 * 60 * 12
+diff --git a/src/app/providers/tvmaze.py b/src/app/providers/tvmaze.py
+index 46c9203..2663343 100644
+--- a/src/app/providers/tvmaze.py
++++ b/src/app/providers/tvmaze.py
+@@ -10,13 +10,16 @@ no API key/settings are needed.
+ 
+ import logging
+ 
++from django.conf import settings
+ from django.core.cache import cache
+ 
+ from app.providers import services
+ 
+ logger = logging.getLogger(__name__)
+ 
+-base_url = "https://api.tvmaze.com"
++# settings.TVMAZE_BASE_URL defaults to the public API; it can point at a
++# compatible mirror or caching proxy.
++base_url = settings.TVMAZE_BASE_URL
+ CACHE_TIMEOUT = 60 * 60 * 12
+ 
+ 
+diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
+index 409bb9f..853e559 100644
+--- a/src/app/tests/providers/test_base_urls.py
++++ b/src/app/tests/providers/test_base_urls.py
+@@ -5,10 +5,14 @@ from unittest.mock import patch
+ 
+ from django.core.cache import cache
+ from django.test import SimpleTestCase, TestCase, override_settings
++from requests import Request
++from requests.adapters import HTTPAdapter
++from requests_ratelimiter import LimiterAdapter, LimiterSession
+ 
+ from app.discover.providers import tmdb_adapter
+-from app.providers import credentials, tmdb
++from app.providers import credentials, services, tmdb, tvdb, tvmaze
+ from config import settings as project_settings
++from events.calendar.tv import get_tvmaze_response
+ 
+ MIRROR = "http://mirror.local:8080"
+ 
+@@ -117,3 +121,130 @@ class TMDBCredentialProbeTests(SimpleTestCase):
+         self.assertIsNone(credentials._validate_tmdb({"api_key": "test-key"}))
+ 
+         self.assertEqual(mock_request.call_args.args[1], f"{MIRROR}/tmdb/3/configuration")
++
++
++class TVDBBaseUrlTests(SimpleTestCase):
++    """Test that TVDB requests use the configured base URL."""
++
++    def test_module_reads_configured_base_url(self):
++        """The TVDB module builds its URLs from settings.TVDB_BASE_URL."""
++        with reloaded_with(tvdb, TVDB_BASE_URL=f"{MIRROR}/tvdb/v4") as module:
++            self.assertEqual(module.base_url, f"{MIRROR}/tvdb/v4")
++        self.assertEqual(tvdb.base_url, "https://api4.thetvdb.com/v4")
++
++
++class TVMazeBaseUrlTests(SimpleTestCase):
++    """Test that TVMaze requests use the configured base URL."""
++
++    def setUp(self):
++        """Start each test with an empty cache."""
++        cache.clear()
++
++    def test_external_ids_use_configured_base_url(self):
++        """Show lookups go to the configured base URL."""
++        with (
++            reloaded_with(tvmaze, TVMAZE_BASE_URL=f"{MIRROR}/tvmaze") as module,
++            patch.object(
++                module.services,
++                "api_request",
++                return_value={"externals": {}},
++            ) as mock_api_request,
++        ):
++            module.external_ids(38390)
++
++        self.assertEqual(
++            mock_api_request.call_args.args[2],
++            f"{MIRROR}/tvmaze/shows/38390",
++        )
++
++    @override_settings(TVMAZE_BASE_URL=f"{MIRROR}/tvmaze")
++    @patch("events.calendar.tv.services.api_request")
++    def test_calendar_lookup_and_show_use_configured_base_url(
++        self,
++        mock_api_request,
++    ):
++        """Calendar lookup and show requests go to the configured base URL."""
++        mock_api_request.side_effect = [{"id": 123}, {"_embedded": {}}]
++
++        get_tvmaze_response("81189")
++
++        urls = [call.args[2] for call in mock_api_request.call_args_list]
++        self.assertEqual(
++            urls,
++            [
++                f"{MIRROR}/tvmaze/lookup/shows?thetvdb=81189",
++                f"{MIRROR}/tvmaze/shows/123?embed=episodes",
++            ],
++        )
++
++
++class MirrorLimiterTests(SimpleTestCase):
++    """Test that a mirrored provider keeps its public host's rate limit."""
++
++    def _session(self):
++        target_session = LimiterSession(per_second=5)
++        target_session.mount("http://", HTTPAdapter(max_retries=3))
++        target_session.mount("https://", HTTPAdapter(max_retries=3))
++        target_session.mount("https://api4.thetvdb.com", LimiterAdapter(per_second=2))
++        target_session.mount("https://api.tvmaze.com", LimiterAdapter(per_second=2))
++        return target_session
++
++    @override_settings(
++        TVDB_BASE_URL=f"{MIRROR}/tvdb/v4",
++        TVMAZE_BASE_URL=f"{MIRROR}/tvmaze",
++    )
++    def test_mirrors_share_their_public_hosts_budget(self):
++        """A mirror draws from its public host's bucket; other paths do not."""
++        target_session = self._session()
++
++        services.mount_mirror_limiters(target_session)
++
++        buckets = {}
++        for mirror_url, public_url in (
++            (f"{MIRROR}/tvdb/v4/series/1", "https://api4.thetvdb.com/v4/series/1"),
++            (f"{MIRROR}/tvmaze/shows/1", "https://api.tvmaze.com/shows/1"),
++        ):
++            with self.subTest(mirror_url=mirror_url):
++                mirrored = target_session.get_adapter(mirror_url)
++                public = target_session.get_adapter(public_url)
++                self.assertIsInstance(mirrored, LimiterAdapter)
++                self.assertIs(mirrored.limiter, public.limiter)
++                bucket = mirrored._bucket_name(Request("GET", mirror_url).prepare())
++                self.assertEqual(
++                    bucket,
++                    public._bucket_name(Request("GET", public_url).prepare()),
++                )
++                buckets[mirror_url] = bucket
++        # Both mirrors live on one host, yet keep separate budgets.
++        self.assertEqual(len(set(buckets.values())), 2)
++        self.assertNotIsInstance(
++            target_session.get_adapter(f"{MIRROR}/other/path"),
++            LimiterAdapter,
++        )
++
++    @override_settings(
++        TVDB_BASE_URL="https://api4.thetvdb.com/v4",
++        TVMAZE_BASE_URL="https://api.tvmaze.com",
++    )
++    def test_nothing_extra_mounted_without_a_mirror(self):
++        """Without an override no additional adapter is mounted."""
++        target_session = self._session()
++        before = list(target_session.adapters)
++
++        services.mount_mirror_limiters(target_session)
++
++        self.assertEqual(list(target_session.adapters), before)
++
++
++class TVDBCredentialProbeTests(SimpleTestCase):
++    """Test that a TVDB key is validated against the configured base URL."""
++
++    @override_settings(TVDB_BASE_URL=f"{MIRROR}/tvdb/v4")
++    @patch("requests.request")
++    def test_validation_uses_configured_base_url(self, mock_request):
++        """The login check goes to the mirror the key will be used through."""
++        mock_request.return_value.status_code = 200
++
++        self.assertIsNone(credentials._validate_tvdb({"api_key": "test-key"}))
++
++        self.assertEqual(mock_request.call_args.args[1], f"{MIRROR}/tvdb/v4/login")
+diff --git a/src/events/calendar/tv.py b/src/events/calendar/tv.py
+index 3010566..ef66e9a 100644
+--- a/src/events/calendar/tv.py
++++ b/src/events/calendar/tv.py
+@@ -728,7 +728,7 @@ def get_tvmaze_episode_map(tvdb_id):
+ 
+ def get_tvmaze_response(tvdb_id):
+     """Fetch episode data from TVMaze using TVDB ID."""
+-    lookup_url = f"https://api.tvmaze.com/lookup/shows?thetvdb={tvdb_id}"
++    lookup_url = f"{settings.TVMAZE_BASE_URL}/lookup/shows?thetvdb={tvdb_id}"
+     try:
+         lookup_response = services.api_request("TVMaze", "GET", lookup_url)
+     except requests.exceptions.HTTPError as err:
+@@ -756,7 +756,7 @@ def get_tvmaze_response(tvdb_id):
+         logger.warning("%s - TVMaze ID not found for TVDB ID", tvdb_id)
+         return {}
+ 
+-    show_url = f"https://api.tvmaze.com/shows/{tvmaze_id}?embed=episodes"
++    show_url = f"{settings.TVMAZE_BASE_URL}/shows/{tvmaze_id}?embed=episodes"
+ 
+     try:
+         return services.api_request("TVMaze", "GET", show_url)

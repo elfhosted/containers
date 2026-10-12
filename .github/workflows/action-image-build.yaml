@@ -367,6 +367,17 @@ jobs:
               -e ALLOWANCE_USD="starter=1.00,boost=10.00"
               -e BLOCKED_TENANTS="goss-blocked"
             )
+          elif [[ "${{ matrix.image.app }}" == "floppy" ]]; then
+            # Floppy's celery beat exits when its Redis broker is unreachable,
+            # which stops the whole container. Give it a throwaway Redis.
+            NET="${NAME}-net"
+            REDIS="${NAME}-redis"
+            docker network create "$NET"
+            docker run -d --name "$REDIS" --network "$NET" redis:8-alpine
+            DGOSS_RUN_ARGS+=(
+              --network "$NET"
+              -e REDIS_URL="redis://$REDIS:6379"
+            )
           elif [[ "${{ matrix.image.app }}" == "watchly" ]]; then
             # Watchly refuses to start in production with the insecure default.
             # This throwaway value only lets the web smoke bind in CI.
@@ -378,6 +389,9 @@ jobs:
           cleanup() {
             if [[ "${{ matrix.image.app }}" == "mediafusion" ]]; then
               docker rm -f "${NAME}-postgres" "${NAME}-redis" >/dev/null 2>&1 || true
+              docker network rm "${NAME}-net" >/dev/null 2>&1 || true
+            elif [[ "${{ matrix.image.app }}" == "floppy" ]]; then
+              docker rm -f "${NAME}-redis" >/dev/null 2>&1 || true
               docker network rm "${NAME}-net" >/dev/null 2>&1 || true
             elif [[ "${{ matrix.image.app }}" == "nightscout" ]]; then
               docker rm -f "${NAME}-mongo" >/dev/null 2>&1 || true
