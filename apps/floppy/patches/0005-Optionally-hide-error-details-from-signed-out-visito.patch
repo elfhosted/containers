@@ -1,0 +1,190 @@
+From a0ea3eef70b9a04585a91e98ac2bf8c3a16dedf4 Mon Sep 17 00:00:00 2001
+From: ElfHosted <hello@elfhosted.com>
+Date: Tue, 13 Oct 2026 12:35:08 +1300
+Subject: [PATCH] Optionally hide error details from signed-out visitors
+
+ERROR_DETAILS_ANONYMOUS (default on, upstream behaviour). When off, a
+signed-out visitor's error page carries the heading and a generic
+message only: no traceback, exception text or provider context, which
+can include an upstream URL with its api_key.
+---
+ src/app/error_views.py                        | 17 ++++++
+ src/app/tests/test_error_views.py             | 59 +++++++++++++++++++
+ src/app/tests/urls_error_pages.py             | 21 +++++++
+ src/config/settings.py                        |  6 ++
+ .../includes/error_report_panel.html          |  2 +
+ 5 files changed, 105 insertions(+)
+
+diff --git a/src/app/error_views.py b/src/app/error_views.py
+index 133e28f..be68e2d 100644
+--- a/src/app/error_views.py
++++ b/src/app/error_views.py
+@@ -1,6 +1,7 @@
+ import traceback
+ from urllib.parse import urlparse
+ 
++from django.conf import settings
+ from django.contrib import messages
+ from django.contrib.auth.decorators import login_not_required
+ from django.contrib.auth.views import redirect_to_login
+@@ -126,6 +127,22 @@ def render_error_page(
+     extra_context: dict[str, object] | None = None,
+ ) -> HttpResponse:
+     """Render a custom error page with a copyable traceback panel."""
++    user = getattr(request, "user", None)
++    if not (
++        getattr(settings, "ERROR_DETAILS_ANONYMOUS", True)
++        or getattr(user, "is_authenticated", False)
++    ):
++        # Signed out on an instance that hides details: no exception text,
++        # traceback or provider context, any of which can carry credentials.
++        context = {
++            "error_status_code": status_code,
++            "error_page_title": page_title,
++            "error_heading": heading,
++            "error_message": "Sign in to see the details.",
++            "error_report": "",
++        }
++        return render(request, template_name, context, status=status_code)
++
+     context = {
+         "error_status_code": status_code,
+         "error_page_title": page_title,
+diff --git a/src/app/tests/test_error_views.py b/src/app/tests/test_error_views.py
+index 978bd97..e58d181 100644
+--- a/src/app/tests/test_error_views.py
++++ b/src/app/tests/test_error_views.py
+@@ -210,3 +210,62 @@ class ErrorPageTests(TestCase):
+             response.headers["Location"],
+             "http://testserver/track_modal/tmdb/tv/117648",
+         )
++
++
++@override_settings(
++    DEBUG=False,
++    ROOT_URLCONF="app.tests.urls_error_pages",
++    ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"],
++    ERROR_DETAILS_ANONYMOUS=False,
++)
++class AnonymousErrorDetailsTests(TestCase):
++    """ERROR_DETAILS_ANONYMOUS=False hides reports from signed-out visitors."""
++
++    def setUp(self):
++        self.client = Client()
++        self.client.raise_request_exception = False
++
++    def test_signed_out_provider_error_hides_the_keyed_url(self):
++        response = self.client.get("/boom-tmdb-keyed-url/")
++
++        self.assertGreaterEqual(response.status_code, 400)
++        body = response.content.decode()
++        self.assertNotIn("TENANTSECRET123", body)
++        self.assertNotIn("api_key", body)
++        self.assertNotIn("Copy this block when opening a ticket", body)
++        self.assertIn("Sign in to see the details.", body)
++
++    def test_signed_out_generic_error_hides_the_traceback(self):
++        response = self.client.get("/boom-500/")
++
++        self.assertEqual(response.status_code, 500)
++        body = response.content.decode()
++        self.assertNotIn("Kaboom", body)
++        self.assertNotIn("RuntimeError", body)
++
++    def test_signed_in_user_still_gets_the_report(self):
++        # A signed-in page renders the full navigation, which this test
++        # urlconf does not have, so check what reaches the template instead.
++        from unittest.mock import patch
++
++        from django.http import HttpResponse
++
++        from app.error_views import render_error_page
++
++        request = RequestFactory().get("/somewhere/")
++        request.user = get_user_model().objects.create_user(
++            username="owner", password="a-long-test-password"
++        )
++        with patch("app.error_views.render", return_value=HttpResponse()) as fake:
++            render_error_page(
++                request,
++                "500.html",
++                status_code=502,
++                page_title="Provider Error",
++                heading="Provider Error",
++                error_message="url: https://api.themoviedb.org/3/movie/0?api_key=TENANTSECRET123",
++                exception=RuntimeError("TENANTSECRET123"),
++            )
++        context = fake.call_args.args[2]
++        self.assertIn("TENANTSECRET123", context["error_report"])
++        self.assertIn("TENANTSECRET123", context["error_message"])
+diff --git a/src/app/tests/urls_error_pages.py b/src/app/tests/urls_error_pages.py
+index 848bdb8..017359e 100644
+--- a/src/app/tests/urls_error_pages.py
++++ b/src/app/tests/urls_error_pages.py
+@@ -73,6 +73,26 @@ def boom_hardcover_401(_request):
+     )
+ 
+ 
++@login_not_required
++def boom_tmdb_keyed_url(_request):
++    """Raise a TMDB failure whose upstream URL carries an api_key."""
++
++    class MockResponse:
++        status_code = 404
++        headers = {"Content-Type": "application/json"}
++        text = '{"status_message":"The resource you requested could not be found."}'
++
++        def json(self):
++            return {"status_message": "The resource you requested could not be found."}
++
++    error = requests.exceptions.HTTPError(
++        "404 Client Error: Not Found for url: "
++        "https://api.themoviedb.org/3/movie/0?api_key=TENANTSECRET123",
++        response=MockResponse(),
++    )
++    raise services.ProviderAPIError(Sources.TMDB.value, error)
++
++
+ @login_not_required
+ def boom_igdb_not_configured(_request):
+     """Raise an unconfigured-IGDB error for middleware testing."""
+@@ -109,5 +129,6 @@ urlpatterns = [
+     path("boom-500/", boom_500),
+     path("boom-hardcover-401/", boom_hardcover_401),
+     path("boom-igdb-not-configured/", boom_igdb_not_configured),
++    path("boom-tmdb-keyed-url/", boom_tmdb_keyed_url),
+     path("csrf-protected/", csrf_protected),
+ ]
+diff --git a/src/config/settings.py b/src/config/settings.py
+index 967aede..186048f 100644
+--- a/src/config/settings.py
++++ b/src/config/settings.py
+@@ -2106,3 +2106,9 @@ DEMO_ACCOUNT_ENABLED = config("DEMO_ACCOUNT_ENABLED", default=False, cast=bool)
+ # Applies when an account is created and after migrations, and only while the
+ # instance has no superuser at all, so it never adds a second one.
+ FIRST_USER_SUPERUSER = config("FIRST_USER_SUPERUSER", default=False, cast=bool)
++
++# Error pages carry a copyable report (traceback, request details, the
++# provider's error, which can include the upstream URL and its api_key). On by
++# default (upstream behaviour); set False on an instance reachable without a
++# login so anonymous visitors get the heading and a generic message only.
++ERROR_DETAILS_ANONYMOUS = config("ERROR_DETAILS_ANONYMOUS", default=True, cast=bool)
+diff --git a/src/templates/includes/error_report_panel.html b/src/templates/includes/error_report_panel.html
+index dd00a8c..bb54c4f 100644
+--- a/src/templates/includes/error_report_panel.html
++++ b/src/templates/includes/error_report_panel.html
+@@ -1,5 +1,6 @@
+ 
+ {% load i18n %}
++{% if error_report %}
+ <div class="bg-[var(--color-surface)] p-4 rounded-lg mb-4 text-left">
+   <div class="flex items-center justify-between gap-2 mb-2">
+     <h3 class="font-medium text-[var(--color-text-secondary)]">{{ error_report_title|default:"Traceback" }}</h3>
+@@ -20,3 +21,4 @@
+             spellcheck="false"
+             wrap="off">{{ error_report }}</textarea>
+ </div>
++{% endif %}
+-- 
+2.54.0
+

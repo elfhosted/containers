@@ -1,0 +1,230 @@
+From 07963faf8d29b860ccdb89f1be9fbba5c991900c Mon Sep 17 00:00:00 2001
+From: ElfHosted <hello@elfhosted.com>
+Date: Tue, 13 Oct 2026 12:51:10 +1300
+Subject: [PATCH] Optionally restrict signed-out visitors to an allowlist of
+ views
+
+ANONYMOUS_VIEW_ALLOWLIST (default off, upstream behaviour). When on, a
+signed-out request reaches a login_not_required view only if it is on
+an explicit allowlist: sign-in, token-authenticated machine endpoints and
+API, OAuth device login, light probes. Detail pages, public profiles and
+lists, full health and the rest then need a login.
+---
+ src/app/middleware.py                     | 81 +++++++++++++++++++++
+ src/app/tests/test_anonymous_allowlist.py | 85 +++++++++++++++++++++++
+ src/config/settings.py                    | 11 +++
+ 3 files changed, 177 insertions(+)
+ create mode 100644 src/app/tests/test_anonymous_allowlist.py
+
+diff --git a/src/app/middleware.py b/src/app/middleware.py
+index 6995460..8e32b69 100644
+--- a/src/app/middleware.py
++++ b/src/app/middleware.py
+@@ -6,6 +6,7 @@ from urllib.parse import urlparse
+ 
+ from django.conf import settings
+ from django.contrib.auth import get_user_model, login
++from django.contrib.auth.middleware import LoginRequiredMiddleware
+ from django.contrib.sessions.exceptions import SessionInterrupted
+ from django.db import DatabaseError, connection
+ from django.db.utils import OperationalError
+@@ -572,3 +573,83 @@ class ProviderCredentialUserMiddleware:
+ 
+         with credentials.current_user_scope(getattr(request, "user", None)):
+             return self.get_response(request)
++
++
++# Views a signed-out visitor may reach when ANONYMOUS_VIEW_ALLOWLIST is on.
++# Sign-up and password recovery are listed because the HTTP layer in front
++# (ElfHosted: nginx + SSO) gates them; everything here either signs you in or
++# checks a token itself.
++ANONYMOUS_ALLOWED_VIEW_NAMES = frozenset(
++    {
++        # Floppy's own sign-in
++        "account_login",
++        "account_inactive",
++        "account_signup",
++        "socialaccount_signup",
++        "socialaccount_login_cancelled",
++        "password_recover",
++        # token-checked machine endpoints
++        "emby_webhook",
++        "jellyfin_webhook",
++        "jellyseerr_webhook",
++        "kodi_webhook",
++        "plex_webhook",
++        "seerr_global_webhook",
++        "download_calendar",
++        "discover_row_feed",
++        "stremio_addon_manifest",
++        "stremio_addon_manifest_configured",
++        "stremio_addon_catalog",
++        "stremio_addon_catalog_configured",
++        "stremio_addon_meta",
++        "stremio_addon_subtitles",
++        "stremio_addon_subtitles_configured",
++        "listenbrainz_submit_listens",
++        "listenbrainz_validate_token",
++        "image_cache",
++        "audiobookshelf_cover",
++        "plex_cover",
++        # OAuth device login for apps
++        "oauth_authorization_server_metadata",
++        "oauth_device_authorization",
++        "oauth_register",
++        "oauth_revoke",
++        "oauth_scope_metadata",
++        "oauth_token",
++        # assets the sign-in page needs
++        "service_worker",
++        "javascript-catalog",
++    },
++)
++# The REST API authenticates every call with a token inside the view, so the
++# request reaches it signed out; its full health diagnostics stay private.
++ANONYMOUS_DENIED_API_VIEW_NAMES = frozenset({"api_health"})
++# Unnamed lightweight probes. Not "health/full/", which runs every check.
++ANONYMOUS_ALLOWED_ROUTES = frozenset({"health/", "ping/"})
++
++
++def anonymous_view_allowed(match):
++    """Return whether a signed-out request may reach the resolved view."""
++    if match is None:
++        return False
++    name = match.url_name
++    if name in ANONYMOUS_ALLOWED_VIEW_NAMES:
++        return True
++    if name and name.startswith("api_"):
++        return name not in ANONYMOUS_DENIED_API_VIEW_NAMES
++    return name is None and match.route in ANONYMOUS_ALLOWED_ROUTES
++
++
++class AllowlistedLoginRequiredMiddleware(LoginRequiredMiddleware):
++    """LoginRequiredMiddleware that honours login_not_required only for views
++    on the anonymous allowlist (ANONYMOUS_VIEW_ALLOWLIST)."""
++
++    def process_view(self, request, view_func, view_args, view_kwargs):
++        """Require a login unless the view is allowlisted for signed-out use."""
++        if request.user.is_authenticated:
++            return None
++        if getattr(view_func, "login_required", True):
++            return self.handle_no_permission(request, view_func)
++        if anonymous_view_allowed(getattr(request, "resolver_match", None)):
++            return None
++        return self.handle_no_permission(request, view_func)
+diff --git a/src/app/tests/test_anonymous_allowlist.py b/src/app/tests/test_anonymous_allowlist.py
+new file mode 100644
+index 0000000..2149dab
+--- /dev/null
++++ b/src/app/tests/test_anonymous_allowlist.py
+@@ -0,0 +1,85 @@
++"""Coverage for ANONYMOUS_VIEW_ALLOWLIST (ElfHosted patch)."""
++
++from django.contrib.auth import get_user_model
++from django.contrib.auth.models import AnonymousUser
++from django.http import HttpResponse
++from django.test import RequestFactory, TestCase
++from django.urls import resolve
++
++from app.middleware import AllowlistedLoginRequiredMiddleware
++
++
++def _run(path, user=None):
++    """Resolve PATH against the real urlconf and run the middleware's check."""
++    request = RequestFactory().get(path)
++    request.user = user or AnonymousUser()
++    request.resolver_match = resolve(path)
++    middleware = AllowlistedLoginRequiredMiddleware(lambda _r: HttpResponse())
++    return middleware.process_view(
++        request,
++        request.resolver_match.func,
++        request.resolver_match.args,
++        request.resolver_match.kwargs,
++    )
++
++
++class AnonymousAllowlistTests(TestCase):
++    def assert_allowed(self, path):
++        self.assertIsNone(_run(path), f"{path} should be reachable signed out")
++
++    def assert_login_required(self, path):
++        response = _run(path)
++        self.assertIsNotNone(response, f"{path} should need a login")
++        self.assertEqual(response.status_code, 302)
++        self.assertIn("/accounts/login/", response["Location"])
++
++    def test_sign_in_and_gated_account_routes_stay_reachable(self):
++        for path in (
++            "/accounts/login/",
++            "/accounts/signup/",
++            "/accounts/password/recover/",
++        ):
++            self.assert_allowed(path)
++
++    def test_token_routes_stay_reachable(self):
++        for path in (
++            "/webhook/jellyfin/sometoken",
++            "/webhook/plex/sometoken",
++            "/calendar/download/sometoken",
++            "/apis/listenbrainz/1/validate-token",
++            "/stremio-addon/sometoken/manifest.json",
++            "/oauth/token",
++        ):
++            self.assert_allowed(path)
++
++    def test_token_authenticated_api_stays_reachable(self):
++        self.assert_allowed("/api/v1/media/")
++        self.assert_allowed("/api/v1/info/")
++
++    def test_light_probes_stay_reachable(self):
++        self.assert_allowed("/ping/")
++        self.assert_allowed("/health/")
++
++    def test_public_pages_need_a_login(self):
++        for path in (
++            "/details/tmdb/movie/1/anything",
++            "/details/manual/movie/0b5c0d6e-0000-0000-0000-000000000000/x",
++            "/podcast/show/1/",
++            "/user/someone",
++            "/list/some-list",
++            "/list/some-list/rss",
++            "/list/1/recommend/submit",
++            "/retry",
++        ):
++            self.assert_login_required(path)
++
++    def test_full_diagnostics_need_a_login(self):
++        self.assert_login_required("/health/full/")
++        self.assert_login_required("/api/v1/health/")
++
++    def test_signed_in_user_reaches_everything(self):
++        user = get_user_model().objects.create_user(
++            username="owner", password="a-long-test-password"
++        )
++        self.assertIsNone(_run("/details/tmdb/movie/1/anything", user=user))
++        self.assertIsNone(_run("/health/full/", user=user))
+diff --git a/src/config/settings.py b/src/config/settings.py
+index 186048f..03e620a 100644
+--- a/src/config/settings.py
++++ b/src/config/settings.py
+@@ -445,6 +445,17 @@ if FLOPPY_AUTO_LOGIN_USERNAME:
+     _index = MIDDLEWARE.index("django.contrib.auth.middleware.AuthenticationMiddleware")
+     MIDDLEWARE.insert(_index + 1, "app.middleware.AutoLoginMiddleware")
+ 
++# Restrict what a signed-out visitor can reach to an explicit allowlist (sign
++# in, token-authenticated machine endpoints and API, OAuth device login,
++# probes); every other login_not_required view (detail pages, public profiles
++# and lists, full health) then needs a login too. Off by default (upstream
++# behaviour); for instances reachable from the internet without a front login.
++ANONYMOUS_VIEW_ALLOWLIST = config("ANONYMOUS_VIEW_ALLOWLIST", default=False, cast=bool)
++if ANONYMOUS_VIEW_ALLOWLIST:
++    MIDDLEWARE[
++        MIDDLEWARE.index("django.contrib.auth.middleware.LoginRequiredMiddleware")
++    ] = "app.middleware.AllowlistedLoginRequiredMiddleware"
++
+ ROOT_URLCONF = "config.celery_urls" if _CELERY_PROCESS else "config.urls"
+ 
+ TEMPLATES = [
+-- 
+2.54.0
+
