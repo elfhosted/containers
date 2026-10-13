@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/debrid/base.ts b/packages/core/src/debrid/base.ts
-index c44f2db..667b549 100644
+index 31bb2356..797d0292 100644
 --- a/packages/core/src/debrid/base.ts
 +++ b/packages/core/src/debrid/base.ts
 @@ -115,6 +115,23 @@ const DEBRID_NON_RETRYABLE_CODES = new Set<DebridErrorCode | undefined>([
@@ -27,18 +27,18 @@ index c44f2db..667b549 100644
   * Shared cross-service failure cache
   */
 diff --git a/packages/core/src/main/failover.ts b/packages/core/src/main/failover.ts
-index cab2f7b..4b8060b 100644
+index 73e9eed7..8e063c9a 100644
 --- a/packages/core/src/main/failover.ts
 +++ b/packages/core/src/main/failover.ts
 @@ -17,6 +17,7 @@ import {
-   PLAYBACK_PATH_PREFIX,
+   type PlaybackTarget,
  } from '../debrid/utils.js';
  import { isFailoverRetryableError } from './play-chain.js';
 +import { storeFallbackUrl } from '../debrid/base.js';
  
- const logger = createLogger('failover');
+ export { parsePlaybackUrl, type PlaybackTarget } from '../debrid/utils.js';
  
-@@ -308,6 +309,7 @@ export interface RunPlayChainResult {
+@@ -290,6 +291,7 @@ export interface RunPlayChainResult {
    failedOver: boolean;
    /** If a URL is available, this is the label of the attempt that provided it. */
    label?: string;
@@ -46,7 +46,7 @@ index cab2f7b..4b8060b 100644
  }
  
  /**
-@@ -330,6 +332,7 @@ async function runSequential(
+@@ -312,6 +314,7 @@ async function runSequential(
  ): Promise<RunPlayChainResult> {
    let sawDownloading = false;
    let lastError: Error | undefined;
@@ -54,7 +54,7 @@ index cab2f7b..4b8060b 100644
    let tried = 0;
    for (let i = 0; i < attempts.length; i++) {
      tried++;
-@@ -349,6 +352,7 @@ async function runSequential(
+@@ -331,6 +334,7 @@ async function runSequential(
        );
      } catch (err: any) {
        lastError = err as Error;
@@ -62,7 +62,7 @@ index cab2f7b..4b8060b 100644
        if (!isFailoverRetryableError(err)) break; // terminal for this service — stop
        logger.warn(
          { attempt: i, err, label: attempts[i]?.label },
-@@ -363,7 +367,7 @@ async function runSequential(
+@@ -345,7 +349,7 @@ async function runSequential(
        failedOver: tried > 1,
        label: attempts[tried - 1]?.label ?? `attempt ${tried - 1}`,
      };
@@ -71,7 +71,7 @@ index cab2f7b..4b8060b 100644
  }
  
  function runParallel(
-@@ -373,6 +377,7 @@ function runParallel(
+@@ -355,6 +359,7 @@ function runParallel(
    return new Promise<RunPlayChainResult>((resolve) => {
      const controllers: AbortController[] = [];
      const errors: Error[] = [];
@@ -79,7 +79,7 @@ index cab2f7b..4b8060b 100644
      const succeeded = new Set<number>();
      const failed = new Set<number>();
      // Indices whose resolve settled as "still downloading" (undefined url). These
-@@ -451,7 +456,11 @@ function runParallel(
+@@ -433,7 +438,11 @@ function runParallel(
          },
          'all failover attempts failed'
        );
@@ -92,7 +92,7 @@ index cab2f7b..4b8060b 100644
      }
  
      function onDeadline() {
-@@ -535,6 +544,7 @@ function runParallel(
+@@ -517,6 +526,7 @@ function runParallel(
            active--;
            failed.add(i);
            errors.push(err);
@@ -101,10 +101,10 @@ index cab2f7b..4b8060b 100644
              { attempt: i, label: attempts[i]?.label, err },
              'failover attempt failed'
 diff --git a/packages/server/src/routes/api/debrid.ts b/packages/server/src/routes/api/debrid.ts
-index 4ea0ee7..b8688ec 100644
+index 306f7f6e..33a80b3d 100644
 --- a/packages/server/src/routes/api/debrid.ts
 +++ b/packages/server/src/routes/api/debrid.ts
-@@ -237,14 +237,24 @@ router.get(
+@@ -257,14 +257,24 @@ router.get(
              return;
            }
            logger.error({ err }, `error during debrid resolve: ${err.message}`);

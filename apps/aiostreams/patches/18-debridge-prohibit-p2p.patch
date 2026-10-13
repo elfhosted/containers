@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index 2b09c76..bba3baf 100644
+index 9943c772..a79a45c4 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
-@@ -314,6 +314,20 @@ export async function processStreams(
+@@ -334,6 +334,20 @@ export async function processStreams(
      serviceWrapTimings = resolvedResults.serviceTimings;
    }
  
@@ -21,10 +21,10 @@ index 2b09c76..bba3baf 100644
 +  }
 +
    if (resolvedResults.hasNewStreams) {
-     await withRemuxDb(
+     await withMediaInfo(
        processedStreams.filter((s) => !preServiceWrapIds.has(s.id))
 diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
-index 2d7e898..22933bd 100644
+index 71bc7865..32600e73 100644
 --- a/packages/core/src/main/serviceWrapper.ts
 +++ b/packages/core/src/main/serviceWrapper.ts
 @@ -79,7 +79,18 @@ export async function resolveServiceWrappedStreams(
@@ -49,7 +49,7 @@ index 2d7e898..22933bd 100644
  
 diff --git a/packages/core/src/streams/utils.test.ts b/packages/core/src/streams/utils.test.ts
 new file mode 100644
-index 0000000..2320879
+index 00000000..2320879d
 --- /dev/null
 +++ b/packages/core/src/streams/utils.test.ts
 @@ -0,0 +1,154 @@
@@ -208,7 +208,7 @@ index 0000000..2320879
 +  });
 +});
 diff --git a/packages/core/src/streams/utils.ts b/packages/core/src/streams/utils.ts
-index f541bc9..0019153 100644
+index f541bc97..00191535 100644
 --- a/packages/core/src/streams/utils.ts
 +++ b/packages/core/src/streams/utils.ts
 @@ -1,4 +1,5 @@
@@ -235,7 +235,7 @@ index f541bc9..0019153 100644
    const serviceWrapPresets = userData.serviceWrap.presets;
    const isPresetInScope =
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index 036c6ea..f1dd494 100644
+index 036c6ea8..f1dd494d 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
 @@ -279,6 +279,11 @@ export const Env = cleanEnv(process.env, {

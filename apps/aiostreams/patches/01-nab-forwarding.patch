@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/builtins/base/nab/api.ts b/packages/core/src/builtins/base/nab/api.ts
-index 3e6947d..0afb5c5 100644
+index 1b9223c..ee77042 100644
 --- a/packages/core/src/builtins/base/nab/api.ts
 +++ b/packages/core/src/builtins/base/nab/api.ts
-@@ -129,6 +129,10 @@ type NabRequestResult<
+@@ -169,6 +169,10 @@ type NabRequestResult<
    K extends NabRequestKind,
  > = K extends 'caps' ? Capabilities : SearchResponse<N>;
  
@@ -13,7 +13,7 @@ index 3e6947d..0afb5c5 100644
  // --- Connection test ---
  const NAB_TEST_TIMEOUT = 15000;
  
-@@ -202,6 +206,7 @@ export class BaseNabApi<N extends NabNamespace> {
+@@ -244,6 +248,7 @@ export class BaseNabApi<N extends NabNamespace> {
    private readonly params: Record<string, string>;
    private readonly userAgent: string;
    private readonly httpProxy: string | undefined;
@@ -21,7 +21,7 @@ index 3e6947d..0afb5c5 100644
  
    constructor(
      public readonly namespace: N,
-@@ -209,11 +214,13 @@ export class BaseNabApi<N extends NabNamespace> {
+@@ -251,11 +256,13 @@ export class BaseNabApi<N extends NabNamespace> {
      private readonly baseUrl: string,
      private readonly apiKey?: string,
      private readonly apiPath: string = '/api',
@@ -36,7 +36,7 @@ index 3e6947d..0afb5c5 100644
      this.params = Object.fromEntries(
        Object.entries(params).map(([key, value]) => [key, String(value)])
      );
-@@ -374,20 +381,45 @@ export class BaseNabApi<N extends NabNamespace> {
+@@ -423,20 +430,48 @@ export class BaseNabApi<N extends NabNamespace> {
      url.search = searchParams.toString();
      const urlString = url.toString();
  
@@ -78,6 +78,9 @@ index 3e6947d..0afb5c5 100644
 +            },
 +            timeout: timeout ?? appConfig.builtins.nab.searchTimeout,
 +            cooldownTarget: urlString,
++            // Scoped like the direct request (and the NZB grab it leads
++            // to): per indexer path on a manager, not per endpoint origin.
++            cooldownContext: this.namespace,
 +            body: JSON.stringify({
 +              host: url.host,
 +              path: `${url.pathname}${url.search}`,
@@ -95,7 +98,7 @@ index 3e6947d..0afb5c5 100644
        const {
          body,
 diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
-index eacf2b4..51eb75a 100644
+index 47e5aa9..7c5d1f4 100644
 --- a/packages/core/src/builtins/newznab/addon.ts
 +++ b/packages/core/src/builtins/newznab/addon.ts
 @@ -10,7 +10,11 @@ import {
@@ -234,7 +237,7 @@ index eacf2b4..51eb75a 100644
            0,
          type: 'usenet',
          parsedMediaInfo,
-@@ -243,24 +292,34 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -245,23 +294,33 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
          url: appConfig.bootstrap.baseUrl,
          credentials: auth,
        });
@@ -255,7 +258,6 @@ index eacf2b4..51eb75a 100644
 -      }
 -      for (let i = 0; i < nzbs.length; i++) {
 -        nzbs[i].nzb = proxiedUrls[i];
--        nzbs[i].hash = hashNzbUrl(nzbs[i].nzb);
 +      let zyclopsOrigin: string | undefined;
 +      try {
 +        zyclopsOrigin = new URL(appConfig.nzbProxy.zyclopsHealthProxyEndpoint)
@@ -282,12 +284,11 @@ index eacf2b4..51eb75a 100644
 +        }
 +        nzbsToProxy.forEach((nzb, i) => {
 +          nzb.nzb = proxiedUrls[i];
-+          nzb.hash = hashNzbUrl(nzb.nzb);
 +        });
        }
      }
      return nzbs;
-@@ -293,7 +352,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -294,7 +353,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
      return stream;
    }
  
@@ -297,7 +298,7 @@ index eacf2b4..51eb75a 100644
        e.type?.toLowerCase().includes('nzb')
      );
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index a1ab8ca..6e266a0 100644
+index aefcf10..b28545d 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
 @@ -684,6 +684,26 @@ export const builtinsSchema = {
@@ -381,12 +382,325 @@ index b313e3d..0b41352 100644
    async history(
      params: {
        start?: number;
+diff --git a/packages/core/src/debrid/utils.nzbhash.base.test.ts b/packages/core/src/debrid/utils.nzbhash.base.test.ts
+new file mode 100644
+index 0000000..72003cb
+--- /dev/null
++++ b/packages/core/src/debrid/utils.nzbhash.base.test.ts
+@@ -0,0 +1,50 @@
++import assert from 'node:assert/strict';
++import { createHash } from 'node:crypto';
++import { before, describe, it, mock } from 'node:test';
++
++// A base with a repeated parameter and a `url` placeholder the builder
++// replaces (newznab/addon.ts buildReplayDownloadUrl sets `url`).
++process.env.BUILTIN_NZB_REPLAY_DOWNLOAD_URL =
++  'https://forwarder.test/nzb?mode=a&mode=b&url=';
++
++const { settingsStore } = await import('../config/index.js');
++const { SettingsRepository } = await import('../db/repositories/settings.js');
++// The barrel settles debrid/utils' import cycle before it is loaded directly.
++await import('../index.js');
++const { hashNzbUrl, sentNzbHash, unwrapForwardingUrl } =
++  await import('./utils.js');
++
++const BASE = 'https://forwarder.test/nzb?mode=a&mode=b&url=';
++
++function forwarded(inner: string): string {
++  const url = new URL(BASE);
++  url.searchParams.set('url', inner);
++  return url.toString();
++}
++
++const md5 = (value: string) => createHash('md5').update(value).digest('hex');
++
++describe('a forwarding base with a repeated selector and a url placeholder', () => {
++  before(async () => {
++    mock.method(SettingsRepository, 'getAll', async () => []);
++    mock.method(SettingsRepository, 'getVersion', async () => 0);
++    await settingsStore.initialise();
++  });
++
++  const a = 'https://indexer-a.test/api?t=get&id=42&apikey=aaa';
++  const b = 'https://indexer-a.test/api?t=get&id=43&apikey=aaa';
++
++  it('recognises the wrappers the builder emits', () => {
++    assert.equal(unwrapForwardingUrl(forwarded(a)), a);
++    assert.equal(hashNzbUrl(forwarded(a)), hashNzbUrl(a));
++    assert.notEqual(sentNzbHash(forwarded(a)), sentNzbHash(forwarded(b)));
++    assert.equal(sentNzbHash(forwarded(a)), md5(forwarded(a)));
++  });
++
++  it('requires the whole repeated selector', () => {
++    const partial =
++      'https://forwarder.test/nzb?mode=a&url=' + encodeURIComponent(a);
++    assert.equal(unwrapForwardingUrl(partial), partial);
++    assert.notEqual(hashNzbUrl(partial), hashNzbUrl(a));
++  });
++});
+diff --git a/packages/core/src/debrid/utils.nzbhash.test.ts b/packages/core/src/debrid/utils.nzbhash.test.ts
+new file mode 100644
+index 0000000..a2c077e
+--- /dev/null
++++ b/packages/core/src/debrid/utils.nzbhash.test.ts
+@@ -0,0 +1,134 @@
++import assert from 'node:assert/strict';
++import { before, describe, it, mock } from 'node:test';
++import { createHash } from 'node:crypto';
++
++// Read when the settings store initialises.
++// A base with a parameter of its own, which a wrapper must carry too.
++process.env.BUILTIN_NZB_REPLAY_DOWNLOAD_URL =
++  'https://forwarder.test/nzb?mode=forward';
++
++const { settingsStore } = await import('../config/index.js');
++const { SettingsRepository } = await import('../db/repositories/settings.js');
++// The barrel settles debrid/utils' import cycle before it is loaded directly.
++await import('../index.js');
++const {
++  canonicalNzbHash,
++  hashNzbUrl,
++  sentNzbHash,
++  unwrapForwardingUrl,
++  unwrapNzbUrl,
++} = await import('./utils.js');
++const { toUrlSafeBase64 } = await import('../utils/index.js');
++
++const FORWARDER = 'https://forwarder.test/nzb?mode=forward';
++
++function forwarded(inner: string, base: string = FORWARDER): string {
++  const url = new URL(base);
++  url.searchParams.set('url', inner);
++  return url.toString();
++}
++
++/** One of our unencrypted NZB proxy URLs, as the proxy route would mint it. */
++function proxied(inner: string): string {
++  const token = [
++    'u',
++    toUrlSafeBase64('user:secret'),
++    toUrlSafeBase64(JSON.stringify({ url: inner, type: 'nzb' })),
++  ].join('.');
++  return `https://aiostreams.test/api/v1/proxy/${token}/release.nzb`;
++}
++
++describe('NZB hashes see through the forwarding endpoint', () => {
++  before(async () => {
++    mock.method(SettingsRepository, 'getAll', async () => []);
++    mock.method(SettingsRepository, 'getVersion', async () => 0);
++    await settingsStore.initialise();
++  });
++
++  const enclosure = 'https://indexer-a.test/api?t=get&id=42&apikey=aaa';
++
++  it('unwraps one or more forwarding layers and nothing else', () => {
++    assert.equal(unwrapForwardingUrl(forwarded(enclosure)), enclosure);
++    assert.equal(
++      unwrapForwardingUrl(forwarded(forwarded(enclosure))),
++      enclosure
++    );
++    assert.equal(unwrapForwardingUrl(enclosure), enclosure);
++    const elsewhere = forwarded(enclosure, 'https://elsewhere.test/nzb');
++    assert.equal(unwrapForwardingUrl(elsewhere), elsewhere);
++    assert.equal(unwrapForwardingUrl(FORWARDER), FORWARDER);
++    // Same origin and path, but not the base's own parameter: an indexer
++    // link, not a wrapper.
++    const lookalike =
++      'https://forwarder.test/nzb?t=get&id=1&url=https://x.test/';
++    assert.equal(unwrapForwardingUrl(lookalike), lookalike);
++    assert.notEqual(hashNzbUrl(lookalike), hashNzbUrl('https://x.test/'));
++    assert.equal(unwrapForwardingUrl('not a url'), 'not a url');
++  });
++
++  it('peels interleaved proxy and forwarding layers', () => {
++    assert.equal(unwrapNzbUrl(proxied(enclosure)), enclosure);
++    assert.equal(unwrapNzbUrl(proxied(forwarded(enclosure))), enclosure);
++    // An already-proxied enclosure, forwarded and proxied again.
++    const nested = proxied(forwarded(proxied(enclosure)));
++    assert.equal(unwrapNzbUrl(nested), enclosure);
++    assert.equal(hashNzbUrl(nested), hashNzbUrl(enclosure));
++    assert.equal(canonicalNzbHash(nested).known, true);
++  });
++
++  it('hashes a forwarded NZB by the indexer link behind it', () => {
++    assert.equal(hashNzbUrl(forwarded(enclosure)), hashNzbUrl(enclosure));
++    assert.equal(
++      hashNzbUrl(forwarded(forwarded(enclosure))),
++      hashNzbUrl(enclosure)
++    );
++    assert.equal(canonicalNzbHash(forwarded(enclosure)).known, true);
++  });
++
++  it('keeps distinct NZBs distinct through the wrapper', () => {
++    // The wrapper's own URL identifies no release: hashed as such, every
++    // forwarded NZB would share one hash.
++    const other = 'https://indexer-a.test/api?t=get&id=43&apikey=aaa';
++    assert.notEqual(
++      hashNzbUrl(forwarded(enclosure)),
++      hashNzbUrl(forwarded(other))
++    );
++    assert.equal(hashNzbUrl(forwarded(other)), hashNzbUrl(other));
++  });
++
++  it('still hashes what a remote service receives when asked', () => {
++    assert.notEqual(
++      hashNzbUrl(forwarded(enclosure), false),
++      hashNzbUrl(enclosure)
++    );
++  });
++
++  it('keeps forwarded NZBs distinct in the hash a service files them under', () => {
++    // sentNzbHash cleans an unknown URL of its query, which for the wrapper
++    // is the whole identity: service checks would key every forwarded NZB
++    // under one hash. The wrapper is a known shape instead.
++    const other = 'https://indexer-a.test/api?t=get&id=43&apikey=aaa';
++    assert.notEqual(
++      sentNzbHash(forwarded(enclosure)),
++      sentNzbHash(forwarded(other))
++    );
++    assert.equal(
++      sentNzbHash(forwarded(enclosure)),
++      hashNzbUrl(forwarded(enclosure), false)
++    );
++    // Not the wrapper base's hash, and still not the indexer link's.
++    assert.notEqual(sentNzbHash(forwarded(enclosure)), sentNzbHash(FORWARDER));
++    assert.notEqual(sentNzbHash(forwarded(enclosure)), hashNzbUrl(enclosure));
++    // The canonical hash peels the wrapper first and is unaffected.
++    assert.equal(hashNzbUrl(forwarded(enclosure)), hashNzbUrl(enclosure));
++    // The whole wrapper, base parameters included: what a service that
++    // hashes the URL it is sent files it under.
++    const md5 = (value: string) =>
++      createHash('md5').update(value).digest('hex');
++    assert.equal(
++      hashNzbUrl(forwarded(enclosure), false),
++      md5(forwarded(enclosure))
++    );
++    assert.equal(sentNzbHash(forwarded(enclosure)), md5(forwarded(enclosure)));
++  });
++});
+diff --git a/packages/core/src/debrid/utils.ts b/packages/core/src/debrid/utils.ts
+index 296abeb..084e657 100644
+--- a/packages/core/src/debrid/utils.ts
++++ b/packages/core/src/debrid/utils.ts
+@@ -85,6 +85,19 @@ const md5 = (value: string): string =>
+ function shapedNzbUrl(url: string): string | undefined {
+   try {
+     const u = new URL(url);
++    // Our forwarding wrapper: the link it carries identifies the release, so
++    // the hash a service files it under stays distinct per release (cleaned
++    // of its query, every forwarded NZB would hash alike). Kept whole, with
++    // only foreign parameters dropped, it is the string a service that hashes
++    // what it is sent (TorBox) sees.
++    const forwarded = forwardedNzbUrl(u);
++    if (forwarded) {
++      const keep = new Set([...forwarded.selectors, 'url']);
++      for (const key of Array.from(u.searchParams.keys())) {
++        if (!keep.has(key)) u.searchParams.delete(key);
++      }
++      return u.toString();
++    }
+     const pathName = u.pathname.replace(/\/$/, '');
+     for (const shape of NZB_URL_SHAPES) {
+       if (!pathName.endsWith(shape.pathSuffix)) continue;
+@@ -111,12 +124,91 @@ export function hashNzbUrl(url: string, clean: boolean = true): string {
+   return md5(shaped ?? url);
+ }
+ 
++const MAX_FORWARDING_LAYERS = 8;
++
++/**
++ * What a `BUILTIN_NZB_REPLAY_DOWNLOAD_URL` wrapper is recognised by: the
++ * configured base's origin, path and its own query parameters (a base can
++ * share an origin and path with an indexer and be told apart by a parameter
++ * alone), plus the link it carries. `undefined` when `u` is not one.
++ */
++function forwardedNzbUrl(
++  u: URL
++): { inner: string; selectors: string[] } | undefined {
++  const base = appConfig.builtins.nab.replayDownloadUrl;
++  if (!base) return undefined;
++  try {
++    const wrapper = new URL(base);
++    if (u.origin !== wrapper.origin || u.pathname !== wrapper.pathname) {
++      return undefined;
++    }
++    // The builder replaces a `url` placeholder, so it is not a selector; a
++    // repeated selector must match as a whole list.
++    const selectors = Array.from(new Set(wrapper.searchParams.keys())).filter(
++      (key) => key !== 'url'
++    );
++    for (const key of selectors) {
++      const expected = wrapper.searchParams.getAll(key);
++      const actual = u.searchParams.getAll(key);
++      if (
++        expected.length !== actual.length ||
++        expected.some((value, i) => value !== actual[i])
++      ) {
++        return undefined;
++      }
++    }
++    const inner = u.searchParams.get('url');
++    return inner ? { inner, selectors } : undefined;
++  } catch {
++    return undefined;
++  }
++}
++
++/**
++ * The URL behind `BUILTIN_NZB_REPLAY_DOWNLOAD_URL` wrappers, however many
++ * layers deep, or the URL itself. The forwarding endpoint's own URL identifies
++ * no release - its `url` parameter does.
++ */
++export function unwrapForwardingUrl(url: string): string {
++  let current = url;
++  for (let layer = 0; layer < MAX_FORWARDING_LAYERS; layer++) {
++    let parsed: URL;
++    try {
++      parsed = new URL(current);
++    } catch {
++      return current;
++    }
++    const forwarded = forwardedNzbUrl(parsed);
++    if (!forwarded) return current;
++    current = forwarded.inner;
++  }
++  return current;
++}
++
++/**
++ * The indexer link behind any nesting of our proxy and the forwarding
++ * wrapper. An enclosure that was already proxied is wrapped again when it is
++ * forwarded and proxied, so the layers interleave; peeling one kind once
++ * would stop at the next. Hashes see through all of them: the same NZB keeps
++ * one hash whether a stream carried the indexer link, the forwarding link, or
++ * a proxied form of either.
++ */
++export function unwrapNzbUrl(url: string): string {
++  let current = url;
++  for (let layer = 0; layer < MAX_FORWARDING_LAYERS; layer++) {
++    const peeled = unwrapForwardingUrl(unwrapProxyUrl(current));
++    if (peeled === current) return current;
++    current = peeled;
++  }
++  return current;
++}
++
+ /** {@link hashNzbUrl}'s default, and whether the URL had a known shape. */
+ export function canonicalNzbHash(url: string): {
+   hash: string;
+   known: boolean;
+ } {
+-  const source = unwrapProxyUrl(url);
++  const source = unwrapNzbUrl(url);
+   const shaped = shapedNzbUrl(source);
+   return shaped
+     ? { hash: md5(shaped), known: true }
 diff --git a/packages/core/src/utils/http.cooldown.test.ts b/packages/core/src/utils/http.cooldown.test.ts
 new file mode 100644
-index 0000000..438171b
+index 0000000..7048077
 --- /dev/null
 +++ b/packages/core/src/utils/http.cooldown.test.ts
-@@ -0,0 +1,147 @@
+@@ -0,0 +1,188 @@
 +import assert from 'node:assert/strict';
 +import { describe, it, mock } from 'node:test';
 +import {
@@ -467,7 +781,7 @@ index 0000000..438171b
 +});
 +
 +describe('makeRequest cooldowns through the forwarding endpoints', () => {
-+  it('keeps one target\'s 429 from holding back another, with URL mappings', async (t) => {
++  it("keeps one target's 429 from holding back another, with URL mappings", async (t) => {
 +    mock.method(SettingsRepository, 'getAll', async () => []);
 +    mock.method(SettingsRepository, 'getVersion', async () => 0);
 +    await settingsStore.initialise();
@@ -532,13 +846,54 @@ index 0000000..438171b
 +      ).status,
 +      200
 +    );
++
++    // An indexer manager serves each indexer under its own path. A grab's
++    // cooldown is scoped to that path; a forwarded search names the same
++    // scope through cooldownContext, so one indexer's 429 holds back its own
++    // searches and no other indexer's on the manager.
++    const grab = 'https://manager.test/1/download?id=1&apikey=aaa';
++    const grabPath = new URL(download(grab));
++    pool
++      .intercept({ path: `${grabPath.pathname}${grabPath.search}` })
++      .reply(429, 'slow down', { headers: { 'Retry-After': '60' } })
++      .persist();
++    assert.equal(
++      (
++        await makeRequest(download(grab), {
++          timeout: 1000,
++          context: 'nzb_grabs',
++        })
++      ).status,
++      429
++    );
++    const search = (indexer: number) =>
++      makeRequest('https://forwarder.test/search', {
++        method: 'POST',
++        timeout: 1000,
++        cooldownTarget: `https://manager.test/${indexer}/api?t=search&apikey=aaa`,
++        cooldownContext: 'newznab',
++      });
++    await assert.rejects(search(1), RateLimitedError);
++    assert.equal((await search(2)).status, 200);
++    // Without the context the search is keyed on the manager's origin, which
++    // the path-scoped grab never armed.
++    assert.equal(
++      (
++        await makeRequest('https://forwarder.test/search', {
++          method: 'POST',
++          timeout: 1000,
++          cooldownTarget: 'https://manager.test/1/api?t=search&apikey=aaa',
++        })
++      ).status,
++      200
++    );
 +  });
 +});
 diff --git a/packages/core/src/utils/http.ts b/packages/core/src/utils/http.ts
-index a8805cb..313fcbe 100644
+index b25693c..25bdc28 100644
 --- a/packages/core/src/utils/http.ts
 +++ b/packages/core/src/utils/http.ts
-@@ -108,6 +108,11 @@ export interface RequestOptions {
+@@ -109,6 +109,18 @@ export interface RequestOptions {
    rawOptions?: RequestInit;
    /** Still arms 429 cooldowns, but is never refused by one. */
    ignoreCooldown?: boolean;
@@ -547,10 +902,17 @@ index a8805cb..313fcbe 100644
 +   * credentials key the 429 cooldown in place of the endpoint's own.
 +   */
 +  cooldownTarget?: string;
++  /**
++   * The kind of request a forwarding endpoint relays, for cooldown scoping
++   * only: an indexer context keys the cooldown per indexer path on a manager,
++   * as the direct request would be. `context` is left to describe the
++   * request actually sent (its proxy and header rules).
++   */
++  cooldownContext?: FetchContext;
  }
  
  const CREDENTIAL_PARAM = /apikey|api_key|token|secret|password|passwd|passkey/i;
-@@ -148,6 +153,43 @@ export function cooldownKey(
+@@ -162,6 +174,43 @@ export function cooldownKey(
    };
  }
  
@@ -594,7 +956,7 @@ index a8805cb..313fcbe 100644
  function getEgress(urlObj: URL, options: RequestOptions): string {
    if (options.forceProxy) return options.forceProxy;
    const { useProxy, proxyIndex } = shouldProxy(urlObj, options.context);
-@@ -157,9 +199,15 @@ function getEgress(urlObj: URL, options: RequestOptions): string {
+@@ -171,13 +220,19 @@ function getEgress(urlObj: URL, options: RequestOptions): string {
  async function checkCooldown(
    urlObj: URL,
    headers: Headers,
@@ -602,17 +964,22 @@ index a8805cb..313fcbe 100644
 +  options: RequestOptions,
 +  explicitTarget?: string
  ): Promise<CooldownKey> {
--  const cooldown = cooldownKey(urlObj, headers, getEgress(urlObj, options));
+-  const cooldown = cooldownKey(
 +  const target = cooldownTargetUrl(
-+    urlObj,
+     urlObj,
 +    forwardingDownloadBase(),
 +    explicitTarget
 +  );
-+  const cooldown = cooldownKey(target, headers, getEgress(urlObj, options));
++  const cooldown = cooldownKey(
++    target,
+     headers,
+     getEgress(urlObj, options),
+-    options.context
++    options.cooldownContext ?? options.context
+   );
    if (options.ignoreCooldown) return cooldown;
    const entry = await cooldowns.get(cooldown.key);
-   const remaining = entry ? entry.until - Date.now() : 0;
-@@ -217,7 +265,12 @@ export async function makeRequest(url: string, options: RequestOptions) {
+@@ -236,7 +291,12 @@ export async function makeRequest(url: string, options: RequestOptions) {
  
    // Checked before recursion accounting so an active cooldown isn't
    // misreported as a possible recursive request.

@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 4683c27..32e36f4 100644
+index 10e0f456..60b4b49f 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -107,6 +107,7 @@ export class StremThruService
+@@ -108,6 +108,7 @@ export class StremThruService
    private static usenetHostsCache = Cache.getInstance<string, string[]>(
      'st:usenet-hosts'
    );
@@ -10,7 +10,7 @@ index 4683c27..32e36f4 100644
  
    constructor(private readonly config: StremThruServiceConfig) {
      this.serviceName = config.serviceName;
-@@ -240,6 +241,116 @@ export class StremThruService
+@@ -241,6 +242,116 @@ export class StremThruService
      }
    }
  
@@ -127,7 +127,7 @@ index 4683c27..32e36f4 100644
    //  Shared library helpers (pagination, stale-while-revalidate)
  
    private getLibraryCacheKey(type: 'torrent' | 'usenet'): string {
-@@ -395,15 +506,11 @@ export class StremThruService
+@@ -396,15 +507,11 @@ export class StremThruService
      });
  
      if (magnetsToCheck.length > 0) {
@@ -147,7 +147,7 @@ index 4683c27..32e36f4 100644
              const result = await this.stremthru.store.checkMagnet({
                magnet: batch,
                sid,
-@@ -415,11 +522,9 @@ export class StremThruService
+@@ -416,10 +523,9 @@ export class StremThruService
              );
  
              return result.data.items;
@@ -156,11 +156,10 @@ index 4683c27..32e36f4 100644
          );
  
 -        const allItems = batchResults.flat();
--
+         queueStremThruMediaInfo(allItems);
+ 
          newResults = allItems.map((item) => ({
-           id: -1,
-           hash: item.hash,
-@@ -635,23 +740,17 @@ export class StremThruService
+@@ -637,23 +743,17 @@ export class StremThruService
  
      if (hashesToCheck.length > 0) {
        try {

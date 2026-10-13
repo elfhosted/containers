@@ -1,6 +1,6 @@
 diff --git a/packages/core/src/builtins/utils/nzbContribution.ts b/packages/core/src/builtins/utils/nzbContribution.ts
 new file mode 100644
-index 0000000..0278e43
+index 00000000..0278e435
 --- /dev/null
 +++ b/packages/core/src/builtins/utils/nzbContribution.ts
 @@ -0,0 +1,85 @@
@@ -90,7 +90,7 @@ index 0000000..0278e43
 +    });
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 89ab75d..243c982 100644
+index 67e9dfb4..fa6d2fdb 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
 @@ -696,6 +696,36 @@ export const builtinsSchema = {
@@ -131,19 +131,18 @@ index 89ab75d..243c982 100644
        schema: nullableString,
        default: null,
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index d59a64b..f78b36c 100644
+index 91d36043..a6dcf670 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -33,6 +33,8 @@ import {
+@@ -32,6 +32,7 @@ import {
+   DebridFailureCache,
  } from './base.js';
  import assert from 'assert';
- 
 +import { contributeNzb } from '../builtins/utils/nzbContribution.js';
-+
- const logger = createLogger('debrid:stremthru');
+ import { queueStremThruMediaInfo } from '../media-info/sources/stremthru.js';
  
- const CHECK_CACHE_READ_BATCH = 500;
-@@ -968,6 +970,7 @@ export class StremThruService
+ const logger = createLogger('debrid:stremthru');
+@@ -971,6 +972,7 @@ export class StremThruService
          res,
          StremThruService.MAX_NZB_BYTES
        );
@@ -152,7 +151,7 @@ index d59a64b..f78b36c 100644
        if (error instanceof DebridError) {
          throw error;
 diff --git a/packages/core/src/presets/elfcache.ts b/packages/core/src/presets/elfcache.ts
-index 33edd38..d851246 100644
+index 33edd38b..d851246d 100644
 --- a/packages/core/src/presets/elfcache.ts
 +++ b/packages/core/src/presets/elfcache.ts
 @@ -73,7 +73,14 @@ export class ElfCachePreset extends TorznabPreset {
@@ -184,10 +183,10 @@ index 33edd38..d851246 100644
      const config = {
        ...this.getBaseConfig(userData, services),
 diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
-index 94138c1..d92ac31 100644
+index f1f8c807..576a065d 100644
 --- a/packages/core/src/presets/newznab.ts
 +++ b/packages/core/src/presets/newznab.ts
-@@ -155,6 +155,17 @@ const NEWZNAB_INDEXERS: {
+@@ -203,6 +203,17 @@ export const NEWZNAB_INDEXERS: {
    },
  ];
  
@@ -205,7 +204,7 @@ index 94138c1..d92ac31 100644
  export class NewznabPreset extends BuiltinAddonPreset {
    static override getParser() {
      return NewznabStreamParser;
-@@ -413,6 +424,16 @@ export class NewznabPreset extends BuiltinAddonPreset {
+@@ -461,6 +472,16 @@ export class NewznabPreset extends BuiltinAddonPreset {
      userData: UserData,
      options: Record<string, any>
    ): Promise<Addon[]> {
@@ -223,7 +222,7 @@ index 94138c1..d92ac31 100644
        userData,
        options.services,
 diff --git a/packages/core/src/usenet/integration/dashboard/providers.ts b/packages/core/src/usenet/integration/dashboard/providers.ts
-index 6a67d46..38742d2 100644
+index 6a67d46c..38742d2e 100644
 --- a/packages/core/src/usenet/integration/dashboard/providers.ts
 +++ b/packages/core/src/usenet/integration/dashboard/providers.ts
 @@ -216,7 +216,7 @@ async function resolveSpeedTestSource(
@@ -236,7 +235,7 @@ index 6a67d46..38742d2 100644
      const fileIndexes = dataFileIndexes(nzb);
      if (fileIndexes.length === 0) return null;
 diff --git a/packages/core/src/usenet/integration/library.ts b/packages/core/src/usenet/integration/library.ts
-index f249dbc..aea6d91 100644
+index 2c5ce365..d0fc61e7 100644
 --- a/packages/core/src/usenet/integration/library.ts
 +++ b/packages/core/src/usenet/integration/library.ts
 @@ -8,6 +8,7 @@ import {
@@ -247,7 +246,7 @@ index f249dbc..aea6d91 100644
  import {
    DebridError,
    DebridDownload,
-@@ -232,7 +233,8 @@ export async function canonicaliseNzbHash(
+@@ -233,7 +234,8 @@ export async function canonicaliseNzbHash(
   */
  export async function fetchNzb(
    url: string,
@@ -257,7 +256,7 @@ index f249dbc..aea6d91 100644
  ): Promise<Buffer> {
    if (url.startsWith(LOCAL_NZB_SCHEME)) {
      const hash = url.slice(LOCAL_NZB_SCHEME.length);
-@@ -251,7 +253,9 @@ export async function fetchNzb(
+@@ -252,7 +254,9 @@ export async function fetchNzb(
      }
    }
    try {
