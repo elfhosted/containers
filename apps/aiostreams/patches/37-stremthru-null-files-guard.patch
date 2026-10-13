@@ -1,11 +1,13 @@
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 671587e..d59a64b 100644
+index 59bd781..d0fbdeb 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -556,23 +556,24 @@ export class StremThruService
+@@ -557,26 +557,34 @@ export class StremThruService
            }
          );
  
+-        queueStremThruMediaInfo(allItems);
+-
 -        newResults = allItems.map((item) => ({
 -          id: -1,
 -          hash: item.hash,
@@ -22,9 +24,17 @@ index 671587e..d59a64b 100644
 -              videoHash: (file as any).video_hash,
 -            };
 -          }),
--        }));
-+        newResults = allItems.map((item) => {
-+          const files = item.files ?? [];
++        // StremThru may answer `files: null` for a magnet it knows nothing
++        // about. Both consumers below iterate the list, so settle it once.
++        const checkedItems = allItems.map((item) => ({
++          ...item,
++          files: item.files ?? [],
+         }));
+ 
++        queueStremThruMediaInfo(checkedItems);
++
++        newResults = checkedItems.map((item) => {
++          const files = item.files;
 +          return {
 +            id: -1,
 +            hash: item.hash,
@@ -41,6 +51,7 @@ index 671587e..d59a64b 100644
 +            }),
 +          };
 +        });
- 
++
          newResults.forEach((item) => {
            this.checkCacheSet(item);
+         });

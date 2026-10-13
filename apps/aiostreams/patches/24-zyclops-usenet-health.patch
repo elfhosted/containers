@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
-index b4955d6..e679078 100644
+index ff70a5bf..01369812 100644
 --- a/packages/core/src/builtins/newznab/addon.ts
 +++ b/packages/core/src/builtins/newznab/addon.ts
 @@ -6,6 +6,7 @@ import {
@@ -122,7 +122,7 @@ index b4955d6..e679078 100644
      for (const result of results) {
        const enclosure = this.getEnclosure(result);
        const enclosureUrl = enclosure?.url;
-@@ -282,8 +375,11 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -284,8 +377,11 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
        }
  
        nzbs.push(nzb);
@@ -134,7 +134,7 @@ index b4955d6..e679078 100644
      if (this.userData.proxyAuth) {
        const auth = this.userData.proxyAuth;
        BuiltinProxy.validateAuth(auth);
-@@ -294,8 +390,9 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -296,8 +392,9 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
        });
        let zyclopsOrigin: string | undefined;
        try {
@@ -148,7 +148,7 @@ index b4955d6..e679078 100644
          try {
 diff --git a/packages/core/src/builtins/utils/zyclopsHealth.ts b/packages/core/src/builtins/utils/zyclopsHealth.ts
 new file mode 100644
-index 0000000..93f2823
+index 00000000..93f28236
 --- /dev/null
 +++ b/packages/core/src/builtins/utils/zyclopsHealth.ts
 @@ -0,0 +1,163 @@
@@ -316,7 +316,7 @@ index 0000000..93f2823
 +  return result;
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index e386e4f..7ac2ae1 100644
+index 8068c7f7..912aab28 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
 @@ -684,6 +684,26 @@ export const builtinsSchema = {
@@ -347,22 +347,22 @@ index e386e4f..7ac2ae1 100644
        schema: nullableUrl,
        default: null,
 diff --git a/packages/core/src/db/schemas.ts b/packages/core/src/db/schemas.ts
-index 44523f1..361d05b 100644
+index 99c22225..23a3b818 100644
 --- a/packages/core/src/db/schemas.ts
 +++ b/packages/core/src/db/schemas.ts
-@@ -1526,6 +1526,7 @@ export const ParsedStreamSchema = z.object({
+@@ -1540,6 +1540,7 @@ export const ParsedStreamSchema = z.object({
    passthrough: PassthroughSchema.optional(),
    url: z.string().optional(),
    nzbUrl: z.string().optional(),
 +  zyclopsHealth: z.string().optional(),
+   infoUrl: z.string().optional(),
    releaseKey: ReleaseKeySchema,
    // Same-release failover targets harvested from discarded duplicates by the
-   // deduplicator merge step. Each is another playback URL for the *same*
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index d6a7259..4683c27 100644
+index 6e4152e9..10e0f456 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -104,6 +104,9 @@ export class StremThruService
+@@ -105,6 +105,9 @@ export class StremThruService
    private static libraryCache = Cache.getInstance<string, DebridDownload[]>(
      'st:library'
    );
@@ -372,7 +372,7 @@ index d6a7259..4683c27 100644
  
    constructor(private readonly config: StremThruServiceConfig) {
      this.serviceName = config.serviceName;
-@@ -137,6 +140,50 @@ export class StremThruService
+@@ -138,6 +141,50 @@ export class StremThruService
      });
    }
  
@@ -424,7 +424,7 @@ index d6a7259..4683c27 100644
  
    private checkCacheKey(hash: string): string {
 diff --git a/packages/core/src/main/play-chain.ts b/packages/core/src/main/play-chain.ts
-index ebc409a..bb6e6e1 100644
+index ebc409aa..bb6e6e16 100644
 --- a/packages/core/src/main/play-chain.ts
 +++ b/packages/core/src/main/play-chain.ts
 @@ -84,6 +84,7 @@ export interface PlayChainRecord {
@@ -509,7 +509,7 @@ index ebc409a..bb6e6e1 100644
        if (!passesFilter(item)) continue;
        const key = targetIdentity(item);
 diff --git a/packages/core/src/parser/streams.ts b/packages/core/src/parser/streams.ts
-index 676ee28..d3910d6 100644
+index 66ca1618..aa130af7 100644
 --- a/packages/core/src/parser/streams.ts
 +++ b/packages/core/src/parser/streams.ts
 @@ -112,6 +112,7 @@ class StreamParser {
@@ -517,6 +517,6 @@ index 676ee28..d3910d6 100644
        url: this.applyUrlModifications(stream.url ?? undefined),
        nzbUrl: stream.nzbUrl || undefined,
 +      zyclopsHealth: (stream as any).zyclopsHealth || undefined,
+       infoUrl: stream.infoUrl || undefined,
        releaseKey: this.getReleaseKey(stream),
        idMatched: this.getIdMatched(stream),
-       tarUrls: stream.tarUrls ?? undefined,

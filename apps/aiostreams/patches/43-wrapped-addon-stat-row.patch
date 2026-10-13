@@ -1,11 +1,11 @@
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index e2df01a..69ba793 100644
+index ddfdc16d..c70d9e44 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
-@@ -23,7 +23,10 @@ import {
- import { buildPlayChain, type FailoverContentType } from './play-chain.js';
- import { resolveServiceWrappedStreams } from './serviceWrapper.js';
- import { resolveRemuxDbMediaInfo } from '../remuxdb/wrap.js';
+@@ -27,7 +27,10 @@ import { resolveStoredMediaInfo } from '../media-info/lookup.js';
+ import { idsFromVideoId, onPreloadRedirect } from '../media-info/play.js';
+ import { PLAYBACK_PATH_PREFIX, withPlayPath } from '../debrid/utils.js';
+ import type { ContributionIds } from '../media-info/contribute.js';
 -import type { ServiceWrapServiceTiming } from './serviceWrapper.js';
 +import type {
 +  ServiceWrapServiceTiming,
@@ -14,7 +14,7 @@ index e2df01a..69ba793 100644
  import type { PrecomputeSubTimings } from '../streams/precomputer.js';
  import { StreamSelector } from '../parser/streamExpression.js';
  import type {
-@@ -274,6 +277,7 @@ export async function processStreams(
+@@ -293,6 +296,7 @@ export async function processStreams(
      limitMs: number;
      selMs: number;
    };
@@ -22,15 +22,15 @@ index e2df01a..69ba793 100644
  }> {
    const { type, id } = context;
    let processedStreams = streams;
-@@ -283,6 +287,7 @@ export async function processStreams(
+@@ -302,6 +306,7 @@ export async function processStreams(
    let serviceWrapMs = 0;
    let serviceWrapTimings: Record<string, ServiceWrapServiceTiming> | undefined;
-   let remuxDbMs = 0;
+   let mediaInfoMs = 0;
 +  let wrapStats: Record<string, WrappedAddonStat> | undefined;
    let filterMs = 0;
    let deduplicationMs = 0;
    let precomputeMs = 0;
-@@ -322,6 +327,9 @@ export async function processStreams(
+@@ -342,6 +347,9 @@ export async function processStreams(
    if (resolvedResults.serviceTimings) {
      serviceWrapTimings = resolvedResults.serviceTimings;
    }
@@ -40,7 +40,7 @@ index e2df01a..69ba793 100644
  
    if (Env.PROHIBIT_P2P_STREAMS) {
      const beforeCount = processedStreams.length;
-@@ -527,6 +535,7 @@ export async function processStreams(
+@@ -547,6 +555,7 @@ export async function processStreams(
        limitMs,
        selMs,
      },
@@ -48,7 +48,7 @@ index e2df01a..69ba793 100644
    };
  }
  
-@@ -971,7 +980,9 @@ export async function getStreams(
+@@ -997,7 +1006,9 @@ export async function getStreams(
        },
        finalStreams,
        fetchMs,
@@ -60,7 +60,7 @@ index e2df01a..69ba793 100644
    );
  
 diff --git a/packages/core/src/main/serviceWrapper.ts b/packages/core/src/main/serviceWrapper.ts
-index 22933bd..73cbee5 100644
+index 32600e73..9953fafd 100644
 --- a/packages/core/src/main/serviceWrapper.ts
 +++ b/packages/core/src/main/serviceWrapper.ts
 @@ -22,6 +22,7 @@ import { StreamContext } from '../streams/context.js';
@@ -229,12 +229,12 @@ index 22933bd..73cbee5 100644
    const torrents: Torrent[] = streams
      .filter((s) => s.torrent?.infoHash)
 diff --git a/packages/core/src/main/statistics.ts b/packages/core/src/main/statistics.ts
-index f1ec3b6..20d016f 100644
+index 5cf450d3..0475d1e1 100644
 --- a/packages/core/src/main/statistics.ts
 +++ b/packages/core/src/main/statistics.ts
-@@ -2,6 +2,9 @@ import { constants, formatMilliseconds } from '../utils/index.js';
+@@ -1,6 +1,9 @@
+ import { constants, formatMilliseconds } from '../utils/index.js';
  import type { ParsedStream } from '../db/schemas.js';
- import { isRemuxDbEnabled } from '../remuxdb/wrap.js';
  import type { AIOStreamsContext, StatEntry, PipelineTimings } from './types.js';
 +import type { WrappedAddonStat } from './serviceWrapper.js';
 +import type { AddonDispositionMap } from '../streams/fetcher.js';
@@ -242,7 +242,7 @@ index f1ec3b6..20d016f 100644
  
  /** Split a flat filter-details array into per-📌-header groups. */
  export function splitByPin(details: string[]): string[][] {
-@@ -47,12 +50,99 @@ export function buildStatistics(
+@@ -46,12 +49,99 @@ export function buildStatistics(
    ctx: Pick<AIOStreamsContext, 'userData' | 'filterer' | 'precomputer'>,
    finalStreams: ParsedStream[],
    fetchMs: number,
@@ -344,10 +344,10 @@ index f1ec3b6..20d016f 100644
    const { filterDetails, includedDetails } =
      filterer.getFormattedFilterDetails();
 diff --git a/packages/core/src/streams/fetcher.ts b/packages/core/src/streams/fetcher.ts
-index 9102595..e278f9a 100644
+index 144d4979..6322c65d 100644
 --- a/packages/core/src/streams/fetcher.ts
 +++ b/packages/core/src/streams/fetcher.ts
-@@ -41,6 +41,7 @@ export interface AddonDispositionInfo {
+@@ -45,6 +45,7 @@ export interface AddonDispositionInfo {
    latencyMs: number;
    status: AnalyticsStatus;
    errorKind?: AnalyticsErrorKind;
@@ -355,7 +355,7 @@ index 9102595..e278f9a 100644
  }
  
  export type AddonDispositionMap = Map<string, AddonDispositionInfo>;
-@@ -166,6 +167,7 @@ class StreamFetcher {
+@@ -171,6 +172,7 @@ class StreamFetcher {
            rawCount: usableStreams.length,
            latencyMs,
            status,

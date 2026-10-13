@@ -49,7 +49,7 @@ COPY --from=cloner /source/packages/server/package*.json ./packages/server/
 COPY --from=cloner /source/packages/core/package*.json ./packages/core/
 COPY --from=cloner /source/packages/frontend/package*.json ./packages/frontend/
 COPY --from=cloner /source/packages/ui/package*.json ./packages/ui/
-COPY --from=cloner /source/packages/jellyfin-web/package*.json ./packages/jellyfin-web/
+COPY --from=cloner /source/packages/web/package*.json ./packages/web/
 COPY --from=cloner /source/packages/seanime-extensions/package*.json ./packages/seanime-extensions/
 COPY --from=cloner /source/packages/crypto/package*.json ./packages/crypto/
 COPY --from=cloner /source/pnpm-workspace.yaml ./pnpm-workspace.yaml
@@ -66,7 +66,7 @@ COPY --from=cloner /source/packages/server ./packages/server
 COPY --from=cloner /source/packages/core ./packages/core
 COPY --from=cloner /source/packages/frontend ./packages/frontend
 COPY --from=cloner /source/packages/ui ./packages/ui
-COPY --from=cloner /source/packages/jellyfin-web ./packages/jellyfin-web
+COPY --from=cloner /source/packages/web ./packages/web
 COPY --from=cloner /source/packages/seanime-extensions ./packages/seanime-extensions
 COPY --from=cloner /source/packages/crypto ./packages/crypto
 COPY --from=cloner /source/scripts ./scripts
@@ -82,7 +82,7 @@ RUN rm -rf packages/core/node_modules
 RUN rm -rf packages/server/node_modules
 RUN rm -rf packages/frontend/node_modules
 RUN rm -rf packages/ui/node_modules
-RUN rm -rf packages/jellyfin-web/node_modules
+RUN rm -rf packages/web/node_modules
 RUN rm -rf packages/seanime-extensions/node_modules
 
 RUN pnpm install --prod --frozen-lockfile
@@ -109,8 +109,9 @@ COPY --from=builder /build/packages/core/dist ./packages/core/dist
 # v2.30 switched frontend bundler from Next.js to rsbuild — output is
 # packages/frontend/dist/ (not /out/ from the Next.js days).
 COPY --from=builder /build/packages/frontend/dist ./packages/frontend/dist
-# v2.35.0: the server serves the Jellyfin web app from packages/jellyfin-web/dist.
-COPY --from=builder /build/packages/jellyfin-web/dist ./packages/jellyfin-web/dist
+# v2.35.0 added the Jellyfin web app; v2.36.0 renamed its workspace from
+# packages/jellyfin-web to packages/web. The server serves packages/web/dist.
+COPY --from=builder /build/packages/web/dist ./packages/web/dist
 COPY --from=builder /build/packages/server/dist ./packages/server/dist
 COPY --from=builder /build/packages/server/src/static ./packages/server/dist/static
 COPY --from=builder /build/packages/seanime-extensions/dist ./packages/seanime-extensions/dist
@@ -128,6 +129,33 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && cp /usr/lib/*/libmimalloc.so.2 /usr/local/lib/libmimalloc.so.2
 
+# v2.36.0 probes a file's tracks with ffprobe on first play (FFPROBE_PATH
+# defaults to `ffprobe` on the PATH). Mirrors upstream's Dockerfile: a minimal
+# static ffprobe, since the distroless runtime has no package manager.
+# zlib is linked statically: the runtime image has no libz.
+FROM debian:12-slim AS ffprobe
+ARG FFMPEG_VERSION=8.1.3
+ARG FFMPEG_SHA256=7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl xz-utils gcc libc6-dev make zlib1g-dev \
+  && rm -rf /var/lib/apt/lists/* \
+  && rm /usr/lib/*/libz.so
+WORKDIR /src
+RUN curl -fsSL -o ffmpeg.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
+  && echo "${FFMPEG_SHA256}  ffmpeg.tar.xz" | sha256sum -c - \
+  && tar -xJf ffmpeg.tar.xz --strip-components=1 \
+  && ./configure \
+    --disable-everything --disable-autodetect --disable-doc --disable-debug \
+    --disable-programs --enable-ffprobe \
+    --disable-avdevice --disable-avfilter --disable-swscale --disable-swresample \
+    --disable-x86asm --enable-zlib \
+    --enable-protocol=file,http,tcp \
+    --enable-demuxer=asf,avi,flv,matroska,mov,mpegps,mpegts,ogg \
+    --enable-parser=aac,aac_latm,ac3,av1,dca,dvbsub,dvdsub,flac,h264,hevc,mlp,mpeg4video,mpegaudio,mpegvideo,opus,vc1,vorbis,vp8,vp9 \
+    --enable-decoder=aac,aac_latm,ac3,alac,dca,eac3,flac,mlp,mp2,mp3,opus,truehd,vorbis,pcm_bluray,pcm_dvd,pcm_s16le,pcm_s24le,h264,hevc,mpeg2video,mpeg4,vc1,vp8,vp9,ass,ssa,subrip,srt,webvtt,movtext,pgssub,dvdsub,dvbsub \
+  && make -j"$(nproc)" ffprobe \
+  && strip ffprobe
+
 FROM gcr.io/distroless/nodejs24-debian12 AS production
 
 LABEL org.opencontainers.image.title="AIOStreams"
@@ -144,6 +172,7 @@ COPY --from=busybox:1.36.0-uclibc /bin/sh /bin/sh
 # balloons RSS. LD_PRELOAD keeps memory bounded without touching app code.
 COPY --from=mimalloc /usr/local/lib/libmimalloc.so.2 /usr/local/lib/libmimalloc.so.2
 ENV LD_PRELOAD=/usr/local/lib/libmimalloc.so.2
+COPY --from=ffprobe /src/ffprobe /usr/local/bin/ffprobe
 ENV NODE_OPTIONS="--max-semi-space-size=8 --expose-gc"
 COPY --from=runtime /runtime /app
 
