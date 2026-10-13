@@ -252,7 +252,7 @@ jobs:
       # what docker/build-push-action does internally.
       - name: Expose GitHub Actions runtime for buildx gha cache
         if: steps.dedupe.outputs.skip != 'true'
-        uses: crazy-max/ghaction-github-runtime@v3
+        uses: crazy-max/ghaction-github-runtime@v4
 
       - name: Setup GHCR
         if: steps.dedupe.outputs.skip != 'true'
