@@ -31,6 +31,20 @@ on:
         default: 'false'
         type: string
 
+      # Set to 'true' by the hourly schedule ONLY. The schedule queues an
+      # app/channel because upstream != published at matrix-generation time,
+      # but the matrix carries no version and the job may sit in the
+      # concurrency group below behind an earlier run that is building (or
+      # has since pushed) that very version. With 'true' the job re-checks
+      # ghcr once it actually starts and ends early, green, if the version
+      # is already there. Manual dispatches and Dockerfile rebuilds leave
+      # this 'false': there the version tag EXISTING is the normal state and
+      # the whole point is to build it again (dry run, re-push).
+      skipIfPublished:
+        required: false
+        default: 'false'
+        type: string
+
 
 env:
   TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,6 +60,40 @@ jobs:
       matrix:
         image: ["${{ fromJson(inputs.imagesToBuild) }}"]
       fail-fast: false
+    # One build of a given app/channel at a time, repo-wide. The schedule
+    # fires hourly and a slow image (openclaw: 51 min) is still unpublished
+    # when the next tick -- or a manual dispatch -- generates its matrix, so
+    # the same app/channel/version was queued twice and both built and
+    # pushed in parallel (2026-10-12: runs 38209271871 and 38212814059; the
+    # duplicate lost its runner 46 min in and surfaced as a failure).
+    #
+    # cancel-in-progress stays false: a running build/push is never killed.
+    # A newer job in the group WAITS, and the step "Skip if this version is
+    # already published" below then ends it early when the first one has
+    # already delivered the version.
+    #
+    # queue: max, because the default (queue: single) keeps ONE pending job
+    # per group and lets a newer pending job cancel an older one. The three
+    # callers do not do interchangeable work: a pending "Image: Rebuild"
+    # (Dockerfile or patches changed on main; must build even though the
+    # version tag exists) could be cancelled by a later pending scheduled
+    # job for the same app/channel, which then sees the version published
+    # by the first build and skips -- and fetch.sh never re-queues it, so
+    # the source change would not ship until the next upstream release.
+    # With queue: max nothing pending is cancelled (ceiling 100, far above
+    # anything the hourly tick can stack up); jobs run FIFO, scheduled
+    # duplicates end early via the skip step, rebuilds and manual runs
+    # always get their turn. The hourly schedule re-queues anything a
+    # version-only check could not know about, so the only cost of a
+    # stale queued job is the one short "already published" run.
+    #
+    # The group is set here, in the called workflow, and nowhere in the
+    # callers: sharing a group name across caller and callee makes the
+    # caller cancel itself (per GitHub's reusable-workflow docs).
+    concurrency:
+      group: image-build-${{ matrix.image.app }}-${{ matrix.image.channel }}
+      cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v3
         with:
@@ -87,7 +135,8 @@ jobs:
           echo "::set-output name=chan_build_date::$(date --rfc-3339=seconds --utc)"
 
           chan_config=$(jq --arg chan "${{ matrix.image.channel }}" '(.channels | .[] | select(.name == $chan))' ./apps/${{ matrix.image.app }}/metadata.json)
-          chan_stable=$(jq --raw-output '.stable' <<< "${chan_config}")
+          chan_stable=$(jq --raw-output '.stable' <<< "${chan_config}") && \
+              echo "::set-output name=chan_stable::${chan_stable}"
 
           chan_platforms=$(jq --raw-output '.platforms | join(",")' <<< "${chan_config}") && \
               echo "::set-output name=chan_platforms::${chan_platforms}"
@@ -136,17 +185,53 @@ jobs:
               echo "::set-output name=chan_tag_version::${{ matrix.image.app }}-${{ matrix.image.channel }}:${chan_tag_version}"
           fi
 
+      # The job-level concurrency group only SERIALISES same-app/channel
+      # builds; this is the de-duplication. Runs after the overlay and after
+      # `vars` on purpose: published.sh needs the channel's stable flag from
+      # metadata.json and the comparison needs upstream.sh's answer, and
+      # either may live in containers-private.
+      #
+      # Deliberately the SAME lookup (published.sh) and the SAME `+` -> `-`
+      # normalisation fetch.sh applied when it decided to queue this build,
+      # so the two can only disagree when ghcr changed in between -- which
+      # is exactly the case we want to catch. An empty published version (no
+      # package yet, API hiccup) is NOT treated as a match: fall through and
+      # build, as fetch.sh would have.
+      #
+      # Every later step is gated on `skip != 'true'` rather than this step
+      # failing: a skipped duplicate is a SUCCESS (the version is live), and
+      # build_success below must stay green for it. Gated-off steps report
+      # outcome 'skipped', which the existing trivy/patch-check conditions
+      # already treat as "did not run".
+      - name: Skip if this version is already published
+        id: dedupe
+        if: inputs.skipIfPublished == 'true'
+        shell: bash
+        run: |
+          published=$(bash ./.github/scripts/published.sh "${{ matrix.image.app }}" "${{ matrix.image.channel }}" "${{ steps.vars.outputs.chan_stable }}")
+          upstream="${{ steps.vars.outputs.chan_upstream_version }}"
+          wanted="${upstream//+/-}"
+          if [[ -n "${published}" && "${published}" == "${wanted}" ]]; then
+              echo "::notice title=Already published::${{ matrix.image.app }}/${{ matrix.image.channel }} ${wanted} is already on ghcr (built by an earlier run); skipping this duplicate build."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+              echo "${{ matrix.image.app }}/${{ matrix.image.channel }}: published '${published:-<NOTFOUND>}' != wanted '${wanted}', building"
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup cli tools
+        if: steps.dedupe.outputs.skip != 'true'
         shell: bash
         run: |
           sudo apt-get update 
           sudo apt-get -y install moreutils jo
 
       - name: Setup CUE
+        if: steps.dedupe.outputs.skip != 'true'
         uses: cue-lang/setup-cue@v1.0.0-alpha.2
 
       - name: Setup Goss
-        if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' }}
+        if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' && steps.dedupe.outputs.skip != 'true' }}
         uses: e1himself/goss-installation-action@v1.1.0
         with:
           # renovate: datasource=github-releases depName=aelsabbahy/goss
@@ -156,6 +241,7 @@ jobs:
       #   uses: docker/setup-qemu-action@v2
 
       - name: Setup Docker Buildx
+        if: steps.dedupe.outputs.skip != 'true'
         id: buildx
         uses: docker/setup-buildx-action@v3
 
@@ -165,9 +251,11 @@ jobs:
       # patch-failure detection) can read/write the type=gha layer cache — this is
       # what docker/build-push-action does internally.
       - name: Expose GitHub Actions runtime for buildx gha cache
+        if: steps.dedupe.outputs.skip != 'true'
         uses: crazy-max/ghaction-github-runtime@v3
 
       - name: Setup GHCR
+        if: steps.dedupe.outputs.skip != 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -175,6 +263,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate image metadata
+        if: steps.dedupe.outputs.skip != 'true'
         shell: bash
         run: |-
           cue vet --schema '#Spec' ./apps/${{ matrix.image.app }}/metadata.json ./metadata.rules.cue
@@ -194,6 +283,7 @@ jobs:
       # were silently misclassified as generic build failures with no role ping.
       # linux/amd64 only — `--load` does not support multi-arch (buildx#290).
       - name: Build container image for testing
+        if: steps.dedupe.outputs.skip != 'true'
         id: testing-build
         shell: bash
         env:
@@ -216,7 +306,7 @@ jobs:
 
       - name: Run Goss tests
         id: dgoss
-        if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' }}
+        if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' && steps.dedupe.outputs.skip != 'true' }}
         shell: bash
         env:
           DEBUG: true
@@ -450,6 +540,7 @@ jobs:
       # Runs before the scan rather than before the build, so ordinary builds
       # pay nothing extra beyond the one rm.
       - name: Free runner disk before scanning
+        if: steps.dedupe.outputs.skip != 'true'
         shell: bash
         run: |
           echo "before:"; df -h / | tail -1
@@ -463,6 +554,7 @@ jobs:
           echo "after:"; df -h / | tail -1
 
       - name: Scan container image for CVEs
+        if: steps.dedupe.outputs.skip != 'true'
         id: trivy_scan
         continue-on-error: true
         uses: aquasecurity/trivy-action@v0.24.0
@@ -510,6 +602,7 @@ jobs:
       #     existing builds are not broken by non-malware findings.
       # No JS manifest in the image => not a Node app => this step is a no-op.
       - name: Supply-chain malware scan (Socket.dev + OSV)
+        if: steps.dedupe.outputs.skip != 'true'
         id: supplychain
         shell: bash
         env:
@@ -682,6 +775,7 @@ jobs:
           [ "$osv_rc" = "0" ] && [ "$socket_rc" = "0" ]
 
       - name: Build all platforms
+        if: steps.dedupe.outputs.skip != 'true'
         id: release
         uses: docker/build-push-action@v5
         with:

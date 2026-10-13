@@ -56,4 +56,10 @@ jobs:
       imagesToBuild: "${{ needs.generate-build-matrix.outputs.matrix }}"
       pushImages: "true"
       updateMetadata: "true"
+      # fetch.sh above compared upstream to ghcr when the matrix was built;
+      # by the time a job runs (hourly ticks overlap slow builds, and the
+      # build job serialises per app/channel) an earlier run may already
+      # have pushed that version. Re-check and skip green instead of
+      # building and pushing the same version twice.
+      skipIfPublished: "true"
     secrets: inherit
