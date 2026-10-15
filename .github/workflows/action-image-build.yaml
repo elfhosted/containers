@@ -474,6 +474,12 @@ jobs:
             DGOSS_RUN_ARGS+=(
               -e TOKEN_SALT="watchly-goss-token-salt-32-byte-value"
             )
+          elif [[ "${{ matrix.image.app }}" == "aisubtitles" ]]; then
+            # AI Subtitles exits at startup without a 32+ char CONFIG_SECRET.
+            # This throwaway value only lets the web smoke bind in CI.
+            DGOSS_RUN_ARGS+=(
+              -e CONFIG_SECRET="aisubtitles-goss-config-secret-32-bytes"
+            )
           fi
 
           cleanup() {
