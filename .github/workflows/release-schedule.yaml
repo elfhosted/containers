@@ -2,10 +2,26 @@
 name: "Release: Schedule"
 
 on:
+  # Triggered externally via workflow_dispatch by a k8s CronJob (see infra:
+  # cronjobs/dispatch-containers-release--flux-system) hourly at :30 UTC.
+  #
+  # There is deliberately no `schedule:` block here. GitHub deprioritises
+  # scheduled workflows and silently drops ticks: over one 17-hour sample this
+  # workflow's own "30 * * * *" cron fired 12 times instead of 17, with gaps up
+  # to 2h18m. Every dropped tick delays every app whose upstream cut a release
+  # in that window, and the delay is invisible — nothing fails, the build just
+  # does not happen.
   workflow_dispatch:
-  schedule:
-    # Run on the half-hour
-    - cron: "30 * * * *"
+
+# A full matrix build routinely outlives the hourly dispatch interval. Because
+# fetch.sh compares against PUBLISHED tags, an overlapping run re-derives the
+# same not-yet-pushed changes and both runs race to push the same tag at
+# different digests — churning renovate PRs and tenant clusters. Queue instead:
+# cancel-in-progress: false lets the running build finish, and GitHub keeps at
+# most one pending run, whose matrix is generated fresh when it starts.
+concurrency:
+  group: release-schedule
+  cancel-in-progress: false
 
 env:
   TOKEN: ${{ secrets.GITHUB_TOKEN }}
