@@ -1,6 +1,29 @@
 ---
 name: "Release: Manual"
 
+# Runner choice: these jobs stay on ubuntu-latest, deliberately.
+#
+# After the 2026-08-23 org billing failure, release-blocking workflows across
+# elfhosted were moved to the in-cluster arc-runners pool. The image builds here
+# are release-blocking by definition, so they were the obvious candidate -- and
+# were still ruled out, for three reasons:
+#
+#  1. This repo is PUBLIC, so its GitHub-hosted minutes are free and unmetered,
+#     and the spending-limit failure never touched them. Verified against the
+#     incident itself: while every ubuntu-latest job in the org's PRIVATE repos
+#     died in 4-5s for ~15h from 13:11Z, this repo's builds ran clean throughout
+#     (Release: Manual 21:03Z, 01:44Z; Image: Rebuild 01:55Z; hourly Renovate).
+#  2. arc could not run them anyway. The scale set declares no containerMode, so
+#     its runner pods have no Docker daemon (buildx cannot run) and no sudo/apt
+#     (the matrix job below installs moreutils + jo).
+#  3. It would trade resilience away, not gain it: ten 1-CPU runners with no
+#     layer cache instead of GitHub's free cached fleet, and the image-build path
+#     would then depend on the very cluster the images are deployed to.
+#
+# Revisit if this repo goes private, or if public-repo minutes start being
+# metered. See docs/DECISION-arc-runners-release-workflows.md in
+# elfhosted/shadowfax.
+
 on:
   workflow_dispatch:
     inputs:
