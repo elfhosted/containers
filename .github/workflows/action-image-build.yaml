@@ -480,6 +480,14 @@ jobs:
             DGOSS_RUN_ARGS+=(
               -e CONFIG_SECRET="aisubtitles-goss-config-secret-32-bytes"
             )
+          elif [[ "${{ matrix.image.app }}" == "overtchat" ]]; then
+            # OvertChat derives its one-time initial-setup code from
+            # BETTER_AUTH_SECRET and refuses to start without it. This throwaway
+            # value only lets the web smoke boot in CI; it creates no account and
+            # grants no access.
+            DGOSS_RUN_ARGS+=(
+              -e BETTER_AUTH_SECRET="overtchat-goss-secret-0123456789abcdef"
+            )
           fi
 
           cleanup() {
