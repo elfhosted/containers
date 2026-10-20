@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/config/schema/http.ts b/packages/core/src/config/schema/http.ts
-index 1f759e28..fc257ebf 100644
+index 1f759e28..382d1c5d 100644
 --- a/packages/core/src/config/schema/http.ts
 +++ b/packages/core/src/config/schema/http.ts
-@@ -120,4 +120,45 @@ export const httpSchema = {
+@@ -120,4 +120,64 @@ export const httpSchema = {
      requiresRestart: false,
      secret: false,
    },
@@ -11,49 +11,68 @@ index 1f759e28..fc257ebf 100644
 +    default: 'off' as 'off' | 'log' | 'enforce',
 +    label: 'Private address path rules',
 +    description:
-+      'With private addresses disallowed, addresses you set yourself stay reachable for every request. This narrows them by path: a request to one of those private addresses must match a prefix in **Private address path prefixes**, or one of the paths you configured for it. `log` only reports requests that would be refused, `enforce` refuses them.',
++      'With private addresses disallowed, addresses you set yourself stay reachable for every request. This narrows the origins listed in **Private address path prefixes** to those paths. `log` only reports requests that would be refused, `enforce` refuses them.',
 +    env: 'PRIVATE_URL_PATH_MODE',
 +    requiresRestart: false,
 +    secret: false,
 +  },
 +  privateUrlPathRules: {
++    // Stored as entered (origin keys), so a saved value parses again on reload.
 +    schema: z
 +      .union([z.record(z.string(), z.array(z.string())), z.string()])
 +      .transform((value) => {
-+        const parsed: Record<string, string[] | string> =
++        const parsed: unknown =
 +          typeof value === 'object'
 +            ? value
 +            : value.trim()
 +              ? JSON.parse(value)
 +              : {};
 +        const out: Record<string, string[]> = {};
-+        for (const [k, v] of Object.entries(parsed)) {
++        for (const [k, v] of Object.entries(
++          parsed as Record<string, unknown>
++        )) {
++          // Checked as written: URL parsing would quietly drop a path.
++          if (!/^https?:\/\/[^/\\?#@\s]+\/?$/i.test(k)) {
++            throw new Error(`${k} is not an http(s) origin`);
++          }
 +          const url = new URL(k);
-+          const port =
-+            url.port || (url.protocol === 'https:' ? '443' : '80');
-+          const prefixes = (Array.isArray(v) ? v : v.split(','))
-+            .map((p) => p.trim())
++          if (
++            (url.protocol !== 'http:' && url.protocol !== 'https:') ||
++            !url.hostname ||
++            url.username ||
++            url.password ||
++            url.search ||
++            url.hash ||
++            url.pathname !== '/'
++          ) {
++            throw new Error(`${k} is not an http(s) origin`);
++          }
++          if (!Array.isArray(v) || v.some((p) => typeof p !== 'string')) {
++            throw new Error(`Path prefixes for ${k} must be a list of strings`);
++          }
++          out[k] = v
++            .map((p: string) => p.trim())
 +            .filter(Boolean)
-+            .map((p) => (p.startsWith('/') ? p : `/${p}`));
-+          out[`${url.hostname.toLowerCase()}:${port}`] = prefixes;
++            .map((p: string) => (p.startsWith('/') ? p : `/${p}`));
 +        }
 +        return out;
 +      }),
 +    default: {} as Record<string, string[]>,
 +    label: 'Private address path prefixes',
 +    description:
-+      'JSON object of `{origin: [path prefix, ...]}`. An origin listed here may only be reached under these prefixes; its configured paths are not added. Origins not listed allow the paths of the URLs you configured for them, and every path when one of those URLs has none.',
++      'JSON object of `{origin: [path prefix, ...]}`. A request to a listed origin must match one of its prefixes, whatever the origin resolves to. Origins not listed are not narrowed.',
 +    env: 'PRIVATE_URL_PATH_RULES',
++    ui: { kind: 'json' },
 +    requiresRestart: false,
 +    secret: false,
 +  },
  } as const satisfies RuntimeConfigSection;
 diff --git a/packages/core/src/utils/private-addresses-log.test.ts b/packages/core/src/utils/private-addresses-log.test.ts
 new file mode 100644
-index 00000000..09ffebce
+index 00000000..6413b223
 --- /dev/null
 +++ b/packages/core/src/utils/private-addresses-log.test.ts
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,78 @@
 +import assert from 'node:assert/strict';
 +import { createServer } from 'node:http';
 +import type { AddressInfo } from 'node:net';
@@ -67,7 +86,11 @@ index 00000000..09ffebce
 +process.env.ALLOW_PRIVATE_URLS = 'false';
 +process.env.PRIVATE_URL_PATH_MODE = 'log';
 +process.env.BUILTIN_ZILEAN_URL = origin;
-+process.env.PRIVATE_URL_PATH_RULES = JSON.stringify({ [origin]: ['/dmm/'] });
++process.env.PRIVATE_URL_PATH_RULES = JSON.stringify({
++  [origin]: ['/dmm/'],
++  // Route words for the log: only first segments written here are shown.
++  'http://unused.invalid': ['/stremio/'],
++});
 +
 +const { settingsStore } = await import('../config/index.js');
 +const { SettingsRepository } = await import('../db/repositories/settings.js');
@@ -103,17 +126,37 @@ index 00000000..09ffebce
 +    .split('\n')
 +    .filter((l) => l.includes('outside the allowed paths'));
 +  assert.equal(lines.length, 1, lines.join('\n'));
-+  assert.ok(lines[0].includes('/stremio/eyJzZWNy…'), lines[0]);
++  assert.ok(lines[0].includes('"path":"/stremio"'), lines[0]);
 +  assert.ok(!lines[0].includes(secret), 'full segment reached the log');
-+  assert.ok(!lines[0].includes('manifest.json'), 'third segment reached the log');
++  assert.ok(
++    !lines[0].includes('manifest.json'),
++    'third segment reached the log'
++  );
 +  assert.ok(!lines[0].includes('k=v'), 'query reached the log');
++});
++
++it('cannot be flooded by varying the path', async () => {
++  logRingBuffer.clear();
++  for (let i = 0; i < 40; i++) {
++    await (
++      await fetch(
++        `${origin}/${String.fromCharCode(97 + (i % 26))}${i}/${String.fromCharCode(97 + Math.floor(i / 26))}`
++      )
++    ).text();
++  }
++  const lines = (await logLines())
++    .split('\n')
++    .filter((l) => l.includes('private address'));
++  // Unknown first segments all redact to `/*`: one shape, one line.
++  assert.equal(lines.length, 1, lines.join('\n'));
++  assert.ok(lines[0].includes('"path":"/*"'), lines[0]);
 +});
 diff --git a/packages/core/src/utils/private-addresses.test.ts b/packages/core/src/utils/private-addresses.test.ts
 new file mode 100644
-index 00000000..6c58d4d7
+index 00000000..9ac7d1b7
 --- /dev/null
 +++ b/packages/core/src/utils/private-addresses.test.ts
-@@ -0,0 +1,126 @@
+@@ -0,0 +1,218 @@
 +import assert from 'node:assert/strict';
 +import { createServer, type Server } from 'node:http';
 +import type { AddressInfo } from 'node:net';
@@ -139,13 +182,27 @@ index 00000000..6c58d4d7
 +  (s) => `http://127.0.0.1:${(s.address() as AddressInfo).port}`
 +);
 +
++// IPv6 loopback, when the host has it: rule keys must match bracketed hosts.
++const v6 = await new Promise<Server | undefined>((resolve) => {
++  const server = createServer((req, res) => res.writeHead(200).end(req.url));
++  server.once('error', () => resolve(undefined));
++  server.listen(0, '::1', () => resolve(server));
++});
++if (v6) servers.push(v6);
++const ruledV6 = v6
++  ? `http://[::1]:${(v6.address() as AddressInfo).port}`
++  : undefined;
++
 +process.env.ALLOW_PRIVATE_URLS = 'false';
 +process.env.PRIVATE_URL_PATH_MODE = 'enforce';
 +// Configured bare, then narrowed by an explicit rule.
 +process.env.BUILTIN_ZILEAN_URL = ruled;
 +process.env.PRIVATE_URL_PATH_RULES = JSON.stringify({
 +  [ruled]: ['/dmm/', '/torrents/touch'],
++  ...(ruledV6 ? { [ruledV6]: ['/dmm/'] } : {}),
 +});
++// Configured bare too, so only the rule can narrow it.
++if (ruledV6) process.env.BUILTIN_ELFCACHE_URL = ruledV6;
 +// Configured with a path and no rule: that path is the allowance.
 +process.env.ZYCLOPS_HEALTH_API_URL = `${pathed}/api/v1/batch`;
 +// Configured bare and no rule: every path.
@@ -153,8 +210,14 @@ index 00000000..6c58d4d7
 +
 +const { settingsStore } = await import('../config/index.js');
 +const { SettingsRepository } = await import('../db/repositories/settings.js');
-+const { installPrivateAddressGuard, pathAllowed, PrivateAddressError } =
-+  await import('./private-addresses.js');
++const { httpSchema } = await import('../config/schema/http.js');
++const {
++  installPrivateAddressGuard,
++  pathAllowed,
++  redactPath,
++  ruleKey,
++  PrivateAddressError,
++} = await import('./private-addresses.js');
 +
 +before(async () => {
 +  mock.method(SettingsRepository, 'getAll', async () => []);
@@ -173,10 +236,13 @@ index 00000000..6c58d4d7
 +};
 +
 +const refused = async (url: string) => {
++  let message = '';
 +  await assert.rejects(fetch(url), (err: Error) => {
 +    assert.ok(err.cause instanceof PrivateAddressError, String(err.cause));
++    message = (err.cause as Error).message;
 +    return true;
 +  });
++  return message;
 +};
 +
 +describe('pathAllowed', () => {
@@ -194,6 +260,67 @@ index 00000000..6c58d4d7
 +    assert.ok(!pathAllowed('/dmm/..%2Fadmin', ['/dmm/']));
 +    assert.ok(!pathAllowed('/dmm/..%5cadmin', ['/dmm/']));
 +    assert.ok(!pathAllowed('/dmm/..\\admin', ['/dmm/']));
++    assert.ok(!pathAllowed('/dmm/%252e%252e%252fadmin', ['/dmm/']));
++  });
++
++  it('lets an allow-all rule through encoded paths', () => {
++    assert.ok(pathAllowed('/search/AC%2FDC%25', ['/']));
++  });
++});
++
++describe('ruleKey', () => {
++  const key = (u: string) => ruleKey(new URL(u));
++  it('folds spellings of one origin together', () => {
++    assert.equal(key('http://Service.:80/x'), key('http://service'));
++    assert.equal(key('http://[::1]:8181'), 'http://::1:8181');
++  });
++  it('keeps schemes apart', () => {
++    assert.notEqual(key('http://service:8181'), key('https://service:8181'));
++  });
++});
++
++describe('redactPath', () => {
++  it('shows only a first segment the operator wrote', () => {
++    const known = new Set(['stremio', 'api', 's']);
++    assert.equal(redactPath('/stremio/abc123XYZtoken/x', known), '/stremio');
++    assert.equal(redactPath('/api/v1/nzb?apikey=k', known), '/api');
++    assert.equal(redactPath('/s/supersecret/manifest.json', known), '/s');
++    assert.equal(redactPath('/privatepass/isValid', known), '/*');
++    assert.equal(redactPath('/CometAccessSecret', known), '/*');
++    assert.equal(redactPath('/', known), '/');
++  });
++
++  it('learns route words from rules and configured URLs', () => {
++    // From the rule prefixes and BUILTIN_*/ZYCLOPS URLs set above.
++    assert.equal(redactPath('/dmm/x'), '/dmm');
++    assert.equal(redactPath('/api/x'), '/api');
++    assert.equal(redactPath('/admin/x'), '/*');
++  });
++});
++
++describe('PRIVATE_URL_PATH_RULES', () => {
++  it('parses its own output again (settings are stored and reloaded)', () => {
++    const schema = httpSchema.privateUrlPathRules.schema;
++    const once = schema.parse(
++      JSON.stringify({
++        'http://[::1]:8181': ['/api'],
++        'http://service:8181': ['x'],
++      })
++    );
++    assert.deepEqual(schema.parse(once), once);
++    assert.deepEqual(once['http://service:8181'], ['/x']);
++  });
++
++  it('refuses keys that are not http(s) origins', () => {
++    const schema = httpSchema.privateUrlPathRules.schema;
++    assert.throws(() => schema.parse({ 'service:8181': [] }));
++    assert.throws(() => schema.parse({ 'http://x:1/metrics': [] }));
++    assert.throws(() => schema.parse({ 'http://u:p@x:1': [] }));
++    assert.throws(() => schema.parse({ 'http://x:1?a=b': [] }));
++    assert.throws(() => schema.parse({ 'http://x:1\\admin\\..': [] }));
++    assert.throws(() => schema.parse({ 'http:x:1/admin/..': [] }));
++    assert.doesNotThrow(() => schema.parse({ 'http://x:1/': [] }));
++    assert.throws(() => schema.parse({ 'http://x': '/api' as never }));
 +  });
 +});
 +
@@ -207,7 +334,12 @@ index 00000000..6c58d4d7
 +  });
 +
 +  it('refuses a ruled origin outside its prefixes', async () => {
-+    await refused(`${ruled}/admin`);
++    const message = await refused(`${ruled}/admin/abc123XYZtoken/x`);
++    assert.ok(!message.includes('/admin'), 'path reached the error');
++    assert.ok(
++      !message.includes('abc123XYZtoken'),
++      'path token reached the error'
++    );
 +    await refused(`${ruled}/`);
 +    await refused(`${ruled}/dmmx`);
 +  });
@@ -218,11 +350,9 @@ index 00000000..6c58d4d7
 +    await refused(`${ruled}/dmm/%2e%2e/admin`);
 +  });
 +
-+  it("allows an unruled origin only under its configured URL's path", async () => {
++  it('leaves configured origins without a rule as they were', async () => {
 +    assert.equal((await get(`${pathed}/api/v1/batch`)).status, 200);
-+    assert.equal((await get(`${pathed}/api/v1/batch/x`)).status, 200);
-+    await refused(`${pathed}/api/v1/other`);
-+    await refused(`${pathed}/`);
++    assert.equal((await get(`${pathed}/anything/else`)).status, 200);
 +  });
 +
 +  it('allows every path on an origin configured without one', async () => {
@@ -233,6 +363,11 @@ index 00000000..6c58d4d7
 +    await refused(`${unconfigured}/`);
 +  });
 +
++  it('matches rules on bracketed IPv6 hosts', { skip: !ruledV6 }, async () => {
++    assert.equal((await get(`${ruledV6}/dmm/x`)).status, 200);
++    await refused(`${ruledV6}/admin`);
++  });
++
 +  it('checks every redirect hop', async () => {
 +    const to = encodeURIComponent(`${ruled}/admin`);
 +    await refused(`${bare}/r?to=${to}`);
@@ -241,7 +376,7 @@ index 00000000..6c58d4d7
 +  });
 +});
 diff --git a/packages/core/src/utils/private-addresses.ts b/packages/core/src/utils/private-addresses.ts
-index d4ed247e..bfe6e683 100644
+index d4ed247e..437853f3 100644
 --- a/packages/core/src/utils/private-addresses.ts
 +++ b/packages/core/src/utils/private-addresses.ts
 @@ -1,13 +1,21 @@
@@ -267,14 +402,15 @@ index d4ed247e..bfe6e683 100644
  const DEFAULT_PORTS: Record<string, string> = {
    'http:': '80',
    'https:': '443',
-@@ -22,21 +30,38 @@ export class PrivateAddressError extends Error {
+@@ -22,6 +30,15 @@ export class PrivateAddressError extends Error {
    }
  }
  
++/** Carries no path: paths can hold credentials, and this message is logged. */
 +export class PrivatePathError extends PrivateAddressError {
-+  constructor(host: string, path: string) {
++  constructor(host: string) {
 +    super(host);
-+    this.message = `${host}${path} is not an allowed path on a private address`;
++    this.message = `That path on ${host} is not allowed for a private address`;
 +    this.name = 'PrivatePathError';
 +  }
 +}
@@ -282,111 +418,132 @@ index d4ed247e..bfe6e683 100644
  const bare = (host: string) => host.replace(/^\[|\]$/g, '').toLowerCase();
  const destination = (host: string, port: string) => `${bare(host)}:${port}`;
  
- let exemptFor: unknown;
--let exempt = new Set<string>();
-+/** Destination -> the paths of the configured URLs that name it. */
-+let exempt = new Map<string, Set<string>>();
- 
--function collect(value: unknown, out: Set<string>, depth = 0): void {
-+function collect(
-+  value: unknown,
-+  out: Map<string, Set<string>>,
-+  depth = 0
-+): void {
-   if (value == null || depth > 8) return;
-   if (typeof value === 'string') {
-     for (const part of value.split(/[\s,]+/)) {
-       if (!/^https?:\/\//i.test(part) || !URL.canParse(part)) continue;
-       const url = new URL(part);
--      out.add(
--        destination(url.hostname, url.port || DEFAULT_PORTS[url.protocol])
-+      const key = destination(
-+        url.hostname,
-+        url.port || DEFAULT_PORTS[url.protocol]
-       );
-+      let paths = out.get(key);
-+      if (!paths) out.set(key, (paths = new Set()));
-+      paths.add(url.pathname || '/');
-     }
-   } else if (typeof value === 'object') {
-     for (const v of Object.values(value)) collect(v, out, depth + 1);
-@@ -44,10 +69,10 @@ function collect(value: unknown, out: Set<string>, depth = 0): void {
- }
- 
- /** Anything the operator configured, in any setting, stays reachable. */
--function exemptDestinations(): Set<string> {
-+function exemptDestinations(): Map<string, Set<string>> {
-   const current = settingsStore.current;
-   if (current !== exemptFor) {
--    const next = new Set<string>();
-+    const next = new Map<string, Set<string>>();
-     collect(bootstrap, next);
-     collect(current, next);
-     exempt = next;
-@@ -115,7 +140,107 @@ const connect: buildConnector.connector = (options, callback) => {
+@@ -115,7 +132,165 @@ const connect: buildConnector.connector = (options, callback) => {
    return checkedConnect(options, callback);
  };
  
-+const PRIVATE_LOOKUP_TTL_MS = 60_000;
-+const privateLookups = new Map<string, { result: boolean; expires: number }>();
-+
-+/** Whether a host resolves to a blocked address. Cached briefly per host. */
-+function resolvesPrivate(host: string, callback: (r: boolean) => void): void {
-+  if (isIP(host)) return callback(isBlockedAddress(host));
-+  const cached = privateLookups.get(host);
-+  if (cached && cached.expires > Date.now()) return callback(cached.result);
-+  dnsLookup(host, { all: true }, (err, addresses) => {
-+    // An unresolvable name fails at connect; nothing to decide here.
-+    const result =
-+      !err && addresses.some((a) => isBlockedAddress(a.address));
-+    if (!err) {
-+      if (privateLookups.size > 1000) privateLookups.clear();
-+      privateLookups.set(host, {
-+        result,
-+        expires: Date.now() + PRIVATE_LOOKUP_TTL_MS,
-+      });
-+    }
-+    callback(result);
-+  });
-+}
-+
 +/**
 + * A prefix matches on a segment boundary, so `/api` allows `/api/x` but not
-+ * `/apix`. Encoded separators and dots are refused outright, since a server
-+ * may decode them into a path the prefix never covered.
++ * `/apix`. Encoded separators, dots and percent signs are refused outright,
++ * since a server may decode them (once or more) into a path the prefix never
++ * covered.
 + */
 +export function pathAllowed(path: string, prefixes: Iterable<string>): boolean {
++  const list = [...prefixes];
++  if (list.includes('/')) return true;
 +  const pathname = path.split(/[?#]/, 1)[0] || '/';
-+  if (/%2f|%5c|%2e|\\/i.test(pathname)) return false;
-+  for (const prefix of prefixes) {
-+    if (prefix === '/' || pathname === prefix) return true;
++  if (/%2f|%5c|%2e|%25|\\/i.test(pathname)) return false;
++  for (const prefix of list) {
++    if (pathname === prefix) return true;
 +    const base = prefix.endsWith('/') ? prefix : `${prefix}/`;
 +    if (pathname.startsWith(base)) return true;
 +  }
 +  return false;
 +}
 +
-+function allowedPrefixes(dest: string): Iterable<string> | undefined {
++/** Scheme, host and port, with host spellings that reach the same name folded. */
++export function ruleKey(url: URL): string | undefined {
++  const port = url.port || DEFAULT_PORTS[url.protocol];
++  if (!port) return undefined;
++  return `${url.protocol}//${bare(url.hostname).replace(/\.+$/, '')}:${port}`;
++}
++
++let rulesFor: unknown;
++let rules = new Map<string, string[]>();
++
++function pathRules(): Map<string, string[]> {
++  const current = appConfig.http.privateUrlPathRules;
++  if (current !== rulesFor) {
++    const next = new Map<string, string[]>();
++    for (const [origin, prefixes] of Object.entries(current)) {
++      if (!URL.canParse(origin)) continue;
++      const key = ruleKey(new URL(origin));
++      if (key) next.set(key, prefixes);
++    }
++    rules = next;
++    rulesFor = current;
++  }
++  return rules;
++}
++
++const firstSegment = (path: string) =>
++  (path.split(/[?#]/, 1)[0] || '/').split('/')[1] ?? '';
++
++function addRouteWords(value: unknown, out: Set<string>, depth = 0): void {
++  if (value == null || depth > 8) return;
++  if (typeof value === 'string') {
++    for (const part of value.split(/[\s,]+/)) {
++      if (!/^https?:\/\//i.test(part) || !URL.canParse(part)) continue;
++      const word = firstSegment(new URL(part).pathname);
++      if (word) out.add(word);
++    }
++  } else if (typeof value === 'object') {
++    for (const v of Object.values(value)) addRouteWords(v, out, depth + 1);
++  }
++}
++
++let wordsFor: unknown;
++let wordsRulesFor: unknown;
++let words = new Set<string>();
++
++/** First path segments the operator wrote: in a rule, or in a configured URL. */
++function routeWords(): Set<string> {
++  const current = settingsStore.current;
 +  const rules = appConfig.http.privateUrlPathRules;
-+  if (Object.hasOwn(rules, dest)) return rules[dest];
-+  return exemptDestinations().get(dest);
++  if (current !== wordsFor || rules !== wordsRulesFor) {
++    const next = new Set<string>();
++    addRouteWords(bootstrap, next);
++    addRouteWords(current, next);
++    for (const prefixes of Object.values(rules)) {
++      for (const prefix of prefixes) {
++        const word = firstSegment(prefix);
++        if (word) next.add(word);
++      }
++    }
++    words = next;
++    wordsFor = current;
++    wordsRulesFor = rules;
++  }
++  return words;
++}
++
++/**
++ * Path shape for logs: the first segment only, and only when the operator
++ * wrote it somewhere. Any other segment may be a credential.
++ */
++export function redactPath(path: string, known = routeWords()): string {
++  const first = firstSegment(path);
++  return first === '' || known.has(first) ? `/${first}` : '/*';
 +}
 +
 +const REPORT_INTERVAL_MS = 60 * 60_000;
-+const reported = new Map<string, number>();
++const REPORTS_PER_DESTINATION = 20;
++/** Per destination: the shapes reported this window and when it started. */
++const reported = new Map<
++  string,
++  { since: number; shapes: Set<string>; capped: boolean }
++>();
 +
-+/** Only the first two path segments are reported: later ones can carry credentials. */
-+function reportRefusal(dest: string, path: string, enforced: boolean): void {
-+  const shape = (path.split(/[?#]/, 1)[0] || '/')
-+    .split('/')
-+    .slice(0, 3)
-+    .map((s) => (s.length > 32 ? `${s.slice(0, 8)}…` : s))
-+    .join('/');
-+  const key = `${dest} ${shape} ${enforced}`;
-+  const last = reported.get(key);
-+  if (last && Date.now() - last < REPORT_INTERVAL_MS) return;
-+  if (reported.size > 5000) reported.clear();
-+  reported.set(key, Date.now());
++/** At most REPORTS_PER_DESTINATION lines per destination per window. */
++function reportRefusal(dest: string, shape: string, enforced: boolean): void {
++  const now = Date.now();
++  let entry = reported.get(dest);
++  if (!entry || now - entry.since >= REPORT_INTERVAL_MS) {
++    entry = { since: now, shapes: new Set(), capped: false };
++    reported.set(dest, entry);
++  }
++  if (entry.shapes.has(shape)) return;
++  if (entry.shapes.size >= REPORTS_PER_DESTINATION) {
++    if (!entry.capped) {
++      entry.capped = true;
++      logger.warn(
++        { destination: dest, enforced },
++        'further path refusals for this private address are not reported this hour'
++      );
++    }
++    return;
++  }
++  entry.shapes.add(shape);
 +  logger.warn(
 +    { destination: dest, path: shape, enforced },
 +    enforced
@@ -407,23 +564,19 @@ index d4ed247e..bfe6e683 100644
 +    }
 +    const origin =
 +      typeof opts.origin === 'string' ? new URL(opts.origin) : opts.origin;
-+    const port = origin.port || DEFAULT_PORTS[origin.protocol];
-+    const dest = destination(origin.hostname, port);
-+    const prefixes = allowedPrefixes(dest);
++    const key = ruleKey(origin);
 +    const path = opts.path || '/';
-+    if (!prefixes || pathAllowed(path, prefixes)) {
++
++    // Decided on the origin alone, never on a lookup: the connection a request
++    // rides (fresh or reused) is reached through the same name.
++    const prefixes = key ? pathRules().get(key) : undefined;
++    if (!key || !prefixes || pathAllowed(path, prefixes)) {
 +      return dispatch(opts, handler);
 +    }
-+    resolvesPrivate(bare(origin.hostname), (isPrivate) => {
-+      if (!isPrivate) return dispatch(opts, handler);
-+      const enforced = mode === 'enforce';
-+      reportRefusal(dest, path, enforced);
-+      if (!enforced) return dispatch(opts, handler);
-+      handler.onResponseError?.(
-+        null as never,
-+        new PrivatePathError(origin.host, path.split(/[?#]/, 1)[0])
-+      );
-+    });
++    const enforced = mode === 'enforce';
++    reportRefusal(key, redactPath(path), enforced);
++    if (!enforced) return dispatch(opts, handler);
++    handler.onResponseError?.(null as never, new PrivatePathError(origin.host));
 +    return true;
 +  };
 +
