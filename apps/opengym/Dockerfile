@@ -14,8 +14,16 @@ COPY apps/opengym/patches/ /patches/
 RUN set -e; \
     cd /source; \
     for p in /patches/*.patch; do \
-      echo "Applying ${p}"; \
-      git apply "${p}" || exit 1; \
+      if git apply --check "${p}" 2>/dev/null; then \
+        echo "Applying ${p}"; \
+        git apply "${p}"; \
+      elif git apply -R --check "${p}" 2>/dev/null; then \
+        echo "Already in upstream, skipping ${p}"; \
+      else \
+        echo "Patch does not apply: ${p}"; \
+        git apply "${p}"; \
+        exit 1; \
+      fi; \
     done
 
 FROM --platform=$BUILDPLATFORM node:22-alpine AS web
