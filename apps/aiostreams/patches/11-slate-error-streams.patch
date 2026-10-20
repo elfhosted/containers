@@ -1,8 +1,8 @@
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index 5191272..036c6ea 100644
+index 5191272..64bb9af 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
-@@ -279,4 +279,12 @@ export const Env = cleanEnv(process.env, {
+@@ -279,4 +279,16 @@ export const Env = cleanEnv(process.env, {
      default: false,
      desc: 'Allow the dashboard System page to restart/stop the AIOStreams process.',
    }),
@@ -14,25 +14,34 @@ index 5191272..036c6ea 100644
 +    default: undefined,
 +    desc: "Shared HMAC-SHA256 key for signing slate URLs. Must equal the slate service's SLATE_SECRET. Leave empty to disable slate.",
 +  }),
++  SLATE_HELP_BASE_URL: str({
++    default: 'https://docs.elfhosted.com/m/',
++    desc: 'Base URL for the help link encoded as a QR code on slate error videos; a short code naming the error is appended. Leave empty to show no QR code on error slates.',
++  }),
  });
 diff --git a/packages/server/src/routes/api/debrid.ts b/packages/server/src/routes/api/debrid.ts
-index 402b9cc..4ea0ee7 100644
+index 60ac7d7..05e753d 100644
 --- a/packages/server/src/routes/api/debrid.ts
 +++ b/packages/server/src/routes/api/debrid.ts
-@@ -25,6 +25,7 @@ import {
+@@ -27,6 +27,7 @@ import {
    StaticFiles,
    mapDebridErrorToStaticFile,
  } from '../../utils/static-errors.js';
-+import { slateRedirect } from '../../utils/slate.js';
++import { slateHelpForDebridError, slateRedirect } from '../../utils/slate.js';
  import { corsMiddleware } from '../../middlewares/cors.js';
  const router: Router = Router();
  const logger = createLogger('server');
-@@ -236,19 +237,19 @@ router.get(
+@@ -256,19 +257,24 @@ router.get(
              return;
            }
            logger.error({ err }, `error during debrid resolve: ${err.message}`);
 -          res.redirect(307, `/static/${mapDebridErrorToStaticFile(err.code)}`);
-+          slateRedirect(res, mapDebridErrorToStaticFile(err.code), 307);
++          slateRedirect(
++            res,
++            mapDebridErrorToStaticFile(err.code),
++            307,
++            slateHelpForDebridError(err.code)
++          );
            return;
          }
          logger.error(
@@ -51,10 +60,10 @@ index 402b9cc..4ea0ee7 100644
        }
  
 diff --git a/packages/server/src/routes/api/proxy.ts b/packages/server/src/routes/api/proxy.ts
-index db7d3c0..abe7aca 100644
+index cc7682b..f5a9b83 100644
 --- a/packages/server/src/routes/api/proxy.ts
 +++ b/packages/server/src/routes/api/proxy.ts
-@@ -31,6 +31,7 @@ import { Transform } from 'stream';
+@@ -34,6 +34,7 @@ import { Transform } from 'stream';
  import { requireAdmin } from '../../middlewares/auth.js';
  import { corsMiddleware } from '../../middlewares/cors.js';
  import { StaticFiles } from '../../utils/static-errors.js';
@@ -62,7 +71,7 @@ index db7d3c0..abe7aca 100644
  
  const logger = createLogger('server');
  const router: Router = Router();
-@@ -391,9 +392,7 @@ router.all(
+@@ -397,9 +398,7 @@ router.all(
              clientIp,
              reason: session.verdict.reason,
            });
@@ -130,10 +139,10 @@ index 264d908..2ce6477 100644
  );
 diff --git a/packages/server/src/utils/slate.ts b/packages/server/src/utils/slate.ts
 new file mode 100644
-index 0000000..d6cd29d
+index 0000000..f971b2e
 --- /dev/null
 +++ b/packages/server/src/utils/slate.ts
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,197 @@
 +import crypto from 'crypto';
 +import { Response } from 'express';
 +import { Env } from '@aiostreams/core';
@@ -141,50 +150,80 @@ index 0000000..d6cd29d
 +const SLATE_W = '1280';
 +const SLATE_H = '720';
 +
-+const SLATE_MESSAGES: Record<string, { title: string; body: string }> = {
++/**
++ * Help topics a slate can link to. The code is appended to SLATE_HELP_BASE_URL
++ * and encoded as the slate's QR code.
++ */
++export type SlateHelp =
++  | 'rate-limit'
++  | 'debrid-rate-limit'
++  | 'not-cached'
++  | 'connection-expired'
++  | 'debrid-down'
++  | 'cant-start';
++
++/**
++ * `help` is the default topic for a file. Without one, the QR code links to
++ * this instance's BASE_URL.
++ */
++const SLATE_MESSAGES: Record<
++  string,
++  { title: string; body: string; help?: SlateHelp }
++> = {
 +  '500.mp4': {
 +    title: 'Something went wrong',
 +    body: 'AIOStreams hit an unexpected error resolving this stream. If this keeps happening, contact support.',
++    help: 'cant-start',
 +  },
 +  '401.mp4': {
 +    title: 'Authorisation failed',
 +    body: 'Your debrid credentials were rejected. Re-check your API key in the add-on configuration.',
++    help: 'connection-expired',
 +  },
 +  '403.mp4': {
 +    title: 'Access forbidden',
 +    body: 'The debrid service refused this request. Your account may not have access to this content.',
++    help: 'cant-start',
 +  },
 +  '429.mp4': {
 +    title: 'Too many requests',
 +    body: 'The service is rate-limiting requests right now. Wait a moment and press play again.',
++    help: 'rate-limit',
 +  },
 +  'download_failed.mp4': {
 +    title: 'Download failed',
 +    body: 'This file could not be resolved from the debrid service. Try a different source.',
++    help: 'cant-start',
 +  },
 +  'no_matching_file.mp4': {
 +    title: 'No matching file',
 +    body: 'No file in this torrent matched the requested title or episode. Try a different source.',
++    help: 'cant-start',
 +  },
 +  'downloading.mp4': {
 +    title: 'Still caching',
 +    body: 'This stream is still being downloaded to your debrid service. Press play again in a moment.',
++    help: 'not-cached',
 +  },
 +  'store_limit_exceeded.mp4': {
 +    title: 'Debrid limit reached',
 +    body: 'Your debrid service reported that its active download or store limit has been exceeded.',
++    help: 'cant-start',
 +  },
 +  'payment_required.mp4': {
 +    title: 'Payment required',
 +    body: 'Your debrid subscription has expired or requires payment. Renew it to keep streaming.',
++    help: 'cant-start',
 +  },
 +  'unavailable_for_legal_reasons.mp4': {
 +    title: 'Unavailable',
 +    body: 'This content has been blocked by the debrid service for legal reasons.',
++    help: 'cant-start',
 +  },
 +  'content_proxy_limit_reached.mp4': {
 +    title: 'Proxy limit reached',
 +    body: 'You have reached your content-proxy connection limit. Stop another stream and try again.',
++    help: 'rate-limit',
 +  },
 +  '200.mp4': {
 +    title: 'Done',
@@ -254,17 +293,43 @@ index 0000000..d6cd29d
 +  return Env.SLATE_URL.replace(/\/+$/, '') + '/slate.m3u8?' + q.toString();
 +};
 +
++/**
++ * Help topic for a debrid resolve error, where it differs from the default of
++ * the file that mapDebridErrorToStaticFile picks for the same code.
++ */
++export const slateHelpForDebridError = (
++  code: string | undefined
++): SlateHelp | undefined => {
++  switch (code) {
++    case 'TOO_MANY_REQUESTS':
++      return 'debrid-rate-limit';
++    case 'SERVICE_UNAVAILABLE':
++    case 'BAD_GATEWAY':
++      return 'debrid-down';
++    default:
++      return undefined;
++  }
++};
++
++const slateHelpUrl = (help: SlateHelp): string => {
++  const base = (Env.SLATE_HELP_BASE_URL ?? '').trim();
++  if (!base) return '';
++  return base.replace(/\/*$/, '/') + help;
++};
++
 +export const slateRedirect = (
 +  res: Response,
 +  staticFile: string,
-+  statusCode: number = 307
++  statusCode: number = 307,
++  help?: SlateHelp
 +): void => {
 +  const msg = SLATE_MESSAGES[staticFile];
 +  if (msg) {
++    const topic = help ?? msg.help;
 +    const url = buildSlateUrl(
 +      msg.title,
 +      msg.body,
-+      Env.BASE_URL,
++      topic ? slateHelpUrl(topic) : Env.BASE_URL,
 +      '',
 +      Math.floor(Date.now() / 1000)
 +    );

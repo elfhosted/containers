@@ -101,19 +101,23 @@ index 73e9eed7..8e063c9a 100644
              { attempt: i, label: attempts[i]?.label, err },
              'failover attempt failed'
 diff --git a/packages/server/src/routes/api/debrid.ts b/packages/server/src/routes/api/debrid.ts
-index 306f7f6e..33a80b3d 100644
+index 05e753db..6733897e 100644
 --- a/packages/server/src/routes/api/debrid.ts
 +++ b/packages/server/src/routes/api/debrid.ts
-@@ -257,14 +257,24 @@ router.get(
+@@ -257,19 +257,27 @@ router.get(
              return;
            }
            logger.error({ err }, `error during debrid resolve: ${err.message}`);
--          slateRedirect(res, mapDebridErrorToStaticFile(err.code), 307);
+-          slateRedirect(
+-            res,
+-            mapDebridErrorToStaticFile(err.code),
+-            307,
+-            slateHelpForDebridError(err.code)
 +        } else {
 +          logger.error(
 +            { err },
 +            `got unknown error during debrid resolve: ${err.message}`
-+          );
+           );
 +        }
 +        if (result.fallbackUrl) {
 +          res.setHeader('Cache-Control', 'no-store');
@@ -128,7 +132,10 @@ index 306f7f6e..33a80b3d 100644
 +          err instanceof DebridError
 +            ? mapDebridErrorToStaticFile(err.code)
 +            : StaticFiles.INTERNAL_SERVER_ERROR,
-+          307
++          307,
++          err instanceof DebridError
++            ? slateHelpForDebridError(err.code)
++            : undefined
          );
 -        slateRedirect(res, StaticFiles.INTERNAL_SERVER_ERROR, 307);
          return;
