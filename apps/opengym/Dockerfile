@@ -26,7 +26,7 @@ RUN set -e; \
       fi; \
     done
 
-FROM --platform=$BUILDPLATFORM node:22-alpine AS web
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 WORKDIR /app/frontend
 COPY --from=cloner /source/frontend/package.json /source/frontend/package-lock.json ./
 RUN npm ci --ignore-scripts
@@ -34,7 +34,7 @@ COPY --from=cloner /source/api/coach/core/ /app/api/coach/core/
 COPY --from=cloner /source/frontend/ ./
 RUN npm run build
 
-FROM node:22-alpine AS api
+FROM node:24-alpine AS api
 WORKDIR /app
 COPY --from=cloner /source/api/package.json /source/api/package-lock.json ./
 RUN npm ci --omit=dev --omit=optional && npm cache clean --force
@@ -56,7 +56,7 @@ RUN envsubst '${NGINX_PORT} ${BACKEND} ${PORT} ${RESOLVER} ${CF_CONNECTING_IP} $
  && sed -i 's#set $api_upstream http://127.0.0.1:3000;#set $api_upstream http://opengym_api;#' /tmp/opengym.conf \
  && test "$(grep -c 'set $api_upstream http://opengym_api;' /tmp/opengym.conf)" = 2
 
-FROM node:22-alpine
+FROM node:24-alpine
 ARG VERSION
 
 RUN apk upgrade --no-cache \
