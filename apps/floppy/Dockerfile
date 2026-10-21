@@ -154,6 +154,7 @@ RUN ln -s /opt/venv /floppy/.venv && \
 COPY apps/floppy/nginx.conf /etc/nginx/floppy.conf
 COPY apps/floppy/elf-entrypoint.sh /usr/local/bin/elf-entrypoint.sh
 COPY apps/floppy/elf-secret.py /usr/local/bin/elf-secret.py
+COPY apps/floppy/elf-reset-password.py /usr/local/bin/elf-reset-password.py
 RUN sed -i 's/\r$//' /usr/local/bin/elf-entrypoint.sh && \
     chmod +x /usr/local/bin/elf-entrypoint.sh
 

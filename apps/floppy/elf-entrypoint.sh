@@ -14,6 +14,13 @@
 # supervisord.
 set -euo pipefail
 
+# FLOPPY_RESET_PASSWORD ("<username>:<new password>", see elf-reset-password.py)
+# is taken out of the environment before anything runs: kept in an unexported
+# shell variable, handed to the reset helper alone, so no other process
+# started here ever inherits it.
+elf_reset_password="${FLOPPY_RESET_PASSWORD:-}"
+unset FLOPPY_RESET_PASSWORD
+
 log() {
     echo "[elf-entrypoint] $*" >&2
 }
@@ -94,6 +101,11 @@ until log "Applying database migrations (attempt $((migrate_attempts + 1)))" && 
     log "Migrations blocked or failed (attempt ${migrate_attempts}), retrying in 15s"
     sleep 15
 done
+
+if [ -n "${elf_reset_password}" ]; then
+    FLOPPY_RESET_PASSWORD="${elf_reset_password}" python /usr/local/bin/elf-reset-password.py || true
+fi
+unset elf_reset_password
 
 # Probe the container's memory/CPU once and export the sizing decision (gunicorn
 # threads, which celery workers run and which queues each consumes). Values set
