@@ -68,7 +68,9 @@ def main():
         matches = list(users.filter(username__iexact=username)[:2])
         user = matches[0] if len(matches) == 1 else None
     if user is None:
-        log(f"WARNING: no single account named {username!r}; nothing changed")
+        # Never echo the supplied name: written the wrong way round
+        # ("<password>:<username>") it would be the password.
+        log("WARNING: no single account matches the username given; nothing changed")
         return 0
 
     try:
