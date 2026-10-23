@@ -225,10 +225,10 @@ index 5d9eced..dc3a336 100644
    internalUrl: Env.INTERNAL_URL,
    internalSecret: Env.INTERNAL_SECRET,
 diff --git a/packages/core/src/main/resources.ts b/packages/core/src/main/resources.ts
-index bba3baf..553a80b 100644
+index 1295be7..1854477 100644
 --- a/packages/core/src/main/resources.ts
 +++ b/packages/core/src/main/resources.ts
-@@ -43,6 +43,7 @@ import {
+@@ -47,6 +47,7 @@ import {
    withQualifiedCollection,
  } from './catalog.js';
  import {
@@ -236,7 +236,7 @@ index bba3baf..553a80b 100644
    hmac,
    sampleConfigFeatures,
    track,
-@@ -996,8 +997,13 @@ export async function getStreams(
+@@ -1022,8 +1023,13 @@ export async function getStreams(
  
    if (ctx.userData?.uuid) {
      const serviceIds: string[] = [];
@@ -251,7 +251,7 @@ index bba3baf..553a80b 100644
      }
      const presetTypes: string[] = [];
      for (const p of ctx.userData.presets ?? []) {
-@@ -1006,6 +1012,7 @@ export async function getStreams(
+@@ -1032,6 +1038,7 @@ export async function getStreams(
      sampleConfigFeatures({
        uuid: ctx.userData.uuid,
        serviceIds,
@@ -260,7 +260,7 @@ index bba3baf..553a80b 100644
        presetTypes,
      });
 diff --git a/packages/core/src/utils/env.ts b/packages/core/src/utils/env.ts
-index 11b9c24..82a583d 100644
+index af6f108..a708f9c 100644
 --- a/packages/core/src/utils/env.ts
 +++ b/packages/core/src/utils/env.ts
 @@ -247,6 +247,10 @@ export const Env = cleanEnv(process.env, {
@@ -470,18 +470,18 @@ index 0000000..f542e2c
 +  server = null;
 +}
 diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
-index 018e793..c4c1171 100644
+index 6eea378..01ae330 100644
 --- a/packages/server/src/server.ts
 +++ b/packages/server/src/server.ts
-@@ -10,6 +10,7 @@ import {
- } from './utils/system-metrics.js';
+@@ -11,6 +11,7 @@ import {
+ import { attachPartyRelay, closePartyRelay } from './party/relay.js';
  import { startNfsShare, stopNfsShare } from './nfs.js';
  import { startFuseMount, stopFuseMount } from './fuse.js';
 +import { startMetricsServer, stopMetricsServer } from './metrics.js';
  
  import {
    Env,
-@@ -384,6 +385,7 @@ async function start() {
+@@ -453,6 +454,7 @@ async function start() {
      startAnalytics();
      await startNfsShare();
      await startFuseMount();
@@ -489,7 +489,7 @@ index 018e793..c4c1171 100644
      const server = app.listen(appConfig.bootstrap.port, (error) => {
        if (error) {
          logger.error('Failed to start server:', error);
-@@ -407,6 +409,7 @@ async function shutdown() {
+@@ -477,6 +479,7 @@ async function shutdown() {
    stopMetricsHistory();
    await stopFuseMount().catch(() => undefined);
    await stopNfsShare().catch(() => undefined);

@@ -1368,18 +1368,18 @@ index f5a9b83..12ebdf4 100644
          if (hop.methodChanged) {
            bodyDropped = true;
 diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
-index d3bbc0f..ecb11c1 100644
+index 6027f81..f8f6283 100644
 --- a/packages/server/src/server.ts
 +++ b/packages/server/src/server.ts
-@@ -26,6 +26,7 @@ import {
+@@ -27,6 +27,7 @@ import {
    closeDb,
    UserRepository,
    logStartupInfo,
 +  logIndexerEgressStatus,
    Cache,
+   sharedBackend,
    RegexAccess,
-   SelAccess,
-@@ -409,6 +410,7 @@ async function start() {
+@@ -432,6 +433,7 @@ async function start() {
      TaskManager.setInstanceId(instanceId());
      await initialiseTemplates();
      logStartupInfo();
