@@ -1,4 +1,4 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 6f40d85fae4e7d9cd45ed3bb490c20886f1933b7 Mon Sep 17 00:00:00 2001
 From: ElfHosted <noreply@elfhosted.com>
 Date: Sat, 10 Oct 2026 16:55:53 +1300
 Subject: [PATCH 3/3] Use the configured base URLs for TVDB and TVMaze
@@ -18,7 +18,7 @@ paced the same way.
  6 files changed, 170 insertions(+), 6 deletions(-)
 
 diff --git a/src/app/providers/credentials.py b/src/app/providers/credentials.py
-index 50b8755..765d6be 100644
+index f978d4867..a77209cff 100644
 --- a/src/app/providers/credentials.py
 +++ b/src/app/providers/credentials.py
 @@ -152,7 +152,7 @@ def _validate_tvdb(values):
@@ -31,7 +31,7 @@ index 50b8755..765d6be 100644
          headers={"Content-Type": "application/json"},
      )
 diff --git a/src/app/providers/services.py b/src/app/providers/services.py
-index 282ea14..9c473df 100644
+index a05c8e4dc..4036d0274 100644
 --- a/src/app/providers/services.py
 +++ b/src/app/providers/services.py
 @@ -10,6 +10,7 @@ from contextlib import contextmanager
@@ -42,7 +42,7 @@ index 282ea14..9c473df 100644
  
  import requests
  from defusedxml import ElementTree
-@@ -459,6 +460,33 @@ session.mount(
+@@ -465,6 +466,33 @@ session.mount(
  )
  
  
@@ -75,9 +75,9 @@ index 282ea14..9c473df 100644
 +
  @request_timing.timed_provider_call
  def resilient_request(method, url, **kwargs):
-     """GET/POST through the shared rate-limited session.
+     """Send a request through the shared rate-limited session.
 diff --git a/src/app/providers/tvdb.py b/src/app/providers/tvdb.py
-index c1719cf..78ac4cb 100644
+index c1719cf3d..78ac4cbb3 100644
 --- a/src/app/providers/tvdb.py
 +++ b/src/app/providers/tvdb.py
 @@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ index c1719cf..78ac4cb 100644
  TOKEN_CACHE_KEY = f"{TVDB_CACHE_NAMESPACE}_access_token"
  TOKEN_CACHE_TIMEOUT = 60 * 60 * 12
 diff --git a/src/app/providers/tvmaze.py b/src/app/providers/tvmaze.py
-index 46c9203..2663343 100644
+index 46c920397..266334368 100644
 --- a/src/app/providers/tvmaze.py
 +++ b/src/app/providers/tvmaze.py
 @@ -10,13 +10,16 @@ no API key/settings are needed.
@@ -114,7 +114,7 @@ index 46c9203..2663343 100644
  
  
 diff --git a/src/app/tests/providers/test_base_urls.py b/src/app/tests/providers/test_base_urls.py
-index 409bb9f..853e559 100644
+index 409bb9fc2..853e559c6 100644
 --- a/src/app/tests/providers/test_base_urls.py
 +++ b/src/app/tests/providers/test_base_urls.py
 @@ -5,10 +5,14 @@ from unittest.mock import patch
@@ -265,10 +265,10 @@ index 409bb9f..853e559 100644
 +
 +        self.assertEqual(mock_request.call_args.args[1], f"{MIRROR}/tvdb/v4/login")
 diff --git a/src/events/calendar/tv.py b/src/events/calendar/tv.py
-index 3010566..ef66e9a 100644
+index d32eaf9e7..be0ea2c77 100644
 --- a/src/events/calendar/tv.py
 +++ b/src/events/calendar/tv.py
-@@ -728,7 +728,7 @@ def get_tvmaze_episode_map(tvdb_id):
+@@ -780,7 +780,7 @@ def get_tvmaze_episode_map(tvdb_id):
  
  def get_tvmaze_response(tvdb_id):
      """Fetch episode data from TVMaze using TVDB ID."""
@@ -277,7 +277,7 @@ index 3010566..ef66e9a 100644
      try:
          lookup_response = services.api_request("TVMaze", "GET", lookup_url)
      except requests.exceptions.HTTPError as err:
-@@ -756,7 +756,7 @@ def get_tvmaze_response(tvdb_id):
+@@ -808,7 +808,7 @@ def get_tvmaze_response(tvdb_id):
          logger.warning("%s - TVMaze ID not found for TVDB ID", tvdb_id)
          return {}
  
@@ -286,3 +286,6 @@ index 3010566..ef66e9a 100644
  
      try:
          return services.api_request("TVMaze", "GET", show_url)
+-- 
+2.43.0
+
