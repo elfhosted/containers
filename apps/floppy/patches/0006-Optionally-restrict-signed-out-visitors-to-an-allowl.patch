@@ -1,4 +1,4 @@
-From 07963faf8d29b860ccdb89f1be9fbba5c991900c Mon Sep 17 00:00:00 2001
+From c628be50685cb0aeeabcf9866a4d51e1c944d761 Mon Sep 17 00:00:00 2001
 From: ElfHosted <hello@elfhosted.com>
 Date: Tue, 13 Oct 2026 12:51:10 +1300
 Subject: [PATCH] Optionally restrict signed-out visitors to an allowlist of
@@ -17,21 +17,21 @@ lists, full health and the rest then need a login.
  create mode 100644 src/app/tests/test_anonymous_allowlist.py
 
 diff --git a/src/app/middleware.py b/src/app/middleware.py
-index 6995460..8e32b69 100644
+index 285d58533..c33d65320 100644
 --- a/src/app/middleware.py
 +++ b/src/app/middleware.py
-@@ -6,6 +6,7 @@ from urllib.parse import urlparse
- 
+@@ -8,6 +8,7 @@ from urllib.parse import urlparse
  from django.conf import settings
+ from django.contrib import messages
  from django.contrib.auth import get_user_model, login
 +from django.contrib.auth.middleware import LoginRequiredMiddleware
  from django.contrib.sessions.exceptions import SessionInterrupted
  from django.db import DatabaseError, connection
  from django.db.utils import OperationalError
-@@ -572,3 +573,83 @@ class ProviderCredentialUserMiddleware:
- 
-         with credentials.current_user_scope(getattr(request, "user", None)):
-             return self.get_response(request)
+@@ -647,3 +648,83 @@ class DemoAccountGuardMiddleware:
+             return response
+         messages.error(request, self.MESSAGE)
+         return redirect(request.path)
 +
 +
 +# Views a signed-out visitor may reach when ANONYMOUS_VIEW_ALLOWLIST is on.
@@ -114,7 +114,7 @@ index 6995460..8e32b69 100644
 +        return self.handle_no_permission(request, view_func)
 diff --git a/src/app/tests/test_anonymous_allowlist.py b/src/app/tests/test_anonymous_allowlist.py
 new file mode 100644
-index 0000000..2149dab
+index 000000000..2149dabd7
 --- /dev/null
 +++ b/src/app/tests/test_anonymous_allowlist.py
 @@ -0,0 +1,85 @@
@@ -204,10 +204,10 @@ index 0000000..2149dab
 +        self.assertIsNone(_run("/details/tmdb/movie/1/anything", user=user))
 +        self.assertIsNone(_run("/health/full/", user=user))
 diff --git a/src/config/settings.py b/src/config/settings.py
-index 186048f..03e620a 100644
+index ea325da3d..3c657e1d3 100644
 --- a/src/config/settings.py
 +++ b/src/config/settings.py
-@@ -445,6 +445,17 @@ if FLOPPY_AUTO_LOGIN_USERNAME:
+@@ -466,6 +466,17 @@ if FLOPPY_AUTO_LOGIN_USERNAME:
      _index = MIDDLEWARE.index("django.contrib.auth.middleware.AuthenticationMiddleware")
      MIDDLEWARE.insert(_index + 1, "app.middleware.AutoLoginMiddleware")
  
@@ -226,5 +226,5 @@ index 186048f..03e620a 100644
  
  TEMPLATES = [
 -- 
-2.54.0
+2.43.0
 
