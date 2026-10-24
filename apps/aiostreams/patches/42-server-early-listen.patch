@@ -95,10 +95,10 @@ index 0000000..8f20a83
 +  });
 +});
 diff --git a/packages/server/src/app.ts b/packages/server/src/app.ts
-index 6a8a10a..aea35fa 100644
+index c055ea2..e271f35 100644
 --- a/packages/server/src/app.ts
 +++ b/packages/server/src/app.ts
-@@ -88,6 +88,8 @@ import {
+@@ -93,6 +93,8 @@ import {
    VARIANT_PATH_ROUTE,
  } from '@aiostreams/core';
  import { StremioTransformer } from '@aiostreams/core';
@@ -107,7 +107,7 @@ index 6a8a10a..aea35fa 100644
  import { createResponse } from './utils/responses.js';
  import path from 'path';
  import fs from 'fs';
-@@ -113,6 +115,8 @@ app.use((req, res, next) => {
+@@ -118,6 +120,8 @@ app.use((req, res, next) => {
  });
  app.use(express.urlencoded({ extended: true }));
  
@@ -116,7 +116,7 @@ index 6a8a10a..aea35fa 100644
  // Allow all origins in development for easier testing
  if (appConfig.bootstrap.nodeEnv === 'development') {
    logger.info('CORS enabled for all origins in development');
-@@ -333,27 +337,6 @@ app.get('/configure', (req, res) => {
+@@ -342,28 +346,6 @@ app.get('/configure', (req, res) => {
    res.redirect('/stremio/configure');
  });
  
@@ -127,6 +127,7 @@ index 6a8a10a..aea35fa 100644
 -  '/oauth/callback/gdrive',
 -  '/splashscreen',
 -  '/stremio/configure',
+-  '/party/join',
 -];
 -
 -const SPA_DYNAMIC_PATTERNS: RegExp[] = [
@@ -145,10 +146,10 @@ index 6a8a10a..aea35fa 100644
  app.get('*splat', staticRateLimiter, (req, res, next) => {
    if (req.method !== 'GET' || !req.accepts('html')) {
 diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
-index bd7988e..c4e0515 100644
+index e6c50b1..6027f81 100644
 --- a/packages/server/src/server.ts
 +++ b/packages/server/src/server.ts
-@@ -11,6 +11,10 @@ import {
+@@ -12,6 +12,10 @@ import { attachPartyRelay, closePartyRelay } from './party/relay.js';
  import { startNfsShare, stopNfsShare } from './nfs.js';
  import { startFuseMount, stopFuseMount } from './fuse.js';
  import { startMetricsServer, stopMetricsServer } from './metrics.js';
@@ -159,7 +160,7 @@ index bd7988e..c4e0515 100644
  
  import {
    Env,
-@@ -367,10 +371,6 @@ async function start() {
+@@ -429,10 +433,6 @@ async function start() {
      await initialiseTemplates();
      logStartupInfo();
      await initialiseRedis();
@@ -170,10 +171,10 @@ index bd7988e..c4e0515 100644
      RegexAccess.initialise();
      SelAccess.initialise();
      await initialiseProwlarr();
-@@ -402,6 +402,26 @@ async function start() {
-       settleMetricsHistory();
+@@ -472,6 +472,26 @@ async function start() {
      });
      attachJellyfinWebSocket(server);
+     attachPartyRelay(server);
 +
 +    onDatasetWaitTimeout(() =>
 +      logger.warn(
@@ -199,10 +200,10 @@ index bd7988e..c4e0515 100644
      logger.error('Failed to start server:', error);
 diff --git a/packages/server/src/utils/readiness.test.ts b/packages/server/src/utils/readiness.test.ts
 new file mode 100644
-index 0000000..e49a5f9
+index 0000000..c8d4c5f
 --- /dev/null
 +++ b/packages/server/src/utils/readiness.test.ts
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,186 @@
 +import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 +
 +async function loadModule() {
@@ -270,6 +271,7 @@ index 0000000..e49a5f9
 +    '/login',
 +    '/splashscreen',
 +    '/stremio/configure',
++    '/party/join',
 +    '/stremio/uuid/pw/configure',
 +    '/dashboard',
 +    '/dashboard/settings',
@@ -460,10 +462,10 @@ index 0000000..2a10630
 +};
 diff --git a/packages/server/src/utils/served-paths.ts b/packages/server/src/utils/served-paths.ts
 new file mode 100644
-index 0000000..c63784d
+index 0000000..e1bc7dc
 --- /dev/null
 +++ b/packages/server/src/utils/served-paths.ts
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,63 @@
 +
 +export const SPA_STATIC_ROUTES = [
 +  '/',
@@ -471,6 +473,7 @@ index 0000000..c63784d
 +  '/oauth/callback/gdrive',
 +  '/splashscreen',
 +  '/stremio/configure',
++  '/party/join',
 +];
 +
 +export const SPA_DYNAMIC_PATTERNS: RegExp[] = [
