@@ -14,6 +14,7 @@ COPY apps/opengym/patches/ /patches/
 RUN set -e; \
     cd /source; \
     for p in /patches/*.patch; do \
+      [ -e "${p}" ] || continue; \
       if git apply --check "${p}" 2>/dev/null; then \
         echo "Applying ${p}"; \
         git apply "${p}"; \
@@ -49,11 +50,12 @@ ENV NGINX_PORT=8080 \
     CF_CONNECTING_IP="" \
     BASE_PATH="" \
     MEDIA_UPLOAD_MAX=48m \
-    CONTENT_SECURITY_POLICY="default-src 'self'; script-src 'self' 'sha256-z/iOLe5i8fD4VNlIXz/4hEayGLTQzoTc52dIY51OjYc='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' https: http:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
-# CONTENT_SECURITY_POLICY: v1.4.2 added a real CSP to web/nginx.conf.template (5 add_header
-# sites). Upstream's own web/Dockerfile sets this exact default; we pre-render the template at
-# build time with a fixed envsubst whitelist, so the variable has to be both ENV-set and
-# whitelisted here or the template renders it empty / the unrendered-variable guard aborts.
+    CONTENT_SECURITY_POLICY="default-src 'self'; script-src 'self' 'sha256-xUZtZS1nWJaAyUqA7ZKgkLhjdEisnY0MiRmax16aGFg='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' https: http:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+# CONTENT_SECURITY_POLICY: v1.4.2 added a real CSP to web/nginx.conf.template (one add_header
+# per location). Upstream's own web/Dockerfile sets this exact default (v1.4.3 changed the
+# inline-script hash); we pre-render the template at build time with a fixed envsubst
+# whitelist, so the variable has to be both ENV-set and whitelisted here or the template
+# renders it empty / the unrendered-variable guard aborts.
 # The value is upstream's verbatim default, preserved and not weakened. If upstream changes the
 # inline-script hash or this policy, re-sync this string from upstream's web/Dockerfile.
 RUN envsubst '${NGINX_PORT} ${BACKEND} ${PORT} ${RESOLVER} ${CF_CONNECTING_IP} ${BASE_PATH} ${MEDIA_UPLOAD_MAX} ${CONTENT_SECURITY_POLICY}' \
