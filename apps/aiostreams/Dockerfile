@@ -21,7 +21,7 @@ WORKDIR /source
 RUN mkdir /resources && \
     npm run metadata
 
-FROM node:24.18.1-slim AS base
+FROM node:24.22.2-slim AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
