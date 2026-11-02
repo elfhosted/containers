@@ -589,8 +589,12 @@ jobs:
       # loudest line in the log, masking the real build failure.
       # NB: a step that never ran has outcome '', NOT 'skipped', so test for
       # the two outcomes that mean "it ran" rather than excluding 'skipped'.
+      # The upload only feeds the Security tab. Code Scanning rejects some
+      # Trivy SARIF outright ("expected artifact location"), and that must not
+      # block the release: trivy_gate below is what fails the job on findings.
       - name: Upload Trivy scan report
         if: ${{ !cancelled() && (steps.trivy_scan.outcome == 'success' || steps.trivy_scan.outcome == 'failure') }}
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
