@@ -111,7 +111,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload SARIF report
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-${{ matrix.image.app }}-${{ matrix.image.channel }}.sarif
           category: scheduled-ghcr/${{ matrix.image.app }}-${{ matrix.image.channel }}
