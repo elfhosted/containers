@@ -20,9 +20,6 @@ case "$channel" in
   dev)
     version="$(get_commit_sha main)"
     ;;
-  cometnet)
-    version="$(get_commit_sha feat/cometnet)"
-    ;;
   *)
     version="$(
       curl -fsSL \
