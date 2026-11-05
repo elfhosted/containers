@@ -488,6 +488,13 @@ jobs:
             DGOSS_RUN_ARGS+=(
               -e BETTER_AUTH_SECRET="overtchat-goss-secret-0123456789abcdef"
             )
+          elif [[ "${{ matrix.image.app }}" == "holdmydocs" ]]; then
+            # Hold My Docs exits at startup with no users.json unless a first
+            # admin is supplied. Throwaway, test container only.
+            DGOSS_RUN_ARGS+=(
+              -e HMD_ADMIN_USER=goss
+              -e HMD_ADMIN_PASSWORD="holdmydocs-goss-password-123"
+            )
           fi
 
           cleanup() {
