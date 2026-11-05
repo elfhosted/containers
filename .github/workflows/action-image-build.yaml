@@ -488,6 +488,12 @@ jobs:
             DGOSS_RUN_ARGS+=(
               -e BETTER_AUTH_SECRET="overtchat-goss-secret-0123456789abcdef"
             )
+          elif [[ "${{ matrix.image.app }}" == "plombirgit" ]]; then
+            # Plombir Git refuses to start without a JWT secret. Throwaway, test
+            # container only.
+            DGOSS_RUN_ARGS+=(
+              -e PLOMBIR_GIT_JWT_SECRET="plombirgit-goss-jwt-secret-0123456789abcdef"
+            )
           elif [[ "${{ matrix.image.app }}" == "holdmydocs" ]]; then
             # Hold My Docs exits at startup with no users.json unless a first
             # admin is supplied. Throwaway, test container only.
