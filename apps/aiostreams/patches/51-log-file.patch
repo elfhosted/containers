@@ -1,0 +1,605 @@
+diff --git a/.env.sample b/.env.sample
+index a2c5232..5039894 100644
+--- a/.env.sample
++++ b/.env.sample
+@@ -128,6 +128,10 @@ DATABASE_URI=sqlite://./data/db.sqlite
+ # LOG_BUFFER_MAX_BYTES=67108864
+ # LOG_BUFFER_MAX_ENTRIES=200000
+ 
++# Also append logs to this file (unset: off). Rotates to <file>.1 at LOG_FILE_MAX_SIZE bytes.
++# LOG_FILE=/app/data/logs/aiostreams.log
++# LOG_FILE_MAX_SIZE=10485760
++
+ 
+ # ==============================================================================
+ #                          EVERYTHING ELSE
+diff --git a/packages/core/src/logging/log-file.test.ts b/packages/core/src/logging/log-file.test.ts
+new file mode 100644
+index 0000000..fed9b15
+--- /dev/null
++++ b/packages/core/src/logging/log-file.test.ts
+@@ -0,0 +1,356 @@
++import assert from 'node:assert/strict';
++import { execFileSync } from 'node:child_process';
++import {
++  chmodSync,
++  existsSync,
++  mkdtempSync,
++  readFileSync,
++  statSync,
++  writeFileSync,
++} from 'node:fs';
++import { createRequire, syncBuiltinESMExports } from 'node:module';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { fileURLToPath } from 'node:url';
++import { describe, it } from 'node:test';
++
++// config first: loading logger.ts on its own trips an existing import cycle
++// (logger -> ring-buffer -> bootstrap -> env -> general -> createLogger).
++await import('../config/index.js');
++const { buildFileStream, parseLogFileMaxSize, setLogFormat } = await import(
++  './logger.js'
++);
++
++const MiB = 1024 * 1024;
++const line = (msg: string) =>
++  JSON.stringify({
++    level: 'info',
++    time: '2026-11-06T00:00:00.000Z',
++    module: 'test',
++    msg,
++  }) + '\n';
++const settle = () => new Promise((r) => setTimeout(r, 300));
++const tmp = () => mkdtempSync(join(tmpdir(), 'aios-logfile-'));
++
++describe('LOG_FILE stream', () => {
++  it('parses LOG_FILE_MAX_SIZE with a default and a floor', () => {
++    assert.equal(parseLogFileMaxSize(undefined), 10 * MiB);
++    assert.equal(parseLogFileMaxSize('nonsense'), 10 * MiB);
++    assert.equal(parseLogFileMaxSize('-5'), 10 * MiB);
++    assert.equal(parseLogFileMaxSize('10'), MiB);
++    assert.equal(parseLogFileMaxSize(String(20 * MiB)), 20 * MiB);
++  });
++
++  it('creates the directory and appends json lines verbatim', async () => {
++    setLogFormat('json');
++    const path = join(tmp(), 'nested', 'aiostreams.log');
++    const s = buildFileStream(path, MiB);
++    s.write(line('one'));
++    s.write(line('two'));
++    await settle();
++    assert.equal(readFileSync(path, 'utf8'), line('one') + line('two'));
++  });
++
++  it('renders text without colour codes when LOG_FORMAT is text', async () => {
++    setLogFormat('text');
++    const path = join(tmp(), 'aiostreams.log');
++    const s = buildFileStream(path, MiB);
++    s.write(line('readable'));
++    await settle();
++    const text = readFileSync(path, 'utf8');
++    assert.match(text, /readable/);
++    assert.doesNotMatch(text, /\u001b\[/);
++    assert.doesNotMatch(text, /^\{/);
++    setLogFormat('json');
++  });
++
++  it('rotates under a burst with no pauses, keeping two files near the limit', async () => {
++    setLogFormat('json');
++    const path = join(tmp(), 'aiostreams.log');
++    const s = buildFileStream(path, MiB);
++    const big = 'x'.repeat(1000);
++    // ~3.5 MiB in one synchronous burst, before the file has even opened
++    for (let i = 0; i < 3500; i++) s.write(line(`${i} ${big}`));
++    await settle();
++    assert.equal(s.disabled, false);
++    const cur = statSync(path).size;
++    const old = statSync(`${path}.1`).size;
++    assert.ok(cur <= MiB, `current file ${cur} over limit`);
++    // lines written while a rename is in flight land in the old file
++    assert.ok(old <= 2 * MiB, `rotated file ${old} far over limit`);
++    assert.ok(!existsSync(`${path}.2`));
++    for (const f of [path, `${path}.1`]) {
++      for (const l of readFileSync(f, 'utf8').trimEnd().split('\n')) {
++        JSON.parse(l); // every line whole, no generations interleaved mid-line
++      }
++    }
++    const last = readFileSync(path, 'utf8').trimEnd().split('\n').pop()!;
++    assert.match(last, /"msg":"3499 /);
++  });
++
++  it('keeps json valid when lines are dropped, and notes the drop', async () => {
++    setLogFormat('json');
++    const path = join(tmp(), 'aiostreams.log');
++    const s = buildFileStream(path, 64 * MiB);
++    const big = 'x'.repeat(200 * 1024);
++    // 8 MiB synchronously: more than the 4 MiB the stream will hold pending
++    for (let i = 0; i < 40; i++) s.write(line(`${i} ${big}`));
++    // nothing else is logged: the notice must still appear once it drains
++    await settle();
++    await settle();
++    const lines = readFileSync(path, 'utf8').trimEnd().split('\n');
++    const parsed = lines.map((l) => JSON.parse(l));
++    const note = parsed.find((p) => p.module === 'log-file');
++    assert.ok(note, 'expected a drop notice');
++    assert.match(note.msg, /dropped/);
++    const kept = parsed.filter((p) => p.module === 'test').length;
++    assert.equal(kept + Number(/^(\d+) /.exec(note.msg)?.[1]), 40);
++    assert.ok(statSync(path).size < 5 * MiB);
++  });
++
++  it('replaces an oversized record with a notice', async () => {
++    setLogFormat('json');
++    const path = join(tmp(), 'aiostreams.log');
++    const s = buildFileStream(path, MiB);
++    s.write(line('y'.repeat(6 * MiB)));
++    await settle();
++    const text = readFileSync(path, 'utf8');
++    assert.ok(text.length < 1024, `file is ${text.length} bytes`);
++    assert.match(JSON.parse(text).msg, /too large/);
++  });
++
++  it('counts an existing file towards the limit after a restart', async () => {
++    setLogFormat('json');
++    const path = join(tmp(), 'aiostreams.log');
++    writeFileSync(path, 'y'.repeat(MiB - 10) + '\n');
++    const s = buildFileStream(path, MiB);
++    await settle(); // the existing size is read asynchronously
++    s.write(line('crosses the limit'));
++    await settle();
++    s.write(line('after rotation'));
++    await settle();
++    assert.match(readFileSync(`${path}.1`, 'utf8'), /^y+\n.*crosses the limit/s);
++    assert.equal(readFileSync(path, 'utf8'), line('after rotation'));
++  });
++
++  it('treats a numeric LOG_FILE as a file name, not a descriptor', async () => {
++    setLogFormat('json');
++    const dir = tmp();
++    const cwd = process.cwd();
++    process.chdir(dir);
++    try {
++      const s = buildFileStream('2026', MiB);
++      s.write(line('numeric'));
++      await settle();
++      assert.equal(readFileSync(join(dir, '2026'), 'utf8'), line('numeric'));
++      const t = buildFileStream('1e99', MiB); // must not throw
++      t.write(line('also numeric'));
++      await settle();
++      assert.equal(t.disabled, false);
++    } finally {
++      process.chdir(cwd);
++    }
++  });
++
++  it('every write is either in the file or counted in a drop notice', async () => {
++    setLogFormat('json');
++    const path = join(tmp(), 'aiostreams.log');
++    const s = buildFileStream(path, 64 * MiB);
++    const big = 'x'.repeat(200 * 1024);
++    let written = 0;
++    // sustained overflow: two bursts, so notices themselves get dropped too
++    for (let i = 0; i < 40; i++, written++) s.write(line(`a${i} ${big}`));
++    for (let i = 0; i < 40; i++, written++) s.write(line(`b${i} ${big}`));
++    await settle();
++    s.write(line('after'));
++    written++;
++    await settle();
++    const parsed = readFileSync(path, 'utf8')
++      .trimEnd()
++      .split('\n')
++      .map((l) => JSON.parse(l));
++    const kept = parsed.filter((p) => p.module === 'test').length;
++    const reported = parsed
++      .filter((p) => p.module === 'log-file')
++      .reduce((n, p) => n + Number(/^(\d+) /.exec(p.msg)?.[1] ?? 0), 0);
++    assert.ok(reported > 0);
++    assert.equal(kept + reported, written);
++  });
++
++  it('bounds what reaches the old file while a rename is stalled', async () => {
++    setLogFormat('json');
++    const fs = createRequire(import.meta.url)('fs') as typeof import('fs');
++    const realRename = fs.rename;
++    (fs as { rename: unknown }).rename = (
++      a: string,
++      b: string,
++      cb: (e: NodeJS.ErrnoException | null) => void
++    ) => setTimeout(() => realRename(a, b, cb), 500);
++    syncBuiltinESMExports();
++    try {
++      const path = join(tmp(), 'aiostreams.log');
++      const s = buildFileStream(path, MiB);
++      const big = 'x'.repeat(1000);
++      for (let round = 0; round < 10; round++) {
++        for (let i = 0; i < 1000; i++) s.write(line(`${round}.${i} ${big}`));
++        await new Promise((r) => setTimeout(r, 50));
++      }
++      await new Promise((r) => setTimeout(r, 1500));
++      s.write(line('after the rename'));
++      await settle();
++      const old = statSync(`${path}.1`).size;
++      assert.ok(
++        old <= MiB + 4 * MiB + 256 * 1024,
++        `rotated file ${old} past the documented bound`
++      );
++      const cur = readFileSync(path, 'utf8');
++      // the drop notice goes wherever the next accepted write goes
++      assert.match(cur + readFileSync(`${path}.1`, 'utf8'), /dropped/);
++      assert.match(cur, /after the rename/);
++    } finally {
++      (fs as { rename: unknown }).rename = realRename;
++      syncBuiltinESMExports();
++    }
++  });
++
++  it('a rejected notice is not counted as a lost record', async () => {
++    setLogFormat('json');
++    const fs = createRequire(import.meta.url)('fs') as typeof import('fs');
++    const realRename = fs.rename;
++    (fs as { rename: unknown }).rename = (
++      a: string,
++      b: string,
++      cb: (e: NodeJS.ErrnoException | null) => void
++    ) => setTimeout(() => realRename(a, b, cb), 800);
++    syncBuiltinESMExports();
++    try {
++      const path = join(tmp(), 'aiostreams.log');
++      const s = buildFileStream(path, MiB);
++      const big = 'x'.repeat(1000);
++      let written = 0;
++      // just past the limit: exactly one rotation starts, then stalls
++      for (let i = 0; i < 1100; i++, written++) s.write(line(`a${i} ${big}`));
++      await settle();
++      // While stalled: records of exactly 64 KiB, so four fill the 256 KiB
++      // rotation slack to the byte and no notice can fit after them. Each
++      // drain in between then tries (and fails) to write a notice-only record.
++      const pad = (tag: string) =>
++        line(`${tag} ` + 'p'.repeat(64 * 1024 - line(`${tag} `).length));
++      assert.equal(pad('b0.0').length, 64 * 1024);
++      for (let round = 0; round < 6; round++) {
++        for (let i = 0; i < 8; i++, written++) s.write(pad(`b${round}.${i}`));
++        await new Promise((r) => setTimeout(r, 40));
++      }
++      await new Promise((r) => setTimeout(r, 1200));
++      s.write(line('after'));
++      written++;
++      await settle();
++      const all = [path, `${path}.1`].flatMap((f) =>
++        readFileSync(f, 'utf8')
++          .trimEnd()
++          .split('\n')
++          .map((l) => JSON.parse(l))
++      );
++      const kept = all.filter((p) => p.module === 'test').length;
++      const reported = all
++        .filter((p) => p.module === 'log-file')
++        .reduce((n, p) => n + Number(/^(\d+) /.exec(p.msg)?.[1] ?? 0), 0);
++      assert.ok(reported > 0, 'expected some drops');
++      assert.equal(kept + reported, written);
++    } finally {
++      (fs as { rename: unknown }).rename = realRename;
++      syncBuiltinESMExports();
++    }
++  });
++
++  it('process.exit never waits on the file, even when writes would fail', async () => {
++    const logger = fileURLToPath(new URL('./logger.ts', import.meta.url));
++    const config = fileURLToPath(new URL('../config/index.ts', import.meta.url));
++    const started = Date.now();
++    execFileSync(
++      process.execPath,
++      [
++        '--import',
++        'tsx',
++        '-e',
++        `await import(${JSON.stringify(config)});
++         const { createRequire, syncBuiltinESMExports } = await import('node:module');
++         const fs = createRequire(process.cwd() + '/')('fs');
++         const { createLogger } = await import(${JSON.stringify(logger)});
++         const log = createLogger('e2e');
++         await new Promise((r) => setTimeout(r, 100));
++         for (let i = 0; i < 50; i++) log.info('queued ' + 'q'.repeat(5000));
++         const real = fs.writeSync;
++         fs.writeSync = (fd, ...rest) => {
++           if (fd > 2) { const e = new Error('no space'); e.code = 'ENOSPC'; throw e; }
++           return real(fd, ...rest);
++         };
++         syncBuiltinESMExports();
++         process.exit(0);`,
++      ],
++      {
++        env: {
++          ...process.env,
++          LOG_FILE: join(tmp(), 'x.log'),
++          LOG_FORMAT: 'json',
++          LOG_LEVEL: 'info',
++        },
++        stdio: ['ignore', 'ignore', 'inherit'],
++        timeout: 10_000,
++      }
++    );
++    assert.ok(Date.now() - started < 8000, 'exit took too long');
++  });
++
++  it('turns itself off instead of throwing when the path is unwritable', async () => {
++    const dir = tmp();
++    chmodSync(dir, 0o500);
++    try {
++      const s = buildFileStream(join(dir, 'sub', 'aiostreams.log'), MiB);
++      s.write(line('nowhere'));
++      await settle();
++      assert.equal(s.disabled, true);
++      s.write(line('still nowhere')); // no throw once disabled
++    } finally {
++      chmodSync(dir, 0o700);
++    }
++  });
++
++  it('a process that logs and exits normally leaves every line in the file', () => {
++    const path = join(tmp(), 'aiostreams.log');
++    const config = fileURLToPath(new URL('../config/index.ts', import.meta.url));
++    const logger = fileURLToPath(new URL('./logger.ts', import.meta.url));
++    execFileSync(
++      process.execPath,
++      [
++        '--import',
++        'tsx',
++        '-e',
++        `await import(${JSON.stringify(config)});
++         const { createLogger } = await import(${JSON.stringify(logger)});
++         const log = createLogger('e2e');
++         await new Promise((r) => setTimeout(r, 100));
++         const big = 'z'.repeat(2000);
++         for (let i = 0; i < 100; i++) log.info('line ' + i + ' ' + big);
++         // no process.exit(): the event loop empties and the process ends`,
++      ],
++      {
++        env: {
++          ...process.env,
++          LOG_FILE: path,
++          LOG_FORMAT: 'json',
++          LOG_LEVEL: 'info',
++        },
++        stdio: ['ignore', 'ignore', 'inherit'],
++        timeout: 20_000,
++      }
++    );
++    const lines = readFileSync(path, 'utf8')
++      .trimEnd()
++      .split('\n')
++      .map((l) => JSON.parse(l))
++      .filter((l) => l.module === 'e2e');
++    assert.equal(lines.length, 100);
++  });
++
++});
+diff --git a/packages/core/src/logging/logger.ts b/packages/core/src/logging/logger.ts
+index f668772..c0804e9 100644
+--- a/packages/core/src/logging/logger.ts
++++ b/packages/core/src/logging/logger.ts
+@@ -1,5 +1,7 @@
+ import pino, { type DestinationStream, type Logger as PinoLogger } from 'pino';
+ import { prettyFactory } from 'pino-pretty';
++import { rename, stat } from 'fs';
++import { resolve } from 'path';
+ import { Writable } from 'stream';
+ import { formatMilliseconds } from '../utils/time.js';
+ import { redactForLog, redactLogField } from './redact.js';
+@@ -136,6 +138,194 @@ function buildRingStream(): Writable {
+   });
+ }
+ 
++/**
++ * Optional stream C: appends every line to LOG_FILE, so logs outlive the
++ * process and can be read from the filesystem. Lines are rendered the same way
++ * as stdout (json verbatim, text through pino-pretty without colour) and are
++ * already redacted.
++ *
++ * The file is a pino.destination (SonicBoom) in async mode, the same kind of
++ * stream as stdout: writes never block the event loop, at most
++ * LOG_FILE_MAX_PENDING bytes wait for a slow disk (beyond that, lines are
++ * dropped and the drop is noted in the file once writing recovers), and
++ * a normal exit drains what is pending.
++ *
++ * Rotation: bytes are counted as they reach the disk. Once the file passes
++ * LOG_FILE_MAX_SIZE it is renamed (async) to `<LOG_FILE>.1`, replacing any
++ * older one, and the stream reopens a new file. While the rename is in flight
++ * at most LOG_FILE_ROTATION_SLACK more bytes are accepted (the rest are
++ * dropped and noted), and lines already queued may still reach the old file,
++ * so `.1` holds at most LOG_FILE_MAX_SIZE + LOG_FILE_MAX_PENDING +
++ * LOG_FILE_ROTATION_SLACK bytes. The file opens asynchronously, so lines logged in
++ * the first moments of startup are lost from the file (not from stdout) if
++ * the process exits before it has opened. On process.exit() the file is not
++ * written synchronously, so shutdown never waits on it: lines still queued at
++ * that instant are only in stdout. A single record larger than
++ * LOG_FILE_MAX_RECORD is replaced by a short notice. A file error never takes
++ * the app down: file logging turns itself off and says so once on stderr.
++ */
++const LOG_FILE_DEFAULT_MAX_SIZE = 10 * 1024 * 1024;
++const LOG_FILE_MIN_MAX_SIZE = 1024 * 1024;
++const LOG_FILE_MAX_PENDING = 4 * 1024 * 1024;
++const LOG_FILE_MAX_RECORD = 256 * 1024;
++const LOG_FILE_ROTATION_SLACK = 256 * 1024;
++
++export function parseLogFileMaxSize(raw: string | undefined): number {
++  const n = Number(raw);
++  if (!raw || !Number.isFinite(n) || n <= 0) return LOG_FILE_DEFAULT_MAX_SIZE;
++  return Math.max(LOG_FILE_MIN_MAX_SIZE, Math.floor(n));
++}
++
++export function buildFileStream(
++  file: string,
++  maxSize: number
++): DestinationStream & { readonly disabled: boolean } {
++  // Always a path: pino treats a numeric `dest` as a file descriptor.
++  const path = resolve(file);
++  const prettify = prettyFactory({ colorize: false, sync: true });
++  const out = pino.destination({
++    dest: path,
++    sync: false,
++    mkdir: true,
++    append: true,
++    maxLength: LOG_FILE_MAX_PENDING,
++  });
++  let size = 0;
++  let ready = false;
++  let rotating = false;
++  let rotationBytes = 0;
++  let disabled = false;
++  let dropped = 0;
++  let lastWriteDropped = false;
++  // A write carrying only a drop notice: rejecting it loses no app record.
++  let noticeOnly = false;
++
++  const disable = (err: unknown) => {
++    if (disabled) return;
++    disabled = true;
++    process.stderr.write(
++      `LOG_FILE ${path}: file logging turned off: ${String(err)}\n`
++    );
++    try {
++      out.destroy();
++    } catch {
++      // already closed
++    }
++  };
++  out.on('error', disable);
++  // pino flushes this stream synchronously on process.exit(). A synchronous
++  // write can block indefinitely (a stalled filesystem, a FIFO), so for this
++  // stream that flush does nothing.
++  out.flushSync = () => {};
++  out.on('drop', () => {
++    if (!noticeOnly) dropped++;
++    lastWriteDropped = true;
++  });
++  out.on('ready', () => {
++    ready = true;
++  });
++  out.on('write', (n: number) => {
++    size += n;
++    if (ready && !rotating && !disabled && size >= maxSize) rotate();
++  });
++  // Count what is already there, so a restart does not reset the limit.
++  stat(path, (err, st) => {
++    if (!err) size += st.size;
++  });
++
++  // A notice in the file's own format, so json files stay one JSON per line.
++  const notice = (msg: string): string =>
++    currentFormat === 'text'
++      ? `[${msg}]\n`
++      : JSON.stringify({
++          level: 'warn',
++          time: new Date().toISOString(),
++          module: 'log-file',
++          msg,
++        }) + '\n';
++
++  const render = (chunk: string): string => {
++    if (currentFormat !== 'text') return chunk;
++    let text = '';
++    for (const line of chunk.split('\n')) {
++      if (!line) continue;
++      try {
++        text += prettify(JSON.parse(line) as Record<string, unknown>);
++      } catch {
++        text += line + '\n';
++      }
++    }
++    return text;
++  };
++
++  const rotate = () => {
++    rotating = true;
++    rotationBytes = 0;
++    rename(path, `${path}.1`, (err) => {
++      rotating = false;
++      // ENOENT: the file was removed by hand; reopening starts a fresh one.
++      if (err && err.code !== 'ENOENT') {
++        disable(err);
++        return;
++      }
++      if (disabled) return;
++      size = 0;
++      out.reopen();
++    });
++  };
++
++  const api = {
++    get disabled() {
++      return disabled;
++    },
++    write(chunk: string) {
++      if (disabled) return;
++      let text = render(chunk);
++      const hasRecord = text.length > 0;
++      if (Buffer.byteLength(text) > LOG_FILE_MAX_RECORD) {
++        text = notice(
++          `a log record of ${Buffer.byteLength(text)} bytes was too large for LOG_FILE and was left out`
++        );
++      }
++      const pendingDrops = dropped;
++      if (pendingDrops) {
++        text =
++          notice(
++            `${pendingDrops} log writes were dropped: the log file could not keep up`
++          ) + text;
++      }
++      if (!text) return;
++      if (rotating) {
++        // The whole output counts, notice included.
++        const len = Buffer.byteLength(text);
++        if (rotationBytes + len > LOG_FILE_ROTATION_SLACK) {
++          if (hasRecord) dropped++;
++          return;
++        }
++        rotationBytes += len;
++      }
++      lastWriteDropped = false;
++      noticeOnly = !hasRecord;
++      out.write(text);
++      noticeOnly = false;
++      // Only forget the count once its notice is actually in the queue.
++      if (!lastWriteDropped) dropped -= pendingDrops;
++    },
++  };
++  // Report drops even if nothing else is logged after the burst.
++  out.on('drain', () => {
++    if (dropped && !disabled) api.write('');
++  });
++  return api;
++}
++
++const logFileStream = process.env.LOG_FILE
++  ? buildFileStream(
++      process.env.LOG_FILE,
++      parseLogFileMaxSize(process.env.LOG_FILE_MAX_SIZE)
++    )
++  : undefined;
++
+ const root: PinoLogger = pino(
+   {
+     // Boot seed only, read straight from env because the logger is constructed
+@@ -167,6 +357,7 @@ const root: PinoLogger = pino(
+   pino.multistream([
+     { level: 'trace', stream: buildStdoutStream() },
+     { level: 'trace', stream: buildRingStream() },
++    ...(logFileStream ? [{ level: 'trace' as const, stream: logFileStream }] : []),
+   ])
+ );
+ 
+diff --git a/packages/docs/content/docs/configuration/environment-variables.mdx b/packages/docs/content/docs/configuration/environment-variables.mdx
+index 5698f6b..0a8f785 100644
+--- a/packages/docs/content/docs/configuration/environment-variables.mdx
++++ b/packages/docs/content/docs/configuration/environment-variables.mdx
+@@ -68,6 +68,8 @@ These configure the logger.
+ | ------------------------ | ---------- | ------------------------------------------------------------------------- |
+ | `LOG_BUFFER_MAX_BYTES`   | `67108864` | Max bytes of recent log lines kept in memory for the dashboard Logs page. |
+ | `LOG_BUFFER_MAX_ENTRIES` | `200000`   | Hard cap on recent log lines kept in memory for the dashboard Logs page.  |
++| `LOG_FILE`               | Unset      | Also append every log line to this file, in the same format as stdout (without colour). Unset to turn it off. |
++| `LOG_FILE_MAX_SIZE`      | `10485760` | Size in bytes at which `LOG_FILE` is renamed to `LOG_FILE.1` and a new file started. Minimum 1 MiB. |
+ 
+ ### Runtime / Build
+ 
