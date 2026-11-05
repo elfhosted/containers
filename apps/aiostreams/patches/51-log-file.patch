@@ -1,12 +1,12 @@
 diff --git a/.env.sample b/.env.sample
-index a2c5232..5039894 100644
+index a2c5232..3335083 100644
 --- a/.env.sample
 +++ b/.env.sample
 @@ -128,6 +128,10 @@ DATABASE_URI=sqlite://./data/db.sqlite
  # LOG_BUFFER_MAX_BYTES=67108864
  # LOG_BUFFER_MAX_ENTRIES=200000
  
-+# Also append logs to this file (unset: off). Rotates to <file>.1 at LOG_FILE_MAX_SIZE bytes.
++# Also append logs to this file (unset: off). Rotates to <file>.1 at LOG_FILE_MAX_SIZE bytes (1 MiB to 100 MiB).
 +# LOG_FILE=/app/data/logs/aiostreams.log
 +# LOG_FILE_MAX_SIZE=10485760
 +
@@ -15,10 +15,10 @@ index a2c5232..5039894 100644
  #                          EVERYTHING ELSE
 diff --git a/packages/core/src/logging/log-file.test.ts b/packages/core/src/logging/log-file.test.ts
 new file mode 100644
-index 0000000..fed9b15
+index 0000000..30e5f54
 --- /dev/null
 +++ b/packages/core/src/logging/log-file.test.ts
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,359 @@
 +import assert from 'node:assert/strict';
 +import { execFileSync } from 'node:child_process';
 +import {
@@ -54,12 +54,15 @@ index 0000000..fed9b15
 +const tmp = () => mkdtempSync(join(tmpdir(), 'aios-logfile-'));
 +
 +describe('LOG_FILE stream', () => {
-+  it('parses LOG_FILE_MAX_SIZE with a default and a floor', () => {
++  it('parses LOG_FILE_MAX_SIZE with a default, a floor and a ceiling', () => {
 +    assert.equal(parseLogFileMaxSize(undefined), 10 * MiB);
 +    assert.equal(parseLogFileMaxSize('nonsense'), 10 * MiB);
 +    assert.equal(parseLogFileMaxSize('-5'), 10 * MiB);
 +    assert.equal(parseLogFileMaxSize('10'), MiB);
 +    assert.equal(parseLogFileMaxSize(String(20 * MiB)), 20 * MiB);
++    assert.equal(parseLogFileMaxSize(String(100 * MiB)), 100 * MiB);
++    assert.equal(parseLogFileMaxSize(String(2048 * MiB)), 100 * MiB);
++    assert.equal(parseLogFileMaxSize('1e30'), 100 * MiB);
 +  });
 +
 +  it('creates the directory and appends json lines verbatim', async () => {
@@ -376,7 +379,7 @@ index 0000000..fed9b15
 +
 +});
 diff --git a/packages/core/src/logging/logger.ts b/packages/core/src/logging/logger.ts
-index f668772..c0804e9 100644
+index f668772..85108c2 100644
 --- a/packages/core/src/logging/logger.ts
 +++ b/packages/core/src/logging/logger.ts
 @@ -1,5 +1,7 @@
@@ -387,7 +390,7 @@ index f668772..c0804e9 100644
  import { Writable } from 'stream';
  import { formatMilliseconds } from '../utils/time.js';
  import { redactForLog, redactLogField } from './redact.js';
-@@ -136,6 +138,194 @@ function buildRingStream(): Writable {
+@@ -136,6 +138,198 @@ function buildRingStream(): Writable {
    });
  }
  
@@ -419,6 +422,7 @@ index f668772..c0804e9 100644
 + */
 +const LOG_FILE_DEFAULT_MAX_SIZE = 10 * 1024 * 1024;
 +const LOG_FILE_MIN_MAX_SIZE = 1024 * 1024;
++const LOG_FILE_MAX_MAX_SIZE = 100 * 1024 * 1024;
 +const LOG_FILE_MAX_PENDING = 4 * 1024 * 1024;
 +const LOG_FILE_MAX_RECORD = 256 * 1024;
 +const LOG_FILE_ROTATION_SLACK = 256 * 1024;
@@ -426,7 +430,10 @@ index f668772..c0804e9 100644
 +export function parseLogFileMaxSize(raw: string | undefined): number {
 +  const n = Number(raw);
 +  if (!raw || !Number.isFinite(n) || n <= 0) return LOG_FILE_DEFAULT_MAX_SIZE;
-+  return Math.max(LOG_FILE_MIN_MAX_SIZE, Math.floor(n));
++  return Math.min(
++    LOG_FILE_MAX_MAX_SIZE,
++    Math.max(LOG_FILE_MIN_MAX_SIZE, Math.floor(n))
++  );
 +}
 +
 +export function buildFileStream(
@@ -582,7 +589,7 @@ index f668772..c0804e9 100644
  const root: PinoLogger = pino(
    {
      // Boot seed only, read straight from env because the logger is constructed
-@@ -167,6 +357,7 @@ const root: PinoLogger = pino(
+@@ -167,6 +361,7 @@ const root: PinoLogger = pino(
    pino.multistream([
      { level: 'trace', stream: buildStdoutStream() },
      { level: 'trace', stream: buildRingStream() },
@@ -591,7 +598,7 @@ index f668772..c0804e9 100644
  );
  
 diff --git a/packages/docs/content/docs/configuration/environment-variables.mdx b/packages/docs/content/docs/configuration/environment-variables.mdx
-index 5698f6b..0a8f785 100644
+index 5698f6b..e5d9588 100644
 --- a/packages/docs/content/docs/configuration/environment-variables.mdx
 +++ b/packages/docs/content/docs/configuration/environment-variables.mdx
 @@ -68,6 +68,8 @@ These configure the logger.
@@ -599,7 +606,7 @@ index 5698f6b..0a8f785 100644
  | `LOG_BUFFER_MAX_BYTES`   | `67108864` | Max bytes of recent log lines kept in memory for the dashboard Logs page. |
  | `LOG_BUFFER_MAX_ENTRIES` | `200000`   | Hard cap on recent log lines kept in memory for the dashboard Logs page.  |
 +| `LOG_FILE`               | Unset      | Also append every log line to this file, in the same format as stdout (without colour). Unset to turn it off. |
-+| `LOG_FILE_MAX_SIZE`      | `10485760` | Size in bytes at which `LOG_FILE` is renamed to `LOG_FILE.1` and a new file started. Minimum 1 MiB. |
++| `LOG_FILE_MAX_SIZE`      | `10485760` | Size in bytes at which `LOG_FILE` is renamed to `LOG_FILE.1` and a new file started. Minimum 1 MiB, maximum 100 MiB. |
  
  ### Runtime / Build
  
