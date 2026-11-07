@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $(echo $VERSION | cut -d'-' -f1) https://github.com/DialmasterOrg/Youtarr.git /source
 
 # ---- Base Node ----
-FROM node:20-slim AS base
+FROM node:22-bookworm-slim AS base
 WORKDIR /app
 
 # ---- Dependencies ----
@@ -39,16 +39,26 @@ RUN npm ci
 COPY --from=cloner /source/client ./
 RUN npm run build
 
+# ---- Python deps for the runtime image ----
+# Same Python minor as node:22-bookworm-slim's python3 (3.11);
+# curl_cffi ships compiled extensions.
+FROM python:3.11-slim AS python-deps
+RUN pip install --no-cache-dir --target=/opt/apprise apprise
+# yt-dlp uses curl_cffi as an impersonation target for subtitle requests.
+RUN pip install --no-cache-dir --target=/opt/curl_cffi "curl-cffi>=0.10,<0.16"
+
 # ---- Release ----
-FROM node:20-slim AS release
+FROM node:22-bookworm-slim AS release
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    atomicparsley \
     curl \
     unzip \
-    python3-minimal \
+    python3 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Download the latest yt-dlp release directly from GitHub
@@ -59,6 +69,13 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 ENV DENO_INSTALL="/usr/local"
 RUN curl -fsSL https://deno.land/install.sh | sh
 
+# Apprise (all non-Discord notifications) and curl_cffi
+COPY --from=python-deps /opt/apprise /opt/apprise
+COPY --from=python-deps /opt/curl_cffi /opt/curl_cffi
+ENV PYTHONPATH="/opt/apprise:/opt/curl_cffi"
+RUN printf '#!/bin/sh\nexec python3 -c "from apprise.cli import main; main()" "$@"\n' > /usr/local/bin/apprise && \
+    chmod +x /usr/local/bin/apprise
+
 # Copy production node_modules
 COPY --from=dependencies /app/node_modules ./node_modules
 
@@ -66,6 +83,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=build /app/server ./server
 COPY --from=client-build /app/client/build ./client/build
 COPY --from=build /app/migrations ./migrations
+COPY --from=cloner /source/package.json ./package.json
 
 # Copy config.example.json to server directory (guaranteed to exist and accessible)
 COPY --from=cloner /source/config/config.example.json /app/server/config.example.json
