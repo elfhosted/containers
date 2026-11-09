@@ -1,0 +1,357 @@
+diff --git a/packages/core/src/anime-database/database.ts b/packages/core/src/anime-database/database.ts
+index d5da26b4..8e4ce129 100644
+--- a/packages/core/src/anime-database/database.ts
++++ b/packages/core/src/anime-database/database.ts
+@@ -18,6 +18,7 @@ import {
+   type AnimeBuildInfo,
+   type PublishOutcome,
+ } from '../db/repositories/anime.js';
++import { getDb } from '../db/index.js';
+ import { DistributedLock } from '../utils/distributed-lock.js';
+ import {
+   canonicalIdValue,
+@@ -50,6 +51,41 @@ const SOURCE_LOCK_MS = 5 * 60 * 1000;
+ 
+ const ALL_SOURCE_IDS = ANIME_SOURCES.map((source) => source.id);
+ 
++/** Node's largest timer delay; longer ones fire at once. */
++const MAX_TIMER_MS = 2 ** 31 - 1;
++
++/** Where the time a source was last checked against its remote is kept. */
++export function checkedPathFor(filePath: string): string {
++  return `${filePath}.checked`;
++}
++
++/** When the source cached at `filePath` was last checked, if ever. */
++export async function readLastChecked(
++  filePath: string
++): Promise<number | null> {
++  try {
++    const raw = (await fs.readFile(checkedPathFor(filePath), 'utf8')).trim();
++    const at = Number(raw);
++    return /^\d+$/.test(raw) && Number.isSafeInteger(at) ? at : null;
++  } catch {
++    return null;
++  }
++}
++
++/**
++ * Whether a source last checked at `lastChecked` should be checked again at
++ * `now`. Never checked, or checked "in the future" (the clock moved back),
++ * counts as due.
++ */
++export function isSourceDue(
++  lastChecked: number | null,
++  intervalMs: number,
++  now: number
++): boolean {
++  if (lastChecked === null || lastChecked > now) return true;
++  return now - lastChecked >= intervalMs;
++}
++
+ const PUBLISH_MESSAGE: Record<PublishOutcome, string> = {
+   published: 'published the rebuilt store',
+   unchanged: 'store was already current, discarded this build',
+@@ -71,6 +107,12 @@ export class AnimeDatabase {
+   private syncInFlight: Promise<void> | null = null;
+   private queuedSync: { force: boolean } | null = null;
+   private isInitialised = false;
++  /** Pending deferred start-up check, if any. */
++  private startupTimer: NodeJS.Timeout | null = null;
++  /** One-off checks for sources the start-up pass found not yet due. */
++  private readonly dueTimers = new Set<NodeJS.Timeout>();
++  /** Set by {@link stop}; the deferred check starts no new work after it. */
++  private stopped = false;
+   /** Set when the detail level is `none`; every lookup then resolves to null. */
+   private disabled = false;
+   /** LRU over resolved entries, cleared whenever the store is replaced. */
+@@ -106,6 +148,26 @@ export class AnimeDatabase {
+ 
+     this.registerRefreshTasks();
+ 
++    // With a built store already in the database, serve from it now and check
++    // the sources later, so start-up never waits on a download and rebuild.
++    if (await this.canWarmStart()) {
++      const delayMs = Math.min(
++        appConfig.metadata.animeDb.startupRefreshDelay * 1000,
++        MAX_TIMER_MS
++      );
++      logger.info(
++        { checkInMs: delayMs },
++        'serving the stored anime database; sources are checked after start-up'
++      );
++      this.isInitialised = true;
++      this.startupTimer = setTimeout(() => {
++        this.startupTimer = null;
++        void this.startupRefresh();
++      }, delayMs);
++      this.startupTimer.unref?.();
++      return;
++    }
++
+     logger.info('starting initial refresh of all data sources');
+     for (const source of ANIME_SOURCES) {
+       const result = await TaskManager.runNow(`anime-db-refresh-${source.id}`);
+@@ -124,6 +186,106 @@ export class AnimeDatabase {
+     this.isInitialised = true;
+   }
+ 
++  /**
++   * Whether start-up can serve the stored build and check sources later.
++   *
++   * Only on SQLite, where the store and the source files share one data
++   * folder and one process: with a shared Postgres store another replica may
++   * hold newer data than this one's files. And only when every source the
++   * stored build was made from is still on disk, so a later rebuild cannot
++   * drop one.
++   */
++  private async canWarmStart(): Promise<boolean> {
++    if (appConfig.metadata.animeDb.startupRefreshDelay <= 0) return false;
++    if (getDb().dialect !== 'sqlite') return false;
++    const stored = await AnimeRepository.readBuild().catch(() => null);
++    if (!stored || stored.records <= 0) return false;
++    const onDisk = new Set((await this.sourcesOnDisk()).map((s) => s.id));
++    return stored.sources.every((id) => onDisk.has(id));
++  }
++
++  /** Cancel the deferred start-up check and keep it from starting new work. */
++  public stop(): void {
++    this.stopped = true;
++    if (this.startupTimer) clearTimeout(this.startupTimer);
++    this.startupTimer = null;
++    for (const timer of this.dueTimers) clearTimeout(timer);
++    this.dueTimers.clear();
++  }
++
++  /**
++   * The deferred start-up pass: refresh only the sources past their refresh
++   * interval (or missing from disk), then rebuild if what is on disk differs
++   * from the store.
++   */
++  private async startupRefresh(): Promise<void> {
++    try {
++      const now = Date.now();
++      let checked = 0;
++      for (const source of ANIME_SOURCES) {
++        if (this.stopped) return;
++        const present = await fs
++          .access(source.filePath)
++          .then(() => true)
++          .catch(() => false);
++        const last = await readLastChecked(source.filePath);
++        if (present && !isSourceDue(last, source.refreshIntervalMs(), now)) {
++          // Not due yet: check it when it is, rather than a full interval
++          // after this start, which is when its scheduled task next runs.
++          this.checkWhenDue(source, last! + source.refreshIntervalMs() - now);
++          continue;
++        }
++        if (this.stopped) return;
++        checked++;
++        const result = await TaskManager.runNow(
++          `anime-db-refresh-${source.id}`
++        );
++        if (!result.ok) {
++          logger.error(
++            { source: source.name, error: result.message },
++            'failed to refresh data source'
++          );
++        }
++      }
++      logger.info(
++        { checked, upToDate: ANIME_SOURCES.length - checked },
++        'start-up source check complete'
++      );
++      if (this.stopped) return;
++      // Before the sync, so a refresh finishing during it queues a follow-up.
++      this.allowIncrementalSync = true;
++      await this.scheduleSync('startup');
++    } catch (error) {
++      logger.error({ error }, 'start-up source check failed');
++    } finally {
++      this.allowIncrementalSync = true;
++    }
++  }
++
++  private checkWhenDue(source: AnimeSource, inMs: number): void {
++    const timer = setTimeout(
++      () => {
++        this.dueTimers.delete(timer);
++        if (this.stopped) return;
++        void TaskManager.runNow(`anime-db-refresh-${source.id}`).then(
++          (result) => {
++            if (!result.ok) {
++              logger.error(
++                { source: source.name, error: result.message },
++                'failed to refresh data source'
++              );
++            }
++          },
++          (error) =>
++            logger.error({ source: source.name, error }, 'refresh failed')
++        );
++      },
++      Math.min(Math.max(inMs, 0), MAX_TIMER_MS)
++    );
++    timer.unref?.();
++    this.dueTimers.add(timer);
++  }
++
+   private registerRefreshTasks(): void {
+     for (const source of ANIME_SOURCES) {
+       TaskManager.register({
+@@ -170,7 +332,20 @@ export class AnimeDatabase {
+     // share a data volume.
+     await DistributedLock.getInstance().withLock(
+       `anime-source-${source.id}`,
+-      () => fetchWithEtag(source.id, source.url, source.filePath),
++      async () => {
++        const result = await fetchWithEtag(
++          source.id,
++          source.url,
++          source.filePath
++        );
++        // Only the holder that completed the check records it.
++        await fs
++          .writeFile(checkedPathFor(source.filePath), String(Date.now()))
++          .catch((error) =>
++            logger.warn({ source: source.name, error }, 'could not record check')
++          );
++        return result;
++      },
+       {
+         type: 'file',
+         lockDir: ANIME_DATABASE_PATH,
+@@ -261,6 +436,7 @@ export class AnimeDatabase {
+         if (!retried) {
+           this.retriedVersions.set(source.id, version);
+           await invalidateCache(source.filePath);
++          await fs.unlink(checkedPathFor(source.filePath)).catch(() => {});
+         }
+         continue;
+       }
+@@ -270,6 +446,11 @@ export class AnimeDatabase {
+       entryCounts[source.id] = entries.length;
+     }
+ 
++    if (!built.length) {
++      logger.warn({ reason }, 'no source files parsed; keeping the stored store');
++      return;
++    }
++
+     const records = mergeSources(batches);
+     const outcome = await AnimeRepository.publish({
+       records,
+diff --git a/packages/core/src/anime-database/startup-refresh.test.ts b/packages/core/src/anime-database/startup-refresh.test.ts
+new file mode 100644
+index 00000000..c1aff74e
+--- /dev/null
++++ b/packages/core/src/anime-database/startup-refresh.test.ts
+@@ -0,0 +1,76 @@
++import { describe, it } from 'node:test';
++import assert from 'node:assert/strict';
++import fs from 'node:fs/promises';
++import os from 'node:os';
++import path from 'node:path';
++import {
++  checkedPathFor,
++  isSourceDue,
++  readLastChecked,
++} from './database.js';
++
++const DAY = 86_400_000;
++
++describe('isSourceDue', () => {
++  const now = 1_800_000_000_000;
++
++  it('is due when never checked', () => {
++    assert.equal(isSourceDue(null, DAY, now), true);
++  });
++
++  it('is not due inside the interval', () => {
++    assert.equal(isSourceDue(now - DAY + 1, DAY, now), false);
++    assert.equal(isSourceDue(now, DAY, now), false);
++  });
++
++  it('is due once the interval has passed', () => {
++    assert.equal(isSourceDue(now - DAY, DAY, now), true);
++    assert.equal(isSourceDue(now - 7 * DAY, DAY, now), true);
++  });
++
++  it('is due when the stamp is in the future', () => {
++    assert.equal(isSourceDue(now + 60_000, DAY, now), true);
++  });
++});
++
++describe('readLastChecked', () => {
++  async function withStamp<T>(
++    contents: string | null,
++    fn: (filePath: string) => Promise<T>
++  ): Promise<T> {
++    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'aios-checked-'));
++    const filePath = path.join(dir, 'source.json');
++    try {
++      if (contents !== null) {
++        await fs.writeFile(checkedPathFor(filePath), contents);
++      }
++      return await fn(filePath);
++    } finally {
++      await fs.rm(dir, { recursive: true, force: true });
++    }
++  }
++
++  it('reads a written stamp', async () => {
++    await withStamp('1800000000000', async (f) =>
++      assert.equal(await readLastChecked(f), 1_800_000_000_000)
++    );
++  });
++
++  it('tolerates a trailing newline', async () => {
++    await withStamp('1800000000000\n', async (f) =>
++      assert.equal(await readLastChecked(f), 1_800_000_000_000)
++    );
++  });
++
++  it('is null when there is no stamp', async () => {
++    await withStamp(null, async (f) => assert.equal(await readLastChecked(f), null));
++  });
++
++  it('is null for a damaged stamp', async () => {
++    for (const bad of ['', 'abc', '-5', '1.5', '99999999999999999999']) {
++      await withStamp(bad, async (f) =>
++        assert.equal(await readLastChecked(f), null, `stamp ${JSON.stringify(bad)}`)
++      );
++    }
++  });
++});
+diff --git a/packages/core/src/config/schema/metadata.ts b/packages/core/src/config/schema/metadata.ts
+index 3f14fc35..5502ff3b 100644
+--- a/packages/core/src/config/schema/metadata.ts
++++ b/packages/core/src/config/schema/metadata.ts
+@@ -219,5 +219,15 @@ export const metadataSchema = {
+         secret: false,
+       },
+     },
++    startupRefreshDelay: {
++      schema: seconds,
++      default: 300,
++      label: 'Anime DB start-up refresh delay (s)',
++      description:
++        'When a built anime database already exists, start serving from it at once and check the sources this many seconds after start-up, refreshing only those past their refresh interval. 0 checks every source and rebuilds before the database is ready.',
++      env: 'ANIME_DB_STARTUP_REFRESH_DELAY',
++      requiresRestart: true,
++      secret: false,
++    },
+   },
+ } as const satisfies RuntimeConfigSection;
+diff --git a/packages/server/src/server.ts b/packages/server/src/server.ts
+index f8f62832..bff6e23f 100644
+--- a/packages/server/src/server.ts
++++ b/packages/server/src/server.ts
+@@ -503,6 +503,7 @@ async function start() {
+ 
+ async function shutdown() {
+   TaskManager.stopAll();
++  AnimeDatabase.getInstance().stop();
+   stopMetricsHistory();
+   await stopFuseMount().catch(() => undefined);
+   await stopNfsShare().catch(() => undefined);
