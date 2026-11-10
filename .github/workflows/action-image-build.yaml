@@ -31,6 +31,15 @@ on:
         default: 'false'
         type: string
 
+      # containers-private commit to overlay. Empty (the default) means its
+      # default branch, as every release build has always used. The
+      # containers-private PR workflow passes the PR's head SHA here, so a
+      # private change gets this same build and goss test before it merges.
+      privateRef:
+        required: false
+        default: ''
+        type: string
+
       # Set to 'true' by the hourly schedule ONLY. The schedule queues an
       # app/channel because upstream != published at matrix-generation time,
       # but the matrix carries no version and the job may sit in the
@@ -95,16 +104,23 @@ jobs:
       cancel-in-progress: false
       queue: max
     steps:
+      # Always this public repo. Called from containers-private, a bare
+      # checkout would fetch the caller instead; there, build from main.
       - uses: actions/checkout@v3
         with:
+          repository: elfhosted/containers
+          ref: ${{ github.repository != 'elfhosted/containers' && 'main' || '' }}
           fetch-depth: 1
 
+      # Called from containers-private, its own token can read that repo, so
+      # GH_TOKEN_CONTAINERS_PRIVATE is only needed when called from here.
       - name: Checkout private repo
         uses: actions/checkout@v3
         with:
           repository: elfhosted/containers-private
           path: containers-private
-          token: ${{ secrets.GH_TOKEN_CONTAINERS_PRIVATE }}
+          ref: ${{ inputs.privateRef }}
+          token: ${{ secrets.GH_TOKEN_CONTAINERS_PRIVATE || github.token }}
           fetch-depth: 1
 
       - name: Refuse private build inputs for published apps
