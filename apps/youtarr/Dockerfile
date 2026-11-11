@@ -8,7 +8,7 @@ RUN apk update && apk upgrade && \
 RUN git clone -b $(echo $VERSION | cut -d'-' -f1) https://github.com/DialmasterOrg/Youtarr.git /source
 
 # ---- Base Node ----
-FROM node:22-bookworm-slim AS base
+FROM node:26-bookworm-slim AS base
 WORKDIR /app
 
 # ---- Dependencies ----
@@ -48,7 +48,7 @@ RUN pip install --no-cache-dir --target=/opt/apprise apprise
 RUN pip install --no-cache-dir --target=/opt/curl_cffi "curl-cffi>=0.10,<0.16"
 
 # ---- Release ----
-FROM node:22-bookworm-slim AS release
+FROM node:26-bookworm-slim AS release
 WORKDIR /app
 
 # Install runtime dependencies
