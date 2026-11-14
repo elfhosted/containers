@@ -50,7 +50,6 @@ COPY --from=cloner /source/packages/core/package*.json ./packages/core/
 COPY --from=cloner /source/packages/frontend/package*.json ./packages/frontend/
 COPY --from=cloner /source/packages/ui/package*.json ./packages/ui/
 COPY --from=cloner /source/packages/web/package*.json ./packages/web/
-COPY --from=cloner /source/packages/seanime-extensions/package*.json ./packages/seanime-extensions/
 COPY --from=cloner /source/packages/crypto/package*.json ./packages/crypto/
 COPY --from=cloner /source/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=cloner /source/pnpm-lock.yaml ./pnpm-lock.yaml
@@ -67,7 +66,6 @@ COPY --from=cloner /source/packages/core ./packages/core
 COPY --from=cloner /source/packages/frontend ./packages/frontend
 COPY --from=cloner /source/packages/ui ./packages/ui
 COPY --from=cloner /source/packages/web ./packages/web
-COPY --from=cloner /source/packages/seanime-extensions ./packages/seanime-extensions
 COPY --from=cloner /source/packages/crypto ./packages/crypto
 COPY --from=cloner /source/scripts ./scripts
 COPY --from=cloner /source/resources ./resources
@@ -83,7 +81,6 @@ RUN rm -rf packages/server/node_modules
 RUN rm -rf packages/frontend/node_modules
 RUN rm -rf packages/ui/node_modules
 RUN rm -rf packages/web/node_modules
-RUN rm -rf packages/seanime-extensions/node_modules
 
 RUN pnpm install --prod --frozen-lockfile
 
@@ -114,7 +111,6 @@ COPY --from=builder /build/packages/frontend/dist ./packages/frontend/dist
 COPY --from=builder /build/packages/web/dist ./packages/web/dist
 COPY --from=builder /build/packages/server/dist ./packages/server/dist
 COPY --from=builder /build/packages/server/src/static ./packages/server/dist/static
-COPY --from=builder /build/packages/seanime-extensions/dist ./packages/seanime-extensions/dist
 
 COPY --from=builder /build/resources ./resources
 COPY --from=builder /build/scripts ./scripts
