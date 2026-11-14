@@ -35,7 +35,7 @@ diff --git a/packages/core/src/builtins/library/catalog.ts b/packages/core/src/b
 index b3b1809..6cdf76f 100644
 --- a/packages/core/src/builtins/library/catalog.ts
 +++ b/packages/core/src/builtins/library/catalog.ts
-@@ -15,6 +15,11 @@ import { ParsedResult } from '@viren070/parse-torrent-title';
+@@ -15,6 +15,11 @@ import { ParsedResult } from '@aiostreams/release-parser';
  import { parseTorrentTitleCached } from '../../parser/title.js';
  import { normaliseTitle } from '../../parser/utils.js';
  import { token_set_ratio } from 'fuzzball';
@@ -174,7 +174,7 @@ index 0000000..0c8c79b
 +++ b/packages/core/src/builtins/library/resolve.ts
 @@ -0,0 +1,149 @@
 +import pLimit from 'p-limit';
-+import { ParsedResult } from '@viren070/parse-torrent-title';
++import { ParsedResult } from '@aiostreams/release-parser';
 +import { TMDBMetadata, TitleSearchResult } from '../../metadata/tmdb.js';
 +import { createLogger } from '../../utils/index.js';
 +import { config as appConfig } from '../../config/index.js';
