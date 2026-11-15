@@ -1,60 +1,92 @@
-From a0ea3eef70b9a04585a91e98ac2bf8c3a16dedf4 Mon Sep 17 00:00:00 2001
+From 9ce574057def618e78de52c71e0c8d3fa430d2b0 Mon Sep 17 00:00:00 2001
 From: ElfHosted <hello@elfhosted.com>
 Date: Tue, 13 Oct 2026 12:35:08 +1300
-Subject: [PATCH] Optionally hide error details from signed-out visitors
+Subject: [PATCH 5/6] Optionally hide error details from signed-out visitors
 
 ERROR_DETAILS_ANONYMOUS (default on, upstream behaviour). When off, a
 signed-out visitor's error page carries the heading and a generic
 message only: no traceback, exception text or provider context, which
 can include an upstream URL with its api_key.
 ---
- src/app/error_views.py                        | 17 ++++++
- src/app/tests/test_error_views.py             | 59 +++++++++++++++++++
- src/app/tests/urls_error_pages.py             | 21 +++++++
+ src/app/error_views.py                        | 30 +++++++-
+ src/app/tests/test_error_views.py             | 71 +++++++++++++++++++
+ src/app/tests/urls_error_pages.py             | 21 ++++++
  src/config/settings.py                        |  6 ++
+ src/templates/400.html                        |  4 +-
+ src/templates/403.html                        |  4 +-
+ src/templates/403_csrf.html                   |  4 +-
+ src/templates/404.html                        |  4 +-
+ src/templates/500.html                        |  4 +-
  .../includes/error_report_panel.html          |  2 +
- 5 files changed, 105 insertions(+)
+ 10 files changed, 139 insertions(+), 11 deletions(-)
 
 diff --git a/src/app/error_views.py b/src/app/error_views.py
-index 133e28f..be68e2d 100644
+index 85fc28fa6..e6fff6ad3 100644
 --- a/src/app/error_views.py
 +++ b/src/app/error_views.py
-@@ -1,6 +1,7 @@
- import traceback
+@@ -2,6 +2,7 @@ import traceback
+ from http import HTTPStatus
  from urllib.parse import urlparse
  
 +from django.conf import settings
  from django.contrib import messages
  from django.contrib.auth.decorators import login_not_required
  from django.contrib.auth.views import redirect_to_login
-@@ -126,6 +127,22 @@ def render_error_page(
-     extra_context: dict[str, object] | None = None,
+@@ -131,6 +132,26 @@ def render_error_page(
+     actions: dict[str, str] | None = None,
  ) -> HttpResponse:
      """Render a custom error page with a copyable traceback panel."""
 +    user = getattr(request, "user", None)
-+    if not (
++    hide_details = not (
 +        getattr(settings, "ERROR_DETAILS_ANONYMOUS", True)
 +        or getattr(user, "is_authenticated", False)
-+    ):
++    )
++    if hide_details:
 +        # Signed out on an instance that hides details: no exception text,
-+        # traceback or provider context, any of which can carry credentials.
-+        context = {
-+            "error_status_code": status_code,
-+            "error_page_title": page_title,
-+            "error_heading": heading,
-+            "error_message": "Sign in to see the details.",
-+            "error_report": "",
-+        }
-+        return render(request, template_name, context, status=status_code)
++        # traceback, report or provider context (extra_context carries the
++        # provider notes), any of which can carry credentials. No recovery
++        # props either: the client component always draws the report panel,
++        # so the templates mount it only when there are props, and this page
++        # stays the server-rendered one, which hides an empty report.
++        error_message = "Sign in to see the details."
++        exception = None
++        traceback_text = None
++        extra_lines = None
++        extra_context = None
++        checks = None
++        support = None
 +
      context = {
          "error_status_code": status_code,
          "error_page_title": page_title,
+@@ -142,7 +163,9 @@ def render_error_page(
+             "Copy this block when opening a ticket so the traceback and request "
+             "details are preserved."
+         ),
+-        "error_report": build_error_report(
++        "error_report": ""
++        if hide_details
++        else build_error_report(
+             request,
+             status_code,
+             page_title,
+@@ -178,6 +201,11 @@ def render_error_page(
+         "https://github.com/dannyvfilms/Floppy/issues",
+     )
+ 
++    if hide_details:
++        context["error_report_title"] = ""
++        context["error_report_note"] = ""
++        return render(request, template_name, context, status=status_code)
++
+     context["error_recovery_props"] = {
+         "status": status_code,
+         "heading": heading,
 diff --git a/src/app/tests/test_error_views.py b/src/app/tests/test_error_views.py
-index 978bd97..e58d181 100644
+index 978bd9749..0c7465fd7 100644
 --- a/src/app/tests/test_error_views.py
 +++ b/src/app/tests/test_error_views.py
-@@ -210,3 +210,62 @@ class ErrorPageTests(TestCase):
+@@ -210,3 +210,74 @@ class ErrorPageTests(TestCase):
              response.headers["Location"],
              "http://testserver/track_modal/tmdb/tv/117648",
          )
@@ -91,6 +123,18 @@ index 978bd97..e58d181 100644
 +        self.assertNotIn("Kaboom", body)
 +        self.assertNotIn("RuntimeError", body)
 +
++    def test_signed_out_page_does_not_mount_the_report_component(self):
++        # The client component always draws the report panel (an empty
++        # Traceback box, Copy button and note), so a signed-out page must not
++        # mount it: no props, no mount point, only the generic message.
++        response = self.client.get("/boom-tmdb-keyed-url/")
++
++        body = response.content.decode()
++        self.assertNotIn("data-error-recovery-root", body)
++        self.assertNotIn('id="error-recovery-props"', body)
++        self.assertNotIn("Traceback", body)
++        self.assertIn("Sign in to see the details.", body)
++
 +    def test_signed_in_user_still_gets_the_report(self):
 +        # A signed-in page renders the full navigation, which this test
 +        # urlconf does not have, so check what reaches the template instead.
@@ -118,7 +162,7 @@ index 978bd97..e58d181 100644
 +        self.assertIn("TENANTSECRET123", context["error_report"])
 +        self.assertIn("TENANTSECRET123", context["error_message"])
 diff --git a/src/app/tests/urls_error_pages.py b/src/app/tests/urls_error_pages.py
-index 848bdb8..017359e 100644
+index 848bdb8d2..017359ebc 100644
 --- a/src/app/tests/urls_error_pages.py
 +++ b/src/app/tests/urls_error_pages.py
 @@ -73,6 +73,26 @@ def boom_hardcover_401(_request):
@@ -156,10 +200,10 @@ index 848bdb8..017359e 100644
      path("csrf-protected/", csrf_protected),
  ]
 diff --git a/src/config/settings.py b/src/config/settings.py
-index 967aede..186048f 100644
+index a56317b44..3e2201ada 100644
 --- a/src/config/settings.py
 +++ b/src/config/settings.py
-@@ -2106,3 +2106,9 @@ DEMO_ACCOUNT_ENABLED = config("DEMO_ACCOUNT_ENABLED", default=False, cast=bool)
+@@ -2353,3 +2353,9 @@ DEMO_ACCOUNT_ENABLED = config("DEMO_ACCOUNT_ENABLED", default=False, cast=bool)
  # Applies when an account is created and after migrations, and only while the
  # instance has no superuser at all, so it never adds a second one.
  FIRST_USER_SUPERUSER = config("FIRST_USER_SUPERUSER", default=False, cast=bool)
@@ -169,8 +213,83 @@ index 967aede..186048f 100644
 +# default (upstream behaviour); set False on an instance reachable without a
 +# login so anonymous visitors get the heading and a generic message only.
 +ERROR_DETAILS_ANONYMOUS = config("ERROR_DETAILS_ANONYMOUS", default=True, cast=bool)
+diff --git a/src/templates/400.html b/src/templates/400.html
+index 72335b9b7..ba356a987 100644
+--- a/src/templates/400.html
++++ b/src/templates/400.html
+@@ -15,8 +15,8 @@
+ 
+ {% block body %}
+   <div class="min-h-screen bg-[var(--color-page-bg)] flex flex-col items-center justify-center text-[var(--color-text)] p-4">
+-    {{ error_recovery_props|json_script:"error-recovery-props" }}
+-    <div class="text-center max-w-md" data-error-recovery-root data-props-id="error-recovery-props">
++    {% if error_recovery_props %}{{ error_recovery_props|json_script:"error-recovery-props" }}{% endif %}
++    <div class="text-center max-w-md"{% if error_recovery_props %} data-error-recovery-root data-props-id="error-recovery-props"{% endif %}>
+       <div class="mb-6">
+         <div class="text-9xl font-bold text-orange-500">{{ error_status_code|default:"400" }}</div>
+         <h1 class="text-3xl font-bold mt-4 mb-2">{% translate error_heading|default:_("Bad Request") %}</h1>
+diff --git a/src/templates/403.html b/src/templates/403.html
+index 5a05c54b9..84d23c4e5 100644
+--- a/src/templates/403.html
++++ b/src/templates/403.html
+@@ -15,8 +15,8 @@
+ 
+ {% block body %}
+   <div class="min-h-screen bg-[var(--color-page-bg)] flex flex-col items-center justify-center text-[var(--color-text)] p-4">
+-    {{ error_recovery_props|json_script:"error-recovery-props" }}
+-    <div class="text-center max-w-md" data-error-recovery-root data-props-id="error-recovery-props">
++    {% if error_recovery_props %}{{ error_recovery_props|json_script:"error-recovery-props" }}{% endif %}
++    <div class="text-center max-w-md"{% if error_recovery_props %} data-error-recovery-root data-props-id="error-recovery-props"{% endif %}>
+       <div class="mb-6">
+         <div class="text-9xl font-bold text-red-400">{{ error_status_code|default:"403" }}</div>
+         <h1 class="text-3xl font-bold mt-4 mb-2">{% translate error_heading|default:_("Access Forbidden") %}</h1>
+diff --git a/src/templates/403_csrf.html b/src/templates/403_csrf.html
+index 3cea5588c..7647531cd 100644
+--- a/src/templates/403_csrf.html
++++ b/src/templates/403_csrf.html
+@@ -15,8 +15,8 @@
+ 
+ {% block body %}
+   <div class="min-h-screen bg-[var(--color-page-bg)] flex flex-col items-center justify-center text-[var(--color-text)] p-4">
+-    {{ error_recovery_props|json_script:"error-recovery-props" }}
+-    <div class="text-center max-w-md" data-error-recovery-root data-props-id="error-recovery-props">
++    {% if error_recovery_props %}{{ error_recovery_props|json_script:"error-recovery-props" }}{% endif %}
++    <div class="text-center max-w-md"{% if error_recovery_props %} data-error-recovery-root data-props-id="error-recovery-props"{% endif %}>
+       <div class="mb-6">
+         <div class="text-9xl font-bold text-red-400">{{ error_status_code|default:"403" }}</div>
+         <h1 class="text-3xl font-bold mt-4 mb-2">{{ error_heading|default:"Access Forbidden" }}</h1>
+diff --git a/src/templates/404.html b/src/templates/404.html
+index 79069ca5e..61c7b4927 100644
+--- a/src/templates/404.html
++++ b/src/templates/404.html
+@@ -15,8 +15,8 @@
+ 
+ {% block body %}
+   <div class="min-h-screen bg-[var(--color-page-bg)] flex flex-col items-center justify-center text-[var(--color-text)] p-4">
+-    {{ error_recovery_props|json_script:"error-recovery-props" }}
+-    <div class="text-center max-w-md" data-error-recovery-root data-props-id="error-recovery-props">
++    {% if error_recovery_props %}{{ error_recovery_props|json_script:"error-recovery-props" }}{% endif %}
++    <div class="text-center max-w-md"{% if error_recovery_props %} data-error-recovery-root data-props-id="error-recovery-props"{% endif %}>
+       <div class="mb-6">
+         <div class="text-9xl font-bold text-indigo-500">{{ error_status_code|default:"404" }}</div>
+         <h1 class="text-3xl font-bold mt-4 mb-2">{% translate error_heading|default:_("Page Not Found") %}</h1>
+diff --git a/src/templates/500.html b/src/templates/500.html
+index 095f94063..adcfc3ad2 100644
+--- a/src/templates/500.html
++++ b/src/templates/500.html
+@@ -15,8 +15,8 @@
+ 
+ {% block body %}
+   <div class="min-h-screen bg-[var(--color-page-bg)] flex flex-col items-center justify-center text-[var(--color-text)] p-4">
+-    {{ error_recovery_props|json_script:"error-recovery-props" }}
+-    <div class="text-center max-w-md" data-error-recovery-root data-props-id="error-recovery-props">
++    {% if error_recovery_props %}{{ error_recovery_props|json_script:"error-recovery-props" }}{% endif %}
++    <div class="text-center max-w-md"{% if error_recovery_props %} data-error-recovery-root data-props-id="error-recovery-props"{% endif %}>
+       <div class="mb-6">
+         <div class="text-9xl font-bold text-red-500">{{ error_status_code|default:"500" }}</div>
+         <h1 class="text-3xl font-bold mt-4 mb-3">{% translate error_heading|default:_("Something Went Wrong") %}</h1>
 diff --git a/src/templates/includes/error_report_panel.html b/src/templates/includes/error_report_panel.html
-index dd00a8c..bb54c4f 100644
+index dd00a8c0b..bb54c4f39 100644
 --- a/src/templates/includes/error_report_panel.html
 +++ b/src/templates/includes/error_report_panel.html
 @@ -1,5 +1,6 @@
@@ -186,5 +305,5 @@ index dd00a8c..bb54c4f 100644
  </div>
 +{% endif %}
 -- 
-2.54.0
+2.43.0
 
