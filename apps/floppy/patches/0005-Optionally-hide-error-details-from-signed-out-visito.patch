@@ -1,60 +1,74 @@
-From a0ea3eef70b9a04585a91e98ac2bf8c3a16dedf4 Mon Sep 17 00:00:00 2001
+From 60a0b2c25058488920d9d797592a912a0fd7f709 Mon Sep 17 00:00:00 2001
 From: ElfHosted <hello@elfhosted.com>
 Date: Tue, 13 Oct 2026 12:35:08 +1300
-Subject: [PATCH] Optionally hide error details from signed-out visitors
+Subject: [PATCH 5/6] Optionally hide error details from signed-out visitors
 
 ERROR_DETAILS_ANONYMOUS (default on, upstream behaviour). When off, a
 signed-out visitor's error page carries the heading and a generic
 message only: no traceback, exception text or provider context, which
 can include an upstream URL with its api_key.
 ---
- src/app/error_views.py                        | 17 ++++++
- src/app/tests/test_error_views.py             | 59 +++++++++++++++++++
- src/app/tests/urls_error_pages.py             | 21 +++++++
+ src/app/error_views.py                        | 24 ++++-
+ src/app/tests/test_error_views.py             | 92 +++++++++++++++++++
+ src/app/tests/urls_error_pages.py             | 21 +++++
  src/config/settings.py                        |  6 ++
  .../includes/error_report_panel.html          |  2 +
- 5 files changed, 105 insertions(+)
+ 5 files changed, 144 insertions(+), 1 deletion(-)
 
 diff --git a/src/app/error_views.py b/src/app/error_views.py
-index 133e28f..be68e2d 100644
+index 85fc28fa6..d5615d6fa 100644
 --- a/src/app/error_views.py
 +++ b/src/app/error_views.py
-@@ -1,6 +1,7 @@
- import traceback
+@@ -2,6 +2,7 @@ import traceback
+ from http import HTTPStatus
  from urllib.parse import urlparse
  
 +from django.conf import settings
  from django.contrib import messages
  from django.contrib.auth.decorators import login_not_required
  from django.contrib.auth.views import redirect_to_login
-@@ -126,6 +127,22 @@ def render_error_page(
-     extra_context: dict[str, object] | None = None,
+@@ -131,6 +132,25 @@ def render_error_page(
+     actions: dict[str, str] | None = None,
  ) -> HttpResponse:
      """Render a custom error page with a copyable traceback panel."""
 +    user = getattr(request, "user", None)
-+    if not (
++    hide_details = not (
 +        getattr(settings, "ERROR_DETAILS_ANONYMOUS", True)
 +        or getattr(user, "is_authenticated", False)
-+    ):
++    )
++    if hide_details:
 +        # Signed out on an instance that hides details: no exception text,
-+        # traceback or provider context, any of which can carry credentials.
-+        context = {
-+            "error_status_code": status_code,
-+            "error_page_title": page_title,
-+            "error_heading": heading,
-+            "error_message": "Sign in to see the details.",
-+            "error_report": "",
-+        }
-+        return render(request, template_name, context, status=status_code)
++        # traceback, report or provider context (extra_context carries the
++        # provider notes), any of which can carry credentials. The page and
++        # its recovery props are still built below, so the client component
++        # mounts with the generic message instead of failing on missing props.
++        error_message = "Sign in to see the details."
++        exception = None
++        traceback_text = None
++        extra_lines = None
++        extra_context = None
++        checks = None
++        support = None
 +
      context = {
          "error_status_code": status_code,
          "error_page_title": page_title,
+@@ -142,7 +162,9 @@ def render_error_page(
+             "Copy this block when opening a ticket so the traceback and request "
+             "details are preserved."
+         ),
+-        "error_report": build_error_report(
++        "error_report": ""
++        if hide_details
++        else build_error_report(
+             request,
+             status_code,
+             page_title,
 diff --git a/src/app/tests/test_error_views.py b/src/app/tests/test_error_views.py
-index 978bd97..e58d181 100644
+index 978bd9749..50a3cbb3c 100644
 --- a/src/app/tests/test_error_views.py
 +++ b/src/app/tests/test_error_views.py
-@@ -210,3 +210,62 @@ class ErrorPageTests(TestCase):
+@@ -210,3 +210,95 @@ class ErrorPageTests(TestCase):
              response.headers["Location"],
              "http://testserver/track_modal/tmdb/tv/117648",
          )
@@ -91,6 +105,39 @@ index 978bd97..e58d181 100644
 +        self.assertNotIn("Kaboom", body)
 +        self.assertNotIn("RuntimeError", body)
 +
++    def test_signed_out_page_still_gets_safe_recovery_props(self):
++        # The error page mounts a client component from error_recovery_props;
++        # a signed-out page must carry them, with nothing sensitive inside.
++        from unittest.mock import patch
++
++        from django.contrib.auth.models import AnonymousUser
++        from django.http import HttpResponse
++
++        from app.error_views import render_error_page
++
++        request = RequestFactory().get("/somewhere/")
++        request.user = AnonymousUser()
++        with patch("app.error_views.render", return_value=HttpResponse()) as fake:
++            render_error_page(
++                request,
++                "500.html",
++                status_code=502,
++                page_title="Provider Error",
++                heading="Provider Error",
++                error_message="url: https://api.themoviedb.org/3/movie/0?api_key=TENANTSECRET123",
++                exception=RuntimeError("TENANTSECRET123"),
++                extra_context={"error_support_text": "TENANTSECRET123"},
++                checks=["TENANTSECRET123"],
++            )
++        context = fake.call_args.args[2]
++        props = context["error_recovery_props"]
++        self.assertEqual(props["message"], "Sign in to see the details.")
++        self.assertEqual(props["report"], "")
++        self.assertEqual(props["checks"], [])
++        self.assertIsNone(props["support"])
++        self.assertIn("homeHref", props["actions"])
++        self.assertNotIn("TENANTSECRET123", repr(context))
++
 +    def test_signed_in_user_still_gets_the_report(self):
 +        # A signed-in page renders the full navigation, which this test
 +        # urlconf does not have, so check what reaches the template instead.
@@ -118,7 +165,7 @@ index 978bd97..e58d181 100644
 +        self.assertIn("TENANTSECRET123", context["error_report"])
 +        self.assertIn("TENANTSECRET123", context["error_message"])
 diff --git a/src/app/tests/urls_error_pages.py b/src/app/tests/urls_error_pages.py
-index 848bdb8..017359e 100644
+index 848bdb8d2..017359ebc 100644
 --- a/src/app/tests/urls_error_pages.py
 +++ b/src/app/tests/urls_error_pages.py
 @@ -73,6 +73,26 @@ def boom_hardcover_401(_request):
@@ -156,10 +203,10 @@ index 848bdb8..017359e 100644
      path("csrf-protected/", csrf_protected),
  ]
 diff --git a/src/config/settings.py b/src/config/settings.py
-index 967aede..186048f 100644
+index a56317b44..3e2201ada 100644
 --- a/src/config/settings.py
 +++ b/src/config/settings.py
-@@ -2106,3 +2106,9 @@ DEMO_ACCOUNT_ENABLED = config("DEMO_ACCOUNT_ENABLED", default=False, cast=bool)
+@@ -2353,3 +2353,9 @@ DEMO_ACCOUNT_ENABLED = config("DEMO_ACCOUNT_ENABLED", default=False, cast=bool)
  # Applies when an account is created and after migrations, and only while the
  # instance has no superuser at all, so it never adds a second one.
  FIRST_USER_SUPERUSER = config("FIRST_USER_SUPERUSER", default=False, cast=bool)
@@ -170,7 +217,7 @@ index 967aede..186048f 100644
 +# login so anonymous visitors get the heading and a generic message only.
 +ERROR_DETAILS_ANONYMOUS = config("ERROR_DETAILS_ANONYMOUS", default=True, cast=bool)
 diff --git a/src/templates/includes/error_report_panel.html b/src/templates/includes/error_report_panel.html
-index dd00a8c..bb54c4f 100644
+index dd00a8c0b..bb54c4f39 100644
 --- a/src/templates/includes/error_report_panel.html
 +++ b/src/templates/includes/error_report_panel.html
 @@ -1,5 +1,6 @@
@@ -186,5 +233,5 @@ index dd00a8c..bb54c4f 100644
  </div>
 +{% endif %}
 -- 
-2.54.0
+2.43.0
 
