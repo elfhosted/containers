@@ -484,6 +484,7 @@ jobs:
               --network "$NET"
               -e REDIS_URL="redis://$REDIS:6379"
             )
+            export GOSS_OPTS="${GOSS_OPTS/--retry-timeout 180s/--retry-timeout 360s}"            
           elif [[ "${{ matrix.image.app }}" == "watchly" ]]; then
             # Watchly refuses to start in production with the insecure default.
             # This throwaway value only lets the web smoke bind in CI.
