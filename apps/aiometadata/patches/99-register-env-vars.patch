@@ -1,8 +1,8 @@
 diff --git a/scripts/check-env-registry.ts b/scripts/check-env-registry.ts
-index 395cb2a..9230929 100644
+index 395cb2a..bc5936c 100644
 --- a/scripts/check-env-registry.ts
 +++ b/scripts/check-env-registry.ts
-@@ -15,6 +15,69 @@ const INTERNAL_ALLOWLIST = new Set<string>([
+@@ -15,6 +15,73 @@ const INTERNAL_ALLOWLIST = new Set<string>([
    'HOME',
    'CACHE_WARMUP_UUID',
    'POSTER_CACHE_LOG_PIPE',
@@ -64,6 +64,10 @@ index 395cb2a..9230929 100644
 +
 +  // Allows wildcard cache clears.
 +  'ALLOW_UNSCOPED_CACHE_CLEAR',
++
++  // Proxy trust and client address header.
++  'TRUST_PROXY',
++  'CLIENT_IP_HEADER',
 +
 +  // Built-in AI endpoint.
 +  'BUILT_IN_AI_BASE_URL',

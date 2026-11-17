@@ -246,6 +246,9 @@ expectAll('29', 'utils/trackerCalls.js', ['PROXIED_TRACKER_BASES', 'SIMKL_API_BA
 expectAll('30', 'lib/movielensSync.js', ['movielens-sync:run-claim', 'getMovieLensConfigs']);
 expect('30', 'lib/databaseCore.js', 'getMovieLensConfigs');
 
+// 31: proxy trust and the client address header are read from the environment.
+expectAll('31', 'index.js', ['process.env.TRUST_PROXY', 'process.env.CLIENT_IP_HEADER', "'trust proxy fn'"]);
+
 if (failures.length) {
   console.error(`patch smoke FAILED (${failures.length} problem(s)):`);
   for (const f of failures) console.error(`  - ${f}`);

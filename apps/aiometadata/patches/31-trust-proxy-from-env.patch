@@ -1,0 +1,38 @@
+diff --git a/addon/index.ts b/addon/index.ts
+index 5f6e75a..748949f 100644
+--- a/addon/index.ts
++++ b/addon/index.ts
+@@ -11,6 +11,33 @@ const addon = express();
+ // Honor X-Forwarded-* headers from reverse proxies (e.g., Traefik) so req.protocol reflects HTTPS
+ //addon.set('trust proxy', true);
+ 
++// TRUST_PROXY: Express "trust proxy" setting. "true", a hop count, or a list of
++// addresses/subnets or the names loopback, linklocal, uniquelocal. Unset: off.
++{
++  const raw = String(process.env.TRUST_PROXY || '').trim();
++  if (raw && raw.toLowerCase() !== 'false') {
++    addon.set('trust proxy', raw.toLowerCase() === 'true' ? true : /^\d+$/.test(raw) ? Number(raw) : raw);
++  }
++}
++
++// CLIENT_IP_HEADER: a header (e.g. cf-connecting-ip) holding the client address,
++// believed only on a request from a trusted proxy. Unset: off.
++{
++  const net = require('node:net');
++  const headerName = String(process.env.CLIENT_IP_HEADER || '').trim().toLowerCase();
++  if (headerName) {
++    addon.use((req, _res, next) => {
++      const peer = req.socket?.remoteAddress;
++      const header = req.headers[headerName];
++      const claimed = typeof header === 'string' ? header.trim() : '';
++      if (peer && claimed && net.isIP(claimed) && addon.get('trust proxy fn')(peer, 0)) {
++        Object.defineProperty(req, 'ip', { value: claimed, configurable: true, enumerable: true });
++      }
++      next();
++    });
++  }
++}
++
+ const { getCatalog } = require("./lib/getCatalog");
+ const { applyCatalogFilters, catalogFiltersActive } = require("./utils/catalogFilters");
+ const { cursorKey, cursorAudience, resolveStartPage, fillFilteredPage, fillOnce, isEndOfList, listedTotalOf } = require("./lib/catalogPagination");

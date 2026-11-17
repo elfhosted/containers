@@ -55,6 +55,8 @@ upstream's behaviour in place.
 | `TMDB_DETAIL_TTL` | Cache TTL in seconds for TMDB movie, TV and collection detail responses. Defaults to one day, as upstream. |
 | `ALLOW_UNSCOPED_CACHE_CLEAR` | **Wildcard and whole-keyspace cache clears are refused unless this is `true`**, because cache keys are not namespaced per instance and a shared Redis would lose other instances' entries. Exact-key deletes and clearing one title by its id still work. See `15-cache-clear-guards.patch`. |
 | `LOG_FILE` (or `AIOMETADATA_LOG_FILE`), `LOG_FILE_MAX_BYTES`, `LOG_FILE_MAX_FILES`, `LOG_FILE_MAX_QUEUE_BYTES` | Also write log entries, redacted as for the dashboard, to this file, rotated at `LOG_FILE_MAX_BYTES` (default 10 MiB) keeping `LOG_FILE_MAX_FILES` files (default 5). Off when unset. |
+| `TRUST_PROXY` | Express's `trust proxy` setting, so `req.ip` and the protocol come from the forwarding headers of a trusted reverse proxy: `true`, a hop count, or a comma-separated list of addresses, subnets or the names `loopback`, `linklocal`, `uniquelocal`. Unset or `false`: not trusted, as upstream. See `31-trust-proxy-from-env.patch`. |
+| `CLIENT_IP_HEADER` | A request header holding the client's address, for example `cf-connecting-ip`. Used as `req.ip` only when the request came from a proxy `TRUST_PROXY` trusts. Unset: off. |
 | `TRAKT_DIRECT_BASE` | Test use only, and ignored when `NODE_ENV=production`: replaces Trakt's own address for authenticated calls. |
 
 Other behaviour the patches change, with no setting:
