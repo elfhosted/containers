@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# The main channel is pinned to v3.9.0, the last GPL-3.0 release. v4.0.0
-# changed the license, so move the pin only after reviewing a release's terms.
-PINNED_VERSION="v3.9.0"
+# The main channel is pinned to a reviewed release. Move the pin only after
+# reviewing a release's license terms.
+PINNED_VERSION="v4.0.0"
 
 channel=$1
 if [[ "${channel}" == "dev" ]]; then

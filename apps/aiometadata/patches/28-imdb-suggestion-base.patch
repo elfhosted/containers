@@ -1,0 +1,27 @@
+diff --git a/addon/utils/imdbSuggestions.ts b/addon/utils/imdbSuggestions.ts
+index c5874aa..7cb983e 100644
+--- a/addon/utils/imdbSuggestions.ts
++++ b/addon/utils/imdbSuggestions.ts
+@@ -7,7 +7,12 @@ const logger = consola.withTag('ImdbSuggestions');
+ 
+ // The titles path spends all eight slots the endpoint allows on titles, where the
+ // unscoped one shares them with people and franchises we would only discard.
+-const SUGGESTION_BASE = 'https://v3.sg.media-imdb.com/suggestion/titles/x';
++//
++// The host is overridable by IMDB_SUGGESTION_BASE, read per call.
++function suggestionBase(): string {
++  const host = (process.env.IMDB_SUGGESTION_BASE || 'https://v3.sg.media-imdb.com').replace(/\/+$/, '');
++  return `${host}/suggestion/titles/x`;
++}
+ 
+ const TITLE_QIDS: Record<string, string[]> = {
+   movie: ['movie', 'tvMovie', 'video', 'short', 'tvShort'],
+@@ -57,7 +62,7 @@ export async function fetchImdbSuggestions(
+   if (!normalized) return [];
+ 
+   const allowed = TITLE_QIDS[type === 'movie' ? 'movie' : 'series'];
+-  const url = `${SUGGESTION_BASE}/${encodeURIComponent(normalized)}.json?includeVideos=0`;
++  const url = `${suggestionBase()}/${encodeURIComponent(normalized)}.json?includeVideos=0`;
+ 
+   const response: any = await httpGet(url, { timeout: timeoutMs });
+   const entries = response?.data?.d;

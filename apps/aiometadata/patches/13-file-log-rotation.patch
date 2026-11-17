@@ -1,0 +1,146 @@
+diff --git a/addon/lib/logBuffer.ts b/addon/lib/logBuffer.ts
+index 9f9c12f..af8dae3 100644
+--- a/addon/lib/logBuffer.ts
++++ b/addon/lib/logBuffer.ts
+@@ -1,6 +1,8 @@
+ // SPDX-License-Identifier: AGPL-3.0-or-later WITH AdditionRef-AIOMetadata-FSL-linking
+ // Copyright (C) 2021-2026 cedya77 and AIOMetadata contributors, see NOTICE
+ import { AsyncLocalStorage } from 'node:async_hooks';
++import { promises as fs } from 'node:fs';
++import path from 'node:path';
+ import consola from 'consola';
+ 
+ const requestContext = new AsyncLocalStorage<{ userId: string }>();
+@@ -55,6 +57,124 @@ const MAX_ENTRIES = parseInt(process.env.LOG_BUFFER_MAX_ENTRIES || process.env.L
+ const MAX_BYTES = parseInt(process.env.LOG_BUFFER_MAX_BYTES || String(64 * 1024 * 1024), 10);
+ const ARG_DETAIL_MAX = 20000;
+ 
++const FILE_LOG_PATH = (process.env.LOG_FILE || process.env.AIOMETADATA_LOG_FILE || '').trim();
++const FILE_LOG_MAX_BYTES = Math.max(1024 * 1024, parseInt(process.env.LOG_FILE_MAX_BYTES || process.env.AIOMETADATA_LOG_FILE_MAX_BYTES || String(10 * 1024 * 1024), 10) || (10 * 1024 * 1024));
++const FILE_LOG_MAX_FILES = Math.max(1, parseInt(process.env.LOG_FILE_MAX_FILES || process.env.AIOMETADATA_LOG_FILE_MAX_FILES || '5', 10) || 5);
++const FILE_LOG_MAX_QUEUE_BYTES = Math.max(256 * 1024, parseInt(process.env.LOG_FILE_MAX_QUEUE_BYTES || process.env.AIOMETADATA_LOG_FILE_MAX_QUEUE_BYTES || String(4 * 1024 * 1024), 10) || (4 * 1024 * 1024));
++let fileLogReady = false;
++let fileLogDisabled = !FILE_LOG_PATH;
++let fileLogSize = 0;
++let fileLogWarned = false;
++let fileLogFlushScheduled = false;
++let fileLogFlushActive = false;
++let fileLogDropped = 0;
++const fileLogQueue: Array<{ line: string; bytes: number }> = [];
++let fileLogQueueBytes = 0;
++
++function warnFileLogDisabled(reason: unknown): void {
++  fileLogDisabled = true;
++  if (!fileLogWarned) {
++    fileLogWarned = true;
++    process.stderr.write(`[AIOMetadata] File logging disabled for ${FILE_LOG_PATH}: ${reason instanceof Error ? reason.message : String(reason)}\n`);
++  }
++}
++
++async function initFileLog(): Promise<void> {
++  if (fileLogReady || fileLogDisabled) return;
++  await fs.mkdir(path.dirname(FILE_LOG_PATH), { recursive: true });
++  try {
++    fileLogSize = (await fs.stat(FILE_LOG_PATH)).size;
++  } catch (err: any) {
++    if (err?.code !== 'ENOENT') throw err;
++    fileLogSize = 0;
++  }
++  fileLogReady = true;
++}
++
++async function rotateFileLog(): Promise<void> {
++  if (FILE_LOG_MAX_FILES <= 1) {
++    await fs.truncate(FILE_LOG_PATH, 0).catch((err: any) => {
++      if (err?.code !== 'ENOENT') throw err;
++    });
++    fileLogSize = 0;
++    return;
++  }
++
++  const last = FILE_LOG_MAX_FILES - 1;
++  if (last >= 1) await fs.rm(`${FILE_LOG_PATH}.${last}`, { force: true });
++  for (let i = last - 1; i >= 1; i--) {
++    const src = `${FILE_LOG_PATH}.${i}`;
++    const dest = `${FILE_LOG_PATH}.${i + 1}`;
++    await fs.rename(src, dest).catch((err: any) => {
++      if (err?.code !== 'ENOENT') throw err;
++    });
++  }
++  await fs.rename(FILE_LOG_PATH, `${FILE_LOG_PATH}.1`).catch((err: any) => {
++    if (err?.code !== 'ENOENT') throw err;
++  });
++  fileLogSize = 0;
++}
++
++function formatFileLogEntry(entry: LogEntry): string {
++  const bits = [entry.timestamp, entry.levelLabel.toUpperCase()];
++  if (entry.tag) bits.push(`[${entry.tag}]`);
++  if (entry.service) bits.push(`service=${entry.service}`);
++  if (entry.userId) bits.push(`user=${entry.userId}`);
++  let line = `${bits.join(' ')} ${entry.message || ''}`.trimEnd();
++  if (entry.args) line += `\n${entry.args}`;
++  return `${line}\n`;
++}
++
++function appendFileLog(entry: LogEntry): void {
++  if (fileLogDisabled) return;
++  const line = formatFileLogEntry(entry);
++  const bytes = Buffer.byteLength(line);
++  if (bytes > FILE_LOG_MAX_QUEUE_BYTES) return;
++
++  while (fileLogQueueBytes + bytes > FILE_LOG_MAX_QUEUE_BYTES && fileLogQueue.length > 0) {
++    const dropped = fileLogQueue.shift()!;
++    fileLogQueueBytes -= dropped.bytes;
++    fileLogDropped++;
++  }
++  fileLogQueue.push({ line, bytes });
++  fileLogQueueBytes += bytes;
++  scheduleFileLogFlush();
++}
++
++function scheduleFileLogFlush(): void {
++  if (fileLogFlushScheduled || fileLogFlushActive || fileLogDisabled) return;
++  fileLogFlushScheduled = true;
++  setImmediate(() => { void flushFileLog(); });
++}
++
++async function flushFileLog(): Promise<void> {
++  if (fileLogFlushActive || fileLogDisabled) return;
++  fileLogFlushScheduled = false;
++  fileLogFlushActive = true;
++  try {
++    await initFileLog();
++    if (fileLogDisabled) return;
++    if (fileLogDropped > 0) {
++      const droppedLine = `${new Date().toISOString()} WARN service=addon [FileLog] dropped ${fileLogDropped} log entries because the file log queue exceeded ${FILE_LOG_MAX_QUEUE_BYTES} bytes\n`;
++      fileLogQueue.unshift({ line: droppedLine, bytes: Buffer.byteLength(droppedLine) });
++      fileLogQueueBytes += Buffer.byteLength(droppedLine);
++      fileLogDropped = 0;
++    }
++    while (fileLogQueue.length > 0) {
++      const item = fileLogQueue.shift()!;
++      fileLogQueueBytes -= item.bytes;
++      if (fileLogSize > 0 && fileLogSize + item.bytes > FILE_LOG_MAX_BYTES) await rotateFileLog();
++      await fs.appendFile(FILE_LOG_PATH, item.line, 'utf8');
++      fileLogSize += item.bytes;
++    }
++  } catch (err) {
++    warnFileLogDisabled(err);
++  } finally {
++    fileLogFlushActive = false;
++    if (fileLogQueue.length > 0 && !fileLogDisabled) scheduleFileLogFlush();
++  }
++}
++
+ const buffer: (LogEntry | null)[] = new Array(MAX_ENTRIES).fill(null);
+ const sizes: number[] = new Array(MAX_ENTRIES).fill(0);
+ let head = 0;        // index of the oldest live entry
+@@ -164,6 +284,7 @@ function pushEntry(entry: LogEntry): void {
+     head = mod(head + 1);
+     count--;
+   }
++  appendFileLog(entry);
+   broadcast(entry);
+ }
+ 

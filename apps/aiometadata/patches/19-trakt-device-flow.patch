@@ -1,0 +1,1016 @@
+diff --git a/.env.example b/.env.example
+index 4fd920d..dae106f 100644
+--- a/.env.example
++++ b/.env.example
+@@ -202,6 +202,10 @@ TRAKT_CLIENT_ID=
+ TRAKT_CLIENT_SECRET=
+ # The redirect URI for Trakt OAuth (must match your Trakt app settings)
+ # Example: https://your-domain.com/api/auth/trakt/callback
++# Which Trakt connection flows to offer: oauth, device, or both.
++# "device" shows a short code the user enters at trakt.tv and needs no redirect
++# URI, so one registered app works on any host.
++TRAKT_AUTH_MODE=
+ TRAKT_REDIRECT_URI=
+ 
+ ## Disable trakt as a search option (recommended on public instances)
+diff --git a/addon/index.ts b/addon/index.ts
+index 7353325..a28c074 100644
+--- a/addon/index.ts
++++ b/addon/index.ts
+@@ -59,7 +59,7 @@ const { resolveDynamicTmdbDiscoverParams } = require('./lib/tmdbDiscoverDateToke
+ const { applyCatalogKeyArgs, applyCatalogKeyStamps, hiddenCatalogGenre } = require('./lib/catalogKeyArgs');
+ const { blurImage, convertBannerToBackground } = require('./utils/imageProcessor');
+ const { getAiTriggerKeyword, applyAiTrigger } = require('./utils/aiSearchTrigger');
+-const { TraktClient } = require('./lib/trakt');
++const { TraktClient, TRAKT_DEVICE_REDIRECT } = require('./lib/trakt');
+ const movielens = require('./lib/movielens');
+ const {
+   createAniListOAuthState,
+@@ -95,6 +95,21 @@ const usedAnilistCodes = new Set();
+ const ANILIST_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+ const SIMKL_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+ 
++function resolveTraktAuthMode() {
++  const configured = String(getSetting('TRAKT_AUTH_MODE') || '').trim().toLowerCase();
++  if (configured === 'device' || configured === 'oauth' || configured === 'both') {
++    return configured;
++  }
++  // Unset keeps the redirect flow every existing instance already has
++  // registered with Trakt. An operator opts into the device flow.
++  return 'oauth';
++}
++
++function traktDeviceEnabled() {
++  const mode = resolveTraktAuthMode();
++  return mode === 'device' || mode === 'both';
++}
++
+ const usedMalCodes = new Set();
+ const MAL_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+ 
+@@ -243,6 +258,9 @@ addon.use(
+   [
+     '/api/auth/trakt/authorize',
+     '/api/auth/trakt/callback',
++    '/api/auth/trakt/device',
++    '/api/auth/trakt/device/status',
++    '/api/auth/trakt/device/cancel',
+     '/api/auth/simkl/authorize',
+     '/api/auth/simkl/callback',
+     '/api/auth/simkl/pin',
+@@ -630,6 +648,7 @@ const respond = function (req, res, data, opts?) {
+       gemini: getSetting('GEMINI_API_KEY'),
+       trakt: getSetting('TRAKT_CLIENT_ID'),
+       simkl: getSetting('SIMKL_CLIENT_ID') || getSetting('SIMKL_V2_CLIENT_ID'),
++      traktAuthMode: resolveTraktAuthMode(),
+       simklV2: Boolean(getSetting('SIMKL_V2_CLIENT_ID')),
+       simklAuthMode: simklAuth.simklAuthMode(),
+       simklListMinTTL: parseInt(getSetting('SIMKL_LIST_MIN_TTL'), 10) || 300,
+@@ -721,6 +740,65 @@ addon.get("/api/auth/trakt/authorize", async (req, res) => {
+   }
+ });
+ 
++/**
++ * Stores a Trakt token and repoints any config that still names an older one
++ * for the same Trakt account. Shared by the redirect callback and the device
++ * flow, which differ only in how the token was obtained.
++ *
++ * Returns the token id, or null when the token could not be stored.
++ */
++async function persistTraktTokens(user, tokens) {
++  const existingTokens = await database.getOAuthTokensByProvider('trakt');
++  const existingToken = existingTokens.find(t => t.user_id.toLowerCase() === user.username.toLowerCase());
++
++  let tokenId;
++  let saved;
++  if (existingToken) {
++    tokenId = existingToken.id;
++    consola.info(`[Trakt OAuth] Updating existing token - tokenId: ${tokenId}, user: ${user.username}`);
++    saved = await database.updateOAuthToken(
++      tokenId,
++      tokens.access_token,
++      tokens.refresh_token,
++      tokens.expires_at
++    );
++  } else {
++    tokenId = crypto.randomUUID();
++    consola.info(`[Trakt OAuth] Creating new token - tokenId: ${tokenId}, user: ${user.username}`);
++    saved = await database.saveOAuthToken(
++      tokenId,
++      'trakt',
++      user.username,
++      tokens.access_token,
++      tokens.refresh_token,
++      tokens.expires_at,
++      tokens.scope || ''
++    );
++  }
++
++  if (!saved) {
++    return null;
++  }
++
++  try {
++    const userTraktTokens = existingTokens.filter(t => t.user_id.toLowerCase() === user.username.toLowerCase());
++    const oldTokenIds = userTraktTokens.map(t => t.id).filter(id => id !== tokenId);
++    if (oldTokenIds.length > 0) {
++      const affectedUsers = await database.getUsersByOAuthTokenIds('traktTokenId', oldTokenIds);
++      for (const dbUser of affectedUsers) {
++        dbUser.config.apiKeys.traktTokenId = tokenId;
++        await database.saveUserConfig(dbUser.id, dbUser.password_hash, dbUser.config);
++        configCache.del(dbUser.id);
++        consola.info(`[Trakt OAuth] Updated user ${dbUser.id} config to use new token ${tokenId}`);
++      }
++    }
++  } catch (configError) {
++    consola.warn(`[Trakt OAuth] Warning: Could not auto-update user configs - ${configError.message}`);
++  }
++
++  return tokenId;
++}
++
+ // Coalesce duplicate exchanges handled by this process only.
+ const pendingTraktExchanges = new Map();
+ 
+@@ -883,35 +961,9 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
+ 
+ 
+     const user = await traktClient.getMe(tokens.access_token);
+-    const existingTokens = await database.getOAuthTokensByProvider('trakt');
+-    const existingToken = existingTokens.find(t => t.user_id.toLowerCase() === user.username.toLowerCase());
+-
+-    let tokenId;
+-    let saved;
+-    if (existingToken) {
+-      tokenId = existingToken.id;
+-      consola.info(`[Trakt OAuth] Updating existing token - tokenId: ${tokenId}, user: ${user.username}`);
+-      saved = await database.updateOAuthToken(
+-        tokenId,
+-        tokens.access_token,
+-        tokens.refresh_token,
+-        tokens.expires_at
+-      );
+-    } else {
+-      tokenId = crypto.randomUUID();
+-      consola.info(`[Trakt OAuth] Creating new token - tokenId: ${tokenId}, user: ${user.username}`);
+-      saved = await database.saveOAuthToken(
+-        tokenId,
+-        'trakt',
+-        user.username,
+-        tokens.access_token,
+-        tokens.refresh_token,
+-        tokens.expires_at,
+-        tokens.scope || ''
+-      );
+-    }
++    const tokenId = await persistTraktTokens(user, tokens);
+ 
+-    if (!saved) {
++    if (!tokenId) {
+       return res.status(500).send(renderOAuthPage({
+         provider: 'trakt',
+         status: 'error',
+@@ -921,22 +973,6 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
+       }));
+     }
+ 
+-    try {
+-      const userTraktTokens = existingTokens.filter(t => t.user_id.toLowerCase() === user.username.toLowerCase());
+-      const oldTokenIds = userTraktTokens.map(t => t.id).filter(id => id !== tokenId);
+-      if (oldTokenIds.length > 0) {
+-        const affectedUsers = await database.getUsersByOAuthTokenIds('traktTokenId', oldTokenIds);
+-        for (const dbUser of affectedUsers) {
+-          dbUser.config.apiKeys.traktTokenId = tokenId;
+-          await database.saveUserConfig(dbUser.id, dbUser.password_hash, dbUser.config);
+-          configCache.del(dbUser.id);
+-          consola.info(`[Trakt OAuth] Updated user ${dbUser.id} config to use new token ${tokenId}`);
+-        }
+-      }
+-    } catch (configError) {
+-      consola.warn(`[Trakt OAuth] Warning: Could not auto-update user configs - ${configError.message}`);
+-    }
+-
+     res.send(renderOAuthPage({
+       provider: 'trakt',
+       status: 'success',
+@@ -958,7 +994,6 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
+   }
+ });
+ 
+-// Generic OAuth token info endpoint
+ const configCache = require('./lib/configCache');
+ 
+ // Generic OAuth token info endpoint
+@@ -1152,6 +1187,11 @@ const {
+   pollTooSoon,
+   widenPollGap,
+   deviceAuthRateLimit,
++  deviceAuthCallerRateLimit,
++  claimDeviceAuthExchange,
++  renewDeviceAuthClaim,
++  releaseDeviceAuthExchange,
++  completeDeviceAuthSession,
+ } = require('./lib/deviceAuth');
+ 
+ const SIMKL_PIN_NOT_ENABLED = 'Simkl PIN authentication is not enabled on this instance.';
+@@ -1165,7 +1205,7 @@ function simklCodeFlowClient() {
+   return v1ClientId ? { v2: false, clientId: v1ClientId } : null;
+ }
+ 
+-addon.post("/api/auth/simkl/pin", deviceAuthRateLimit, async (req, res) => {
++addon.post("/api/auth/simkl/pin", deviceAuthCallerRateLimit, async (req, res) => {
+   if (!simklAuth.simklCodeFlowOffered()) {
+     return res.status(404).json({ error: SIMKL_PIN_NOT_ENABLED });
+   }
+@@ -1264,6 +1304,194 @@ addon.post("/api/auth/simkl/pin/cancel", async (req, res) => {
+   }
+ });
+ 
++// --- Trakt code sign-in (device flow) ---
++// The user enters a short code at Trakt; no callback URL is involved, so one
++// registered application works for any instance however it is hosted.
++const TRAKT_DEVICE_NOT_ENABLED = 'Trakt device authentication is not enabled on this instance.';
++const TRAKT_NOT_CONFIGURED = 'Trakt is not configured. Please set the TRAKT_CLIENT_ID and TRAKT_CLIENT_SECRET environment variables.';
++
++// A redeemed code stays recoverable this long, and a finished one keeps
++// answering this long, independent of the code's own expiry.
++const TRAKT_DEVICE_FINALISE_MS = 10 * 60 * 1000;
++const TRAKT_DEVICE_RECEIPT_MS = 5 * 60 * 1000;
++// Longest an exchange claim is held if its holder dies mid-request.
++const TRAKT_DEVICE_CLAIM_MS = 5 * 60 * 1000;
++// Bound on reading the account and storing the token, well inside the claim.
++const TRAKT_DEVICE_FINALISE_TIMEOUT_MS = 45 * 1000;
++
++function traktDeviceClient() {
++  const clientId = process.env.TRAKT_CLIENT_ID;
++  const clientSecret = process.env.TRAKT_CLIENT_SECRET;
++  if (!clientId || !clientSecret) return null;
++  return new TraktClient(clientId, clientSecret, TRAKT_DEVICE_REDIRECT);
++}
++
++addon.post("/api/auth/trakt/device", deviceAuthCallerRateLimit, async (req, res) => {
++  if (!traktDeviceEnabled()) {
++    return res.status(404).json({ error: TRAKT_DEVICE_NOT_ENABLED });
++  }
++  const traktClient = traktDeviceClient();
++  if (!traktClient) {
++    return res.status(500).json({ error: TRAKT_NOT_CONFIGURED });
++  }
++
++  try {
++    const device = await traktClient.requestDeviceCode();
++    // The device code stays server-side; only the short user code is shown.
++    const sessionId = createDeviceAuthSession('trakt', {
++      userCode: device.user_code,
++      deviceCode: device.device_code,
++      expiresIn: device.expires_in,
++      interval: device.interval,
++    });
++    res.json({
++      sessionId,
++      userCode: device.user_code,
++      verificationUrl: device.verification_url,
++      interval: device.interval,
++      expiresIn: device.expires_in,
++    });
++  } catch (error) {
++    consola.error("[Trakt device] Failed to request a device code:", error);
++    res.status(500).json({ error: "Failed to start the Trakt authorization" });
++  }
++});
++
++addon.get("/api/auth/trakt/device/status", deviceAuthRateLimit, async (req, res) => {
++  if (!traktDeviceEnabled()) {
++    return res.status(404).json({ error: TRAKT_DEVICE_NOT_ENABLED });
++  }
++  const traktClient = traktDeviceClient();
++  if (!traktClient) {
++    return res.status(500).json({ error: TRAKT_NOT_CONFIGURED });
++  }
++
++  try {
++    const sessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId : '';
++    let session = await getDeviceAuthSession('trakt', sessionId);
++    if (!session) {
++      return res.status(404).json({ status: 'expired' });
++    }
++    if (session.completed) {
++      return res.json({ status: 'authorized', ...session.completed });
++    }
++    if (!session.deviceCode && !session.redeemed) {
++      return res.status(404).json({ status: 'expired' });
++    }
++
++    // One claim covers redeeming the single-use code and storing the token,
++    // so two pollers can never both exchange it or both insert a token row.
++    const claim = await claimDeviceAuthExchange(sessionId, TRAKT_DEVICE_CLAIM_MS);
++    if (!claim) {
++      return res.json({ status: 'pending' });
++    }
++    let claimHeldByFinalise = false;
++
++    try {
++      // Re-read under the claim: the previous holder may have moved it on.
++      session = await getDeviceAuthSession('trakt', sessionId);
++      if (!session) {
++        return res.status(404).json({ status: 'expired' });
++      }
++      if (session.completed) {
++        return res.json({ status: 'authorized', ...session.completed });
++      }
++
++      let redeemed = session.redeemed;
++      if (!redeemed) {
++        if (pollTooSoon(session)) {
++          return res.json({ status: 'pending' });
++        }
++        session.lastPolledAt = Date.now();
++        saveDeviceAuthSession(sessionId, session);
++
++        const poll = await traktClient.pollDeviceToken(session.deviceCode);
++        if (poll.status === 'pending') {
++          return res.json({ status: 'pending' });
++        }
++        if (poll.status === 'slow_down') {
++          widenPollGap(session);
++          saveDeviceAuthSession(sessionId, session);
++          return res.json({ status: 'slow_down' });
++        }
++        if (poll.status === 'expired' || poll.status === 'denied') {
++          deleteDeviceAuthSession(sessionId);
++          return res.json({ status: poll.status });
++        }
++
++        redeemed = {
++          access_token: poll.tokens.access_token,
++          refresh_token: poll.tokens.refresh_token,
++          expires_at: poll.tokens.expires_at,
++          scope: poll.tokens.scope,
++        };
++        // The code is spent: keep the tokens until they are stored.
++        session.redeemed = redeemed;
++        session.expiresAt = Math.max(session.expiresAt, Date.now() + TRAKT_DEVICE_FINALISE_MS);
++        saveDeviceAuthSession(sessionId, session);
++      }
++
++      try {
++        const finalise = (async () => {
++          const user = await traktClient.getMe(redeemed.access_token);
++          // Confirm the claim is still ours right before writing.
++          if (!await renewDeviceAuthClaim(claim, TRAKT_DEVICE_CLAIM_MS)) {
++            consola.warn('[Trakt device] Lost the exchange claim before storing the token; leaving it for the next poll');
++            return null;
++          }
++          const storedId = await persistTraktTokens(user, redeemed);
++          return storedId ? { tokenId: storedId, username: user.username } : null;
++        })();
++
++        // The claim is released when the work settles, not when this request
++        // stops waiting for it.
++        claimHeldByFinalise = true;
++        void finalise
++          .catch(() => undefined)
++          .finally(() => { releaseDeviceAuthExchange(claim); });
++
++        const finished = await Promise.race([
++          finalise,
++          new Promise<null>(resolve => {
++            setTimeout(() => resolve(null), TRAKT_DEVICE_FINALISE_TIMEOUT_MS).unref?.();
++          }),
++        ]);
++
++        if (finished) {
++          const { tokenId, username } = finished;
++          completeDeviceAuthSession(sessionId, 'trakt', { tokenId, username }, TRAKT_DEVICE_RECEIPT_MS);
++          consola.info(`[Trakt device] Connected user ${username} - tokenId: ${tokenId}`);
++          return res.json({ status: 'authorized', tokenId, username });
++        }
++      } catch (finishError) {
++        consola.warn(`[Trakt device] Could not finish the connection, will retry on the next poll: ${finishError?.message}`);
++      }
++
++      // The session keeps the redeemed token, so the next poll resumes from it.
++      res.json({ status: 'pending' });
++    } finally {
++      if (!claimHeldByFinalise) {
++        releaseDeviceAuthExchange(claim);
++      }
++    }
++  } catch (error) {
++    consola.error("[Trakt device] Status check failed:", error);
++    res.status(500).json({ error: "Failed to check the Trakt authorization status" });
++  }
++});
++
++addon.post("/api/auth/trakt/device/cancel", async (req, res) => {
++  try {
++    const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId : '';
++    const session = await getDeviceAuthSession('trakt', sessionId);
++    if (session) deleteDeviceAuthSession(sessionId);
++    res.json({ cancelled: Boolean(session) });
++  } catch (error) {
++    consola.error("[Trakt device] Cancel failed:", error);
++    res.status(500).json({ error: "Failed to cancel the Trakt authorization." });
++  }
++});
++
+ function simklRedirectUri() {
+   return normalizeRedirectUri(process.env.SIMKL_REDIRECT_URI || `${process.env.HOST_NAME}/api/auth/simkl/callback`);
+ }
+diff --git a/addon/lib/deviceAuth.ts b/addon/lib/deviceAuth.ts
+index ef9f43e..22a5ee7 100644
+--- a/addon/lib/deviceAuth.ts
++++ b/addon/lib/deviceAuth.ts
+@@ -26,6 +26,13 @@ export interface DeviceAuthSession {
+   minIntervalMs: number;
+   /** Epoch milliseconds; 0 until the first poll that reached the provider. */
+   lastPolledAt: number;
++  /**
++   * Tokens from a single-use device code that has been exchanged but not yet
++   * stored against an account, so the next poll can finish the job.
++   */
++  redeemed?: { access_token: string; refresh_token: string; expires_at: number; scope?: string };
++  /** The stored connection, kept briefly so a late poll gets the same answer. */
++  completed?: { tokenId: string; username: string };
+ }
+ 
+ export interface DeviceCodeGrant {
+@@ -115,12 +122,40 @@ function parseSession(raw: unknown): DeviceAuthSession | null {
+       expiresAt: Number(value.expiresAt) || 0,
+       minIntervalMs: Number(value.minIntervalMs) || 0,
+       lastPolledAt: Number(value.lastPolledAt) || 0,
++      ...(value.redeemed && typeof value.redeemed.access_token === 'string' ? { redeemed: value.redeemed } : {}),
++      ...(value.completed && typeof value.completed.tokenId === 'string' ? { completed: value.completed } : {}),
+     };
+   } catch {
+     return null;
+   }
+ }
+ 
++/** Issued, redeemed, complete: a session only moves forwards. */
++function progress(session: DeviceAuthSession | null): number {
++  if (!session) return 0;
++  if (session.completed) return 3;
++  if (session.redeemed) return 2;
++  return 1;
++}
++
++/** Combines two copies of one session without moving it backwards. */
++function mergeSessions(local: DeviceAuthSession | undefined, shared: DeviceAuthSession): DeviceAuthSession {
++  if (!local || progress(shared) >= progress(local)) {
++    if (!local) return shared;
++    return {
++      ...shared,
++      lastPolledAt: Math.max(shared.lastPolledAt, local.lastPolledAt),
++      minIntervalMs: Math.max(shared.minIntervalMs, local.minIntervalMs),
++    };
++  }
++  return {
++    ...local,
++    lastPolledAt: Math.max(shared.lastPolledAt, local.lastPolledAt),
++    minIntervalMs: Math.max(shared.minIntervalMs, local.minIntervalMs),
++    expiresAt: Math.max(shared.expiresAt, local.expiresAt),
++  };
++}
++
+ /** Redis's answer for a session, or NO_ANSWER when Redis is absent, not ready, slow or failing. */
+ const NO_ANSWER = Symbol('no answer');
+ 
+@@ -176,7 +211,7 @@ export async function getDeviceAuthSession(provider: string, id: unknown): Promi
+   if (fromRedis === NO_ANSWER) {
+     session = sessions.get(id) || null;
+   } else if (fromRedis) {
+-    session = fromRedis;
++    session = mergeSessions(sessions.get(id), fromRedis);
+     sessions.set(id, session);
+   } else {
+     // Gone from Redis (cancelled, finished or expired elsewhere): drop any stale local copy.
+@@ -222,6 +257,7 @@ function pollRateLimitPerMinute(): number {
+ }
+ 
+ function rateLimitCaller(req: any): string {
++  if (typeof req.deviceAuthRateKey === 'string') return req.deviceAuthRateKey;
+   const fromQuery = req.query?.sessionId;
+   if (isDeviceAuthSessionId(fromQuery)) return fromQuery;
+   const fromBody = req.body?.sessionId;
+@@ -255,3 +291,116 @@ export async function deviceAuthRateLimit(req: any, res: any, next: any): Promis
+ 
+   next();
+ }
++
++/**
++ * The same limit for the routes that START a flow, keyed on the caller rather
++ * than on a session id the caller could vary to get a fresh bucket each time.
++ */
++export function deviceAuthCallerRateLimit(req: any, res: any, next: any): Promise<void> {
++  req.deviceAuthRateKey = req.session?.accountId || req.ip || 'unknown';
++  return deviceAuthRateLimit(req, res, next);
++}
++
++/**
++ * Exclusive right to exchange one session's single-use code and store what it
++ * returns. Taken in process synchronously, then across replicas through Redis.
++ * An unanswered or failing Redis is treated as a refusal: the caller answers
++ * "pending" and the browser polls again.
++ */
++const localClaims = new Set<string>();
++
++export interface DeviceAuthClaim {
++  sessionId: string;
++  /** Absent when only the in-process claim was taken (no Redis configured). */
++  token?: string;
++}
++
++function claimKey(sessionId: string): string {
++  return `${SESSION_KEY_PREFIX}claim:${sessionId}`;
++}
++
++async function releaseClaimToken(sessionId: string, token: string): Promise<void> {
++  if (!redis) return;
++  try {
++    await redis.eval(
++      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",
++      1,
++      claimKey(sessionId),
++      token,
++    );
++  } catch (error: any) {
++    logger.debug(`Could not release a code sign-in claim: ${error?.message || error}`);
++  }
++}
++
++export async function claimDeviceAuthExchange(sessionId: string, ttlMs: number): Promise<DeviceAuthClaim | null> {
++  if (localClaims.has(sessionId)) return null;
++  localClaims.add(sessionId);
++  if (!redis) return { sessionId };
++
++  const token = crypto.randomBytes(16).toString('hex');
++  try {
++    const pending = redis.set(claimKey(sessionId), token, 'PX', Math.max(1000, ttlMs), 'NX');
++    const acquired = await within(pending, REDIS_READ_WAIT_MS);
++    if (acquired === TIMED_OUT) {
++      localClaims.delete(sessionId);
++      // A write that lands late takes a claim nobody holds: hand it back.
++      pending.then((late: any) => { if (late !== null) void releaseClaimToken(sessionId, token); }).catch(() => undefined);
++      logger.warn('Redis did not answer a code sign-in claim in time; not redeeming this round');
++      return null;
++    }
++    if (acquired === null) {
++      localClaims.delete(sessionId);
++      return null;
++    }
++  } catch (error: any) {
++    logger.warn(`Could not claim a code sign-in session in Redis: ${error?.message || error}`);
++    localClaims.delete(sessionId);
++    return null;
++  }
++  return { sessionId, token };
++}
++
++/** Extends a claim and confirms it is still held. Unknown counts as lost. */
++export async function renewDeviceAuthClaim(claim: DeviceAuthClaim | null, ttlMs: number): Promise<boolean> {
++  if (!claim || !localClaims.has(claim.sessionId)) return false;
++  if (!redis || !claim.token) return true;
++  try {
++    const renewed = await within(redis.eval(
++      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) end return 0",
++      1,
++      claimKey(claim.sessionId),
++      claim.token,
++      String(Math.max(1000, ttlMs)),
++    ), REDIS_READ_WAIT_MS);
++    return renewed === 1;
++  } catch (error: any) {
++    logger.debug(`Could not renew a code sign-in claim: ${error?.message || error}`);
++    return false;
++  }
++}
++
++/** Gives a claim back, only while it is still the one held. */
++export function releaseDeviceAuthExchange(claim: DeviceAuthClaim | null): void {
++  if (!claim) return;
++  localClaims.delete(claim.sessionId);
++  if (claim.token) void releaseClaimToken(claim.sessionId, claim.token);
++}
++
++/** Replaces a session with its result once the credentials are stored. */
++export function completeDeviceAuthSession(
++  sessionId: string,
++  provider: string,
++  completed: { tokenId: string; username: string },
++  ttlMs: number,
++): void {
++  const now = Date.now();
++  saveDeviceAuthSession(sessionId, {
++    provider,
++    userCode: '',
++    expiresAt: now + ttlMs,
++    minIntervalMs: 0,
++    lastPolledAt: now,
++    completed,
++  });
++}
+diff --git a/addon/lib/settingsRegistry.ts b/addon/lib/settingsRegistry.ts
+index fa1b2ea..d47ef14 100644
+--- a/addon/lib/settingsRegistry.ts
++++ b/addon/lib/settingsRegistry.ts
+@@ -264,6 +264,16 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
+     default: 300,
+     min: 30,
+   },
++  {
++    key: 'TRAKT_AUTH_MODE',
++    envVar: 'TRAKT_AUTH_MODE',
++    label: 'Trakt Auth Mode',
++    description: "Which Trakt connection flows to offer: 'oauth', 'device', or 'both'. Device needs no redirect URI, so one registered app works on any host. Defaults to 'oauth'.",
++    category: 'OAuth',
++    type: 'string',
++    default: '',
++    validate: (value: string) => value === '' || ['oauth', 'device', 'both'].includes(value.trim().toLowerCase()),
++  },
+   {
+     key: 'SIMKL_REDIRECT_URI',
+     envVar: 'SIMKL_REDIRECT_URI',
+diff --git a/addon/lib/trakt.ts b/addon/lib/trakt.ts
+index a1f34a0..a6f9e61 100644
+--- a/addon/lib/trakt.ts
++++ b/addon/lib/trakt.ts
+@@ -7,6 +7,28 @@ const logger = consola.withTag('Trakt');
+ 
+ export const TRAKT_API_BASE = process.env.TRAKT_API_BASE || 'https://api.trakt.tv';
+ export const TRAKT_API_VERSION = '2';
++
++/** OAuth calls go to Trakt's auth host, not to TRAKT_API_BASE. */
++export const TRAKT_AUTH_BASE = process.env.TRAKT_AUTH_BASE || 'https://auth.trakt.tv';
++
++/**
++ * The redirect a device-flow token is minted against. Trakt rejects a refresh
++ * whose redirect_uri is not the one the token was issued with, and the device
++ * flow has no callback URL of its own.
++ */
++export const TRAKT_DEVICE_REDIRECT = 'urn:ietf:wg:oauth:2.0:oob';
++
++export interface TraktDeviceCode {
++  device_code: string;
++  user_code: string;
++  verification_url: string;
++  expires_in: number;
++  interval: number;
++}
++
++export type TraktDevicePoll =
++  | { status: 'authorized'; tokens: TraktTokens }
++  | { status: 'pending' | 'slow_down' | 'expired' | 'denied' };
+ import { traktDispatcher } from '../utils/traktUtils';
+ 
+ export interface TraktTokens {
+@@ -25,6 +47,17 @@ export interface TraktUser {
+   vip_ep: boolean;
+ }
+ 
++/** Trakt's token response, in this codebase's shape. */
++function toTokens(data: any): TraktTokens {
++  return {
++    access_token: data.access_token,
++    refresh_token: data.refresh_token,
++    expires_at: Date.now() + (data.expires_in * 1000),
++    scope: data.scope,
++    token_type: data.token_type,
++  };
++}
++
+ export class TraktClient {
+   private clientId: string;
+   private clientSecret: string;
+@@ -58,7 +91,7 @@ export class TraktClient {
+    */
+   async exchangeCodeForToken(code: string): Promise<TraktTokens> {
+     try {
+-      const response = await httpPost(`${TRAKT_API_BASE}/oauth/token`, {
++      const response = await httpPost(`${TRAKT_AUTH_BASE}/oauth/token`, {
+         code,
+         client_id: this.clientId,
+         client_secret: this.clientSecret,
+@@ -66,12 +99,7 @@ export class TraktClient {
+         grant_type: 'authorization_code',
+       }, {
+         dispatcher: traktDispatcher,
+-        headers: {
+-          'Content-Type': 'application/json',
+-          'trakt-api-version': TRAKT_API_VERSION,
+-          'trakt-api-key': this.clientId,
+-          'User-Agent': `AIOMetadata/${process.env.npm_package_version || '1.0.0'}`
+-        }
++        headers: this.oauthHeaders(),
+       });
+ 
+       const data = response.data;
+@@ -96,44 +124,132 @@ export class TraktClient {
+   }
+ 
+   /**
+-   * Refresh access token using refresh token
++   * Start the device flow: Trakt returns a short code the user enters at the
++   * verification URL, and a device code this server polls with.
+    */
+-  async refreshAccessToken(refreshToken: string): Promise<TraktTokens> {
++  async requestDeviceCode(): Promise<TraktDeviceCode> {
++    const response = await httpPost(`${TRAKT_AUTH_BASE}/oauth/device/code`, {
++      client_id: this.clientId,
++    }, {
++      dispatcher: traktDispatcher,
++      headers: this.oauthHeaders(),
++    });
++
++    const data = response.data;
++    if (!data?.device_code || !data?.user_code) {
++      logger.error('Unexpected Trakt device code response:', JSON.stringify(data));
++      throw new Error('Trakt did not return a device code');
++    }
++
++    return {
++      device_code: String(data.device_code),
++      user_code: String(data.user_code),
++      // Trakt answers auth.trakt.tv/activate rather than trakt.tv/activate.
++      // Its own value is used, and only defaulted when it sends none.
++      verification_url: String(data.verification_url || 'https://auth.trakt.tv/activate'),
++      expires_in: Number(data.expires_in) || 600,
++      interval: Number(data.interval) || 5,
++    };
++  }
++
++  /**
++   * Poll a pending device code. Trakt answers through status codes.
++   */
++  async pollDeviceToken(deviceCode: string): Promise<TraktDevicePoll> {
+     try {
+-      const response = await httpPost(`${TRAKT_API_BASE}/oauth/token`, {
+-        refresh_token: refreshToken,
++      const response = await httpPost(`${TRAKT_AUTH_BASE}/oauth/device/token`, {
++        code: deviceCode,
+         client_id: this.clientId,
+         client_secret: this.clientSecret,
+-        redirect_uri: this.redirectUri,
+-        grant_type: 'refresh_token',
+       }, {
+         dispatcher: traktDispatcher,
+-        headers: {
+-          'Content-Type': 'application/json',
+-          'trakt-api-version': TRAKT_API_VERSION,
+-          'trakt-api-key': this.clientId,
+-          'User-Agent': `AIOMetadata/${process.env.npm_package_version || '1.0.0'}`
+-        }
++        headers: this.oauthHeaders(),
+       });
+ 
+       const data = response.data;
++      // A 200 carrying no token is not success. Trusting the status alone
++      // would store an empty credential and report the account as connected.
++      if (!data?.access_token) {
++        logger.error('Trakt approved the code but returned no token');
++        return { status: 'pending' };
++      }
++      return { status: 'authorized', tokens: toTokens(data) };
++    } catch (error: any) {
++      const status = error?.response?.status;
+ 
+-      // Calculate expires_at timestamp
+-      const expiresAt = Date.now() + (data.expires_in * 1000);
++      // Rejected client credentials are a configuration error, not a pending code.
++      if (status === 401 || status === 403) {
++        logger.error(`Trakt rejected the client credentials (HTTP ${status})`);
++        throw error;
++      }
+ 
+-      return {
+-        access_token: data.access_token,
+-        refresh_token: data.refresh_token,
+-        expires_at: expiresAt,
+-        scope: data.scope,
+-        token_type: data.token_type,
+-      };
+-    } catch (error) {
+-      logger.error('Failed to refresh access token:', error);
+-      throw error;
++      switch (status) {
++        case 400:
++          return { status: 'pending' };
++        case 404:
++        case 409:
++        case 410:
++          // Unknown, already exchanged, or timed out: start over.
++          return { status: 'expired' };
++        case 418:
++          return { status: 'denied' };
++        case 429:
++          return { status: 'slow_down' };
++      }
++      logger.debug(`Trakt device poll failed, treating as pending: ${error?.message}`);
++      return { status: 'pending' };
+     }
+   }
+ 
++  private oauthHeaders() {
++    return {
++      'Content-Type': 'application/json',
++      'trakt-api-version': TRAKT_API_VERSION,
++      'trakt-api-key': this.clientId,
++      'User-Agent': `AIOMetadata/${process.env.npm_package_version || '1.0.0'}`,
++    };
++  }
++
++  /**
++   * Refresh access token using refresh token
++   */
++  async refreshAccessToken(refreshToken: string): Promise<TraktTokens> {
++    // Trakt checks a refresh against the redirect the token was issued with, which
++    // is not stored, so both are tried. The instance's auth mode decides which first.
++    const deviceOnly = String(process.env.TRAKT_AUTH_MODE || '').trim().toLowerCase() === 'device';
++    const candidates = !this.redirectUri || this.redirectUri === TRAKT_DEVICE_REDIRECT
++      ? [TRAKT_DEVICE_REDIRECT]
++      : deviceOnly
++        ? [TRAKT_DEVICE_REDIRECT, this.redirectUri]
++        : [this.redirectUri, TRAKT_DEVICE_REDIRECT];
++
++    let lastError: any;
++    for (const redirectUri of candidates) {
++      try {
++        const response = await httpPost(`${TRAKT_AUTH_BASE}/oauth/token`, {
++          refresh_token: refreshToken,
++          client_id: this.clientId,
++          client_secret: this.clientSecret,
++          redirect_uri: redirectUri,
++          grant_type: 'refresh_token',
++        }, {
++          dispatcher: traktDispatcher,
++          headers: this.oauthHeaders(),
++        });
++
++        return toTokens(response.data);
++      } catch (error: any) {
++        lastError = error;
++        // Only a rejected grant is worth trying the other redirect for. A
++        // network failure or a 429 says nothing about which one is right.
++        if (error?.response?.status !== 400) break;
++      }
++    }
++
++    logger.error('Failed to refresh access token:', lastError);
++    throw lastError;
++  }
++
+   /**
+    * Get current user information
+    */
+@@ -167,7 +283,7 @@ export class TraktClient {
+    */
+   async revokeToken(accessToken: string): Promise<void> {
+     try {
+-      await httpPost(`${TRAKT_API_BASE}/oauth/revoke`, {
++      await httpPost(`${TRAKT_AUTH_BASE}/oauth/revoke`, {
+         dispatcher: traktDispatcher,
+         token: accessToken,
+         client_id: this.clientId,
+diff --git a/configure/src/components/sections/TraktIntegration.tsx b/configure/src/components/sections/TraktIntegration.tsx
+index 8fda039..3ec4de0 100644
+--- a/configure/src/components/sections/TraktIntegration.tsx
++++ b/configure/src/components/sections/TraktIntegration.tsx
+@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
+ import { ExternalLink, CheckCircle2, XCircle, Trash2, Plus, Loader2, ChevronDown, Link2, BarChart3, Bookmark, UserSearch, TrendingUp, Flame, Heart, Star, Wand2, Crown, PlayCircle, Clock, CalendarClock, ListPlus, FolderCheck } from 'lucide-react';
+ import { toast } from "sonner";
+ import { apiCache } from '@/utils/apiCache';
++import { DeviceAuthCard } from '@/components/DeviceAuthCard';
++import { useDeviceAuth } from '@/hooks/useDeviceAuth';
+ import { createTraktCatalog } from '@/utils/catalogUtils';
+ 
+ interface TraktIntegrationProps {
+@@ -82,13 +84,20 @@ const getDisplayTypeOverride = (
+ 
+ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+     const [traktClientId, setTraktClientId] = useState<string>("");
++    const [traktAuthMode, setTraktAuthMode] = useState<'oauth' | 'device' | 'both'>('oauth');
+     useEffect(() => {
+       fetch("/api/config")
+         .then(res => res.ok ? res.json() : null)
+         .then(data => {
+           if (data && data.trakt) setTraktClientId(data.trakt);
++          if (data && (data.traktAuthMode === 'device' || data.traktAuthMode === 'both' || data.traktAuthMode === 'oauth')) {
++            setTraktAuthMode(data.traktAuthMode);
++          }
+         });
+     }, []);
++
++    const deviceEnabled = traktAuthMode === 'device' || traktAuthMode === 'both';
++    const oauthEnabled = traktAuthMode === 'oauth' || traktAuthMode === 'both';
+   const { config, setConfig, auth } = useConfig();
+   const { markConfigPersisted, isDirty } = useSave();
+   const [tempTokenId, setTempTokenId] = useState(config.apiKeys?.traktTokenId || "");
+@@ -184,6 +193,36 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+     toast.info("Complete the authorization in the new window and paste the Token ID below");
+   };
+ 
++  const applyToken = (tokenId: string, connectedUsername: string) => {
++    setUsername(connectedUsername);
++    setTempTokenId(tokenId);
++    setConfig(prev => ({
++      ...prev,
++      apiKeys: {
++        ...prev.apiKeys,
++        traktTokenId: tokenId,
++      },
++    }));
++
++    // Persisted straight away so navigating away cannot lose the connection
++    // and cannot strand the credential row with nothing pointing at it.
++    void persistIntegrationCredential({ provider: 'trakt', tokenId, userUUID: auth.userUUID, password: auth.password, authenticated: auth.authenticated })
++      .then(result => { if (result.error) toast.warning(`Connected, but the link was not saved: ${result.error}`); });
++
++    setIsConnected(true);
++    toast.success(`Connected as @${connectedUsername}`);
++  };
++
++  // Device flow: no callback URL is involved.
++  const deviceAuth = useDeviceAuth({
++    startPath: "/api/auth/trakt/device",
++    statusPath: "/api/auth/trakt/device/status",
++    cancelPath: "/api/auth/trakt/device/cancel",
++    active: isOpen,
++    providerLabel: "Trakt",
++    onAuthorized: applyToken,
++  });
++
+   const handleSave = async () => {
+     if (!tempTokenId.trim()) {
+       toast.error("Please enter a valid Token ID");
+@@ -1099,8 +1138,29 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+                     </div>
+                   </div>
+ 
++                  {deviceEnabled && (
++                    <div className="space-y-2">
++                      <Label>Connect with a code</Label>
++                      <DeviceAuthCard
++                        code={deviceAuth.code}
++                        requesting={deviceAuth.requesting}
++                        disabled={!traktClientId}
++                        startLabel="Get a Trakt code"
++                        hint="Opens trakt.tv in a new tab. No public callback URL needed."
++                        onStart={deviceAuth.start}
++                        onCancel={deviceAuth.cancel}
++                      />
++                      {!traktClientId && (
++                        <p className="text-xs text-red-500 mt-2">
++                          Instance owner has not yet set up the Trakt integration.
++                        </p>
++                      )}
++                    </div>
++                  )}
++
++                  {oauthEnabled && (
+                   <div className="space-y-2">
+-                    <Label>Step 1: Authorize Trakt</Label>
++                    <Label>{deviceEnabled ? "Or authorize in a browser window" : "Step 1: Authorize Trakt"}</Label>
+                     <Button onClick={handleConnect} className="w-full" disabled={!traktClientId}>
+                       <ExternalLink className="mr-2 h-4 w-4" />
+                       Authorize with Trakt
+@@ -1114,6 +1174,7 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+                       Opens a new window. You'll receive a Token ID to paste below.
+                     </p>
+                   </div>
++                  )}
+ 
+                   <div className="space-y-2">
+                     <Label htmlFor="trakt-token">Step 2: Paste Token ID</Label>
+diff --git a/configure/src/hooks/useDeviceAuth.ts b/configure/src/hooks/useDeviceAuth.ts
+index 9775f9f..02ed549 100644
+--- a/configure/src/hooks/useDeviceAuth.ts
++++ b/configure/src/hooks/useDeviceAuth.ts
+@@ -124,6 +124,11 @@ export function useDeviceAuth({ startPath, statusPath, cancelPath, active, provi
+           toast.error(`The ${providerLabel} code expired. Request a new one to connect.`);
+           return;
+         }
++        if (data?.status === 'denied') {
++          setCode(null);
++          toast.error(`The ${providerLabel} authorization was declined.`);
++          return;
++        }
+         if (response.status === 404) {
+           // A 404 without a status: the code flow is not offered here any more.
+           setCode(null);
+diff --git a/docs/ENVIRONMENT_VARIABLES.md b/docs/ENVIRONMENT_VARIABLES.md
+index 190dc93..0f39b47 100644
+--- a/docs/ENVIRONMENT_VARIABLES.md
++++ b/docs/ENVIRONMENT_VARIABLES.md
+@@ -216,6 +216,12 @@ to every visitor, so which one you reach for depends on who uses the instance.
+ - **Description**: Redirect URI for Trakt OAuth. Must match the value set in your Trakt app settings.
+ - **Example**: `TRAKT_REDIRECT_URI=https://your-domain.com/api/auth/trakt/callback`
+ 
++### `TRAKT_AUTH_MODE`
++- **Description**: Which Trakt connection flows the configure page offers: `oauth` (browser redirect), `device` (short code entered at trakt.tv), or `both`
++- **Default**: `oauth`
++- **Example**: `TRAKT_AUTH_MODE=device`
++- **Notes**: The device flow uses no redirect URI, so one registered Trakt application works for any instance, however it is hosted, and nothing has to be reachable from the internet. `TRAKT_CLIENT_ID` and `TRAKT_CLIENT_SECRET` are still required.
++
+ #### `TRAKT_OAUTH_STATE_TTL_MS`
+ - **Required**: No
+ - **Default**: `600000` (10 minutes)

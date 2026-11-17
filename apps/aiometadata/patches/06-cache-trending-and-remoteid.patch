@@ -1,0 +1,133 @@
+diff --git a/addon/lib/getTmdb.ts b/addon/lib/getTmdb.ts
+index 6f90a54..c0df143 100644
+--- a/addon/lib/getTmdb.ts
++++ b/addon/lib/getTmdb.ts
+@@ -1119,8 +1119,14 @@ export async function getTmdbSeriesLogo(tmdbId: string, config: UserConfig) {
+   }
+ }
+ 
++// Trending results are the same for every user, so they are cached globally.
+ export async function trending(params: any, config: UserConfig) {
+-    return makeTmdbRequest(`/trending/${params.media_type}/${params.time_window}`, getApiKey(config), params, 'GET', null, config);
++    const { media_type, time_window, language, page } = params;
++    const cacheKey = `tmdb:trending:${media_type}:${time_window}:${language || 'default'}:${page || 1}`;
++    return cacheWrapGlobal(cacheKey, () =>
++        makeTmdbRequest(`/trending/${media_type}/${time_window}`, getApiKey(config), params, 'GET', null, config),
++        60 * 60 // 1 hour — trending shifts within the day but not second-to-second
++    );
+ }
+ 
+ export async function seasonInfo(params: any, config: UserConfig) {
+diff --git a/addon/lib/tvdb.ts b/addon/lib/tvdb.ts
+index d44f171..7022c98 100644
+--- a/addon/lib/tvdb.ts
++++ b/addon/lib/tvdb.ts
+@@ -899,62 +899,66 @@ function tvdbIdFromRemoteIdResults(results: any[], type: string): number | null
+ async function findByImdbId(imdbId: string, config: UserConfig): Promise<TvdbSearchResult[]> {
+   const token = await getAuthToken(config.apiKeys?.tvdb, config.userUUID);
+   if (!token) return [];
+-  
+-  const startTime = Date.now();
+-  try {
+-    const response = await tvdbHttpRequest(`${TVDB_API_URL}/search/remoteid/${imdbId}`, {
+-      headers: { 'Authorization': `Bearer ${token}` },
+-    });
++
++  return cacheWrapTvdbApi(`remoteid:imdb:${imdbId}`, async () => {
++    const startTime = Date.now();
++    try {
++      const response = await tvdbHttpRequest(`${TVDB_API_URL}/search/remoteid/${imdbId}`, {
++        headers: { 'Authorization': `Bearer ${token}` },
++      });
+     
+-    const responseTime = Date.now() - startTime;
++      const responseTime = Date.now() - startTime;
+     
+-    // Track successful request
+-    const requestTracker = require('./requestTracker');
+-    requestTracker.trackProviderCall('tvdb', responseTime, true);
++      // Track successful request
++      const requestTracker = require('./requestTracker');
++      requestTracker.trackProviderCall('tvdb', responseTime, true);
+     
+-    const results = (response.data as any)?.data || [];
+-    const consola = require('consola');
+-    consola.debug(`[TVDB] Found TVDB ID for IMDB ID ${imdbId}:`, results);
+-    return results;
+-  } catch (error) {
+-    // Track failed request
+-    const responseTime = Date.now() - startTime;
+-    const requestTracker = require('./requestTracker');
+-    requestTracker.trackProviderCall('tvdb', responseTime, false);
++      const results = (response.data as any)?.data || [];
++      const consola = require('consola');
++      consola.debug(`[TVDB] Found TVDB ID for IMDB ID ${imdbId}:`, results);
++      return results;
++    } catch (error) {
++      // Track failed request
++      const responseTime = Date.now() - startTime;
++      const requestTracker = require('./requestTracker');
++      requestTracker.trackProviderCall('tvdb', responseTime, false);
+     
+-    logger.error(`[findByImdbId] Error finding TVDB by IMDb ID ${imdbId}:`, (error as Error).message);
+-    return [];
+-  }
++      logger.error(`[findByImdbId] Error finding TVDB by IMDb ID ${imdbId}:`, (error as Error).message);
++      return [];
++    }
++  });
+ }
+ 
+ async function findByTmdbId(tmdbId: string, config: UserConfig): Promise<TvdbSearchResult[]> {
+   const token = await getAuthToken(config.apiKeys?.tvdb, config.userUUID);
+   if (!token) return [];
+-  
+-  const startTime = Date.now();
+-  try {
+-    const response = await tvdbHttpRequest(`${TVDB_API_URL}/search/remoteid/${tmdbId}`, {
+-      headers: { 'Authorization': `Bearer ${token}` },
+-    });
++
++  return cacheWrapTvdbApi(`remoteid:tmdb:${tmdbId}`, async () => {
++    const startTime = Date.now();
++    try {
++      const response = await tvdbHttpRequest(`${TVDB_API_URL}/search/remoteid/${tmdbId}`, {
++        headers: { 'Authorization': `Bearer ${token}` },
++      });
+     
+-    const responseTime = Date.now() - startTime;
++      const responseTime = Date.now() - startTime;
+     
+-    // Track successful request
+-    const requestTracker = require('./requestTracker');
+-    requestTracker.trackProviderCall('tvdb', responseTime, true);
++      // Track successful request
++      const requestTracker = require('./requestTracker');
++      requestTracker.trackProviderCall('tvdb', responseTime, true);
+     
+-    const results = (response.data as any)?.data || [];
++      const results = (response.data as any)?.data || [];
+     
+-    return results;
+-  } catch (error) {
+-    // Track failed request
+-    const responseTime = Date.now() - startTime;
+-    const requestTracker = require('./requestTracker');
+-    requestTracker.trackProviderCall('tvdb', responseTime, false);
++      return results;
++    } catch (error) {
++      // Track failed request
++      const responseTime = Date.now() - startTime;
++      const requestTracker = require('./requestTracker');
++      requestTracker.trackProviderCall('tvdb', responseTime, false);
+     
+-    logger.error(`[findByTmdbId] Error finding TVDB by TMDB ID ${tmdbId}:`, (error as Error).message);
+-    return [];
+-  }
++      logger.error(`[findByTmdbId] Error finding TVDB by TMDB ID ${tmdbId}:`, (error as Error).message);
++      return [];
++    }
++  });
+ }
+ 
+ async function getAllGenres(config: UserConfig): Promise<TvdbGenre[]> {

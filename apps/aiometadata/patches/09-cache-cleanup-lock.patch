@@ -1,0 +1,77 @@
+diff --git a/addon/cache-cleanup.ts b/addon/cache-cleanup.ts
+index 739406e..b568a6e 100644
+--- a/addon/cache-cleanup.ts
++++ b/addon/cache-cleanup.ts
+@@ -9,6 +9,10 @@ const logger = consola.withTag('Cache-Cleanup');
+ // A permanent key we'll set in Redis to ensure this cleanup only ever runs once.
+ const CLEANUP_FLAG_KEY = 'cache-migration:v2-composite-key-cleanup-complete';
+ 
++// Only one process runs the cleanup at a time; the lock expires if its holder dies.
++const CLEANUP_LOCK_KEY = 'cache-migration:v2-composite-key-cleanup-lock';
++const CLEANUP_LOCK_TTL_SECONDS = 600;
++
+ // The pattern of the OLD, corrupted cache keys that need to be deleted.
+ const OLD_CACHE_PATTERN = 'id_mapping:*';
+ 
+@@ -61,7 +65,7 @@ export async function runCacheCleanup() {
+   await holdJikanDetailsToTheirTtl().catch((error) => logger.warn(`Could not recheck cached MAL details: ${error?.message || error}`));
+ 
+   logger.info('Checking cache schema version...');
+-  
++
+   try {
+     const cleanupAlreadyDone = await redisClient.get(CLEANUP_FLAG_KEY);
+ 
+@@ -70,21 +74,40 @@ export async function runCacheCleanup() {
+       return;
+     }
+ 
+-    logger.info('Old cache format may exist. Starting one-time cleanup process...');
++    const lockHolder = process.env.HOSTNAME || `pid-${process.pid}`;
++    const acquired = await redisClient.set(
++      CLEANUP_LOCK_KEY,
++      lockHolder,
++      'EX',
++      CLEANUP_LOCK_TTL_SECONDS,
++      'NX',
++    );
++
++    if (acquired !== 'OK') {
++      const currentHolder = await redisClient.get(CLEANUP_LOCK_KEY);
++      logger.info(`Another process (${currentHolder || 'unknown'}) is performing cleanup. Skipping.`);
++      return;
++    }
++
++    logger.info(`Acquired cleanup lock as ${lockHolder}. Starting one-time cleanup process...`);
+ 
+-    const keysToDelete = await findKeysByPattern(OLD_CACHE_PATTERN);
++    try {
++      const keysToDelete = await findKeysByPattern(OLD_CACHE_PATTERN);
+ 
+-    if (keysToDelete.length > 0) {
+-      logger.info(`Found ${keysToDelete.length} old cache keys to delete.`);
+-      await redisClient.del(keysToDelete);
+-      logger.success(`Successfully deleted ${keysToDelete.length} old cache keys.`);
+-    } else {
+-      logger.info('No old-format cache keys were found.');
+-    }
++      if (keysToDelete.length > 0) {
++        logger.info(`Found ${keysToDelete.length} old cache keys to delete.`);
++        await redisClient.del(keysToDelete);
++        logger.success(`Successfully deleted ${keysToDelete.length} old cache keys.`);
++      } else {
++        logger.info('No old-format cache keys were found.');
++      }
+ 
+-    // Set the flag permanently (no TTL) so this never runs again.
+-    await redisClient.set(CLEANUP_FLAG_KEY, 'true');
+-    logger.success('Cache cleanup complete. Flag set to prevent future runs.');
++      // Set the flag permanently (no TTL) so this never runs again.
++      await redisClient.set(CLEANUP_FLAG_KEY, 'true');
++      logger.success('Cache cleanup complete. Flag set to prevent future runs.');
++    } finally {
++      await redisClient.del(CLEANUP_LOCK_KEY).catch(() => {});
++    }
+ 
+   } catch (error) {
+     logger.error('A critical error occurred during cache cleanup:', error);

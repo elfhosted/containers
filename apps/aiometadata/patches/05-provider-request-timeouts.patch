@@ -1,0 +1,368 @@
+diff --git a/addon/lib/anilist.ts b/addon/lib/anilist.ts
+index 112b2e1..e20d681 100644
+--- a/addon/lib/anilist.ts
++++ b/addon/lib/anilist.ts
+@@ -21,6 +21,14 @@ const host = process.env.HOST_NAME && process.env.HOST_NAME.startsWith('http')
+   ? process.env.HOST_NAME 
+   : `https://${process.env.HOST_NAME}`;
+ 
++// Env-tunable request timeout and retry count.
++const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const ANILIST_REQUEST_TIMEOUT_MS = providerEnvInt('ANILIST_REQUEST_TIMEOUT_MS', 5000, 1000);
++const ANILIST_MAX_RETRIES = providerEnvInt('ANILIST_MAX_RETRIES', 2, 1);
++
+ /** AniList's firewall rejects requests carrying no Referer, whatever its value. */
+ function anilistHeaders(accessToken?: string): Record<string, string> {
+   return {
+@@ -66,7 +74,7 @@ class AniListAPI {
+   /**
+    * Rate limiting and retry logic
+    */
+-  async makeRateLimitedRequest(requestFn: () => Promise<any>, retries = 3, isRetry = false): Promise<any> {
++  async makeRateLimitedRequest(requestFn: () => Promise<any>, retries = ANILIST_MAX_RETRIES, isRetry = false): Promise<any> {
+     const now = Date.now();
+     
+     // Check if we need to wait for rate limit reset
+@@ -246,7 +254,7 @@ class AniListAPI {
+           variables: { userName: username }
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 30000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+@@ -333,7 +341,7 @@ class AniListAPI {
+           }
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 30000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+@@ -406,7 +414,7 @@ class AniListAPI {
+           variables: { userName: username, sort: [sort, 'MEDIA_ID'] }
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 30000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+@@ -498,7 +506,7 @@ class AniListAPI {
+           variables: { malId: malId }
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 10000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+@@ -535,7 +543,7 @@ class AniListAPI {
+       const response = await this.makeRateLimitedRequest(() =>
+         httpPost(this.baseURL, { query, variables: { ids: mediaIds, from, to, page } }, {
+           headers: anilistHeaders(),
+-          timeout: 30000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+       const result = response.data?.data?.Page;
+@@ -584,7 +592,7 @@ class AniListAPI {
+           query
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 30000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+@@ -649,7 +657,7 @@ class AniListAPI {
+           query
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 30000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+@@ -904,7 +912,7 @@ class AniListAPI {
+           variables: variables
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 30000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+       
+@@ -999,7 +1007,7 @@ class AniListAPI {
+           variables: { search: query.trim(), page: 1, perPage: 20 }
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 10000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+@@ -1238,7 +1246,7 @@ class AniListAPI {
+       const response = await this.makeRateLimitedRequest(() =>
+         httpPost(this.baseURL, { query, variables }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 15000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+@@ -1337,7 +1345,7 @@ class AniListAPI {
+           variables: { page, perPage: pageSize, ...(genre && genre !== 'None' ? { genres: [genre] } : {}) }
+         }, {
+           headers: anilistHeaders(accessToken),
+-          timeout: 15000
++          timeout: ANILIST_REQUEST_TIMEOUT_MS
+         })
+       );
+ 
+diff --git a/addon/lib/anilistTracker.js b/addon/lib/anilistTracker.js
+index 6c1d2a9..16c3144 100644
+--- a/addon/lib/anilistTracker.js
++++ b/addon/lib/anilistTracker.js
+@@ -31,11 +31,15 @@ const ANILIST_CLIENT_SECRET = process.env.ANILIST_CLIENT_SECRET;
+ // Token expiration buffer (5 minutes in milliseconds)
+ const TOKEN_EXPIRATION_BUFFER_MS = 5 * 60 * 1000;
+ 
+-// Request timeout (10 seconds)
+-const REQUEST_TIMEOUT_MS = 10000;
++// Env-tunable request timeout and retry count.
++const providerEnvInt = (name, fallback, minimum) => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const REQUEST_TIMEOUT_MS = providerEnvInt('ANILIST_TRACKER_REQUEST_TIMEOUT_MS', 5000, 1000);
+ 
+ // Retry configuration
+-const MAX_RETRIES = 3;
++const MAX_RETRIES = providerEnvInt('ANILIST_TRACKER_MAX_RETRIES', 2, 1);
+ const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
+ 
+ /**
+diff --git a/addon/lib/imdb.ts b/addon/lib/imdb.ts
+index aac56a0..51ab91d 100644
+--- a/addon/lib/imdb.ts
++++ b/addon/lib/imdb.ts
+@@ -7,6 +7,13 @@ const { cacheWrapGlobal }: any = require('./getCache');
+ 
+ const imdbAxiosInstance = axios.create();
+ 
++// Env-tunable request timeout.
++const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const IMDB_REQUEST_TIMEOUT_MS = providerEnvInt('IMDB_REQUEST_TIMEOUT_MS', 5000, 1000);
++
+ const userAgents = [
+     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+@@ -160,7 +167,7 @@ async function fetchHtml(url: string, headers: Record<string, string> = {}): Pro
+             },
+             maxRedirects: 5,
+             responseType: 'text',
+-            timeout: 10000
++            timeout: IMDB_REQUEST_TIMEOUT_MS
+         });
+ 
+         if (response.status >= 400) {
+diff --git a/addon/lib/mal.ts b/addon/lib/mal.ts
+index 6f86200..82b7664 100644
+--- a/addon/lib/mal.ts
++++ b/addon/lib/mal.ts
+@@ -90,6 +90,14 @@ setInterval(() => {
+   }
+ }, 60 * 60 * 1000);
+ 
++// Env-tunable request timeout.
++// Declared here (before dispatcher init) so the fallback Agent can reference it.
++const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const JIKAN_REQUEST_TIMEOUT_MS = providerEnvInt('JIKAN_REQUEST_TIMEOUT_MS', 5000, 1000);
++
+ const MAL_SOCKS_PROXY_URL = process.env.MAL_SOCKS_PROXY_URL;
+ const HTTP_PROXY_URL = process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY;
+ let malDispatcher: any;
+@@ -123,10 +131,10 @@ if (!malDispatcher) {
+       logger.info('Using global HTTP proxy for Jikan API.');
+     } catch (error: any) {
+       logger.warn(`Invalid HTTP_PROXY URL. Using direct connection. Error: ${error.message}`);
+-      malDispatcher = new Agent({ allowH2: false, connect: { timeout: 30000 } });
++      malDispatcher = new Agent({ allowH2: false, connect: { timeout: JIKAN_REQUEST_TIMEOUT_MS } });
+     }
+   } else {
+-    malDispatcher = new Agent({ allowH2: false, connect: { timeout: 30000 } });
++    malDispatcher = new Agent({ allowH2: false, connect: { timeout: JIKAN_REQUEST_TIMEOUT_MS } });
+     logger.debug('undici agent is enabled for direct connections.');
+   }
+ }
+diff --git a/addon/lib/tvdb.ts b/addon/lib/tvdb.ts
+index d4afd2b..d44f171 100644
+--- a/addon/lib/tvdb.ts
++++ b/addon/lib/tvdb.ts
+@@ -20,8 +20,15 @@ import {
+ 
+ const logger = consola.withTag('TVDB');
+ 
++// Env-tunable retry count.
++const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const TVDB_MAX_RETRIES = providerEnvInt('TVDB_MAX_RETRIES', 2, 1);
++
+ // TVDB-specific HTTP client with 429 rate limit handling
+-async function tvdbHttpRequest(url: string, options: any = {}, maxRetries: number = 3): Promise<any> {
++async function tvdbHttpRequest(url: string, options: any = {}, maxRetries: number = TVDB_MAX_RETRIES): Promise<any> {
+   let lastError;
+   const startTime = Date.now();
+   
+diff --git a/addon/lib/tvmaze.ts b/addon/lib/tvmaze.ts
+index ef2932c..702a4f7 100644
+--- a/addon/lib/tvmaze.ts
++++ b/addon/lib/tvmaze.ts
+@@ -7,8 +7,13 @@ import { Agent, ProxyAgent } from 'undici';
+ import consola from 'consola';
+ const consolaLogger = consola.withTag('TVmaze');
+ const TVMAZE_API_URL = 'https://api.tvmaze.com';
+-const DEFAULT_TIMEOUT = 15000; // 15-second timeout for all requests
+-const MAX_RETRIES = 3;
++// Env-tunable request timeout and retry count.
++const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const DEFAULT_TIMEOUT = providerEnvInt('TVMAZE_REQUEST_TIMEOUT_MS', 5000, 1000);
++const MAX_RETRIES = providerEnvInt('TVMAZE_MAX_RETRIES', 2, 1);
+ const RETRY_DELAY = 1000; // 1 second base delay for network errors
+ const RATE_LIMIT_FALLBACK_DELAY = 10000; // 10 seconds fallback if Retry-After header is missing
+ const RETRY_AFTER_BUFFER = 1000; // Add 1 second buffer to Retry-After value
+diff --git a/addon/utils/letterboxdUtils.ts b/addon/utils/letterboxdUtils.ts
+index 5393af2..cc16e11 100644
+--- a/addon/utils/letterboxdUtils.ts
++++ b/addon/utils/letterboxdUtils.ts
+@@ -11,6 +11,14 @@ const buildInfo = require('../lib/buildInfo');
+ 
+ const logger = consola.withTag('Letterboxd');
+ 
++// Env-tunable request timeout and retry count.
++const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const LETTERBOXD_REQUEST_TIMEOUT_MS = providerEnvInt('LETTERBOXD_REQUEST_TIMEOUT_MS', 5000, 1000);
++const LETTERBOXD_MAX_RETRIES = providerEnvInt('LETTERBOXD_MAX_RETRIES', 2, 1);
++
+ // Letterboxd challenges Node's default TLS cipher order outright, so the
+ // connection offers the list a browser sends. The navigation headers on the
+ // identifier request are the second margin: once the ciphers match, the only
+@@ -35,12 +43,12 @@ const BROWSER_CIPHERS = [
+ 
+ const letterboxdDispatcher = new Agent({
+   allowH2: false,
+-  connect: { timeout: 30000, ciphers: BROWSER_CIPHERS },
++  connect: { timeout: LETTERBOXD_REQUEST_TIMEOUT_MS, ciphers: BROWSER_CIPHERS },
+ });
+ 
+ // Rate limiting configuration for Letterboxd API (through StremThru)
+ const RATE_LIMIT_CONFIG = {
+-  maxRetries: 3,
++  maxRetries: LETTERBOXD_MAX_RETRIES,
+   baseDelay: 1000,
+   maxDelay: 10000,
+   minInterval: 500,
+@@ -412,4 +420,3 @@ export function getLetterboxdGenreIdByName(name: string): string | null {
+ export {
+   makeRateLimitedRequest
+ };
+-
+diff --git a/addon/utils/mdbList.ts b/addon/utils/mdbList.ts
+index f65130e..9707cd2 100644
+--- a/addon/utils/mdbList.ts
++++ b/addon/utils/mdbList.ts
+@@ -29,6 +29,14 @@ function sanitizeUrlForLogging(url: string): string {
+ }
+ 
+ 
++// Env-tunable request timeout and retry count.
++const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const MDBLIST_REQUEST_TIMEOUT_MS = providerEnvInt('MDBLIST_REQUEST_TIMEOUT_MS', 5000, 1000);
++const MDBLIST_MAX_RETRIES = providerEnvInt('MDBLIST_MAX_RETRIES', 2, 1);
++
+ // MDBList dispatcher configuration
+ // Priority: MDBLIST_SOCKS_PROXY_URL > HTTPS_PROXY/HTTP_PROXY > direct connection
+ const MDBLIST_SOCKS_PROXY_URL = process.env.MDBLIST_SOCKS_PROXY_URL;
+@@ -67,10 +75,10 @@ if (!mdblistDispatcher) {
+       logger.info('[MDBList] Using global HTTP proxy.');
+     } catch (error: any) {
+       logger.error(`[MDBList] Invalid HTTP_PROXY URL. Using direct connection. Error: ${error.message}`);
+-      mdblistDispatcher = new Agent({ allowH2: false, connect: { timeout: 30000 } });
++      mdblistDispatcher = new Agent({ allowH2: false, connect: { timeout: MDBLIST_REQUEST_TIMEOUT_MS } });
+     }
+   } else {
+-    mdblistDispatcher = new Agent({ allowH2: false, connect: { timeout: 30000 } });
++    mdblistDispatcher = new Agent({ allowH2: false, connect: { timeout: MDBLIST_REQUEST_TIMEOUT_MS } });
+     logger.debug('[MDBList] undici agent is enabled for direct connections.');
+   }
+ }
+@@ -90,7 +98,7 @@ const host = process.env.HOST_NAME?.startsWith('http')
+ 
+ // Rate limiting configuration for MDBList API
+ const RATE_LIMIT_CONFIG = {
+-  maxRetries: 5,
++  maxRetries: MDBLIST_MAX_RETRIES,
+   baseDelay: 1000,
+   maxDelay: 30000,
+   maxRetryAfter: 120000,
+@@ -1891,4 +1899,3 @@ export {
+   clearScrobbleSession as clearPlayback,
+   fetchMDBListCatalog
+ };
+-
+diff --git a/addon/utils/traktUtils.ts b/addon/utils/traktUtils.ts
+index 21628b1..ecd0b7f 100644
+--- a/addon/utils/traktUtils.ts
++++ b/addon/utils/traktUtils.ts
+@@ -33,9 +33,16 @@ function sanitizeUrlForLogging(url: string): string {
+ }
+ 
+ const TRAKT_PROXY_URL = process.env.TRAKT_PROXY_URL;
+-const traktDispatcher = TRAKT_PROXY_URL 
+-  ? new ProxyAgent({ uri: TRAKT_PROXY_URL, allowH2: false, requestTls: { timeout: 30000 } })
+-  : new Agent({ allowH2: false, connect: { timeout: 30000 } });
++// Env-tunable request timeout and retry count.
++const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
++  const value = Number(process.env[name]);
++  return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
++};
++const TRAKT_REQUEST_TIMEOUT_MS = providerEnvInt('TRAKT_REQUEST_TIMEOUT_MS', 5000, 1000);
++const TRAKT_MAX_RETRIES = providerEnvInt('TRAKT_MAX_RETRIES', 2, 1);
++const traktDispatcher = TRAKT_PROXY_URL
++  ? new ProxyAgent({ uri: TRAKT_PROXY_URL, allowH2: false, requestTls: { timeout: TRAKT_REQUEST_TIMEOUT_MS } })
++  : new Agent({ allowH2: false, connect: { timeout: TRAKT_REQUEST_TIMEOUT_MS } });
+ 
+ 
+ /**
+@@ -353,7 +360,7 @@ function traktWaitMs(queueKey: string): number {
+ async function makeRateLimitedRequest<T>(
+   requestFn: () => Promise<T>,
+   context: string = 'Trakt',
+-  retries: number = 3,
++  retries: number = TRAKT_MAX_RETRIES,
+   queueKey: string = 'global'
+ ): Promise<T> {
+   const queue = queueManager.getQueue(queueKey);

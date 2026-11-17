@@ -1,0 +1,38 @@
+diff --git a/addon/utils/mdbList.ts b/addon/utils/mdbList.ts
+index caab368..4bc0454 100644
+--- a/addon/utils/mdbList.ts
++++ b/addon/utils/mdbList.ts
+@@ -751,6 +751,15 @@ function supportsMdblistScoreFilters(catalogConfig: any): boolean {
+     && !id.startsWith('mdblist.recommended.');
+ }
+ 
++// Saved list URLs name api.mdblist.com; send them through MDBLIST_API_BASE at
++// fetch time. Cache keys keep the saved URL.
++function viaMdblistBase(savedUrl: string): string {
++  const saved = new URL(savedUrl);
++  if (saved.hostname !== 'api.mdblist.com') return savedUrl;
++  const base = new URL(MDBLIST_API_BASE);
++  return `${base.origin}${base.pathname.replace(/\/$/, '')}${saved.pathname}${saved.search}`;
++}
++
+ async function fetchCursorBlock(opts: { baseUrl: string; apiKey: string; blockIndex: number; blockSize: number; sort?: string; order?: string; genre?: string; filterScoreMin?: number; filterScoreMax?: number; mediaTypeFilter?: string; ttl: number; ttlSegment: string }): Promise<{ rows: any[]; hasMore: boolean; nextCursor: string | null }> {
+   const { baseUrl, blockIndex, blockSize } = opts;
+   const cacheKey = `mdblist-api:cursor-block:${baseUrl}:${blockIndex}:${blockSize}:${opts.sort || ''}:${opts.order || ''}:${opts.genre || ''}:${opts.filterScoreMin ?? ''}:${opts.filterScoreMax ?? ''}:${opts.mediaTypeFilter || ''}${opts.ttlSegment}`;
+@@ -763,7 +772,7 @@ async function fetchCursorBlock(opts: { baseUrl: string; apiKey: string; blockIn
+       cursor = previous.nextCursor;
+     }
+ 
+-    const url = new URL(baseUrl);
++    const url = new URL(viaMdblistBase(baseUrl));
+     url.searchParams.set('apikey', opts.apiKey);
+     url.searchParams.set('limit', String(blockSize));
+     url.searchParams.set('unified', 'true');
+@@ -778,7 +787,7 @@ async function fetchCursorBlock(opts: { baseUrl: string; apiKey: string; blockIn
+ 
+     logger.debug(`MDBList cursor block request URL: ${sanitizeUrlForLogging(url.toString())}`);
+     const response: any = await makeRateLimitedRequest(
+-      () => httpGet(url.toString(), { dispatcher: mdblistDispatcher }),
++      () => httpGet(url.toString(), { dispatcher: mdblistDispatcher, headers: freshnessHeaders(opts.ttl) }),
+       opts.apiKey,
+       `MDBList fetchCursorBlock (url: ${sanitizeUrlForLogging(baseUrl)}, block: ${blockIndex}, blockSize: ${blockSize})`
+     );

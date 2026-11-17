@@ -1,0 +1,46 @@
+diff --git a/addon/utils/mdbList.ts b/addon/utils/mdbList.ts
+index abf549e..caab368 100644
+--- a/addon/utils/mdbList.ts
++++ b/addon/utils/mdbList.ts
+@@ -20,6 +20,14 @@ const logger = consola.withTag('MDBList');
+ 
+ const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
+ 
++// Asks a caching proxy in front of MDBLIST_API_BASE for a response no older than
++// the caller's TTL. MDBList itself ignores the header.
++function freshnessHeaders(ttlSeconds: number): Record<string, string> {
++  return Number.isFinite(ttlSeconds) && ttlSeconds > 0
++    ? { 'Cache-Control': `max-age=${Math.floor(ttlSeconds)}` }
++    : {};
++}
++
+ /**
+  * Sanitize URL by removing API key for safe logging
+  * @param {string} url - URL that may contain an API key
+@@ -392,7 +400,7 @@ async function fetchListBlock(opts: { listId: string; apiKey: string; keyScope:
+     logger.debug(`MDBList block request URL: ${sanitizeUrlForLogging(url)}`);
+ 
+     const response: any = await makeRateLimitedRequest(
+-      () => httpGet(url, { dispatcher: mdblistDispatcher }),
++      () => httpGet(url, { dispatcher: mdblistDispatcher, headers: freshnessHeaders(opts.ttl) }),
+       opts.apiKey,
+       `MDBList fetchListBlock (listId: ${listId}, offset: ${blockOffset}, blockSize: ${blockSize})`
+     );
+@@ -462,7 +470,7 @@ async function fetchMDBListItems(listId: string, apiKey: string, language: strin
+         logger.debug(`MDBList request URL: ${sanitizeUrlForLogging(url)}`);
+ 
+         const response: any = await makeRateLimitedRequest(
+-          () => httpGet(url, { dispatcher: mdblistDispatcher }),
++          () => httpGet(url, { dispatcher: mdblistDispatcher, headers: freshnessHeaders(ttl) }),
+           apiKey,
+           `MDBList fetchMDBListItems (listId: ${listId}, page: ${page}, pageSize: ${pageSize}, sort: ${sort}, order: ${order}, genre: ${genre})`
+         );
+@@ -1763,7 +1771,7 @@ async function fetchMDBListCatalog(
+       logger.debug(`[MDBList Catalog] Request URL: ${sanitizeUrlForLogging(url.toString())}`);
+ 
+       const response: any = await makeRateLimitedRequest(
+-        () => httpGet(url.toString(), { dispatcher: mdblistDispatcher }),
++        () => httpGet(url.toString(), { dispatcher: mdblistDispatcher, headers: freshnessHeaders(ttl) }),
+         apiKey,
+         `MDBList catalog (${mediaType}, page: ${page})`
+       );
