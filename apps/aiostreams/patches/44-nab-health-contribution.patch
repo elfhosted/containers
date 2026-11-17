@@ -1,6 +1,6 @@
 diff --git a/packages/core/src/builtins/utils/nzbContribution.ts b/packages/core/src/builtins/utils/nzbContribution.ts
 new file mode 100644
-index 00000000..0278e435
+index 0000000..0278e43
 --- /dev/null
 +++ b/packages/core/src/builtins/utils/nzbContribution.ts
 @@ -0,0 +1,85 @@
@@ -90,10 +90,10 @@ index 00000000..0278e435
 +    });
 +}
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 67e9dfb4..fa6d2fdb 100644
+index da1939d..f8d951f 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -696,6 +696,36 @@ export const builtinsSchema = {
+@@ -697,6 +697,36 @@ export const builtinsSchema = {
        requiresRestart: false,
        secret: false,
      },
@@ -131,7 +131,7 @@ index 67e9dfb4..fa6d2fdb 100644
        schema: nullableString,
        default: null,
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index 91d36043..a6dcf670 100644
+index d0fbdeb..f032589 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
 @@ -32,6 +32,7 @@ import {
@@ -142,7 +142,7 @@ index 91d36043..a6dcf670 100644
  import { queueStremThruMediaInfo } from '../media-info/sources/stremthru.js';
  
  const logger = createLogger('debrid:stremthru');
-@@ -971,6 +972,7 @@ export class StremThruService
+@@ -978,6 +979,7 @@ export class StremThruService
          res,
          StremThruService.MAX_NZB_BYTES
        );
@@ -150,43 +150,11 @@ index 91d36043..a6dcf670 100644
      } catch (error) {
        if (error instanceof DebridError) {
          throw error;
-diff --git a/packages/core/src/presets/elfcache.ts b/packages/core/src/presets/elfcache.ts
-index 33edd38b..d851246d 100644
---- a/packages/core/src/presets/elfcache.ts
-+++ b/packages/core/src/presets/elfcache.ts
-@@ -73,7 +73,14 @@ export class ElfCachePreset extends TorznabPreset {
-             reason: 'Not configured',
-             disabled: true,
-           }
--        : undefined,
-+        :
-+          !appConfig.builtins.hashReport.enabled
-+          ? {
-+              reason:
-+                'Requires hash reporting to be enabled (BUILTIN_HASH_REPORT_ENABLED). Results come from hashes contributed by the instances that use it.',
-+              disabled: true,
-+            }
-+          : undefined,
-     };
-   }
- 
-@@ -85,6 +92,11 @@ export class ElfCachePreset extends TorznabPreset {
-     if (!appConfig.builtins.elfcache.url) {
-       throw new Error('The ElfCache URL is not set');
-     }
-+    if (!appConfig.builtins.hashReport.enabled) {
-+      throw new Error(
-+        'ElfCache requires hash reporting to be enabled (BUILTIN_HASH_REPORT_ENABLED).'
-+      );
-+    }
- 
-     const config = {
-       ...this.getBaseConfig(userData, services),
 diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
-index f1f8c807..576a065d 100644
+index 2fe3271..3a7519b 100644
 --- a/packages/core/src/presets/newznab.ts
 +++ b/packages/core/src/presets/newznab.ts
-@@ -203,6 +203,17 @@ export const NEWZNAB_INDEXERS: {
+@@ -208,6 +208,17 @@ export const NEWZNAB_INDEXERS: {
    },
  ];
  
@@ -204,7 +172,7 @@ index f1f8c807..576a065d 100644
  export class NewznabPreset extends BuiltinAddonPreset {
    static override getParser() {
      return NewznabStreamParser;
-@@ -461,6 +472,16 @@ export class NewznabPreset extends BuiltinAddonPreset {
+@@ -466,6 +477,16 @@ export class NewznabPreset extends BuiltinAddonPreset {
      userData: UserData,
      options: Record<string, any>
    ): Promise<Addon[]> {
@@ -222,7 +190,7 @@ index f1f8c807..576a065d 100644
        userData,
        options.services,
 diff --git a/packages/core/src/usenet/integration/dashboard/providers.ts b/packages/core/src/usenet/integration/dashboard/providers.ts
-index 6a67d46c..38742d2e 100644
+index 6a67d46..38742d2 100644
 --- a/packages/core/src/usenet/integration/dashboard/providers.ts
 +++ b/packages/core/src/usenet/integration/dashboard/providers.ts
 @@ -216,7 +216,7 @@ async function resolveSpeedTestSource(
@@ -235,7 +203,7 @@ index 6a67d46c..38742d2e 100644
      const fileIndexes = dataFileIndexes(nzb);
      if (fileIndexes.length === 0) return null;
 diff --git a/packages/core/src/usenet/integration/library.ts b/packages/core/src/usenet/integration/library.ts
-index 2c5ce365..d0fc61e7 100644
+index 2c5ce36..d0fc61e 100644
 --- a/packages/core/src/usenet/integration/library.ts
 +++ b/packages/core/src/usenet/integration/library.ts
 @@ -8,6 +8,7 @@ import {

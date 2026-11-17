@@ -1,0 +1,417 @@
+diff --git a/packages/core/src/utils/config.ts b/packages/core/src/utils/config.ts
+index 084d47d..b1b269a 100644
+--- a/packages/core/src/utils/config.ts
++++ b/packages/core/src/utils/config.ts
+@@ -34,6 +34,10 @@ import {
+   validateVariants,
+   withOwnAccountLock,
+ } from '../variants/runtime.js';
++import {
++  removeDanglingReferences,
++  removeRetiredPresets,
++} from './retired-presets.js';
+ import { parseSyncedUrl } from './sync/index.js';
+ import { ZodError } from 'zod';
+ import {
+@@ -909,7 +913,7 @@ export function applyMigrations(config: any): UserData {
+     delete config.formatter.definition;
+   }
+ 
+-  return config;
++  return removeRetiredPresets(config);
+ }
+ 
+ async function validateRegexes(config: UserData, skipErrors: boolean = false) {
+@@ -1726,5 +1730,5 @@ export function mergeConfigs(parent: UserData, child: UserData): UserData {
+   } else if (result.jellyfin?.personas) {
+     result.jellyfin = { ...result.jellyfin, personas: undefined };
+   }
+-  return withOwnAccountLock(result, child);
++  return removeDanglingReferences(withOwnAccountLock(result, child));
+ }
+diff --git a/packages/core/src/utils/retired-presets.test.ts b/packages/core/src/utils/retired-presets.test.ts
+new file mode 100644
+index 0000000..1009bc9
+--- /dev/null
++++ b/packages/core/src/utils/retired-presets.test.ts
+@@ -0,0 +1,166 @@
++import { before, describe, it, mock } from 'node:test';
++import assert from 'node:assert/strict';
++
++// Imported dynamically: preset metadata reads settings, which must be loaded first.
++const { settingsStore } = await import('../config/index.js');
++const { SettingsRepository } = await import('../db/repositories/settings.js');
++await import('../index.js');
++const { applyMigrations, mergeConfigs } = await import('./config.js');
++const { PresetManager } = await import('../presets/presetManager.js');
++const { applyVariants } = await import('../variants/runtime.js');
++
++before(async () => {
++  mock.method(SettingsRepository, 'getAll', async () => []);
++  mock.method(SettingsRepository, 'getVersion', async () => 0);
++  await settingsStore.initialise();
++});
++
++
++const mk = () => ({
++  presets: [
++    { type: 'elfcache', instanceId: 'ec1', enabled: true, options: {} },
++    { type: 'comet', instanceId: 'c1', enabled: true, options: {} },
++    { type: 'elfcache', instanceId: 'ec2', enabled: false, options: {} },
++  ],
++  proxy: { enabled: true, proxiedAddons: ['ec1', 'c1'] },
++  deduplicator: { excludeAddons: ['ec2'] },
++  serviceWrap: { enabled: true, presets: ['ec1'] },
++  excludeCachedFromAddons: ['ec1', 'c1'],
++  excludeUncachedFromAddons: ['ec2'],
++  titleMatching: { enabled: true, addons: ['ec1', 'c1'] },
++  yearMatching: { enabled: true, addons: [] },
++  digitalReleaseFilter: { enabled: true, addons: ['ec2'] },
++  groups: {
++    groupings: [
++      { addons: ['ec1'], condition: 'true' },
++      { addons: ['ec1', 'c1'], condition: 'true' },
++      { addons: [], condition: 'true' },
++    ],
++  },
++});
++
++describe('retired presets', () => {
++  it('drops retired preset instances and every reference to them', () => {
++    const c: any = applyMigrations(mk());
++    assert.deepEqual(
++      c.presets.map((p: any) => p.instanceId),
++      ['c1']
++    );
++    assert.deepEqual(c.proxy.proxiedAddons, ['c1']);
++    assert.deepEqual(c.deduplicator.excludeAddons, []);
++    assert.deepEqual(c.serviceWrap.presets, []);
++    assert.deepEqual(c.excludeCachedFromAddons, ['c1']);
++    assert.deepEqual(c.excludeUncachedFromAddons, []);
++    assert.deepEqual(c.titleMatching.addons, ['c1']);
++    assert.deepEqual(c.digitalReleaseFilter.addons, []);
++  });
++
++  it('turns off a setting whose addon list named only retired addons', () => {
++    // An empty list means every addon, so pruning to [] would widen it.
++    const c: any = applyMigrations(mk());
++    assert.equal(c.serviceWrap.enabled, false);
++    assert.equal(c.digitalReleaseFilter.enabled, false);
++    // Still scoped to a remaining addon, or never scoped: left on.
++    assert.equal(c.proxy.enabled, true);
++    assert.equal(c.titleMatching.enabled, true);
++    assert.equal(c.yearMatching.enabled, true);
++    assert.deepEqual(c.yearMatching.addons, []);
++  });
++
++  it('drops a group emptied by the removal, keeps one that was already empty', () => {
++    const c: any = applyMigrations(mk());
++    assert.deepEqual(
++      c.groups.groupings.map((g: any) => g.addons),
++      [['c1'], []]
++    );
++  });
++
++  it('leaves a config without retired presets unchanged', () => {
++    const plain = {
++      presets: [{ type: 'comet', instanceId: 'c1', options: {} }],
++      groups: { groupings: [{ addons: [], condition: 'true' }] },
++    };
++    const c: any = applyMigrations(structuredClone(plain));
++    assert.deepEqual(c.presets, plain.presets);
++    assert.deepEqual(c.groups, plain.groups);
++  });
++
++  it('removes references to a parent config\'s retired instances after merging', () => {
++    // Each config is migrated alone before the merge, so the child still holds
++    // the parent's ids until the merge prunes them.
++    const rawParent = () => ({
++      presets: [
++        { type: 'elfcache', instanceId: 'ec1', enabled: true, options: {} },
++        { type: 'comet', instanceId: 'c1', enabled: true, options: {} },
++      ],
++    });
++    const rawChild = () => ({
++      parentConfig: {
++        uuid: 'parent',
++        mergeStrategies: { presets: 'extend', filters: 'override' },
++      },
++      presets: [],
++      groups: {
++        groupings: [
++          { addons: ['ec1'], condition: 'true' },
++          { addons: ['ec1', 'c1'], condition: 'true' },
++        ],
++      },
++      titleMatching: { enabled: true, addons: ['ec1'] },
++    });
++    const parent: any = applyMigrations(rawParent());
++    const child: any = applyMigrations(rawChild());
++    const childBefore = structuredClone(child);
++    const merged: any = mergeConfigs(parent, child);
++    // The child the merge was built from is left as it was.
++    assert.deepEqual(child, childBefore);
++    // The same once the parent has been saved, so its retired ids are gone.
++    const savedParent: any = applyMigrations(JSON.parse(JSON.stringify(parent)));
++    const mergedAfterSave: any = mergeConfigs(
++      savedParent,
++      applyMigrations(rawChild())
++    );
++    assert.deepEqual(
++      mergedAfterSave.groups.groupings.map((g: any) => g.addons),
++      [['c1']]
++    );
++    assert.equal(mergedAfterSave.titleMatching.enabled, false);
++    assert.deepEqual(
++      merged.presets.map((p: any) => p.instanceId),
++      ['c1']
++    );
++    assert.deepEqual(
++      merged.groups.groupings.map((g: any) => g.addons),
++      [['c1']]
++    );
++    assert.equal(merged.titleMatching.enabled, false);
++  });
++
++  it('prunes references a saved variant sets after the migration has run', () => {
++    // Variants are scripts applied per request, so they cannot be rewritten
++    // in storage; a reference they set is pruned once they have applied.
++    const migrated: any = applyMigrations({
++      presets: [
++        { type: 'elfcache', instanceId: 'ec1', enabled: true, options: {} },
++        { type: 'comet', instanceId: 'c1', enabled: true, options: {} },
++      ],
++      variants: [
++        {
++          id: 'only-cache',
++          script:
++            'set titleMatching.enabled = true\nset titleMatching.addons = ["ec1"]\nset proxy.proxiedAddons = ["ec1", "c1"]',
++        },
++      ],
++    });
++    const { userData }: any = applyVariants(migrated, ['only-cache']);
++    assert.equal(userData.titleMatching.enabled, false);
++    assert.deepEqual(userData.titleMatching.addons, []);
++    assert.deepEqual(userData.proxy.proxiedAddons, ['c1']);
++  });
++
++  it('no longer offers the retired preset', () => {
++    const offered = PresetManager.getPresetList().map((p: any) => p.ID);
++    assert.ok(!offered.includes('elfcache'));
++    assert.ok(offered.includes('newznab'));
++  });
++});
+diff --git a/packages/core/src/utils/retired-presets.ts b/packages/core/src/utils/retired-presets.ts
+new file mode 100644
+index 0000000..c97c468
+--- /dev/null
++++ b/packages/core/src/utils/retired-presets.ts
+@@ -0,0 +1,93 @@
++// Preset types no longer offered. Instances of them are dropped from a config,
++// along with every reference to those instances, so it still loads and saves.
++const RETIRED_PRESET_TYPES = ['elfcache'];
++
++export function removeRetiredPresets(config: any): any {
++  if (!config || !Array.isArray(config.presets)) {
++    return config;
++  }
++  const removed = new Set<string>(
++    config.presets
++      .filter((preset: any) => RETIRED_PRESET_TYPES.includes(preset?.type))
++      .map((preset: any) => preset.instanceId)
++  );
++  if (removed.size === 0) {
++    return config;
++  }
++  config.presets = config.presets.filter(
++    (preset: any) => !RETIRED_PRESET_TYPES.includes(preset?.type)
++  );
++  return pruneReferences(config, (id) => removed.has(id));
++}
++
++/**
++ * References to instances a config no longer has, pruned the same way. A
++ * config that extends a parent can reference the parent's instances, and each
++ * is migrated on its own before the merge; a saved variant can set a reference
++ * after the migration has run.
++ */
++export function removeDanglingReferences<T>(merged: T): T {
++  const config = merged as any;
++  if (!config || !Array.isArray(config.presets)) return merged;
++  const existing = new Set<string>(
++    config.presets.map((preset: any) => preset?.instanceId)
++  );
++  return pruneReferences(config, (id) => !existing.has(id));
++}
++
++// Replaces the sections it changes rather than editing them, because a merged
++// config shares its sections with the child and parent it was built from.
++function pruneReferences(config: any, isRemoved: (id: string) => boolean): any {
++  const keep = (ids: string[]) => ids.filter((id) => !isRemoved(id));
++  const changed = (ids: unknown): ids is string[] =>
++    Array.isArray(ids) && ids.some((id) => isRemoved(id));
++  // In these settings an empty addon list means "every addon". When removal
++  // empties a list that named only removed addons, turn the setting off
++  // instead, so it does not widen to addons it never applied to.
++  const pruneScoped = (section: string, key: string) => {
++    const current = config[section];
++    if (!current || !changed(current[key])) return;
++    const remaining = keep(current[key]);
++    config[section] = {
++      ...current,
++      [key]: remaining,
++      ...(remaining.length === 0 ? { enabled: false } : {}),
++    };
++  };
++  pruneScoped('proxy', 'proxiedAddons');
++  pruneScoped('serviceWrap', 'presets');
++  for (const section of [
++    'digitalReleaseFilter',
++    'yearMatching',
++    'titleMatching',
++    'seasonEpisodeMatching',
++    'episodeTitleMatching',
++  ]) {
++    pruneScoped(section, 'addons');
++  }
++  if (config.deduplicator && changed(config.deduplicator.excludeAddons)) {
++    config.deduplicator = {
++      ...config.deduplicator,
++      excludeAddons: keep(config.deduplicator.excludeAddons),
++    };
++  }
++  for (const key of ['excludeCachedFromAddons', 'excludeUncachedFromAddons']) {
++    if (changed(config[key])) config[key] = keep(config[key]);
++  }
++  // A group needs at least one addon, so a group left empty is dropped.
++  const groupings = config.groups?.groupings;
++  if (Array.isArray(groupings) && groupings.some((g: any) => changed(g?.addons))) {
++    config.groups = {
++      ...config.groups,
++      groupings: groupings
++        .map((group: any) =>
++          changed(group?.addons)
++            ? { ...group, addons: keep(group.addons), emptied: true }
++            : group
++        )
++        .filter((group: any) => !(group?.emptied && group.addons.length === 0))
++        .map(({ emptied, ...group }: any) => group),
++    };
++  }
++  return config;
++}
+diff --git a/packages/core/src/variants/runtime.ts b/packages/core/src/variants/runtime.ts
+index 2aae45e..44be3a1 100644
+--- a/packages/core/src/variants/runtime.ts
++++ b/packages/core/src/variants/runtime.ts
+@@ -7,6 +7,7 @@ import type {
+   VariantSelectorLocation,
+ } from '../db/schemas.js';
+ import { compileRegex } from '../utils/regex.js';
++import { removeDanglingReferences } from '../utils/retired-presets.js';
+ import { RegexAccess } from '../utils/regex-access.js';
+ import {
+   VariantConditionEvaluator,
+@@ -206,7 +207,9 @@ export function applyVariants(
+   } else if (result.jellyfin?.personas) {
+     result.jellyfin = { ...result.jellyfin, personas: undefined };
+   }
+-  const pinned = withOwnAccountLock(result, userData);
++  const pinned = removeDanglingReferences(
++    withOwnAccountLock(result, userData)
++  );
+   pinned.activeVariants = applied;
+   return { userData: pinned, applied, notes };
+ }
+diff --git a/packages/frontend/src/context/userData.tsx b/packages/frontend/src/context/userData.tsx
+index 09955dd..e0cc2e7 100644
+--- a/packages/frontend/src/context/userData.tsx
++++ b/packages/frontend/src/context/userData.tsx
+@@ -24,6 +24,78 @@ import {
+   type Draft,
+ } from '@/lib/drafts';
+ 
++// Preset types no longer offered. Instances of them are dropped from a config,
++// along with every reference to those instances, so it still loads and saves.
++const RETIRED_PRESET_TYPES = ['elfcache'];
++
++function removeRetiredPresets(config: any): any {
++  if (!config || !Array.isArray(config.presets)) {
++    return config;
++  }
++  const removed = new Set<string>(
++    config.presets
++      .filter((preset: any) => RETIRED_PRESET_TYPES.includes(preset?.type))
++      .map((preset: any) => preset.instanceId)
++  );
++  if (removed.size === 0) {
++    return config;
++  }
++  config.presets = config.presets.filter(
++    (preset: any) => !RETIRED_PRESET_TYPES.includes(preset?.type)
++  );
++  const keep = (ids: unknown) =>
++    Array.isArray(ids) ? ids.filter((id) => !removed.has(id)) : ids;
++  const prune = (parent: any, key: string) => {
++    if (parent && Array.isArray(parent[key])) {
++      parent[key] = keep(parent[key]);
++    }
++  };
++  // In these settings an empty addon list means "every addon". When removal
++  // empties a list that named only retired addons, turn the setting off
++  // instead, so it does not widen to addons it never applied to.
++  const pruneScoped = (parent: any, key: string) => {
++    if (!parent || !Array.isArray(parent[key]) || parent[key].length === 0) {
++      return;
++    }
++    parent[key] = keep(parent[key]);
++    if (parent[key].length === 0) {
++      parent.enabled = false;
++    }
++  };
++  pruneScoped(config.proxy, 'proxiedAddons');
++  pruneScoped(config.serviceWrap, 'presets');
++  for (const key of [
++    'digitalReleaseFilter',
++    'yearMatching',
++    'titleMatching',
++    'seasonEpisodeMatching',
++    'episodeTitleMatching',
++  ]) {
++    pruneScoped(config[key], 'addons');
++  }
++  prune(config.deduplicator, 'excludeAddons');
++  prune(config, 'excludeCachedFromAddons');
++  prune(config, 'excludeUncachedFromAddons');
++  // A group needs at least one addon, so a group left empty is dropped.
++  if (Array.isArray(config.groups?.groupings)) {
++    config.groups.groupings = config.groups.groupings
++      .map((group: any) =>
++        group && Array.isArray(group.addons)
++          ? { ...group, addons: keep(group.addons) }
++          : group
++      )
++      .filter(
++        (group: any, i: number) =>
++          !(
++            Array.isArray(group?.addons) &&
++            group.addons.length === 0 &&
++            config.groups.groupings[i].addons.length > 0
++          )
++      );
++  }
++  return config;
++}
++
+ export function applyMigrations(config: any): UserData {
+   if (
+     config &&
+@@ -336,7 +408,7 @@ export function applyMigrations(config: any): UserData {
+     delete config.formatter.definition;
+   }
+ 
+-  return config;
++  return removeRetiredPresets(config);
+ }
+ 
+ export function removeInvalidPresetReferences(config: UserData) {
