@@ -1,0 +1,12 @@
+---
+# PID 1 is the exec-form entrypoint: the node binary running
+# dist/server/server.js with no other arguments. Checked on /proc/1 directly,
+# since Node 24 renames its main thread and goss's process check reads comm.
+command:
+  addon-pid1-node-identity:
+    exec: '[ "$(readlink /proc/1/exe)" = "/usr/local/bin/node" ] && [ "$(tr "\0" "," < /proc/1/cmdline)" = "node,dist/server/server.js," ]'
+    exit-status: 0
+
+http:
+  http://localhost:3232:
+    status: 200

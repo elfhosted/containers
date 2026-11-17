@@ -1,0 +1,318 @@
+diff --git a/addon/index.ts b/addon/index.ts
+index a28c074..81bd926 100644
+--- a/addon/index.ts
++++ b/addon/index.ts
+@@ -646,8 +646,9 @@ const respond = function (req, res, data, opts?) {
+       rpdb: getSetting('RPDB_API_KEY'),
+       mdblist: getSetting('MDBLIST_API_KEY'),
+       gemini: getSetting('GEMINI_API_KEY'),
+-      trakt: getSetting('TRAKT_CLIENT_ID'),
+-      simkl: getSetting('SIMKL_CLIENT_ID') || getSetting('SIMKL_V2_CLIENT_ID'),
++      // Presence only: the client ids stay on the server, which makes every call that needs them.
++      hasTrakt: !!getSetting('TRAKT_CLIENT_ID'),
++      hasSimkl: !!(getSetting('SIMKL_CLIENT_ID') || getSetting('SIMKL_V2_CLIENT_ID')),
+       traktAuthMode: resolveTraktAuthMode(),
+       simklV2: Boolean(getSetting('SIMKL_V2_CLIENT_ID')),
+       simklAuthMode: simklAuth.simklAuthMode(),
+diff --git a/configure/src/components/accounts/SimklConnect.tsx b/configure/src/components/accounts/SimklConnect.tsx
+index 418c815..7e71406 100644
+--- a/configure/src/components/accounts/SimklConnect.tsx
++++ b/configure/src/components/accounts/SimklConnect.tsx
+@@ -6,7 +6,7 @@ import { useDeviceAuth } from "@/hooks/useDeviceAuth";
+ import { OAuthTokenConnect } from "./OAuthTokenConnect";
+ 
+ export function SimklConnect({ onConnected }: { onConnected: (tokenId: string, username: string) => void }) {
+-  const [clientId, setClientId] = useState('');
++  const [configured, setConfigured] = useState(false);
+   const [mode, setMode] = useState<'oauth' | 'pin' | 'both'>('oauth');
+ 
+   useEffect(() => {
+@@ -15,7 +15,7 @@ export function SimklConnect({ onConnected }: { onConnected: (tokenId: string, u
+       .then((res) => (res.ok ? res.json() : null))
+       .then((data) => {
+         if (cancelled || !data) return;
+-        if (data.simkl) setClientId(data.simkl);
++        setConfigured(!!data.hasSimkl);
+         if (data.simklAuthMode === 'pin' || data.simklAuthMode === 'both' || data.simklAuthMode === 'oauth') setMode(data.simklAuthMode);
+       })
+       .catch(() => undefined);
+@@ -37,7 +37,7 @@ export function SimklConnect({ onConnected }: { onConnected: (tokenId: string, u
+         <DeviceAuthCard
+           code={pin.code}
+           requesting={pin.requesting}
+-          disabled={!clientId}
++          disabled={!configured}
+           startLabel="Get a Simkl PIN"
+           hint="They enter the code at simkl.com/pin, on any device."
+           onStart={pin.start}
+diff --git a/configure/src/components/sections/DiscoverBuilderDialog.tsx b/configure/src/components/sections/DiscoverBuilderDialog.tsx
+index 52fe374..81bae80 100644
+--- a/configure/src/components/sections/DiscoverBuilderDialog.tsx
++++ b/configure/src/components/sections/DiscoverBuilderDialog.tsx
+@@ -883,16 +883,17 @@ export function DiscoverBuilderDialog({ isOpen, onClose, editingCatalog, customi
+   const mdblistApiKey = config.apiKeys?.mdblist?.trim() || '';
+   // Discover queries are not account-scoped, so the instance key covers them.
+   const hasMdblistApiKey = mdblistApiKey.length > 0 || hasBuiltInMdblist;
+-  const [simklClientId, setSimklClientId] = useState<string>("");
+-  
++  // Whether the instance has Simkl configured; the client id is not served.
++  const [simklConfigured, setSimklConfigured] = useState(false);
++
+   useEffect(() => {
+     fetch("/api/config")
+       .then(res => res.ok ? res.json() : null)
+       .then(data => {
+-        if (data && data.simkl) setSimklClientId(data.simkl);
++        setSimklConfigured(!!(data && data.hasSimkl));
+       });
+   }, []);
+-  const hasSimklClientId = simklClientId.length > 0;
++  const hasSimklClientId = simklConfigured;
+ 
+   const buildDiscoverRequestQuery = (source: DiscoverSource, params: Record<string, string>): string => {
+     const searchParams = new URLSearchParams(params);
+@@ -1085,7 +1086,8 @@ export function DiscoverBuilderDialog({ isOpen, onClose, editingCatalog, customi
+   const SOURCE_API_KEYS: Record<string, string> = {
+     tmdb: tmdbApiKey,
+     tvdb: tvdbApiKey,
+-    simkl: simklClientId,
++    // Read for truthiness only, as for MAL and AniList.
++    simkl: simklConfigured ? 'public-api' : '',
+     mal: 'public-api',
+     anilist: 'public-api',
+     mdblist: mdblistApiKey,
+diff --git a/configure/src/components/sections/SimklIntegration.tsx b/configure/src/components/sections/SimklIntegration.tsx
+index 4b88138..2102248 100644
+--- a/configure/src/components/sections/SimklIntegration.tsx
++++ b/configure/src/components/sections/SimklIntegration.tsx
+@@ -46,7 +46,7 @@ interface SimklIntegrationProps {
+ }
+ 
+ export function SimklIntegration({ isOpen, onClose }: SimklIntegrationProps) {
+-  const [simklClientId, setSimklClientId] = useState<string>("");
++  const [simklConfigured, setSimklConfigured] = useState(false);
+   const [simklV2Available, setSimklV2Available] = useState(false);
+   const [serverSyncMinutes, setServerSyncMinutes] = useState(30);
+   const [simklAuthMode, setSimklAuthMode] = useState<'oauth' | 'pin' | 'both'>('oauth');
+@@ -55,7 +55,7 @@ export function SimklIntegration({ isOpen, onClose }: SimklIntegrationProps) {
+     fetch("/api/config")
+       .then(res => res.ok ? res.json() : null)
+       .then(data => {
+-        if (data && data.simkl) setSimklClientId(data.simkl);
++        setSimklConfigured(!!(data && data.hasSimkl));
+         setSimklV2Available(Boolean(data?.simklV2));
+         if (data?.simklAuthMode === 'oauth' || data?.simklAuthMode === 'pin' || data?.simklAuthMode === 'both') setSimklAuthMode(data.simklAuthMode);
+         if (Number(data?.simklActivitiesTTL) > 0) setServerSyncMinutes(Math.max(1, Math.round(data.simklActivitiesTTL / 60)));
+@@ -280,7 +280,7 @@ export function SimklIntegration({ isOpen, onClose }: SimklIntegrationProps) {
+ 
+   // Fetch Simkl user stats when connected
+   useEffect(() => {
+-    if (isConnected && config.apiKeys?.simklTokenId && simklClientId) {
++    if (isConnected && config.apiKeys?.simklTokenId && simklConfigured) {
+       setLoadingStats(true);
+       const cacheKey = `simkl_stats_${config.apiKeys.simklTokenId}`;
+       apiCache.cachedFetch(
+@@ -301,7 +301,7 @@ export function SimklIntegration({ isOpen, onClose }: SimklIntegrationProps) {
+     } else {
+       setUserStats(null);
+     }
+-  }, [isConnected, config.apiKeys?.simklTokenId, simklClientId]);
++  }, [isConnected, config.apiKeys?.simklTokenId, simklConfigured]);
+ 
+   const handleConnect = () => {
+     window.open(authUrl, "_blank", "width=600,height=700");
+@@ -634,13 +634,13 @@ export function SimklIntegration({ isOpen, onClose }: SimklIntegrationProps) {
+                       <DeviceAuthCard
+                         code={simklPin.code}
+                         requesting={simklPin.requesting}
+-                        disabled={!simklClientId}
++                        disabled={!simklConfigured}
+                         startLabel="Get a Simkl PIN"
+                         hint="Opens simkl.com/pin in a new tab. No public callback URL needed."
+                         onStart={simklPin.start}
+                         onCancel={simklPin.cancel}
+                       />
+-                      {!simklClientId && !oauthOffered && (
++                      {!simklConfigured && !oauthOffered && (
+                         <p className="text-xs text-red-500 mt-2">
+                           Instance owner has not yet set up the Simkl integration.
+                         </p>
+@@ -651,11 +651,11 @@ export function SimklIntegration({ isOpen, onClose }: SimklIntegrationProps) {
+                   {oauthOffered && (
+                     <div className="space-y-2">
+                       <Label>{pinOffered ? 'Or authorize in a browser window' : 'Step 1: Authorize Simkl'}</Label>
+-                      <Button onClick={handleConnect} className="w-full" disabled={!simklClientId}>
++                      <Button onClick={handleConnect} className="w-full" disabled={!simklConfigured}>
+                         <ExternalLink className="mr-2 h-4 w-4" />
+                         Authorize with Simkl
+                       </Button>
+-                      {!simklClientId && (
++                      {!simklConfigured && (
+                         <p className="text-xs text-red-500 mt-2">
+                           Instance owner has not yet set up the Simkl integration.
+                         </p>
+@@ -678,7 +678,7 @@ export function SimklIntegration({ isOpen, onClose }: SimklIntegrationProps) {
+                     />
+                   </div>
+ 
+-                  <Button onClick={handleSave} disabled={!tempTokenId.trim() || !simklClientId} className="w-full">
++                  <Button onClick={handleSave} disabled={!tempTokenId.trim() || !simklConfigured} className="w-full">
+                     Connect Simkl
+                   </Button>
+                 </div>
+diff --git a/configure/src/components/sections/TraktIntegration.tsx b/configure/src/components/sections/TraktIntegration.tsx
+index 3ec4de0..df5c844 100644
+--- a/configure/src/components/sections/TraktIntegration.tsx
++++ b/configure/src/components/sections/TraktIntegration.tsx
+@@ -83,13 +83,13 @@ const getDisplayTypeOverride = (
+ };
+ 
+ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+-    const [traktClientId, setTraktClientId] = useState<string>("");
++    const [traktConfigured, setTraktConfigured] = useState(false);
+     const [traktAuthMode, setTraktAuthMode] = useState<'oauth' | 'device' | 'both'>('oauth');
+     useEffect(() => {
+       fetch("/api/config")
+         .then(res => res.ok ? res.json() : null)
+         .then(data => {
+-          if (data && data.trakt) setTraktClientId(data.trakt);
++          setTraktConfigured(!!(data && data.hasTrakt));
+           if (data && (data.traktAuthMode === 'device' || data.traktAuthMode === 'both' || data.traktAuthMode === 'oauth')) {
+             setTraktAuthMode(data.traktAuthMode);
+           }
+@@ -169,7 +169,7 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+ 
+   // Fetch Trakt user stats when username is available and connected
+   useEffect(() => {
+-    if (isConnected && username && traktClientId) {
++    if (isConnected && username && traktConfigured) {
+       setLoadingStats(true);
+       const cacheKey = `trakt_stats_${username}`;
+       apiCache.cachedFetch(
+@@ -186,7 +186,7 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+     } else {
+       setUserStats(null);
+     }
+-  }, [isConnected, username, traktClientId]);
++  }, [isConnected, username, traktConfigured]);
+ 
+   const handleConnect = () => {
+     window.open(authUrl, "_blank", "width=600,height=700");
+@@ -329,7 +329,7 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+ 
+     setIsLoadingTraktUser(true);
+     try {
+-      if (!traktClientId) {
++      if (!traktConfigured) {
+         throw new Error('Trakt Client ID not configured. Please set TRAKT_CLIENT_ID in your server environment.');
+       }
+       
+@@ -532,7 +532,7 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+         return;
+       }
+       setListPreviewPending(true);
+-      if (!traktClientId) {
++      if (!traktConfigured) {
+         throw new Error('Trakt Client ID not configured. Please set TRAKT_CLIENT_ID in your server environment.');
+       }
+       const response = await fetch(`/api/trakt/users/${username}/lists/${listSlug}`);
+@@ -631,7 +631,7 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+   };
+ 
+   const fetchTrendingLists = async () => {
+-    if (!traktClientId) {
++    if (!traktConfigured) {
+       toast.error('Trakt Client ID not configured');
+       return;
+     }
+@@ -663,7 +663,7 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+   };
+ 
+   const fetchPopularLists = async () => {
+-    if (!traktClientId) {
++    if (!traktConfigured) {
+       toast.error('Trakt Client ID not configured');
+       return;
+     }
+@@ -1144,13 +1144,13 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+                       <DeviceAuthCard
+                         code={deviceAuth.code}
+                         requesting={deviceAuth.requesting}
+-                        disabled={!traktClientId}
++                        disabled={!traktConfigured}
+                         startLabel="Get a Trakt code"
+                         hint="Opens trakt.tv in a new tab. No public callback URL needed."
+                         onStart={deviceAuth.start}
+                         onCancel={deviceAuth.cancel}
+                       />
+-                      {!traktClientId && (
++                      {!traktConfigured && (
+                         <p className="text-xs text-red-500 mt-2">
+                           Instance owner has not yet set up the Trakt integration.
+                         </p>
+@@ -1161,11 +1161,11 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+                   {oauthEnabled && (
+                   <div className="space-y-2">
+                     <Label>{deviceEnabled ? "Or authorize in a browser window" : "Step 1: Authorize Trakt"}</Label>
+-                    <Button onClick={handleConnect} className="w-full" disabled={!traktClientId}>
++                    <Button onClick={handleConnect} className="w-full" disabled={!traktConfigured}>
+                       <ExternalLink className="mr-2 h-4 w-4" />
+                       Authorize with Trakt
+                     </Button>
+-                    {!traktClientId && (
++                    {!traktConfigured && (
+                       <p className="text-xs text-red-500 mt-2">
+                         Instance owner has not yet set up the Trakt integration.
+                       </p>
+@@ -1186,7 +1186,7 @@ export function TraktIntegration({ isOpen, onClose }: TraktIntegrationProps) {
+                     />
+                   </div>
+ 
+-                  <Button onClick={handleSave} disabled={!tempTokenId.trim() || !traktClientId} className="w-full">
++                  <Button onClick={handleSave} disabled={!tempTokenId.trim() || !traktConfigured} className="w-full">
+                     Connect Trakt
+                   </Button>
+                 </div>
+diff --git a/docs/ENVIRONMENT_VARIABLES.md b/docs/ENVIRONMENT_VARIABLES.md
+index 0f39b47..0d8a0ab 100644
+--- a/docs/ENVIRONMENT_VARIABLES.md
++++ b/docs/ENVIRONMENT_VARIABLES.md
+@@ -167,12 +167,15 @@ to every visitor, so which one you reach for depends on who uses the instance.
+ > shared instance, leave them blank, use the `BUILT_IN_*` keys above, and let each
+ > user bring their own.
+ >
+-> `TRAKT_CLIENT_ID` and `SIMKL_CLIENT_ID` are also in that payload, and that is
+-> fine: an OAuth client id is public by design and already visible in the
+-> authorization URL the browser opens. Their secrets are never published. The one
+-> thing to know is that both APIs accept a client id alone for public endpoints,
+-> so a copied id lets someone else's traffic count against your app's rate limit.
+-> `TRAKT_CLIENT_SECRET`, `SIMKL_CLIENT_SECRET` and `SIMKL_V2_CLIENT_SECRET` are what must stay private.
++> `TRAKT_CLIENT_ID` and `SIMKL_CLIENT_ID` are NOT in that payload. It reports
++> `hasTrakt` and `hasSimkl` instead, because both APIs accept a client id alone
++> for public endpoints, so an id read straight off an unauthenticated endpoint
++> lets somebody else's traffic count against your application's rate limit.
++>
++> This reduces how easily an id is collected; it does not make one confidential.
++> A client id is public by design and still appears in the authorization URL the
++> browser opens for the redirect flow. `TRAKT_CLIENT_SECRET`, `SIMKL_CLIENT_SECRET`
++> and `SIMKL_V2_CLIENT_SECRET` are what must stay private, and are never published.
+ 
+ #### `TMDB_API_KEY`
+ - **Required**: Yes
+diff --git a/docs/self-hosting.md b/docs/self-hosting.md
+index e663bfd..d1ace00 100644
+--- a/docs/self-hosting.md
++++ b/docs/self-hosting.md
+@@ -122,8 +122,10 @@ node addon/server.js
+ > `TMDB_API_KEY`, `TVDB_API_KEY`, `FANART_API_KEY`, `RPDB_API_KEY`, `MDBLIST_API_KEY`
+ > and `GEMINI_API_KEY` are served to every visitor by `/api/config` so the configure
+ > page can prefill them, and that path stays open even with `AUTH_REQUIRE_SIGNIN=true`.
+-> (`TRAKT_CLIENT_ID` and `SIMKL_CLIENT_ID` are in there too, which is fine: OAuth
+-> client ids are public by design and their secrets are not published.) See
++> (`TRAKT_CLIENT_ID` and `SIMKL_CLIENT_ID` are reported only as `hasTrakt` and
++> `hasSimkl`, so an id is not collected straight off this endpoint and spent
++> against your application's rate limit. It still appears in the authorization
++> URL the redirect flow opens; their secrets are not published.) See
+ > [Environment Variables](ENVIRONMENT_VARIABLES.md#api-keys).
+ 
+ > **Private instance?** Simkl can be connected with a code the user enters at

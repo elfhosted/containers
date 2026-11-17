@@ -1,0 +1,199 @@
+diff --git a/addon/lib/getSearch.ts b/addon/lib/getSearch.ts
+index d82ffad..f488931 100644
+--- a/addon/lib/getSearch.ts
++++ b/addon/lib/getSearch.ts
+@@ -1446,7 +1446,13 @@ async function matchAndEnrichFromTMDB(suggestion: { title: string; year: string
+ 
+ async function performAiSearch(query: string, language: string, config: any): Promise<{ metas: any[]; error?: string }> {
+   const startTime = Date.now();
+-  const aiProvider = config.search?.ai_provider || 'gemini';
++  let aiProvider = config.search?.ai_provider || 'gemini';
++  // OpenRouter chosen with no key of the configuration's own for either
++  // provider: use the built-in endpoint rather than calling OpenRouter keyless.
++  if (aiProvider === 'openrouter' && !config.apiKeys?.openrouter && !config.apiKeys?.gemini) {
++    const { isBuiltInAiCall }: any = require('../utils/gemini-client');
++    if (isBuiltInAiCall(process.env.BUILT_IN_GEMINI_API_KEY || '')) aiProvider = 'gemini';
++  }
+   const aiModel = aiProvider === 'openrouter'
+     ? (config.search?.ai_model || 'google/gemini-2.5-flash')
+     : resolveGeminiModel(config.search?.ai_model);
+diff --git a/addon/lib/logBuffer.ts b/addon/lib/logBuffer.ts
+index af8dae3..ef53845 100644
+--- a/addon/lib/logBuffer.ts
++++ b/addon/lib/logBuffer.ts
+@@ -193,7 +193,7 @@ const SECRET_ENV_KEYS = [
+   'BUILT_IN_MDBLIST_API_KEY', 'GEMINI_API_KEY', 'BUILT_IN_GEMINI_API_KEY',
+   'RPDB_API_KEY', 'SIMKL_CLIENT_ID', 'SIMKL_CLIENT_SECRET', 'SIMKL_V2_CLIENT_SECRET',
+   'TRAKT_CLIENT_ID', 'TRAKT_CLIENT_SECRET', 'ANILIST_CLIENT_SECRET',
+-  'GITHUB_PAT', 'GITHUB_TOKEN',
++  'GITHUB_PAT', 'GITHUB_TOKEN', 'BUILT_IN_AI_API_KEY', 'BUILT_IN_AI_BASE_URL',
+ ];
+ let secretValues: string[] = [];
+ function refreshSecrets(): void {
+diff --git a/addon/utils/gemini-client.ts b/addon/utils/gemini-client.ts
+index 0172b6a..01e47fc 100644
+--- a/addon/utils/gemini-client.ts
++++ b/addon/utils/gemini-client.ts
+@@ -11,6 +11,9 @@ interface GenerateContentOptions {
+   systemPrompt?: string;
+   useGrounding?: boolean;
+   timeout?: number;
++  /** Ignored on the Google path; passed to the built-in endpoint. */
++  maxTokens?: number;
++  reasoningEffort?: string;
+ }
+ 
+ interface GenerateContentResult {
+@@ -58,7 +61,52 @@ const createGeminiDispatcher = (): any => {
+ 
+ const geminiDispatcher: any = createGeminiDispatcher();
+ 
+-async function generateContent({ apiKey, model, prompt, systemPrompt, useGrounding = false, timeout = 30000 }: GenerateContentOptions): Promise<GenerateContentResult> {
++// Built-in AI through an operator-supplied OpenAI-compatible endpoint.
++//
++// When BUILT_IN_AI_BASE_URL is set, a call made with exactly the instance's
++// BUILT_IN_GEMINI_API_KEY is sent to that endpoint instead of Google, so the
++// existing built-in key switch keeps gating every AI feature. A configuration's
++// own Gemini key never matches and still goes to Google. The endpoint has no
++// web search, so callers check isBuiltInAiCall() before building a grounded
++// prompt. Gemini-only response fields come back null.
++const BUILT_IN_AI_BASE_URL = (process.env.BUILT_IN_AI_BASE_URL || '').trim();
++// Optional: the model to request, overriding whatever the caller asked for.
++const BUILT_IN_AI_MODEL = (process.env.BUILT_IN_AI_MODEL || '').trim();
++// Optional: bearer token for the endpoint. Never the built-in Gemini key.
++const BUILT_IN_AI_API_KEY = (process.env.BUILT_IN_AI_API_KEY || '').trim();
++
++function isBuiltInAiCall(apiKey: string): boolean {
++  const builtIn = process.env.BUILT_IN_GEMINI_API_KEY;
++  return !!BUILT_IN_AI_BASE_URL && !!builtIn && apiKey === builtIn;
++}
++
++async function generateViaBuiltInAi({ model, prompt, systemPrompt, timeout = 30000, maxTokens, reasoningEffort }: GenerateContentOptions): Promise<GenerateContentResult> {
++  const openrouter = require('./openrouter-client');
++  const res = await openrouter.generateContent({
++    apiKey: BUILT_IN_AI_API_KEY || 'built-in',
++    model: BUILT_IN_AI_MODEL || model,
++    prompt,
++    systemPrompt,
++    timeout,
++    ...(maxTokens ? { maxTokens } : {}),
++    ...(reasoningEffort ? { reasoningEffort } : {}),
++    baseUrl: BUILT_IN_AI_BASE_URL,
++  });
++  return {
++    text: res?.text ?? null,
++    candidates: [],
++    groundingMetadata: null,
++    promptFeedback: null,
++    finishReason: res?.finishReason ?? null,
++    safetyRatings: null,
++  };
++}
++
++async function generateContent(options: GenerateContentOptions): Promise<GenerateContentResult> {
++  if (isBuiltInAiCall(options.apiKey)) {
++    return generateViaBuiltInAi(options);
++  }
++  const { apiKey, model, prompt, systemPrompt, useGrounding = false, timeout = 30000 } = options;
+   const url = `${GEMINI_BASE_URL}/models/${model}:generateContent`;
+   const startTime = Date.now();
+ 
+@@ -143,5 +191,5 @@ async function closeAgent(): Promise<void> {
+   await geminiDispatcher.close();
+ }
+ 
+-export { generateContent, getAgentStats, closeAgent };
+-module.exports = { generateContent, getAgentStats, closeAgent };
++export { generateContent, getAgentStats, closeAgent, isBuiltInAiCall };
++module.exports = { generateContent, getAgentStats, closeAgent, isBuiltInAiCall };
+diff --git a/addon/utils/gemini-service.ts b/addon/utils/gemini-service.ts
+index 0b1c32d..3a27b83 100644
+--- a/addon/utils/gemini-service.ts
++++ b/addon/utils/gemini-service.ts
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: AGPL-3.0-or-later WITH AdditionRef-AIOMetadata-FSL-linking
+ // Copyright (C) 2021-2026 cedya77 and AIOMetadata contributors, see NOTICE
+ require('dotenv').config();
+-const { generateContent }: any = require('./gemini-client');
++const { generateContent, isBuiltInAiCall }: any = require('./gemini-client');
+ const consola: any = require('consola');
+ 
+ const logger: any = consola.withTag('AISearch');
+@@ -103,6 +103,8 @@ async function performGeminiSearch(apiKey: string, query: string, type: string,
+ }
+ 
+ async function geminiSearch(apiKey: string, query: string, type: string, selectedModel: string, useGrounding: boolean): Promise<Suggestion[]> {
++  // The built-in endpoint cannot search, so it gets the offline prompt.
++  if (useGrounding && isBuiltInAiCall(apiKey)) useGrounding = false;
+   const startTime = Date.now();
+   const timeout = useGrounding ? 45000 : 30000;
+ 
+diff --git a/addon/utils/openrouter-client.ts b/addon/utils/openrouter-client.ts
+index aa007e1..a6115bb 100644
+--- a/addon/utils/openrouter-client.ts
++++ b/addon/utils/openrouter-client.ts
+@@ -40,6 +40,15 @@ function createOpenRouterDispatcher() {
+ 
+ const openrouterDispatcher = createOpenRouterDispatcher();
+ 
++// Used for calls to an explicit baseUrl, which never go through a proxy.
++let directDispatcher: any = null;
++function getDirectDispatcher(): any {
++  if (!directDispatcher) {
++    directDispatcher = new Agent({ allowH2: false, keepAliveTimeout: 30000, keepAliveMaxTimeout: 60000, connections: 50, pipelining: 1 });
++  }
++  return directDispatcher;
++}
++
+ interface GenerateContentOptions {
+   apiKey: string;
+   model: string;
+@@ -57,6 +66,12 @@ interface GenerateContentOptions {
+    * to turn it off, so it is capped rather than disabled.
+    */
+   reasoningEffort?: string;
++  /**
++   * An OpenAI-compatible endpoint to send this call to instead of OpenRouter,
++   * used by the built-in AI path (see gemini-client.ts). Such a call is made
++   * directly, never through a configured proxy.
++   */
++  baseUrl?: string;
+ }
+ 
+ interface GenerateContentResult {
+@@ -71,8 +86,8 @@ interface GenerateContentResult {
+   usage: { promptTokens?: number; completionTokens?: number; cost?: number } | null;
+ }
+ 
+-async function generateContent({ apiKey, model, prompt, systemPrompt, timeout = 30000, maxTokens = 8192, reasoningEffort }: GenerateContentOptions): Promise<GenerateContentResult> {
+-  const url = `${OPENROUTER_BASE_URL}/chat/completions`;
++async function generateContent({ apiKey, model, prompt, systemPrompt, timeout = 30000, maxTokens = 8192, reasoningEffort, baseUrl }: GenerateContentOptions): Promise<GenerateContentResult> {
++  const url = `${(baseUrl || OPENROUTER_BASE_URL).replace(/\/+$/, '')}/chat/completions`;
+   const startTime = Date.now();
+ 
+   const messages: Array<{ role: string; content: string }> = [];
+@@ -97,7 +112,7 @@ async function generateContent({ apiKey, model, prompt, systemPrompt, timeout =
+         'Authorization': `Bearer ${apiKey}`,
+       },
+       body: JSON.stringify(body),
+-      dispatcher: openrouterDispatcher,
++      dispatcher: baseUrl ? getDirectDispatcher() : openrouterDispatcher,
+       headersTimeout: timeout,
+       bodyTimeout: timeout,
+     });
+diff --git a/addon/utils/recommendations/provider.ts b/addon/utils/recommendations/provider.ts
+index e1bdd94..7abd786 100644
+--- a/addon/utils/recommendations/provider.ts
++++ b/addon/utils/recommendations/provider.ts
+@@ -109,7 +109,10 @@ export function resolveProvider(config: any): ResolvedProvider | null {
+   else return null;
+ 
+   const { resolveRecommendationModel, isPresetModel, withWebSearch }: any = require('../ai-model-resolver');
+-  const webSearch = config?.recommendations?.web_search === true;
++  // The built-in endpoint cannot search, so a web-search pass through it is off.
++  const { isBuiltInAiCall }: any = require('../gemini-client');
++  const builtInGateway = provider === 'gemini' && isBuiltInAiCall(geminiKey);
++  const webSearch = config?.recommendations?.web_search === true && !builtInGateway;
+ 
+   // Gemini takes grounding as a request flag, OpenRouter as a model suffix, so
+   // the suffix is settled here rather than at the call site.

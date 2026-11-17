@@ -1,0 +1,78 @@
+diff --git a/scripts/check-env-registry.ts b/scripts/check-env-registry.ts
+index 395cb2a..bc5936c 100644
+--- a/scripts/check-env-registry.ts
++++ b/scripts/check-env-registry.ts
+@@ -15,6 +15,73 @@ const INTERNAL_ALLOWLIST = new Set<string>([
+   'HOME',
+   'CACHE_WARMUP_UUID',
+   'POSTER_CACHE_LOG_PIPE',
++
++  // Request timeouts and retry counts.
++  'TMDB_REQUEST_TIMEOUT_MS',
++  'TMDB_MAX_RETRIES',
++  'ANILIST_REQUEST_TIMEOUT_MS',
++  'ANILIST_MAX_RETRIES',
++  'ANILIST_TRACKER_REQUEST_TIMEOUT_MS',
++  'ANILIST_TRACKER_MAX_RETRIES',
++  'IMDB_REQUEST_TIMEOUT_MS',
++  'JIKAN_REQUEST_TIMEOUT_MS',
++  'TVDB_MAX_RETRIES',
++  'TVMAZE_REQUEST_TIMEOUT_MS',
++  'TVMAZE_MAX_RETRIES',
++  'LETTERBOXD_REQUEST_TIMEOUT_MS',
++  'LETTERBOXD_MAX_RETRIES',
++  'MDBLIST_REQUEST_TIMEOUT_MS',
++  'MDBLIST_MAX_RETRIES',
++  'TRAKT_REQUEST_TIMEOUT_MS',
++  'TRAKT_MAX_RETRIES',
++
++  // Holder name for the cache cleanup lock.
++  'HOSTNAME',
++
++  // Provider API base URLs.
++  'TRAKT_API_BASE',
++  'TRAKT_AUTH_BASE',
++  'MDBLIST_API_BASE',
++  'ANILIST_API_BASE',
++  'TMDB_API_BASE',
++  'TVDB_API_BASE',
++  'TVMAZE_API_BASE',
++  'CINEMETA_API_BASE',
++  'CINEMETA_LIVE_API_BASE',
++  'FANART_API_BASE',
++  'KITSU_API_BASE',
++  'SIMKL_API_BASE',
++  'SIMKL_DATA_BASE',
++  'PUBLICMETADB_API_BASE',
++  'IMDB_SUGGESTION_BASE',
++
++  // Test-only Trakt address, ignored when NODE_ENV=production.
++  'TRAKT_DIRECT_BASE',
++
++  // Rotating file log.
++  'LOG_FILE',
++  'LOG_FILE_MAX_BYTES',
++  'LOG_FILE_MAX_FILES',
++  'LOG_FILE_MAX_QUEUE_BYTES',
++  'AIOMETADATA_LOG_FILE',
++  'AIOMETADATA_LOG_FILE_MAX_BYTES',
++  'AIOMETADATA_LOG_FILE_MAX_FILES',
++  'AIOMETADATA_LOG_FILE_MAX_QUEUE_BYTES',
++
++  // TMDB detail response TTL.
++  'TMDB_DETAIL_TTL',
++
++  // Allows wildcard cache clears.
++  'ALLOW_UNSCOPED_CACHE_CLEAR',
++
++  // Proxy trust and client address header.
++  'TRUST_PROXY',
++  'CLIENT_IP_HEADER',
++
++  // Built-in AI endpoint.
++  'BUILT_IN_AI_BASE_URL',
++  'BUILT_IN_AI_MODEL',
++  'BUILT_IN_AI_API_KEY',
+ ]);
+ 
+ /** Known debt: warned about, never grown. A setting not listed here fails the check. */

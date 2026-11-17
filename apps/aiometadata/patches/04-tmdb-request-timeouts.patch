@@ -1,0 +1,24 @@
+diff --git a/addon/lib/getTmdb.ts b/addon/lib/getTmdb.ts
+index f8d1dce..6f90a54 100644
+--- a/addon/lib/getTmdb.ts
++++ b/addon/lib/getTmdb.ts
+@@ -189,7 +189,9 @@ async function makeTmdbRequest(endpoint: string, apiKey: string, params: Record<
+   const url = `${TMDB_API_URL}${endpoint}?${queryParams.toString()}`;
+ 
+   let attempt = 0;
+-  const maxRetries = 3;
++  // Env-tunable request timeout and retry count.
++  const maxRetries = Math.max(1, parseInt(process.env.TMDB_MAX_RETRIES || '2', 10));
++  const requestTimeoutMs = Math.max(1000, parseInt(process.env.TMDB_REQUEST_TIMEOUT_MS || '5000', 10));
+   let lastError: any;
+ 
+   while(attempt < maxRetries) {
+@@ -202,7 +204,7 @@ async function makeTmdbRequest(endpoint: string, apiKey: string, params: Record<
+         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+         dispatcher: dispatcher,
+         body: body ? JSON.stringify(body) : undefined,
+-        signal: AbortSignal.timeout(15000)
++        signal: AbortSignal.timeout(requestTimeoutMs)
+       });
+ 
+       const responseTime = Date.now() - startTime;

@@ -1,0 +1,1087 @@
+diff --git a/addon/index.ts b/addon/index.ts
+index 6bc784e..97fb2a6 100644
+--- a/addon/index.ts
++++ b/addon/index.ts
+@@ -35,6 +35,11 @@ const consola = require('consola');
+ const aiCatalogLogger = consola.withTag('AICatalog');
+ const { stripReleaseAvailabilityForResponse } = require('./utils/releaseAvailability');
+ 
++// Provider API base URLs, overridable by environment. Defaults are the providers' own.
++const TRAKT_API_BASE_URL = process.env.TRAKT_API_BASE || 'https://api.trakt.tv';
++const MDBLIST_API_BASE_URL = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++const ANILIST_API_BASE_URL = process.env.ANILIST_API_BASE || 'https://graphql.anilist.co';
++
+ const configApi = require('./lib/configApi');
+ const database = require('./lib/database');
+ const { loadConfigFromDatabase, loadRouteConfig, loadSharedConfig } = require('./lib/configApi');
+@@ -1546,7 +1551,7 @@ addon.post("/api/trakt/proxy", async (req, res) => {
+       return res.status(400).json({ error: "endpoint must be a non-empty string" });
+     }
+ 
+-    const traktUrl = `https://api.trakt.tv${normalizedEndpoint}`;
++    const traktUrl = `${TRAKT_API_BASE_URL}${normalizedEndpoint}`;
+     const pathname = new URL(traktUrl).pathname;
+ 
+     const authMode = resolveTraktProxyAuthMode(pathname);
+@@ -1621,7 +1626,7 @@ addon.get("/api/mdblist/user", async (req, res) => {
+     if (!apikey) {
+       return res.status(400).json({ error: "apikey is required" });
+     }
+-    const url = `https://api.mdblist.com/user?apikey=${apikey}`;
++    const url = `${MDBLIST_API_BASE_URL}/user?apikey=${apikey}`;
+     const response = await makeRateLimitedMDBListRequest(url, apikey, 'MDBList Proxy - Get User Info');
+     res.json(response.data);
+   } catch (error) {
+@@ -1651,8 +1656,8 @@ addon.get("/api/mdblist/lists/user", async (req, res) => {
+     }
+     
+     let url = username 
+-      ? `https://api.mdblist.com/lists/user/${username}?apikey=${apikey}`
+-      : `https://api.mdblist.com/lists/user?apikey=${apikey}`;
++      ? `${MDBLIST_API_BASE_URL}/lists/user/${username}?apikey=${apikey}`
++      : `${MDBLIST_API_BASE_URL}/lists/user?apikey=${apikey}`;
+     
+     if (sort) {
+       url += `&sort=${sort}`;
+@@ -1689,7 +1694,7 @@ addon.get("/api/mdblist/lists/search", async (req, res) => {
+ 
+     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 40, 1), 100);
+     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+-    const url = `https://api.mdblist.com/lists/search?apikey=${apikey}&query=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`;
++    const url = `${MDBLIST_API_BASE_URL}/lists/search?apikey=${apikey}&query=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`;
+ 
+     const payload = await cacheWrapGlobal(
+       mdblistCacheKey(['lists', 'search', query.toLowerCase(), String(limit), String(offset)], apikey),
+@@ -1721,7 +1726,7 @@ addon.get("/api/mdblist/lists/top", async (req, res) => {
+       return res.status(400).json({ error: "apikey is required" });
+     }
+     
+-    const url = `https://api.mdblist.com/lists/top?apikey=${apikey}`;
++    const url = `${MDBLIST_API_BASE_URL}/lists/top?apikey=${apikey}`;
+     const response = await makeRateLimitedMDBListRequest(url, apikey, 'MDBList Proxy - Get Top Lists');
+     res.json(response.data);
+   } catch (error) {
+@@ -1749,7 +1754,7 @@ addon.get("/api/mdblist/lists/:listId/items", async (req, res) => {
+       params.set('limit', String(Math.min(parsedLimit, 50)));
+     }
+ 
+-    const url = `https://api.mdblist.com/lists/${listId}/items?${params.toString()}`;
++    const url = `${MDBLIST_API_BASE_URL}/lists/${listId}/items?${params.toString()}`;
+     const items = await cacheWrapGlobal(
+       mdblistCacheKey(['list', String(listId), 'items', params.get('limit') || 'all'], apikey),
+       async () => {
+@@ -1783,7 +1788,7 @@ addon.get("/api/mdblist/lists/:username/:listname", async (req, res) => {
+       return res.status(400).json({ error: "apikey is required" });
+     }
+     
+-    const url = `https://api.mdblist.com/lists/${username}/${listname}?apikey=${apikey}`;
++    const url = `${MDBLIST_API_BASE_URL}/lists/${username}/${listname}?apikey=${apikey}`;
+     const response = await makeRateLimitedMDBListRequest(url, apikey, `MDBList Proxy - Get User List ${username}/${listname}`);
+     res.json(response.data);
+   } catch (error) {
+@@ -1803,7 +1808,7 @@ addon.get("/api/mdblist/lists/:listId", async (req, res) => {
+       return res.status(400).json({ error: "apikey is required" });
+     }
+     
+-    const url = `https://api.mdblist.com/lists/${listId}?apikey=${apikey}`;
++    const url = `${MDBLIST_API_BASE_URL}/lists/${listId}?apikey=${apikey}`;
+     const response = await makeRateLimitedMDBListRequest(url, apikey, `MDBList Proxy - Get List ${listId}`);
+     res.json(response.data);
+   } catch (error) {
+@@ -2179,7 +2184,7 @@ addon.get("/api/anilist/discover/reference", async (req, res) => {
+         }
+       `;
+ 
+-      const response = await httpPost('https://graphql.anilist.co', { query }, {
++      const response = await httpPost(ANILIST_API_BASE_URL, { query }, {
+         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+         timeout: 15000
+       });
+@@ -2864,7 +2869,7 @@ addon.get("/api/mdblist/external/lists/user", async (req, res) => {
+       return res.status(400).json({ error: "apikey is required" });
+     }
+     
+-    const url = `https://api.mdblist.com/external/lists/user?apikey=${apikey}`;
++    const url = `${MDBLIST_API_BASE_URL}/external/lists/user?apikey=${apikey}`;
+     const response = await makeRateLimitedMDBListRequest(url, apikey, 'MDBList Proxy - Get External User Lists');
+     res.json(response.data);
+   } catch (error) {
+@@ -2884,7 +2889,7 @@ addon.get("/api/mdblist/external/lists/:listId", async (req, res) => {
+     if (!apikey) {
+       return res.status(400).json({ error: "apikey is required" });
+     }
+-    const url = `https://api.mdblist.com/external/lists/${listId}?apikey=${apikey}`;
++    const url = `${MDBLIST_API_BASE_URL}/external/lists/${listId}?apikey=${apikey}`;
+     const response = await makeRateLimitedMDBListRequest(url, apikey, `MDBList Proxy - Get External List ${listId}`);
+     res.json(response.data);
+   } catch (error) {
+@@ -3303,7 +3308,7 @@ addon.get("/api/trakt/users/:username/stats", async (req, res) => {
+     
+ 
+     const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
+-    const url = `https://api.trakt.tv/users/${encodeURIComponent(username)}/stats`;
++    const url = `${TRAKT_API_BASE_URL}/users/${encodeURIComponent(username)}/stats`;
+     const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get User Stats (${username})`);
+     res.json(response.data);
+   } catch (error) {
+@@ -3422,7 +3427,7 @@ addon.get("/api/trakt/users/:username/lists", async (req, res) => {
+     
+ 
+     const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
+-    const url = `https://api.trakt.tv/users/${encodeURIComponent(username)}/lists`;
++    const url = `${TRAKT_API_BASE_URL}/users/${encodeURIComponent(username)}/lists`;
+     const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get User Lists (${username})`);
+     res.json(response.data);
+   } catch (error) {
+@@ -3443,7 +3448,7 @@ addon.get("/api/trakt/users/:username/lists/:slug", async (req, res) => {
+     
+ 
+     const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
+-    const url = `https://api.trakt.tv/users/${encodeURIComponent(username)}/lists/${encodeURIComponent(slug)}`;
++    const url = `${TRAKT_API_BASE_URL}/users/${encodeURIComponent(username)}/lists/${encodeURIComponent(slug)}`;
+     const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get List Details (${username}/${slug})`);
+     res.json(response.data);
+   } catch (error) {
+@@ -3465,7 +3470,7 @@ addon.get("/api/trakt/lists/trending/:type", async (req, res) => {
+     
+ 
+     const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
+-    const url = `https://api.trakt.tv/lists/trending/${encodeURIComponent(type)}?limit=${limit}`;
++    const url = `${TRAKT_API_BASE_URL}/lists/trending/${encodeURIComponent(type)}?limit=${limit}`;
+     const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get Trending Lists (${type})`);
+     res.json(response.data);
+   } catch (error) {
+@@ -3487,7 +3492,7 @@ addon.get("/api/trakt/lists/popular/:type", async (req, res) => {
+     
+ 
+     const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
+-    const url = `https://api.trakt.tv/lists/popular/${encodeURIComponent(type)}?limit=${limit}`;
++    const url = `${TRAKT_API_BASE_URL}/lists/popular/${encodeURIComponent(type)}?limit=${limit}`;
+     const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get Popular Lists (${type})`);
+     res.json(response.data);
+   } catch (error) {
+@@ -6112,7 +6117,7 @@ addon.post("/stremio/:userUUID/rating", async function (req, res) {
+         if (!accessToken) {
+           results.trakt.error = "Trakt token not found or expired";
+         } else {
+-          const TRAKT_BASE_URL = 'https://api.trakt.tv';
++          const TRAKT_BASE_URL = TRAKT_API_BASE_URL;
+           const traktType = type.toLowerCase() === 'series' ? 'shows' : 'movies';
+           const tmdbId = allIds.tmdbId;
+           const imdbId = allIds.imdbId;
+@@ -6259,7 +6264,7 @@ addon.post("/stremio/:userUUID/rating", async function (req, res) {
+           if (tvdbId) ids.tvdb = parseInt(tvdbId);
+           
+           // MDBList sync/ratings endpoint: POST /sync/ratings?apikey=...
+-          const url = `https://api.mdblist.com/sync/ratings?apikey=${mdblistApiKey}`;
++          const url = `${MDBLIST_API_BASE_URL}/sync/ratings?apikey=${mdblistApiKey}`;
+           
+           // Build payload according to MDBList API format
+           const payload = {
+diff --git a/addon/lib/anilist.ts b/addon/lib/anilist.ts
+index e20d681..9892831 100644
+--- a/addon/lib/anilist.ts
++++ b/addon/lib/anilist.ts
+@@ -53,7 +53,7 @@ class AniListAPI {
+   requestQueue: Array<{ requestFn: () => Promise<any> | any; resolve: (v: any) => void; reject: (e: any) => void }>;
+   isProcessingQueue: boolean;
+   constructor() {
+-    this.baseURL = 'https://graphql.anilist.co';
++    this.baseURL = process.env.ANILIST_API_BASE || 'https://graphql.anilist.co';
+     this.cache = new Map();
+     this.cacheTimeout = 60 * 60 * 1000; // 1 hour
+     
+diff --git a/addon/lib/anilistTracker.js b/addon/lib/anilistTracker.js
+index 16c3144..709bcd7 100644
+--- a/addon/lib/anilistTracker.js
++++ b/addon/lib/anilistTracker.js
+@@ -20,7 +20,7 @@ const { ownTokenId } = require('./accounts');
+ const logger = consola.withTag('AniListTracker');
+ 
+ // AniList API configuration
+-const ANILIST_GRAPHQL_URL = 'https://graphql.anilist.co';
++const ANILIST_GRAPHQL_URL = process.env.ANILIST_API_BASE || 'https://graphql.anilist.co';
+ const ANILIST_AUTH_URL = 'https://anilist.co/api/v2/oauth/authorize';
+ const ANILIST_TOKEN_URL = 'https://anilist.co/api/v2/oauth/token';
+ 
+diff --git a/addon/lib/configApi.js b/addon/lib/configApi.js
+index fc78b7a..7b705a7 100644
+--- a/addon/lib/configApi.js
++++ b/addon/lib/configApi.js
+@@ -1484,13 +1484,13 @@ class ConfigApi {
+       },
+ 
+       tmdb: async (key) => {
+-        const url = `https://api.themoviedb.org/3/configuration?api_key=${key}`;
++        const url = `${process.env.TMDB_API_BASE || 'https://api.themoviedb.org/3'}/configuration?api_key=${key}`;
+         const response = await serviceRequest(url, { method: "GET" });
+         return response && response.statusCode === 200;
+       },
+ 
+       tvdb: async (key) => {
+-        const url = "https://api4.thetvdb.com/v4/login";
++        const url = `${process.env.TVDB_API_BASE || 'https://api4.thetvdb.com/v4'}/login`;
+         const bodyContent = JSON.stringify({ apikey: key });
+ 
+         const options = {
+diff --git a/addon/lib/getCatalog.ts b/addon/lib/getCatalog.ts
+index 69a3d7b..bc3c90a 100644
+--- a/addon/lib/getCatalog.ts
++++ b/addon/lib/getCatalog.ts
+@@ -1399,7 +1399,7 @@ async function getTmdbAndMdbListCatalog(type: string, id: string, genre: string,
+ 
+   // Log the full URL for airing_today catalog
+   if (id === 'tmdb.airing_today') {
+-    const baseUrl = 'https://api.themoviedb.org/3';
++    const baseUrl = process.env.TMDB_API_BASE || 'https://api.themoviedb.org/3';
+     const endpoint = type === 'movie' ? '/discover/movie' : '/discover/tv';
+     const queryParams = new URLSearchParams();
+     Object.keys(parameters).forEach(key => {
+diff --git a/addon/lib/getTmdb.ts b/addon/lib/getTmdb.ts
+index c0df143..9a31a6b 100644
+--- a/addon/lib/getTmdb.ts
++++ b/addon/lib/getTmdb.ts
+@@ -28,7 +28,7 @@ import {
+ import { LRUCache } from 'lru-cache';
+ import { UserConfig } from '../types/index';
+ 
+-const TMDB_API_URL = 'https://api.themoviedb.org/3';
++const TMDB_API_URL = process.env.TMDB_API_BASE || 'https://api.themoviedb.org/3';
+ const ACCOUNT_DETAILS_CACHE_MAX = 2000;
+ const ACCOUNT_DETAILS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+ const COMMA_LIST_QUERY_PARAMS = new Set([
+diff --git a/addon/lib/id-mapper.js b/addon/lib/id-mapper.js
+index d998c7f..cc6e91a 100644
+--- a/addon/lib/id-mapper.js
++++ b/addon/lib/id-mapper.js
+@@ -12,6 +12,8 @@ const { resolveOneToOneSeasonEpisodeFallback } = require('./oneToOneSeasonEpisod
+ 
+ const logger = consola.withTag('ID-Mapper');
+ 
++const CINEMETA_LIVE_API_BASE = process.env.CINEMETA_LIVE_API_BASE || 'https://cinemeta-live.strem.io';
++
+ function parsePositiveIntEnv(envValue, defaultValue, minValue = 1, maxValue = 100000) {
+   const parsed = Number.parseInt(envValue, 10);
+   if (!Number.isFinite(parsed) || parsed < minValue) {
+@@ -1355,7 +1357,7 @@ async function getCinemetaVideosForImdbSeries(imdbId) {
+   
+   try {
+     // Fetch episode data from Cinemeta API
+-    const cinemetaUrl = `https://cinemeta-live.strem.io/meta/series/${imdbId}.json`;
++    const cinemetaUrl = `${CINEMETA_LIVE_API_BASE}/meta/series/${imdbId}.json`;
+     logger.debug(`[ID Mapper] Fetching Cinemeta videos for IMDB ${imdbId}: ${cinemetaUrl}`);
+     
+     const response = await httpGet(cinemetaUrl);
+@@ -1383,7 +1385,7 @@ async function getCinemetaVideosForImdbIoSeries(imdbId) {
+   
+   try {
+     // Fetch episode data from Cinemeta API
+-    const cinemetaUrl = `https://cinemeta-live.strem.io/meta/series/${imdbId}.json`;
++    const cinemetaUrl = `${CINEMETA_LIVE_API_BASE}/meta/series/${imdbId}.json`;
+     logger.debug(`[ID Mapper] Fetching Cinemeta videos for IMDB ${imdbId}: ${cinemetaUrl}`);
+     
+     const response = await httpGet(cinemetaUrl);
+diff --git a/addon/lib/id-resolver.ts b/addon/lib/id-resolver.ts
+index 3eb13d9..e254fd6 100644
+--- a/addon/lib/id-resolver.ts
++++ b/addon/lib/id-resolver.ts
+@@ -13,6 +13,9 @@ const { mappings }: any = require('./id-mappings.js');
+ 
+ const logger: any = consola.withTag('ID-Resolver');
+ 
++const CINEMETA_LIVE_API_BASE: string = process.env.CINEMETA_LIVE_API_BASE || 'https://cinemeta-live.strem.io';
++const CINEMETA_API_BASE: string = process.env.CINEMETA_API_BASE || 'https://v3-cinemeta.strem.io';
++
+ interface AllIds {
+   tmdbId: string | null;
+   tvdbId: string | null;
+@@ -252,14 +255,14 @@ async function _fetchFromTvmaze(tvmazeId: string, config: any): Promise<Record<s
+   }
+ }
+ 
+-const CINEMETA_HOSTS = ['cinemeta-live.strem.io', 'v3-cinemeta.strem.io'];
++const CINEMETA_BASES = [CINEMETA_LIVE_API_BASE, CINEMETA_API_BASE];
+ 
+ async function getExternalIdsFromImdb(imdbId: string, type: string): Promise<{ tmdbId: string | null; tvdbId: string | null } | undefined> {
+   if (!imdbId || imdbId.toString().trim() === '') return undefined;
+   let found: { tmdbId: string | null; tvdbId: string | null } | undefined;
+-  for (const host of CINEMETA_HOSTS) {
++  for (const base of CINEMETA_BASES) {
+     try {
+-      const { data } = await httpGet(`https://${host}/meta/${type}/${imdbId}.json`);
++      const { data } = await httpGet(`${base}/meta/${type}/${imdbId}.json`);
+       const tvdbId = data?.meta?.tvdb_id;
+       const tmdbId = data?.meta?.moviedb_id || data?.meta?.themoviedb_id || data?.meta?.tmdb_id;
+       found = {
+@@ -268,7 +271,7 @@ async function getExternalIdsFromImdb(imdbId: string, type: string): Promise<{ t
+       };
+       if (found.tmdbId || found.tvdbId) return found;
+     } catch (error: any) {
+-      logger.warn(`[Cinemeta] Could not fetch external ids for ${imdbId} from ${host}: ${error.message}`);
++      logger.warn(`[Cinemeta] Could not fetch external ids for ${imdbId} from ${base}: ${error.message}`);
+     }
+   }
+   return found;
+diff --git a/addon/lib/imdb.ts b/addon/lib/imdb.ts
+index 51ab91d..dcba43c 100644
+--- a/addon/lib/imdb.ts
++++ b/addon/lib/imdb.ts
+@@ -7,6 +7,9 @@ const { cacheWrapGlobal }: any = require('./getCache');
+ 
+ const imdbAxiosInstance = axios.create();
+ 
++const CINEMETA_API_BASE = process.env.CINEMETA_API_BASE || 'https://v3-cinemeta.strem.io';
++const CINEMETA_LIVE_API_BASE = process.env.CINEMETA_LIVE_API_BASE || 'https://cinemeta-live.strem.io';
++
+ // Env-tunable request timeout.
+ const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
+   const value = Number(process.env[name]);
+@@ -54,7 +57,7 @@ async function getMetaFromImdb(imdbId: string, type: string, stremioId?: string)
+     const TTL_24H = 24 * 60 * 60;
+ 
+     return await cacheWrapGlobal(cacheKey, async () => {
+-        const url = `https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`;
++        const url = `${CINEMETA_API_BASE}/meta/${type}/${imdbId}.json`;
+         try {
+             const response = await httpGet(url);
+             const meta = response.data?.meta;
+@@ -83,7 +86,7 @@ async function getMetaFromImdbIo(imdbId: string, type: string, stremioId?: strin
+     const TTL_24H = 24 * 60 * 60;
+ 
+     return await cacheWrapGlobal(cacheKey, async () => {
+-        const url = `https://cinemeta-live.strem.io/meta/${type}/${imdbId}.json`;
++        const url = `${CINEMETA_LIVE_API_BASE}/meta/${type}/${imdbId}.json`;
+         try {
+             const response = await httpGet(url);
+             const meta = response.data?.meta;
+diff --git a/addon/lib/jellyfin/dropped.ts b/addon/lib/jellyfin/dropped.ts
+index 059d6b9..9358681 100644
+--- a/addon/lib/jellyfin/dropped.ts
++++ b/addon/lib/jellyfin/dropped.ts
+@@ -5,6 +5,9 @@ import { LRUCache } from 'lru-cache';
+ import { envInt } from '../../utils/envNumber';
+ import { credentialFor, sourceFor } from './trackerSource';
+ 
++const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++const SIMKL_API_BASE = process.env.SIMKL_API_BASE || 'https://api.simkl.com';
++
+ const logger = consola.withTag('Jellyfin');
+ const database: any = require('../database');
+ 
+@@ -103,7 +106,7 @@ export async function writeDropped(config: any, ids: Record<string, any>, droppe
+       const simklIds = { ...showIds, ...(ids.mal ? { mal: Number(ids.mal) } : {}), ...(ids.kitsu ? { kitsu: Number(ids.kitsu) } : {}) };
+       // Simkl has no undrop.
+       if (token?.access_token) {
+-        await makeAuthenticatedSimklRequest('https://api.simkl.com/sync/add-to-list', token.access_token, `Simkl ${verb}`, 'POST', { shows: [{ ids: simklIds, to: dropped ? 'dropped' : 'watching' }] });
++        await makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}/sync/add-to-list`, token.access_token, `Simkl ${verb}`, 'POST', { shows: [{ ids: simklIds, to: dropped ? 'dropped' : 'watching' }] });
+       }
+     } catch (error: any) {
+       logger.warn(`Simkl ${verb} failed: ${error?.message || error}`);
+@@ -115,7 +118,7 @@ export async function writeDropped(config: any, ids: Record<string, any>, droppe
+     try {
+       const { makeRateLimitedMDBListPost } = require('../../utils/mdbList');
+       const show = dropped ? { ids: showIds, dropped_at: new Date().toISOString() } : { ids: showIds };
+-      await makeRateLimitedMDBListPost(`https://api.mdblist.com/sync/dropped${dropped ? '' : '/remove'}?apikey=${mdblistKey}`, { shows: [show] }, mdblistKey, `MDBList ${verb}`);
++      await makeRateLimitedMDBListPost(`${MDBLIST_API_BASE}/sync/dropped${dropped ? '' : '/remove'}?apikey=${mdblistKey}`, { shows: [show] }, mdblistKey, `MDBList ${verb}`);
+     } catch (error: any) {
+       logger.warn(`MDBList ${verb} failed: ${error?.message || error}`);
+     }
+diff --git a/addon/lib/jellyfin/ratings.ts b/addon/lib/jellyfin/ratings.ts
+index d1b6e6c..07ead6a 100644
+--- a/addon/lib/jellyfin/ratings.ts
++++ b/addon/lib/jellyfin/ratings.ts
+@@ -4,6 +4,9 @@ import consola from 'consola';
+ import { credentialFor } from './trackerSource';
+ import { buildVideoId, stremioIdFor, type Descriptor } from './idsCodec';
+ 
++const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++const SIMKL_API_BASE = process.env.SIMKL_API_BASE || 'https://api.simkl.com';
++
+ const logger = consola.withTag('Jellyfin');
+ const database: any = require('../database');
+ 
+@@ -161,21 +164,21 @@ export async function writeRating(config: any, payload: any, only: string, userU
+     // Simkl files a rated title it does not hold: a released movie as watched, as its rating implies, but a show as
+     // watching, which a rating does not say. A show waits a while for the watched marks sent with it, then is skipped.
+     if (!clearing && kind === 'series') {
+-      const held = await makeAuthenticatedSimklRequest('https://api.simkl.com/sync/watched', access, 'Simkl library check', 'POST', [{ ids: simklIds }]);
++      const held = await makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}/sync/watched`, access, 'Simkl library check', 'POST', [{ ids: simklIds }]);
+       const entry = (Array.isArray(held?.data) ? held.data : Array.isArray(held) ? held : [])[0];
+       if (!entry?.list) {
+         const { noteTrackerCall } = require('../../utils/trackerCalls');
+         const { envInt } = require('../../utils/envNumber');
+         const waiting = Number(payload?.queuedAt) > 0 && Date.now() - Number(payload.queuedAt) < envInt('SIMKL_RATING_LIBRARY_WAIT', 180, 0) * 1000;
+-        if (waiting) noteTrackerCall('https://api.simkl.com/sync/ratings', 429, 'not in the Simkl library yet', null, Date.now() + 30_000);
+-        else noteTrackerCall('https://api.simkl.com/sync/ratings', 404, 'not in the Simkl library');
++        if (waiting) noteTrackerCall(`${SIMKL_API_BASE}/sync/ratings`, 429, 'not in the Simkl library yet', null, Date.now() + 30_000);
++        else noteTrackerCall(`${SIMKL_API_BASE}/sync/ratings`, 404, 'not in the Simkl library');
+         logger.debug(`Not rating on Simkl${waiting ? ' yet' : ''}: ${JSON.stringify(simklIds)} is not in the library`);
+         return;
+       }
+     }
+     const entry = clearing ? { ids: simklIds } : { ids: simklIds, rating };
+     const body = kind === 'movie' ? { movies: [entry] } : { shows: [entry] };
+-    await makeAuthenticatedSimklRequest(`https://api.simkl.com/sync/ratings${clearing ? '/remove' : ''}`, access, `Simkl ${clearing ? 'unrate' : 'rate'}`, 'POST', body);
++    await makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}/sync/ratings${clearing ? '/remove' : ''}`, access, `Simkl ${clearing ? 'unrate' : 'rate'}`, 'POST', body);
+     return;
+   }
+ 
+@@ -193,7 +196,7 @@ export async function writeRating(config: any, payload: any, only: string, userU
+     } else {
+       body = kind === 'movie' ? { movies: [scored({ ids: titleIds })] } : { shows: [scored({ ids: titleIds })] };
+     }
+-    const result = await makeRateLimitedMDBListPost(`https://api.mdblist.com/sync/ratings${clearing ? '/remove' : ''}?apikey=${key}`, body, key, `MDBList ${clearing ? 'unrate' : 'rate'}`);
++    const result = await makeRateLimitedMDBListPost(`${MDBLIST_API_BASE}/sync/ratings${clearing ? '/remove' : ''}?apikey=${key}`, body, key, `MDBList ${clearing ? 'unrate' : 'rate'}`);
+     const errors = (result?.data ?? result)?.errors;
+     if (Array.isArray(errors) && errors.length) logger.warn(`MDBList ${clearing ? 'unrate' : 'rate'} not applied: ${JSON.stringify(errors).slice(0, 300)}`);
+     return;
+diff --git a/addon/lib/jellyfin/resume.ts b/addon/lib/jellyfin/resume.ts
+index 55d3118..bdaa6a2 100644
+--- a/addon/lib/jellyfin/resume.ts
++++ b/addon/lib/jellyfin/resume.ts
+@@ -7,6 +7,8 @@ import { envInt } from '../../utils/envNumber';
+ import { type Capable, credentialFor, resumeSourcesFor } from './trackerSource';
+ import { canonicalIds } from './canonicalIds';
+ 
++const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++
+ const logger = consola.withTag('Jellyfin');
+ 
+ const idMapper: any = require('../id-mapper');
+@@ -169,7 +171,7 @@ export async function videoIdFor(
+ 
+ async function mdblistRows(apiKey: string, config: any): Promise<ResumeRow[]> {
+   const { makeRateLimitedMDBListRequest } = require('../../utils/mdbList');
+-  const response = await makeRateLimitedMDBListRequest(`https://api.mdblist.com/sync/playback?apikey=${apiKey}`, apiKey, 'MDBList resume');
++  const response = await makeRateLimitedMDBListRequest(`${MDBLIST_API_BASE}/sync/playback?apikey=${apiKey}`, apiKey, 'MDBList resume');
+ 
+   const rows: ResumeRow[] = [];
+   for (const entry of Array.isArray(response?.data) ? response.data : []) {
+diff --git a/addon/lib/jellyfin/trackerMirror.ts b/addon/lib/jellyfin/trackerMirror.ts
+index 88fdb6a..3e9b824 100644
+--- a/addon/lib/jellyfin/trackerMirror.ts
++++ b/addon/lib/jellyfin/trackerMirror.ts
+@@ -4,6 +4,9 @@ import consola from 'consola';
+ import { createHash } from 'crypto';
+ import { envInt } from '../../utils/envNumber';
+ 
++const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++const SIMKL_API_BASE = process.env.SIMKL_API_BASE || 'https://api.simkl.com';
++
+ const logger = consola.withTag('Jellyfin');
+ const database: any = require('../database');
+ 
+@@ -149,7 +152,7 @@ async function syncSimkl(key: string, tokenId: string, config: any, watermark: a
+   if (!accessToken) throw new Error('No Simkl token');
+   // A failed call throws. An answer of null or {} is Simkl's way of saying there is nothing to list.
+   const get = async (path: string) =>
+-    (await makeAuthenticatedSimklRequest(`https://api.simkl.com${path}`, accessToken, 'Simkl mirror'))?.data ?? {};
++    (await makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}${path}`, accessToken, 'Simkl mirror'))?.data ?? {};
+ 
+   const activities = await fetchSimklLastActivities(accessToken, config, fresh);
+   if (!activities?.all) throw new Error('Simkl activities could not be read');
+@@ -371,7 +374,7 @@ async function syncMdblist(key: string, apiKey: string, watermark: any, fresh =
+       const query = cursor
+         ? `cursor=${encodeURIComponent(cursor)}`
+         : `since=${encodeURIComponent(watermark.server_time)}`;
+-      const response = await makeRateLimitedMDBListRequest(`https://api.mdblist.com/sync/journal?${query}&limit=1000&apikey=${apiKey}`, apiKey, 'MDBList journal');
++      const response = await makeRateLimitedMDBListRequest(`${MDBLIST_API_BASE}/sync/journal?${query}&limit=1000&apikey=${apiKey}`, apiKey, 'MDBList journal');
+       const body = response?.data ?? {};
+       // Past the journal's thirty days only a full read is right.
+       if (body?.requires_full_sync) return mdblistFull(key, apiKey, activities);
+diff --git a/addon/lib/jellyfin/watched.ts b/addon/lib/jellyfin/watched.ts
+index ca44875..5c14545 100644
+--- a/addon/lib/jellyfin/watched.ts
++++ b/addon/lib/jellyfin/watched.ts
+@@ -9,6 +9,8 @@ import { credentialFor, sourceFor } from './trackerSource';
+ import { generationOf, videoIdFor } from './resume';
+ import { playCountOf } from './dto';
+ 
++const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++
+ const logger = consola.withTag('Jellyfin');
+ 
+ /** Shows this server saw finished, newest first; the shelf moves on from the named episode. */
+@@ -604,7 +606,7 @@ export async function fetchMdblistDropped(apiKey: string): Promise<{ shows: any[
+   const shows: any[] = [];
+   try {
+     shows.push(...await readToEnd('MDBList dropped', async (page: number) => {
+-      const response = await makeRateLimitedMDBListRequest(`https://api.mdblist.com/sync/dropped?limit=${pageSize}&offset=${page * pageSize}&apikey=${apiKey}`, apiKey, 'MDBList dropped');
++      const response = await makeRateLimitedMDBListRequest(`${MDBLIST_API_BASE}/sync/dropped?limit=${pageSize}&offset=${page * pageSize}&apikey=${apiKey}`, apiKey, 'MDBList dropped');
+       const items = Array.isArray(response?.data?.shows) ? response.data.shows : [];
+       return { items, more: items.length >= pageSize };
+     }));
+@@ -624,7 +626,7 @@ export async function fetchMdblistWatched(apiKey: string, mediatype: 'episode' |
+ 
+   return readToEnd(`MDBList watched ${mediatype}`, async (page: number) => {
+     const url =
+-      `https://api.mdblist.com/sync/watched?mediatype=${mediatype}` +
++      `${MDBLIST_API_BASE}/sync/watched?mediatype=${mediatype}` +
+       `&limit=${pageSize}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}` +
+       // Sent with every page: the cursor alone carries on into older history.
+       `${since ? `&since=${encodeURIComponent(since)}` : ''}` +
+diff --git a/addon/lib/jellyfin/watchlistSources.ts b/addon/lib/jellyfin/watchlistSources.ts
+index 2f82d99..f8066f3 100644
+--- a/addon/lib/jellyfin/watchlistSources.ts
++++ b/addon/lib/jellyfin/watchlistSources.ts
+@@ -5,6 +5,9 @@ import { envInt } from '../../utils/envNumber';
+ import { ACCOUNT_SERVICES, credentialOf, ownTokenId, trackerConfig } from '../accounts';
+ import { credentialFor } from './trackerSource';
+ 
++const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++const SIMKL_API_BASE = process.env.SIMKL_API_BASE || 'https://api.simkl.com';
++
+ const logger = consola.withTag('Jellyfin');
+ 
+ export type WatchlistKind = 'movies' | 'series' | 'anime';
+@@ -236,7 +239,7 @@ export async function writeWatchlist(config: any, userUUID: string, ids: Watchli
+   if (takes('mdblist', shelf) && shouldTrackServiceMediaType(config, 'mdblist', mediaType) && config?.apiKeys?.mdblist) {
+     try {
+       const { makeRateLimitedMDBListPost } = require('../../utils/mdbList');
+-      await makeRateLimitedMDBListPost(`https://api.mdblist.com/watchlist/items/${listed ? 'add' : 'remove'}?apikey=${config.apiKeys.mdblist}`, body, config.apiKeys.mdblist, `MDBList watchlist ${listed ? 'add' : 'remove'}`);
++      await makeRateLimitedMDBListPost(`${MDBLIST_API_BASE}/watchlist/items/${listed ? 'add' : 'remove'}?apikey=${config.apiKeys.mdblist}`, body, config.apiKeys.mdblist, `MDBList watchlist ${listed ? 'add' : 'remove'}`);
+     } catch (error: any) {
+       logger.warn(`MDBList watchlist ${listed ? 'add' : 'remove'} failed: ${error?.message || error}`);
+     }
+@@ -249,17 +252,17 @@ export async function writeWatchlist(config: any, userUUID: string, ids: Watchli
+       if (token?.access_token) {
+         if (listed) {
+           const planned = kind === 'movie' ? { movies: [{ ids, to: 'plantowatch' }] } : { shows: [{ ids, to: 'plantowatch' }] };
+-          await makeAuthenticatedSimklRequest('https://api.simkl.com/sync/add-to-list', token.access_token, 'Simkl watchlist add', 'POST', planned);
++          await makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}/sync/add-to-list`, token.access_token, 'Simkl watchlist add', 'POST', planned);
+         } else {
+           // Simkl's removal drops the whole entry, history included, so only a title still
+           // planned is removed; the planned shelf alone is read, not the library.
+           // An anime film is filed with anime, never with movies.
+           const types = kind === 'movie' ? (anime ? ['movies', 'anime'] : ['movies']) : ['shows', 'anime'];
+           const shelves = await Promise.all(types.map((type) =>
+-            makeAuthenticatedSimklRequest(`https://api.simkl.com/sync/all-items/${type}/plantowatch?extended=ids_only`, token.access_token, 'Simkl watchlist check').then((response: any) => response?.data?.[type] ?? [])
++            makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}/sync/all-items/${type}/plantowatch?extended=ids_only`, token.access_token, 'Simkl watchlist check').then((response: any) => response?.data?.[type] ?? [])
+           ));
+           const planned = shelves.flat().some((entry: any) => matches(entry?.movie?.ids ?? entry?.show?.ids ?? {}, ids));
+-          if (planned) await makeAuthenticatedSimklRequest('https://api.simkl.com/sync/history/remove', token.access_token, 'Simkl watchlist remove', 'POST', body);
++          if (planned) await makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}/sync/history/remove`, token.access_token, 'Simkl watchlist remove', 'POST', body);
+         }
+       }
+     } catch (error: any) {
+diff --git a/addon/lib/kitsu.ts b/addon/lib/kitsu.ts
+index e56c9b9..c154229 100644
+--- a/addon/lib/kitsu.ts
++++ b/addon/lib/kitsu.ts
+@@ -8,6 +8,10 @@ import { envInt } from '../utils/envNumber';
+ 
+ const logger = consola.withTag('Kitsu');
+ 
++// Origin only (no path); code below appends /api/edge. kitsu v11's own
++// default baseURL is https://kitsu.app/api/edge.
++const KITSU_API_BASE = process.env.KITSU_API_BASE || '';
++
+ type KitsuClient = {
+   fetch: (model: string, config?: any) => Promise<any>;
+   get: (model: string, config?: any) => Promise<any>;
+@@ -23,6 +27,7 @@ async function getKitsuClient(): Promise<KitsuClient> {
+   if (!kitsuClientPromise) {
+     // The client defaults to 30s; one timeout governs every Kitsu path instead.
+     const options: Record<string, unknown> = { timeout: kitsuTimeoutMs() };
++    if (KITSU_API_BASE) options.baseURL = `${KITSU_API_BASE}/api/edge`;
+     kitsuClientPromise = loadKitsu().then(({ default: Kitsu }) => new Kitsu(options));
+   }
+ 
+@@ -333,7 +338,7 @@ async function getMultipleAnimeDetails(ids: (string | number)[], appends: string
+     logger.info(`Fetching details for ${ids.length} IDs: ${ids.join(',')}`);
+     
+     // Use direct API call to bypass Kitsu library filter issues
+-    const baseUrl = `https://kitsu.io/api/edge/anime?filter[id]=${ids.join(',')}&include=${appends}&page[limit]=20`;
++    const baseUrl = `${KITSU_API_BASE || 'https://kitsu.io'}/api/edge/anime?filter[id]=${ids.join(',')}&include=${appends}&page[limit]=20`;
+     
+     logger.debug(`Direct API URL: ${baseUrl}`);
+     
+diff --git a/addon/lib/ratingProviders/publicMetaDb.ts b/addon/lib/ratingProviders/publicMetaDb.ts
+index 34dc9f8..5b74038 100644
+--- a/addon/lib/ratingProviders/publicMetaDb.ts
++++ b/addon/lib/ratingProviders/publicMetaDb.ts
+@@ -6,7 +6,9 @@ import { RatingsPaused, ratingKey, type RatingRef, type RatingSource, type Ratin
+ 
+ const buildInfo: any = require('../buildInfo');
+ 
+-const SOURCE_URL = 'https://api.publicmetadb.com/api/collections/ratings/records';
++// Overridable by PUBLICMETADB_API_BASE.
++const PUBLICMETADB_API_BASE = process.env.PUBLICMETADB_API_BASE || 'https://api.publicmetadb.com';
++const SOURCE_URL = `${PUBLICMETADB_API_BASE}/api/collections/ratings/records`;
+ const PAGE_SIZE = 500;
+ 
+ const LABELS: Record<string, RatingSource> = {
+diff --git a/addon/lib/simkl.ts b/addon/lib/simkl.ts
+index ac5da95..0671f1a 100644
+--- a/addon/lib/simkl.ts
++++ b/addon/lib/simkl.ts
+@@ -5,7 +5,7 @@ const { httpGet, httpPost } = require('../utils/httpClient.js');
+ 
+ const logger = consola.withTag('Simkl');
+ 
+-export const SIMKL_API_BASE = 'https://api.simkl.com';
++export const SIMKL_API_BASE = process.env.SIMKL_API_BASE || 'https://api.simkl.com';
+ 
+ export interface SimklTokens {
+   access_token: string;
+@@ -52,7 +52,7 @@ export class SimklClient {
+    */
+   async exchangeCodeForToken(code: string): Promise<SimklTokens> {
+     try {
+-      const response = await httpPost('https://api.simkl.com/oauth/token', {
++      const response = await httpPost(`${SIMKL_API_BASE}/oauth/token`, {
+         code,
+         client_id: this.clientId,
+         client_secret: this.clientSecret,
+diff --git a/addon/lib/trackers/mdblist.ts b/addon/lib/trackers/mdblist.ts
+index fdf5fcc..1e266db 100644
+--- a/addon/lib/trackers/mdblist.ts
++++ b/addon/lib/trackers/mdblist.ts
+@@ -7,6 +7,8 @@ import { sharesId, targetsFor, type CopyItem, type TmdbWatch, type WatchOutcome
+ import { tmdbSeasons, type MatchCandidate, type TargetSeason } from './match';
+ import { SAME_PLAY_MS, nearestPlay, nothingToMove, type Redate } from './redate';
+ 
++const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++
+ async function mdblistPages(apiKey: string, path: string, label: string, arrays: string[]): Promise<Record<string, any[]>> {
+   const { makeRateLimitedMDBListRequest } = require('../../utils/mdbList');
+   const { readToEnd } = require('../../utils/readToEnd');
+@@ -14,7 +16,7 @@ async function mdblistPages(apiKey: string, path: string, label: string, arrays:
+   let cursor = '';
+   const rows: Array<{ array: string; row: any }> = await readToEnd(label, async (page: number) => {
+     const paging = cursor ? `cursor=${encodeURIComponent(cursor)}` : `offset=${page * pageSize}`;
+-    const response = await makeRateLimitedMDBListRequest(`https://api.mdblist.com${path}${path.includes('?') ? '&' : '?'}limit=${pageSize}&${paging}&apikey=${apiKey}`, apiKey, `${label} page ${page + 1}`);
++    const response = await makeRateLimitedMDBListRequest(`${MDBLIST_API_BASE}${path}${path.includes('?') ? '&' : '?'}limit=${pageSize}&${paging}&apikey=${apiKey}`, apiKey, `${label} page ${page + 1}`);
+     const body = response?.data ?? {};
+     const items = arrays.flatMap((array) => (Array.isArray(body?.[array]) ? body[array] : []).map((row: any) => ({ array, row })));
+     cursor = body?.pagination?.next_cursor ?? '';
+@@ -49,7 +51,7 @@ async function writeMarks(what: Mark, items: MarkItem[], apiKey: string): Promis
+   if (remaining !== null && remaining <= Math.max(50, (limit ?? 0) / 5)) return { done: 0, sent: 0, failed: 0, wait: resetAt - Date.now(), error: 'Waiting for the MDBList quota to reset' };
+   const path = what === 'ratings' ? '/sync/ratings' : what === 'watchlist' ? '/watchlist/items/add' : '/sync/dropped';
+   try {
+-    const response = await makeRateLimitedMDBListPost(`https://api.mdblist.com${path}?apikey=${apiKey}`, mdblistBody(what, items), apiKey, `MDBList copy ${what} batch of ${items.length}`);
++    const response = await makeRateLimitedMDBListPost(`${MDBLIST_API_BASE}${path}?apikey=${apiKey}`, mdblistBody(what, items), apiKey, `MDBList copy ${what} batch of ${items.length}`);
+     const body = response?.data ?? response;
+     const missed = Math.min(items.length, notFoundCount(body?.not_found));
+     const existing = Math.min(items.length - missed, Number(body?.existing) || 0);
+@@ -89,7 +91,7 @@ async function writeWatches(items: CopyItem[], apiKey: string, config: any): Pro
+ async function redate({ config, ids, mediaType, season, episode, change, within }: Redate): Promise<void> {
+   const apiKey = config.apiKeys?.mdblist;
+   const tmdbId = Number(ids.tmdb);
+-  if (!apiKey || !tmdbId) return nothingToMove('https://api.mdblist.com/sync/history', 'no TMDB id for the title');
++  if (!apiKey || !tmdbId) return nothingToMove(`${MDBLIST_API_BASE}/sync/history`, 'no TMDB id for the title');
+   const api = require('../../utils/mdbList');
+   const all = await api.historyPlays(mediaType === 'movie' ? 'movie' : 'show', tmdbId, apiKey);
+   if (!all) return;
+@@ -100,9 +102,9 @@ async function redate({ config, ids, mediaType, season, episode, change, within
+   const { lastTrackerCall, noteTrackerCall } = require('../../utils/trackerCalls');
+   if (!old) {
+     if (!placed && Date.now() - change.from < 15 * 60 * 1000) {
+-      noteTrackerCall('https://api.mdblist.com/sync/history', 429, 'play not recorded yet', null, Date.now() + 60_000);
++      noteTrackerCall(`${MDBLIST_API_BASE}/sync/history`, 429, 'play not recorded yet', null, Date.now() + 60_000);
+     } else if (!placed) {
+-      nothingToMove('https://api.mdblist.com/sync/history', 'no play near the old date');
++      nothingToMove(`${MDBLIST_API_BASE}/sync/history`, 'no play near the old date');
+     }
+     return;
+   }
+@@ -114,7 +116,7 @@ async function redate({ config, ids, mediaType, season, episode, change, within
+   if (await api.addToHistory(ids, apiKey, season, episode, undefined, new Date(change.to).toISOString())) return;
+   const failed = lastTrackerCall();
+   await api.addToHistory(ids, apiKey, season, episode, undefined, old.watched_at);
+-  noteTrackerCall('https://api.mdblist.com/sync/watched', failed && failed.status >= 300 ? failed.status : 0, failed?.body, null, failed?.retryAt);
++  noteTrackerCall(`${MDBLIST_API_BASE}/sync/watched`, failed && failed.status >= 300 ? failed.status : 0, failed?.body, null, failed?.retryAt);
+ }
+ 
+ export const mdblist: Tracker = {
+@@ -177,7 +179,7 @@ export const mdblist: Tracker = {
+     return out;
+   },
+   takesEpisodeIds: true,
+-  writeWatches: { url: 'https://api.mdblist.com/sync/watched', write: (items, credential, config) => writeWatches(items, credential, config) },
++  writeWatches: { url: `${MDBLIST_API_BASE}/sync/watched`, write: (items, credential, config) => writeWatches(items, credential, config) },
+   redate: { scope: 'all', run: redate },
+   match: {
+     async search(credential, query, kind) {
+diff --git a/addon/lib/trackers/simkl.ts b/addon/lib/trackers/simkl.ts
+index 96800e3..ea39169 100644
+--- a/addon/lib/trackers/simkl.ts
++++ b/addon/lib/trackers/simkl.ts
+@@ -7,6 +7,8 @@ import type { SimklMissed } from '../../utils/simklUtils';
+ import type { MatchCandidate, TargetSeason } from './match';
+ import { SAME_PLAY_MS, nothingToMove, playTime, type Redate } from './redate';
+ 
++const SIMKL_API_BASE = process.env.SIMKL_API_BASE || 'https://api.simkl.com';
++
+ async function simklEntries(credential: string): Promise<Array<{ type: string; data: any }>> {
+   const { mirrorRows } = require('../jellyfin/trackerMirror');
+   const rows: Array<{ key: string; data: any }> = await mirrorRows('simkl', credential);
+@@ -45,7 +47,7 @@ async function writeMarks(what: Mark, items: MarkItem[], tokenId: string): Promi
+   const quota = await getSimklQuota(accessToken).catch(() => null);
+   if (quota && quota.remaining <= Math.max(25, quota.limit / 5)) return { done: 0, sent: 0, failed: 0, wait: quota.resetsAt - Date.now(), error: 'Waiting for the Simkl allowance to reset' };
+   try {
+-    const response = await makeAuthenticatedSimklRequest(`https://api.simkl.com/sync/${what === 'ratings' ? 'ratings' : 'add-to-list'}`, accessToken, `Simkl copy ${what} batch of ${items.length}`, 'POST', simklBody(what, items), 60000);
++    const response = await makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}/sync/${what === 'ratings' ? 'ratings' : 'add-to-list'}`, accessToken, `Simkl copy ${what} batch of ${items.length}`, 'POST', simklBody(what, items), 60000);
+     if (response?.status && (response.status < 200 || response.status >= 300)) {
+       const error: any = new Error(`Simkl answered ${response.status}`);
+       error.response = { status: response.status, data: response.data };
+@@ -166,7 +168,7 @@ async function redate({ config, ids, mediaType, season, episode, change, fallbac
+       held = again;
+     }
+   }
+-  if (held === undefined) return nothingToMove('https://api.simkl.com/sync/watched', 'not found on Simkl');
++  if (held === undefined) return nothingToMove(`${SIMKL_API_BASE}/sync/watched`, 'not found on Simkl');
+   const heldAt = playTime(held);
+   if (heldAt !== null && Math.abs(heldAt - change.latest) < SAME_PLAY_MS) return;
+   if (held !== null && !(await simklUtils.removeFromHistory(target.ids, access, target.season, target.episode))) return;
+@@ -219,7 +221,7 @@ export const simkl: Tracker = {
+   },
+   writeMarks: (what, items, side) => writeMarks(what, items, side.credential),
+   watchesHeld: { read: watchesHeld, keys: heldKeys },
+-  writeWatches: { url: 'https://api.simkl.com/sync/history', write: writeWatches },
++  writeWatches: { url: `${SIMKL_API_BASE}/sync/history`, write: writeWatches },
+   redate: { scope: 'episodes', run: redate },
+   match: {
+     async search(credential, query, kind) {
+@@ -251,7 +253,7 @@ export const simkl: Tracker = {
+       if (detail?.ids?.tvdb) ids.tvdb = Number(detail.ids.tvdb);
+       if (detail?.ids?.tmdb ?? candidate.ids.tmdb) ids.tmdb = Number(detail?.ids?.tmdb ?? candidate.ids.tmdb);
+       if (candidate.kind === 'movie') return { ids, seasons: [] };
+-      const response = await makeAuthenticatedSimklRequest(`https://api.simkl.com/${segment === 'anime' ? 'anime' : 'tv'}/episodes/${id}`, access, `Simkl episodes (${id})`, 'GET', undefined, 15000);
++      const response = await makeAuthenticatedSimklRequest(`${SIMKL_API_BASE}/${segment === 'anime' ? 'anime' : 'tv'}/episodes/${id}`, access, `Simkl episodes (${id})`, 'GET', undefined, 15000);
+       if (!response) throw new Error('Simkl did not list the episodes');
+       const seasons = new Map<number, TargetSeason>();
+       for (const entry of Array.isArray(response?.data) ? response.data : []) {
+diff --git a/addon/lib/trakt.ts b/addon/lib/trakt.ts
+index dd39b6d..a1f34a0 100644
+--- a/addon/lib/trakt.ts
++++ b/addon/lib/trakt.ts
+@@ -5,7 +5,7 @@ const { httpGet, httpPost } = require('../utils/httpClient.js');
+ 
+ const logger = consola.withTag('Trakt');
+ 
+-export const TRAKT_API_BASE = 'https://api.trakt.tv';
++export const TRAKT_API_BASE = process.env.TRAKT_API_BASE || 'https://api.trakt.tv';
+ export const TRAKT_API_VERSION = '2';
+ import { traktDispatcher } from '../utils/traktUtils';
+ 
+@@ -58,7 +58,7 @@ export class TraktClient {
+    */
+   async exchangeCodeForToken(code: string): Promise<TraktTokens> {
+     try {
+-      const response = await httpPost('https://api.trakt.tv/oauth/token', {
++      const response = await httpPost(`${TRAKT_API_BASE}/oauth/token`, {
+         code,
+         client_id: this.clientId,
+         client_secret: this.clientSecret,
+@@ -100,7 +100,7 @@ export class TraktClient {
+    */
+   async refreshAccessToken(refreshToken: string): Promise<TraktTokens> {
+     try {
+-      const response = await httpPost('https://api.trakt.tv/oauth/token', {
++      const response = await httpPost(`${TRAKT_API_BASE}/oauth/token`, {
+         refresh_token: refreshToken,
+         client_id: this.clientId,
+         client_secret: this.clientSecret,
+@@ -167,7 +167,7 @@ export class TraktClient {
+    */
+   async revokeToken(accessToken: string): Promise<void> {
+     try {
+-      await httpPost('https://api.trakt.tv/oauth/revoke', {
++      await httpPost(`${TRAKT_API_BASE}/oauth/revoke`, {
+         dispatcher: traktDispatcher,
+         token: accessToken,
+         client_id: this.clientId,
+diff --git a/addon/lib/tvdb.ts b/addon/lib/tvdb.ts
+index 7022c98..98a9d3b 100644
+--- a/addon/lib/tvdb.ts
++++ b/addon/lib/tvdb.ts
+@@ -89,7 +89,7 @@ async function tvdbHttpRequest(url: string, options: any = {}, maxRetries: numbe
+   throw lastError;
+ }
+ 
+-const TVDB_API_URL = 'https://api4.thetvdb.com/v4';
++const TVDB_API_URL = process.env.TVDB_API_BASE || 'https://api4.thetvdb.com/v4';
+ const globalTvdbKey = () => process.env.TVDB_API_KEY || process.env.BUILT_IN_TVDB_API_KEY;
+ const TVDB_IMAGE_BASE = 'https://artworks.thetvdb.com/banners/images/';
+ 
+diff --git a/addon/lib/tvmaze.ts b/addon/lib/tvmaze.ts
+index 702a4f7..8ab7908 100644
+--- a/addon/lib/tvmaze.ts
++++ b/addon/lib/tvmaze.ts
+@@ -6,7 +6,7 @@ const buildInfo = require('./buildInfo');
+ import { Agent, ProxyAgent } from 'undici';
+ import consola from 'consola';
+ const consolaLogger = consola.withTag('TVmaze');
+-const TVMAZE_API_URL = 'https://api.tvmaze.com';
++const TVMAZE_API_URL = process.env.TVMAZE_API_BASE || 'https://api.tvmaze.com';
+ // Env-tunable request timeout and retry count.
+ const providerEnvInt = (name: string, fallback: number, minimum: number): number => {
+   const value = Number(process.env[name]);
+diff --git a/addon/utils/fanart.ts b/addon/utils/fanart.ts
+index 8395705..b3d9bb9 100644
+--- a/addon/utils/fanart.ts
++++ b/addon/utils/fanart.ts
+@@ -26,6 +26,11 @@ function getFanartClient(config: any): any | null {
+ 
+   try {
+     const opts: any = { apiKey, version: 'v3.2' };
++    // @fanart-tv/api composes `${baseUrl}/${version}${endpoint}`; default
++    // baseUrl is https://webservice.fanart.tv.
++    if (process.env.FANART_API_BASE) {
++      opts.baseUrl = process.env.FANART_API_BASE;
++    }
+     if (projectKey && personalKey) {
+       opts.clientKey = personalKey;
+     }
+diff --git a/addon/utils/mdbList.ts b/addon/utils/mdbList.ts
+index 9707cd2..abf549e 100644
+--- a/addon/utils/mdbList.ts
++++ b/addon/utils/mdbList.ts
+@@ -18,6 +18,8 @@ const { Agent, ProxyAgent } = require('undici');
+ 
+ const logger = consola.withTag('MDBList');
+ 
++const MDBLIST_API_BASE = process.env.MDBLIST_API_BASE || 'https://api.mdblist.com';
++
+ /**
+  * Sanitize URL by removing API key for safe logging
+  * @param {string} url - URL that may contain an API key
+@@ -201,7 +203,7 @@ async function makeRateLimitedRequest<T>(
+     quotaError.code = 'MDBLIST_QUOTA_EXHAUSTED';
+     quotaError.response = { status: 429 };
+     logger.warn(`[MDBList] Quota exhausted, skipping request - ${context}`);
+-    noteTrackerCall('https://api.mdblist.com/', 429, 'quota exhausted', null, state.lastReset * 1000);
++    noteTrackerCall(`${MDBLIST_API_BASE}/`, 429, 'quota exhausted', null, state.lastReset * 1000);
+     throw quotaError;
+   }
+ 
+@@ -352,8 +354,8 @@ function listBlockSize(pageSize: number): number {
+ function buildListItemsUrl(opts: { listId: string; apiKey: string; limit: number; offset: number; sort?: string; order?: string; genre?: string; unified?: boolean; filterScoreMin?: number; filterScoreMax?: number; mediaTypeFilter?: string }): string {
+   const { listId, apiKey, limit, offset } = opts;
+   const base = listId === 'watchlist'
+-    ? 'https://api.mdblist.com/watchlist/items'
+-    : `https://api.mdblist.com/lists/${listId}/items`;
++    ? `${MDBLIST_API_BASE}/watchlist/items`
++    : `${MDBLIST_API_BASE}/lists/${listId}/items`;
+   let url = `${base}?limit=${limit}&offset=${offset}&apikey=${apiKey}&append_to_response=genre,poster&unified=${opts.unified !== false}`;
+ 
+   if (opts.sort && opts.sort.trim() !== '') url += `&sort=${opts.sort}`;
+@@ -571,7 +573,7 @@ async function getRatingsFromMDBList(apiKey: string): Promise<any[]> {
+   let cursor: string | null = null;
+ 
+   for (let page = 0; page < maxPages; page++) {
+-    let url = `https://api.mdblist.com/sync/ratings?apikey=${apiKey}&limit=${pageSize}`;
++    let url = `${MDBLIST_API_BASE}/sync/ratings?apikey=${apiKey}&limit=${pageSize}`;
+     if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+ 
+     const response: any = await makeRateLimitedRequest(
+@@ -606,7 +608,7 @@ async function getMediaRatingFromMDBList(mediaProvider: string, mediaType: strin
+     return [];
+   }
+ 
+-  const url = `https://api.mdblist.com/${mediaProvider}/${mediaType}/${id}?apikey=${apiKey}`;
++  const url = `${MDBLIST_API_BASE}/${mediaProvider}/${mediaType}/${id}?apikey=${apiKey}`;
+   const context = `MDBList getMediaRatingFromMDBList (mediaProvider: ${mediaProvider}, mediaType: ${mediaType}, id: ${id})`;
+ 
+   try {
+@@ -655,7 +657,7 @@ async function fetchMDBListBatchMediaInfo(mediaProvider: string, mediaType: stri
+     logger.debug(`Processing batch ${batchNumber}/${totalBatches} with ${batchIds.length} items`);
+ 
+     try {
+-      const url = `https://api.mdblist.com/${mediaProvider}/${mediaType}?apikey=${apiKey}`;
++      const url = `${MDBLIST_API_BASE}/${mediaProvider}/${mediaType}?apikey=${apiKey}`;
+       
+       const requestBody = {
+         ids: batchIds,
+@@ -901,7 +903,7 @@ async function fetchMDBListGenres(apiKey: string, isAnime: boolean = false): Pro
+ 
+     const genresData: Array<{title: string, slug: string}> = await cacheWrapMDBListGenres(cacheKey, async () => {
+       const animeParam = isAnime ? 1 : 0;
+-      const url = `https://api.mdblist.com/genres/?apikey=${apiKey}&anime=${animeParam}`;
++      const url = `${MDBLIST_API_BASE}/genres/?apikey=${apiKey}&anime=${animeParam}`;
+ 
+       return await makeRateLimitedRequest(async () => {
+         logger.debug(`Fetching MDBList genres from API (anime=${animeParam})`);
+@@ -943,7 +945,7 @@ async function fetchMDBListGenres(apiKey: string, isAnime: boolean = false): Pro
+ }
+ 
+ async function fetchMdbListSearchItems(query: string, type: string, apiKey: string): Promise<any[]> {
+-  const url = `https://api.mdblist.com/search/${type}?query=${encodeURIComponent(query)}&limit=30&quick_search=true&apikey=${apiKey}`;
++  const url = `${MDBLIST_API_BASE}/search/${type}?query=${encodeURIComponent(query)}&limit=30&quick_search=true&apikey=${apiKey}`;
+ 
+   const res: Response = await makeRateLimitedRequest(async () => {
+     return await fetch(url, { headers: { Accept: "application/json" } });
+@@ -1076,7 +1078,7 @@ async function fetchTvdbMap(tmdbId: number, apiKey: string): Promise<{ episodes:
+   return cacheWrapGlobal(`mdblist:tvdb-map:${tmdbId}`, async () => {
+     try {
+       const response: any = await makeRateLimitedRequest(
+-        () => httpGet(`https://api.mdblist.com/shows/${tmdbId}/tvdb-map?apikey=${apiKey}`, { dispatcher: mdblistDispatcher }),
++        () => httpGet(`${MDBLIST_API_BASE}/shows/${tmdbId}/tvdb-map?apikey=${apiKey}`, { dispatcher: mdblistDispatcher }),
+         apiKey,
+         `MDBList tvdb-map ${tmdbId}`
+       );
+@@ -1160,7 +1162,7 @@ async function testMdblistKey(
+     throw emptyKeyError;
+   }
+ 
+-  const url = `https://api.mdblist.com/user?apikey=${apiKey}`;
++  const url = `${MDBLIST_API_BASE}/user?apikey=${apiKey}`;
+   const response = await makeRateLimitedRequest(
+     () => httpGet(url, { dispatcher: mdblistDispatcher, timeout: 5000 }),
+     apiKey,
+@@ -1208,7 +1210,7 @@ async function fetchMDBListUpNext(
+     // Ensure page is a number and calculate offset
+     const pageNum = typeof page === 'number' ? page : parseInt(String(page), 10) || 1;
+     const offset = (pageNum * pageSize) - pageSize;
+-    let url = `https://api.mdblist.com/upnext?apikey=${apiKey}&limit=${pageSize}&offset=${offset}`;
++    let url = `${MDBLIST_API_BASE}/upnext?apikey=${apiKey}&limit=${pageSize}&offset=${offset}`;
+     if (hideUnreleased !== undefined) {
+       url += `&hide_unreleased=${hideUnreleased}`;
+     }
+@@ -1250,7 +1252,7 @@ async function fetchMDBListUpcoming(apiKey: string, days: number, limit: number
+   const items: any[] = [];
+   try {
+     for (let page = 0; page < maxPages; page += 1) {
+-      const url = `https://api.mdblist.com/upnext/upcoming/episodes?apikey=${apiKey}&days=${window}&limit=${pageSize}&offset=${page * pageSize}&air_date_format=instant`;
++      const url = `${MDBLIST_API_BASE}/upnext/upcoming/episodes?apikey=${apiKey}&days=${window}&limit=${pageSize}&offset=${page * pageSize}&air_date_format=instant`;
+       const response: any = await makeRateLimitedRequest(
+         () => httpGet(url, { dispatcher: mdblistDispatcher }),
+         apiKey,
+@@ -1443,7 +1445,7 @@ async function historySync(
+ 
+   try {
+     const response: any = await makeRateLimitedRequest(
+-      () => httpPost(`https://api.mdblist.com/sync/${path}?apikey=${apiKey}`, payload, {
++      () => httpPost(`${MDBLIST_API_BASE}/sync/${path}?apikey=${apiKey}`, payload, {
+         headers: { 'Content-Type': 'application/json' },
+         timeout: 10000,
+         dispatcher: mdblistDispatcher,
+@@ -1455,7 +1457,7 @@ async function historySync(
+     const missed = response?.data?.not_found;
+     const missing = ['movies', 'shows', 'episodes'].reduce((n, key) => n + (Array.isArray(missed?.[key]) ? missed[key].length : 0), 0);
+     if (missing > 0) {
+-      noteTrackerCall(`https://api.mdblist.com/sync/${path}`, 404, 'not found on MDBList');
++      noteTrackerCall(`${MDBLIST_API_BASE}/sync/${path}`, 404, 'not found on MDBList');
+       logger.warn(`[MDBList] /sync/${path} did not find the title`, { ids: idInput, season, episode, not_found: missed });
+       return false;
+     }
+@@ -1469,7 +1471,7 @@ async function historySync(
+ 
+ async function addHistoryBatch(writes: HistoryWrite[], apiKey: string): Promise<{ notFound: number; missed: any }> {
+   const response: any = await makeRateLimitedRequest(
+-    () => httpPost(`https://api.mdblist.com/sync/watched?apikey=${apiKey}`, historyBatchPayload(writes), {
++    () => httpPost(`${MDBLIST_API_BASE}/sync/watched?apikey=${apiKey}`, historyBatchPayload(writes), {
+       headers: { 'Content-Type': 'application/json' },
+       timeout: 60000,
+       dispatcher: mdblistDispatcher,
+@@ -1502,7 +1504,7 @@ export interface MdblistPlay {
+ async function historyPlays(kind: 'movie' | 'show', tmdbId: number, apiKey: string): Promise<MdblistPlay[] | null> {
+   try {
+     const response: any = await makeRateLimitedRequest(
+-      () => httpGet(`https://api.mdblist.com/sync/history/${kind}/tmdb/${tmdbId}?apikey=${apiKey}`, { timeout: 10000, dispatcher: mdblistDispatcher }),
++      () => httpGet(`${MDBLIST_API_BASE}/sync/history/${kind}/tmdb/${tmdbId}?apikey=${apiKey}`, { timeout: 10000, dispatcher: mdblistDispatcher }),
+       apiKey,
+       `MDBList /sync/history/${kind}/tmdb/${tmdbId}`
+     );
+@@ -1516,7 +1518,7 @@ async function historyPlays(kind: 'movie' | 'show', tmdbId: number, apiKey: stri
+ async function removePlays(playIds: number[], apiKey: string): Promise<boolean> {
+   try {
+     await makeRateLimitedRequest(
+-      () => httpPost(`https://api.mdblist.com/sync/watched/plays/remove?apikey=${apiKey}`, { play_ids: playIds }, {
++      () => httpPost(`${MDBLIST_API_BASE}/sync/watched/plays/remove?apikey=${apiKey}`, { play_ids: playIds }, {
+         headers: { 'Content-Type': 'application/json' },
+         timeout: 10000,
+         dispatcher: mdblistDispatcher,
+@@ -1567,7 +1569,7 @@ async function clearScrobbleSession(
+   // and logs it, and the usual answer here is 404. A title marked watched by
+   // hand was never paused, so it holds no session, and that is not a failure.
+   try {
+-    await httpPost(`https://api.mdblist.com/scrobble/clear?apikey=${apiKey}`, payload, {
++    await httpPost(`${MDBLIST_API_BASE}/scrobble/clear?apikey=${apiKey}`, payload, {
+       headers: { 'Content-Type': 'application/json' },
+       timeout: 10000,
+       dispatcher: mdblistDispatcher,
+@@ -1599,7 +1601,7 @@ function scrobblePath(action: string): string {
+ }
+ 
+ function scrobbleUrl(action: string, apiKey: string): string {
+-  return `https://api.mdblist.com/${scrobblePath(action)}?apikey=${apiKey}`;
++  return `${MDBLIST_API_BASE}/${scrobblePath(action)}?apikey=${apiKey}`;
+ }
+ 
+ async function checkinMovie(
+@@ -1746,7 +1748,7 @@ async function fetchMDBListCatalog(
+         }
+       }
+ 
+-      const url = new URL(`https://api.mdblist.com/catalog/${mediaType}`);
++      const url = new URL(`${MDBLIST_API_BASE}/catalog/${mediaType}`);
+       url.searchParams.set('apikey', apiKey);
+       url.searchParams.set('limit', String(Math.min(pageSize, 100)));
+       if (cursor) url.searchParams.set('cursor', cursor);
+@@ -1803,7 +1805,7 @@ async function fetchMdblistLastActivities(apiKey: string, fresh = false, attempt
+   return cacheWrapGlobal(
+     `mdblist_last_activities:${keyHash}`,
+     async () => {
+-      const response = await makeRateLimitedMDBListRequest(`https://api.mdblist.com/sync/last_activities?apikey=${apiKey}`, apiKey, 'MDBList activities', attempts);
++      const response = await makeRateLimitedMDBListRequest(`${MDBLIST_API_BASE}/sync/last_activities?apikey=${apiKey}`, apiKey, 'MDBList activities', attempts);
+       return response?.data ?? {};
+     },
+     envInt('MDBLIST_ACTIVITIES_TTL', 300, 30),
+diff --git a/addon/utils/simklUtils.ts b/addon/utils/simklUtils.ts
+index 2fba979..bdc67a7 100644
+--- a/addon/utils/simklUtils.ts
++++ b/addon/utils/simklUtils.ts
+@@ -20,7 +20,7 @@ const logger = consola.withTag('Simkl');
+ const idMapper = require('../lib/id-mapper');
+ const animeListMapper = require('../lib/anime-list-mapper');
+ 
+-const SIMKL_BASE_URL = 'https://api.simkl.com';
++const SIMKL_BASE_URL = process.env.SIMKL_API_BASE || 'https://api.simkl.com';
+ const { isSimklV2Token, simklClientIdFor } = require('../lib/simkl');
+ const { getSetting } = require('../lib/settingsService');
+ const SIMKL_TRENDING_TTL = 12 * 60 * 60; // 12 hours
+@@ -41,8 +41,9 @@ function simklActivitiesTtlFor(accessToken: string, config?: any): number {
+   if (!isSimklV2Token(accessToken) || !Number.isFinite(minutes) || minutes <= 0) return getSimklActivitiesTtl();
+   return Math.round(Math.min(Math.max(minutes, SIMKL_SYNC_INTERVAL_MIN_MINUTES), SIMKL_SYNC_INTERVAL_MAX_MINUTES) * 60);
+ }
+-const SIMKL_TRENDING_DATA_URL = 'https://data.simkl.in/discover/trending';
+-const SIMKL_DISCOVER_DATA_URL = 'https://data.simkl.in/discover';
++const SIMKL_DATA_BASE_URL = process.env.SIMKL_DATA_BASE || 'https://data.simkl.in';
++const SIMKL_TRENDING_DATA_URL = `${SIMKL_DATA_BASE_URL}/discover/trending`;
++const SIMKL_DISCOVER_DATA_URL = `${SIMKL_DATA_BASE_URL}/discover`;
+ const SIMKL_APP_NAME = 'aiometadata';
+ 
+ function withAppParams(url: string): string {
+@@ -2322,7 +2323,7 @@ async function fetchSimklCalendar(
+     return await cacheWrapGlobal(
+       cacheKey,
+       async () => {
+-        const url = `https://data.simkl.in/calendar/${type}.json?${simklDataParams()}`;
++        const url = `${SIMKL_DATA_BASE_URL}/calendar/${type}.json?${simklDataParams()}`;
+         // Use a simple GET request for the CDN file
+         const response: any = await makeRateLimitedRequest(
+           () => httpGet(url, { dispatcher: simklDispatcher }),
+@@ -2350,7 +2351,7 @@ async function fetchSimklCalendarMonth(
+     return await cacheWrapGlobal(
+       `simkl-calendar:${type}:${year}-${month}`,
+       async () => {
+-        const url = `https://data.simkl.in/calendar/${year}/${month}/${type}.json?${simklDataParams()}`;
++        const url = `${SIMKL_DATA_BASE_URL}/calendar/${year}/${month}/${type}.json?${simklDataParams()}`;
+         const response: any = await makeRateLimitedRequest(
+           () => httpGet(url, { dispatcher: simklDispatcher }),
+           `Simkl Calendar (${type} ${year}-${month})`
+diff --git a/addon/utils/traktUtils.ts b/addon/utils/traktUtils.ts
+index ecd0b7f..b03a82b 100644
+--- a/addon/utils/traktUtils.ts
++++ b/addon/utils/traktUtils.ts
+@@ -1226,7 +1226,7 @@ const TRAKT_REDIRECT_URI = (() => {
+   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+   return `https://${trimmed.replace(/^\/+/, '')}`;
+ })();
+-const TRAKT_BASE_URL = 'https://api.trakt.tv';
++const TRAKT_BASE_URL = process.env.TRAKT_API_BASE || 'https://api.trakt.tv';
+ 
+ interface TraktListItem {
+   rank?: number;

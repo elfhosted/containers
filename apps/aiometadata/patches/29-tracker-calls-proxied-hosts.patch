@@ -1,0 +1,49 @@
+diff --git a/addon/utils/trackerCalls.ts b/addon/utils/trackerCalls.ts
+index dbe2db1..7dea009 100644
+--- a/addon/utils/trackerCalls.ts
++++ b/addon/utils/trackerCalls.ts
+@@ -24,6 +24,28 @@ const TRACKER_HOSTS = new Set([
+   'api.myanimelist.net',
+ ]);
+ 
++// A call made through a configured base URL is recorded under the tracker's own
++// host. Matched on a path boundary, so .../simkl-data is not .../simkl.
++const PROXIED_TRACKER_BASES: Array<[string, string]> = [
++  ['SIMKL_API_BASE', 'api.simkl.com'],
++  ['MDBLIST_API_BASE', 'api.mdblist.com'],
++  ['TRAKT_API_BASE', 'api.trakt.tv'],
++  ['ANILIST_API_BASE', 'graphql.anilist.co'],
++];
++
++function trackerHostOf(url: string): string | null {
++  for (const [env, canonical] of PROXIED_TRACKER_BASES) {
++    const base = (process.env[env] || '').replace(/\/+$/, '');
++    if (base && (url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`))) return canonical;
++  }
++  try {
++    const host = new URL(url).hostname;
++    return TRACKER_HOSTS.has(host) ? host : null;
++  } catch {
++    return null;
++  }
++}
++
+ const store = new AsyncLocalStorage<TrackerCall[]>();
+ 
+ export async function recordingTrackerCalls(work: () => Promise<unknown>): Promise<{ calls: TrackerCall[]; error?: any }> {
+@@ -49,13 +71,8 @@ export function lastTrackerCall(): TrackerCall | undefined {
+ export function noteTrackerCall(url: string, status: number, body?: string, retryAfter?: string | number | null, retryAt?: number): void {
+   const calls = store.getStore();
+   if (!calls) return;
+-  let host: string;
+-  try {
+-    host = new URL(url).hostname;
+-  } catch {
+-    return;
+-  }
+-  if (!TRACKER_HOSTS.has(host)) return;
++  const host = trackerHostOf(url);
++  if (!host) return;
+   const seconds = Number(retryAfter);
+   calls.push({
+     host,

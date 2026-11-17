@@ -1,0 +1,26 @@
+diff --git a/addon/lib/getMeta.js b/addon/lib/getMeta.js
+index c5c104e..b65c4c8 100644
+--- a/addon/lib/getMeta.js
++++ b/addon/lib/getMeta.js
+@@ -397,6 +397,10 @@ async function getMeta(type, language, stremioId, config = {}, userUUID, include
+       logger.error(`[Meta] Invalid stremioId: ${stremioId}`);
+       return { meta: null };
+     }
++    // Defensive normalization: some upstream providers (Simkl, raw TMDB responses,
++    // etc.) use TMDB's 'tv' convention for series. Normalize here so resolveAllIds
++    // and the finalType switch below don't silently reject the request.
++    if (type === 'tv') type = 'series';
+     
+     // --- Handle custom ID prefixes (e.g., "tun_tt6128300") ---
+     const isTraktUpNextId = stremioId.startsWith('tun_');
+@@ -521,7 +525,9 @@ async function getMeta(type, language, stremioId, config = {}, userUUID, include
+       if (detectedAnimeMapping.anidb_id) prefetchedAnimeIds.anidbId = detectedAnimeMapping.anidb_id;
+       if (detectedAnimeMapping.anilist_id) prefetchedAnimeIds.anilistId = detectedAnimeMapping.anilist_id;
+     }
+-    const allIds =  await resolveAllIds(stremioId, type, config, prefetchedAnimeIds, Array.from(targetProviders));
++    // Use finalType (which maps animeId stremioIds to 'anime') rather than raw
++    // type so id-resolver's targetProviders heuristics pick the anime path.
++    const allIds =  await resolveAllIds(stremioId, finalType, config, prefetchedAnimeIds, Array.from(targetProviders));
+     if (type !== 'movie') config = withEpisodeOrder(config, allIds?.tvdbId);
+     switch (finalType) {
+       case 'movie':

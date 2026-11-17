@@ -1,0 +1,108 @@
+diff --git a/addon/index.ts b/addon/index.ts
+index 97fb2a6..7353325 100644
+--- a/addon/index.ts
++++ b/addon/index.ts
+@@ -4711,6 +4711,19 @@ addon.post("/api/cache/health/log", requireDashboardAdmin, (req, res) => {
+ });
+ 
+ // Clear specific cache key
++// Wildcard deletes are refused unless ALLOW_UNSCOPED_CACHE_CLEAR=true: cache keys
++// are not namespaced per instance, so on a shared Redis a pattern can match other
++// instances' entries. Exact-key deletes and clear-by-id are unaffected.
++function unscopedCachePatternReason(pattern) {
++  const raw = String(pattern ?? '');
++  if (!raw.trim()) return 'pattern is empty';
++  if (process.env.ALLOW_UNSCOPED_CACHE_CLEAR === 'true') return null;
++  if (/[*?[\]]/.test(raw)) {
++    return 'Wildcard cache deletes are disabled: this Redis is shared with other instances and its keyspace is not namespaced per instance, so no pattern can be scoped to you — a prefix like "e2:meta-*" would delete every instance\'s entries. Delete an exact key, or use clear-by-id for a single title. Set ALLOW_UNSCOPED_CACHE_CLEAR=true only on a Redis this instance owns outright.';
++  }
++  return null;
++}
++
+ addon.delete("/api/cache/clear/:key", requireDashboardAdmin, async (req, res) => {
+   
+   const { key } = req.params;
+@@ -4718,6 +4731,11 @@ addon.delete("/api/cache/clear/:key", requireDashboardAdmin, async (req, res) =>
+   
+   try {
+     if (pattern === 'true') {
++      const unscoped = unscopedCachePatternReason(key);
++      if (unscoped) {
++        consola.warn(`[Cache] Refused unscoped pattern delete: ${key} (${unscoped})`);
++        return res.status(400).json({ success: false, error: 'Unscoped cache pattern', message: unscoped });
++      }
+       // Clear all keys matching pattern (safe SCAN-based deletion)
+       const deleted = await deleteKeysByPattern(key);
+       if (deleted > 0) {
+@@ -7915,7 +7933,8 @@ addon.post("/api/dashboard/cache/clear", requireDashboardAdmin, (req, res) => {
+     
+     const dashboardApi = getDashboardAPI();
+     dashboardApi.clearCache(type)
+-      .then(result => res.json(result))
++      // A refused clear resolves with success: false; report it as a 400.
++      .then(result => res.status(result && result.success === false ? 400 : 200).json(result))
+       .catch(error => {
+         consola.error('[Dashboard API] Error:', error);
+         res.status(500).json({ error: 'Failed to clear cache' });
+diff --git a/addon/lib/dashboardApi.js b/addon/lib/dashboardApi.js
+index 730a331..c31f993 100644
+--- a/addon/lib/dashboardApi.js
++++ b/addon/lib/dashboardApi.js
+@@ -62,6 +62,22 @@ const PRESERVED_CACHE_KEYS = [
+   'id_map:', 'content_metadata:',
+ ];
+ 
++/**
++ * Bulk deletes scan the whole keyspace, which is not namespaced per instance, so
++ * they are refused unless ALLOW_UNSCOPED_CACHE_CLEAR=true. An exact key delete and
++ * clear-by-id for a complete media id stay available.
++ */
++function unscopedClearRefusal(what) {
++  if (process.env.ALLOW_UNSCOPED_CACHE_CLEAR === 'true') return null;
++  return {
++    success: false,
++    message: `Refusing ${what}: it scans the whole keyspace, and this Redis is shared with other instances whose keys are not distinguishable from yours. Clear one title with a complete media id (e.g. tt0111161 or tmdb:550), or delete an exact key. Set ALLOW_UNSCOPED_CACHE_CLEAR=true only on a Redis this instance owns outright.`,
++    deletedCount: 0,
++    matched: 0,
++    skipped: 0,
++  };
++}
++
+ const isPreservedCacheKey = (key) =>
+   PRESERVED_CACHE_KEYS.some((p) => (p.endsWith(':') ? key.startsWith(p) : key === p));
+ 
+@@ -2286,6 +2302,11 @@ class DashboardAPI {
+       // Anything else (catalog ids, partial ids, free text) keeps substring
+       // matching — catalog ids sit mid-key and would be missed by an exact match.
+       const matchMode = isCompleteMediaId(trimmed) ? 'exact' : 'substring';
++      // Substring mode scans the whole keyspace; only a complete media id is bounded.
++      if (matchMode === 'substring') {
++        const refusal = unscopedClearRefusal(`token "${trimmed}" (substring match)`);
++        if (refusal) return refusal;
++      }
+ 
+       const titleInfo = matchMode === 'exact' ? await this.lookupTitleForMetaId(trimmed) : null;
+ 
+@@ -2426,6 +2447,7 @@ class DashboardAPI {
+       
+       switch (type) {
+         case "all":
++          if (unscopedClearRefusal(`type="${type}"`)) return unscopedClearRefusal(`type="${type}"`);
+           do {
+             const reply = await this.cache.scan(cursor, 'COUNT', 1000);
+             cursor = reply[0];
+@@ -2450,12 +2472,14 @@ class DashboardAPI {
+           break;
+           
+         case "expired": {
++          if (unscopedClearRefusal(`type="${type}"`)) return unscopedClearRefusal(`type="${type}"`);
+           const cleanupResult = await this.scanExpiringKeys({ deleteKeys: true });
+           deletedCount = cleanupResult.deletedCount;
+           break;
+         }
+           
+         case "metadata":
++          if (unscopedClearRefusal(`type="${type}"`)) return unscopedClearRefusal(`type="${type}"`);
+           // Clear metadata-related keys using SCAN with MATCH
+           do {
+             const reply = await this.cache.scan(cursor, 'MATCH', '*meta*', 'COUNT', 1000);

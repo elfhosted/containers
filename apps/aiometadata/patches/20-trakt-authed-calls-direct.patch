@@ -1,0 +1,85 @@
+diff --git a/addon/lib/trakt.ts b/addon/lib/trakt.ts
+index a6f9e61..055fd39 100644
+--- a/addon/lib/trakt.ts
++++ b/addon/lib/trakt.ts
+@@ -1,7 +1,8 @@
+ // SPDX-License-Identifier: AGPL-3.0-or-later WITH AdditionRef-AIOMetadata-FSL-linking
+ // Copyright (C) 2021-2026 cedya77 and AIOMetadata contributors, see NOTICE
+ const consola = require('consola');
+-const { httpGet, httpPost } = require('../utils/httpClient.js');
++// Requests that carry a user's token go to Trakt directly (see traktTransport).
++const { traktHttpGet: httpGet, traktHttpPost: httpPost } = require('../utils/traktTransport.js');
+ 
+ const logger = consola.withTag('Trakt');
+ 
+diff --git a/addon/utils/traktTransport.ts b/addon/utils/traktTransport.ts
+new file mode 100644
+index 0000000..c47f5c8
+--- /dev/null
++++ b/addon/utils/traktTransport.ts
+@@ -0,0 +1,44 @@
++/**
++ * Trakt requests that carry an Authorization header go to Trakt directly;
++ * everything else uses TRAKT_API_BASE. Shared by the Trakt client and utilities.
++ */
++import { httpGet as httpGetDirect, httpPost as httpPostDirect } from './httpClient.js';
++
++export const TRAKT_CONFIGURED_BASE_URL = process.env.TRAKT_API_BASE || 'https://api.trakt.tv';
++
++/**
++ * Trakt's own address. TRAKT_DIRECT_BASE overrides it only outside production,
++ * for tests.
++ */
++export const TRAKT_DIRECT_BASE_URL =
++  (process.env.NODE_ENV !== 'production' && process.env.TRAKT_DIRECT_BASE) || 'https://api.trakt.tv';
++
++function carriesCredentials(headers: any): boolean {
++  if (!headers) return false;
++  // Header names are case-insensitive.
++  if (typeof headers.forEach === 'function' && !Array.isArray(headers)) {
++    let found = false;
++    headers.forEach((_value: any, name: string) => {
++      if (String(name).toLowerCase() === 'authorization') found = true;
++    });
++    if (found) return true;
++  }
++  return Object.keys(headers).some(name => name.toLowerCase() === 'authorization');
++}
++
++export function traktUrlFor(url: string, options?: any): string {
++  if (TRAKT_CONFIGURED_BASE_URL === TRAKT_DIRECT_BASE_URL) return url;
++  if (!carriesCredentials(options?.headers)) return url;
++  return url.startsWith(TRAKT_CONFIGURED_BASE_URL)
++    ? TRAKT_DIRECT_BASE_URL + url.slice(TRAKT_CONFIGURED_BASE_URL.length)
++    : url;
++}
++
++// Drop-in replacements for the shared HTTP helpers.
++export function traktHttpGet(url: string, options: any = {}): ReturnType<typeof httpGetDirect> {
++  return httpGetDirect(traktUrlFor(url, options), options);
++}
++
++export function traktHttpPost(url: string, data: any, options: any = {}): ReturnType<typeof httpPostDirect> {
++  return httpPostDirect(traktUrlFor(url, options), data, options);
++}
+diff --git a/addon/utils/traktUtils.ts b/addon/utils/traktUtils.ts
+index b03a82b..6156c5a 100644
+--- a/addon/utils/traktUtils.ts
++++ b/addon/utils/traktUtils.ts
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: AGPL-3.0-or-later WITH AdditionRef-AIOMetadata-FSL-linking
+ // Copyright (C) 2021-2026 cedya77 and AIOMetadata contributors, see NOTICE
+-import { httpGet, httpPost, httpRequest } from "./httpClient.js";
++import { traktHttpGet as httpGet, traktHttpPost as httpPost } from "./traktTransport.js";
++import { httpRequest } from "./httpClient.js";
+ import { getMeta } from "../lib/getMeta.js";
+ import { mapWithLimit } from "./concurrency.js";
+ import { cacheWrapMetaSmart, cacheWrapGlobal, classifyResultAllowEmpty, readGlobalCache, writeGlobalCache } from "../lib/getCache.js";
+@@ -1228,6 +1229,7 @@ const TRAKT_REDIRECT_URI = (() => {
+ })();
+ const TRAKT_BASE_URL = process.env.TRAKT_API_BASE || 'https://api.trakt.tv';
+ 
++
+ interface TraktListItem {
+   rank?: number;
+   listed_at?: string;
