@@ -41,19 +41,19 @@ index cc16521..2ffdb79 100644
                host: url.host,
                path: `${url.pathname}${url.search}`,
 diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
-index 5550a45..821bc82 100644
+index b34d2a4..efaf30a 100644
 --- a/packages/core/src/builtins/newznab/addon.ts
 +++ b/packages/core/src/builtins/newznab/addon.ts
-@@ -32,6 +32,8 @@ import {
+@@ -26,6 +26,8 @@ import { BuiltinProxy, createProxy } from '../../proxy/index.js';
  import type { BuiltinServiceId } from '../../utils/index.js';
  import type { Stream } from '../../db/index.js';
  import { isBypassedHost, parseBypassHosts } from '../utils/replayBypass.js';
 +import { indexerEgressFor } from '../../utils/indexer-egress.js';
 +import { rewriteRequestUrl } from '../../utils/http.js';
- import { isOptedOut } from '../utils/sharedIndex.js';
  
  const logger = createLogger('newznab');
-@@ -70,7 +72,7 @@ interface HealthProxyConfig {
+ 
+@@ -63,7 +65,7 @@ interface HealthProxyConfig {
  
  let hasLoggedReplayError = false;
  
@@ -62,7 +62,7 @@ index 5550a45..821bc82 100644
    const replayBase = appConfig.builtins.nab.replayDownloadUrl;
    if (!replayBase) {
      return originalUrl;
-@@ -78,9 +80,15 @@ const buildReplayDownloadUrl = (originalUrl: string): string => {
+@@ -71,9 +73,15 @@ const buildReplayDownloadUrl = (originalUrl: string): string => {
  
    // Matched on the enclosure's own host, which is not always the API host.
    try {
@@ -79,7 +79,7 @@ index 5550a45..821bc82 100644
          parseBypassHosts(appConfig.builtins.nab.replayBypassHosts)
        )
      ) {
-@@ -335,7 +343,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+@@ -227,7 +235,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
  
        const nzbUrl = this.disableReplayEndpoints
          ? enclosureUrl
@@ -89,10 +89,10 @@ index 5550a45..821bc82 100644
        seenNzbs.add(nzbUrl);
  
 diff --git a/packages/core/src/debrid/stremthru.ts b/packages/core/src/debrid/stremthru.ts
-index f032589..8f17c6d 100644
+index 80272aa..fdcab18 100644
 --- a/packages/core/src/debrid/stremthru.ts
 +++ b/packages/core/src/debrid/stremthru.ts
-@@ -961,6 +961,9 @@ export class StremThruService
+@@ -913,6 +913,9 @@ export class StremThruService
          method: 'GET',
          timeout: 30000,
          headers: { 'User-Agent': appConfig.http.defaultUserAgent },

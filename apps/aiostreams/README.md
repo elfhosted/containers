@@ -31,6 +31,11 @@ variables. All of them default to off or empty: an unconfigured build behaves as
 upstream does. Endpoints are supplied whole via configuration rather than
 constructed in code, so no deployment-specific URLs appear in the source.
 
+One exception: `patches/54-newznab-health-proxy-removed.patch` removes the
+Newznab preset's health proxy option in every build. It carries the same change
+proposed upstream, and goes once an upstream release includes it. Configs saved
+with the option keep the stored value, which is ignored.
+
 | Variable | Effect |
 |---|---|
 | `INDEXER_EGRESS_PROXY` | An `http://` or `https://` forward proxy URL (optional `user:password@` and port; no path, query or fragment). When set, every Newznab API call and every NZB this process grabs itself is sent through it, in place of the forwarding endpoints, `REPLAY_BYPASS_HOSTS`, `BUILTIN_NAB_HTTP_PROXY` and `ADDON_PROXY`. Loopback, private (including names that resolve to private addresses), single-label and cluster-local destinations keep their usual route. An invalid value is logged once (without the value) and ignored. See `patches/49-indexer-egress-proxy.patch`. |

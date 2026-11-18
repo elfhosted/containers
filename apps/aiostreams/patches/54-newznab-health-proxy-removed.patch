@@ -1,0 +1,557 @@
+diff --git a/packages/core/src/builtins/base/nab/api.ts b/packages/core/src/builtins/base/nab/api.ts
+index 2ffdb79..d28b3aa 100644
+--- a/packages/core/src/builtins/base/nab/api.ts
++++ b/packages/core/src/builtins/base/nab/api.ts
+@@ -84,7 +84,6 @@ const NEWZNAB_PROFILE: NabScanProfile = {
+   indexers: new Set(['prowlarrindexer'] as const),
+   enclosureLength: true,
+   attrs: new Map<string, NabAttrType>([
+-    ['zyclopsHealth', 'string'],
+     ['usenetdate', 'string'],
+     ['language', 'string'],
+     ['subs', 'string'],
+diff --git a/packages/core/src/builtins/newznab/addon.ts b/packages/core/src/builtins/newznab/addon.ts
+index efaf30a..66c1aca 100644
+--- a/packages/core/src/builtins/newznab/addon.ts
++++ b/packages/core/src/builtins/newznab/addon.ts
+@@ -1,12 +1,7 @@
+ import { z } from 'zod';
+ import { ParsedId } from '../../utils/id-parser.js';
+ import { appConfig, constants, createLogger } from '../../utils/index.js';
+-import {
+-  Torrent,
+-  NZB,
+-  NZBWithSelectedFile,
+-  TorrentWithSelectedFile,
+-} from '../../debrid/index.js';
++import { Torrent, NZB } from '../../debrid/index.js';
+ import { SearchMetadata } from '../base/debrid.js';
+ import { hashNzbUrl } from '../../debrid/utils.js';
+ import { toUnixSeconds, usenetKey } from '../../release-blocklist/index.js';
+@@ -23,8 +18,6 @@ import {
+ } from '../base/nab/addon.js';
+ import { ageInHoursSince } from '../utils/general.js';
+ import { BuiltinProxy, createProxy } from '../../proxy/index.js';
+-import type { BuiltinServiceId } from '../../utils/index.js';
+-import type { Stream } from '../../db/index.js';
+ import { isBypassedHost, parseBypassHosts } from '../utils/replayBypass.js';
+ import { indexerEgressFor } from '../../utils/indexer-egress.js';
+ import { rewriteRequestUrl } from '../../utils/http.js';
+@@ -45,24 +38,9 @@ class NewznabApi extends BaseNabApi<'newznab'> {
+ 
+ export const NewznabAddonConfigSchema = NabAddonConfigSchema.extend({
+   proxyAuth: z.string().optional(),
+-  zyclopsHealthProxy: z
+-    .object({
+-      enabled: z.boolean().optional(),
+-      backbones: z.array(z.string().min(1)).optional(),
+-      providerHosts: z.array(z.string().min(1)).optional(),
+-      showUnknown: z.boolean().optional(),
+-      singleIp: z.boolean().optional(),
+-    })
+-    .optional(),
+ });
+ export type NewznabAddonConfig = z.infer<typeof NewznabAddonConfigSchema>;
+ 
+-interface HealthProxyConfig {
+-  endpoint: string;
+-  path: string;
+-  extraParams: Record<string, string | number | boolean>;
+-}
+-
+ let hasLoggedReplayError = false;
+ 
+ const buildReplayDownloadUrl = async (originalUrl: string): Promise<string> => {
+@@ -114,7 +92,6 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+   readonly id = 'newznab';
+   readonly logger = logger;
+   readonly api: NewznabApi;
+-  private readonly disableReplayEndpoints: boolean;
+   constructor(userData: NewznabAddonConfig, clientIp?: string) {
+     super(userData, NewznabAddonConfigSchema, clientIp);
+ 
+@@ -136,92 +113,13 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+         'The Newznab addon only supports usenet-capable services (TorBox, NZBDAV, AltMount, Stremio NNTP, StremThru Newz, Debridge, AIOStreams)'
+       );
+     }
+-    const zyclopsHealthProxyConfig = this.buildZyclopsHealthProxyConfig();
+-    this.disableReplayEndpoints = Boolean(zyclopsHealthProxyConfig);
+     this.api = new NewznabApi(
+-      zyclopsHealthProxyConfig?.endpoint ?? this.userData.url,
++      this.userData.url,
+       this.userData.apiKey,
+-      zyclopsHealthProxyConfig?.path ?? this.userData.apiPath,
+-      zyclopsHealthProxyConfig?.extraParams,
+-      { disableReplay: this.disableReplayEndpoints }
++      this.userData.apiPath
+     );
+   }
+ 
+-  private buildZyclopsHealthProxyConfig(): HealthProxyConfig | undefined {
+-    if (!this.userData.zyclopsHealthProxy?.enabled) {
+-      return undefined;
+-    }
+-
+-    const endpoint = appConfig.builtins.nab.zyclopsHealthProxyEndpoint;
+-    const path = '/api';
+-    const extraParams: Record<string, string | number | boolean> = {};
+-
+-    const upstreamBase = this.userData.url.trim().replace(/\/+$/, '');
+-    // an absent apiPath means the legacy '/api' default; an empty one means the
+-    // url is already a complete endpoint
+-    const rawApiPath = this.userData.apiPath;
+-    const upstreamApiPath =
+-      rawApiPath === undefined
+-        ? '/api'
+-        : rawApiPath && !rawApiPath.startsWith('/')
+-          ? `/${rawApiPath}`
+-          : rawApiPath;
+-    const target = upstreamBase
+-      ? `${upstreamBase}${upstreamApiPath}`
+-      : this.userData.url;
+-
+-    extraParams.target = target;
+-
+-    const selectedBackbones = (
+-      this.userData.zyclopsHealthProxy.backbones || []
+-    ).map((backbone) => backbone?.trim());
+-
+-    let providerHosts: string[] = [];
+-
+-    if (this.userData.zyclopsHealthProxy?.providerHosts?.length) {
+-      providerHosts = this.userData.zyclopsHealthProxy.providerHosts;
+-    }
+-
+-    if (selectedBackbones.length > 0 && providerHosts.length > 0) {
+-      throw new Error(
+-        'Crowdsourced health checks only accept one identifier. Choose either a backbone selection or a provider host.'
+-      );
+-    }
+-
+-    if (!selectedBackbones.length && !providerHosts.length) {
+-      throw new Error(
+-        'Crowdsourced health checks require either a backbone selection or a provider host to be configured.'
+-      );
+-    }
+-
+-    if (selectedBackbones.length > 0) {
+-      extraParams.backbone = selectedBackbones.join(',');
+-    } else if (providerHosts.length > 0) {
+-      extraParams.provider_host = providerHosts.join(',');
+-    }
+-
+-    extraParams.show_unknown = this.userData.zyclopsHealthProxy.showUnknown
+-      ? '1'
+-      : '0';
+-    extraParams.single_ip = this.userData.zyclopsHealthProxy.singleIp
+-      ? '1'
+-      : '0';
+-
+-    this.logger.debug('Routing Newznab traffic through health proxy', {
+-      endpoint,
+-      target,
+-      mode: selectedBackbones.length > 0 ? 'backbone' : 'provider_host',
+-      identifier:
+-        selectedBackbones.length > 0 ? selectedBackbones : providerHosts,
+-    });
+-
+-    return {
+-      endpoint,
+-      path,
+-      extraParams,
+-    };
+-  }
+-
+   protected async _searchNzbs(parsedId: ParsedId): Promise<NZB[]> {
+     const metadata = await this.getSearchMetadata();
+     const { results, meta } = await this.performSearch(parsedId, metadata);
+@@ -233,13 +131,10 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+       const enclosureUrl = enclosure?.url;
+       if (!enclosureUrl) continue;
+ 
+-      const nzbUrl = this.disableReplayEndpoints
+-        ? enclosureUrl
+-        : await buildReplayDownloadUrl(enclosureUrl);
++      const nzbUrl = await buildReplayDownloadUrl(enclosureUrl);
+       if (seenNzbs.has(nzbUrl)) continue;
+       seenNzbs.add(nzbUrl);
+ 
+-      const zyclopsHealth = result.newznab?.zyclopsHealth?.toString();
+       const md5 = hashNzbUrl(enclosureUrl);
+ 
+       let date = result.pubDate?.toString();
+@@ -302,10 +197,6 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+         nzb.releaseKey = releaseKey;
+       }
+ 
+-      if (zyclopsHealth) {
+-        nzb.zyclopsHealth = zyclopsHealth;
+-      }
+-
+       nzbs.push(nzb);
+     }
+ 
+@@ -317,18 +208,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+         url: appConfig.bootstrap.baseUrl,
+         credentials: auth,
+       });
+-      let zyclopsOrigin: string | undefined;
+-      try {
+-        zyclopsOrigin = new URL(appConfig.nzbProxy.zyclopsHealthProxyEndpoint)
+-          .origin;
+-      } catch {}
+-      const nzbsToProxy = nzbs.filter((nzb) => {
+-        try {
+-          return new URL(nzb.nzb).origin !== zyclopsOrigin;
+-        } catch {
+-          return true;
+-        }
+-      });
++      const nzbsToProxy = nzbs;
+       if (nzbsToProxy.length > 0) {
+         const proxiedUrls = await proxy.generateUrls(
+           nzbsToProxy.map(({ nzb, title }) => ({
+@@ -353,29 +233,6 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
+     return [];
+   }
+ 
+-  protected override _createStream(
+-    torrentOrNzb: TorrentWithSelectedFile | NZBWithSelectedFile,
+-    metadataId: string,
+-    encryptedStoreAuths: Record<BuiltinServiceId, string | string[]>
+-  ): Stream {
+-    const stream = super._createStream(
+-      torrentOrNzb,
+-      metadataId,
+-      encryptedStoreAuths
+-    );
+-
+-    if (
+-      torrentOrNzb.type === 'usenet' &&
+-      'zyclopsHealth' in torrentOrNzb &&
+-      torrentOrNzb.zyclopsHealth
+-    ) {
+-      (stream as Record<string, unknown>).zyclopsHealth =
+-        torrentOrNzb.zyclopsHealth;
+-    }
+-
+-    return stream;
+-  }
+-
+   private getEnclosure(result: SearchResultItem<'newznab'>) {
+     return result.enclosure?.find((e: any) =>
+       e.type?.toLowerCase().includes('nzb')
+diff --git a/packages/core/src/config/index.ts b/packages/core/src/config/index.ts
+index 97c033d..9d471bc 100644
+--- a/packages/core/src/config/index.ts
++++ b/packages/core/src/config/index.ts
+@@ -76,8 +76,6 @@ export const runtimeSchemas = {
+ } as const;
+ 
+ export const runtimeKeyAliases: Record<string, string> = {
+-  'nzbProxy.zyclopsHealthProxyEndpoint':
+-    'builtins.nab.zyclopsHealthProxyEndpoint',
+   'userLimits.maxNzbFailoverCount': 'userLimits.maxFailoverAttempts',
+   'usenet.maxDownloadConnections': 'usenet.maxConcurrentDownloads',
+ };
+diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
+index 0968e9d..3488e4f 100644
+--- a/packages/core/src/config/schema/builtins.ts
++++ b/packages/core/src/config/schema/builtins.ts
+@@ -687,16 +687,6 @@ export const builtinsSchema = {
+       requiresRestart: false,
+       secret: false,
+     },
+-    zyclopsHealthProxyEndpoint: {
+-      schema: urlString,
+-      default: 'https://zyclops.elfhosted.com',
+-      label: 'Zyclops health proxy endpoint',
+-      description:
+-        'Base URL of the Zyclops health proxy used by the Newznab preset.',
+-      env: 'ZYCLOPS_HEALTH_PROXY_ENDPOINT',
+-      requiresRestart: false,
+-      secret: false,
+-    },
+     replayEndpoint: {
+       schema: nullableUrl,
+       default: null,
+diff --git a/packages/core/src/debrid/utils.ts b/packages/core/src/debrid/utils.ts
+index 061dc80..0ebaf8f 100644
+--- a/packages/core/src/debrid/utils.ts
++++ b/packages/core/src/debrid/utils.ts
+@@ -329,7 +329,6 @@ export interface NZB extends BaseFile {
+   hash: string;
+   nzb: string;
+   easynewsUrl?: string;
+-  zyclopsHealth?: string;
+   serviceItemId?: string;
+   releaseKey?: string;
+   infoUrl?: string;
+diff --git a/packages/core/src/presets/newznab-health-proxy.test.ts b/packages/core/src/presets/newznab-health-proxy.test.ts
+new file mode 100644
+index 0000000..ed421f4
+--- /dev/null
++++ b/packages/core/src/presets/newznab-health-proxy.test.ts
+@@ -0,0 +1,46 @@
++import { before, describe, it, mock } from 'node:test';
++import assert from 'node:assert/strict';
++
++// Imported dynamically: preset metadata reads settings, which must be loaded first.
++const { settingsStore } = await import('../config/index.js');
++const { SettingsRepository } = await import('../db/repositories/settings.js');
++await import('../index.js');
++const { NewznabPreset } = await import('./newznab.js');
++
++before(async () => {
++  mock.method(SettingsRepository, 'getAll', async () => []);
++  mock.method(SettingsRepository, 'getVersion', async () => 0);
++  await settingsStore.initialise();
++});
++
++const storedHealthProxy = {
++  enabled: true,
++  backbones: [],
++  providerHosts: '',
++  showUnknown: false,
++  singleIp: true,
++};
++
++function decodeManifestConfig(url: string): Record<string, any> {
++  const segment = url.split('/').at(-2)!;
++  return JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'));
++}
++
++describe('newznab health proxy option removed', () => {
++  it('is no longer offered', () => {
++    const ids = NewznabPreset.METADATA.OPTIONS.map((o: any) => o.id);
++    assert.ok(!ids.includes('zyclopsHealthProxy'));
++  });
++
++  it('builds a manifest from a stored enabled-but-incomplete option without throwing', () => {
++    // Configs saved with the option enabled keep the value. It must be ignored:
++    // this used to throw "requires either a Backbone selection or a Provider Host".
++    const url = (NewznabPreset as any).generateManifestUrl({} as any, [], {
++      api: { url: 'https://indexer.example/api', apiKey: 'k' },
++      zyclopsHealthProxy: storedHealthProxy,
++    });
++    const config = decodeManifestConfig(url);
++    assert.equal(config.url, 'https://indexer.example/api');
++    assert.ok(!('zyclopsHealthProxy' in config));
++  });
++});
+diff --git a/packages/core/src/presets/newznab.ts b/packages/core/src/presets/newznab.ts
+index 2fe3271..11a6011 100644
+--- a/packages/core/src/presets/newznab.ts
++++ b/packages/core/src/presets/newznab.ts
+@@ -1,30 +1,7 @@
+-import { Addon, Option, ParsedStream, Stream, UserData } from '../db/index.js';
++import { Addon, Option, UserData } from '../db/index.js';
+ import { Preset, baseOptions } from './preset.js';
+ import { appConfig, RESOURCES, ServiceId, constants } from '../utils/index.js';
+-import { BuiltinAddonPreset, BuiltinStreamParser } from './builtin.js';
+-
+-class NewznabStreamParser extends BuiltinStreamParser {
+-  protected override getMessage(
+-    stream: Stream,
+-    currentParsedStream: ParsedStream
+-  ): string | undefined {
+-    const healthChecksEnabled = Boolean(
+-      this.addon.preset.options?.zyclopsHealthProxy?.enabled
+-    );
+-    if (!healthChecksEnabled) {
+-      return undefined;
+-    }
+-
+-    const zyclopsHealth =
+-      typeof stream.zyclopsHealth === 'string'
+-        ? stream.zyclopsHealth
+-        : undefined;
+-    if (zyclopsHealth) {
+-      return 'NZB Health: ' + zyclopsHealth.replace('healthy', '🧝');
+-    }
+-    return undefined;
+-  }
+-}
++import { BuiltinAddonPreset } from './builtin.js';
+ 
+ export const NEWZNAB_INDEXERS: {
+   label: string;
+@@ -209,10 +186,6 @@ export const NEWZNAB_INDEXERS: {
+ ];
+ 
+ export class NewznabPreset extends BuiltinAddonPreset {
+-  static override getParser() {
+-    return NewznabStreamParser;
+-  }
+-
+   static override get METADATA() {
+     const supportedResources = [constants.STREAM_RESOURCE];
+     const supportedServices = [
+@@ -378,72 +351,6 @@ export class NewznabPreset extends BuiltinAddonPreset {
+         default: false,
+         showInSimpleMode: false,
+       },
+-      {
+-        id: 'zyclopsHealthProxy',
+-        name: '🧝 Zyclops Health Proxy',
+-        description:
+-          'Route searches through ElfHosted\'s Zyclops "magic" 🔮 crowdsourced health database to return only known-healthy releases for your backbone/provider ([learn more](https://zyclops.elfhosted.com)).',
+-        type: 'subsection',
+-        showInSimpleMode: false,
+-        subOptions: [
+-          {
+-            id: 'enabled',
+-            name: 'Enable',
+-            description:
+-              'Enable Zyclops health filtering. ⚠️ Sends your indexer URL/API key with the proxy request and submits the newest untested NZB to enrich the health database. Many indexers prohibit this (*some prohibit Stremio altogether!*), proceed at **your own risk**. The health database is further directly searchable via Newznab on private ElfHosted instances only.',
+-            type: 'boolean',
+-          },
+-          {
+-            id: 'backbones',
+-            name: 'Backbones',
+-            description:
+-              'Select one or more backbone networks. Leave empty to identify your upstream with a Provider Host instead. Exactly one of backbones or provider hosts must be configured',
+-            type: 'multi-select',
+-            required: false,
+-            default: [],
+-            options: [
+-              { value: 'usenetexpress', label: 'UsenetExpress' },
+-              { value: 'abavia', label: 'Abavia' },
+-              {
+-                value: 'eweka-internet-services',
+-                label: 'Eweka Internet Services',
+-              },
+-              { value: 'base-ip', label: 'Base IP' },
+-              { value: 'netnews', label: 'NetNews' },
+-              { value: 'uzo-reto', label: 'Uzo Reto' },
+-              { value: 'omicron', label: 'Omicron' },
+-              { value: 'giganews', label: 'Giganews' },
+-            ],
+-          },
+-          {
+-            id: 'providerHosts',
+-            name: 'Provider Hosts',
+-            description:
+-              'Enter the hostname(s) that best match your upstream provider, separated by commas if you have multiple. Leave blank when selecting backbones. Exactly one of backbones or provider hosts must be configured',
+-            type: 'string',
+-            required: false,
+-            default: '',
+-          },
+-          {
+-            id: 'showUnknown',
+-            name: 'Show Unknown Releases',
+-            description:
+-              'If enabled, upstream results without a cached health state will still be returned (*the proxy defaults to hiding them*). Incompatible with single IP mode (*below*).',
+-            type: 'boolean',
+-            default: false,
+-            required: false,
+-          },
+-          {
+-            id: 'singleIp',
+-            name: 'Single-IP Mode',
+-            description:
+-              'When enabled, NZB searches/downloads are proxied through the health service so only its IP touches the upstream indexer.',
+-            type: 'boolean',
+-            default: true,
+-            required: false,
+-          },
+-        ],
+-      },
+     ];
+ 
+     return {
+@@ -553,44 +460,6 @@ export class NewznabPreset extends BuiltinAddonPreset {
+     services: ServiceId[],
+     options: Record<string, any>
+   ) {
+-    let zyclopsHealthProxyConfig:
+-      | {
+-          enabled: boolean;
+-          backbones?: string[];
+-          providerHosts?: string[];
+-          showUnknown?: boolean;
+-          singleIp?: boolean;
+-        }
+-      | undefined = undefined;
+-
+-    if (options.zyclopsHealthProxy?.enabled) {
+-      const providerHosts = options.zyclopsHealthProxy.providerHosts
+-        ? options.zyclopsHealthProxy.providerHosts
+-            .split(',')
+-            .map((value: string) => value.trim())
+-            .filter((value: string) => value.length > 0)
+-        : [];
+-      const backbonesSelected = options.zyclopsHealthProxy?.backbones?.length;
+-
+-      if (backbonesSelected && providerHosts.length > 0) {
+-        throw new Error(
+-          `${this.METADATA.NAME}: Zyclops health checks accept only one identifier. Choose either Backbones or Provider Host, not both.`
+-        );
+-      }
+-
+-      if (!backbonesSelected && providerHosts.length === 0) {
+-        throw new Error(
+-          `${this.METADATA.NAME}: Zyclops health checks require either a Backbone selection or a Provider Host when enabled.`
+-        );
+-      }
+-      zyclopsHealthProxyConfig = {
+-        enabled: true,
+-        backbones: options.zyclopsHealthProxy.backbones,
+-        providerHosts: providerHosts,
+-        showUnknown: options.zyclopsHealthProxy.showUnknown ?? false,
+-        singleIp: options.zyclopsHealthProxy.singleIp ?? true,
+-      };
+-    }
+     const config: Record<string, any> = {
+       ...this.getBaseConfig(userData, services),
+       url: options.api?.url,
+@@ -600,7 +469,6 @@ export class NewznabPreset extends BuiltinAddonPreset {
+       forceQuerySearch: options.forceQuerySearch ?? false,
+       paginate: options.paginate ?? false,
+       seasonEpisodeStrategy: options.seasonEpisodeStrategy ?? 'episode',
+-      zyclopsHealthProxy: zyclopsHealthProxyConfig,
+     };
+ 
+     const configString = this.base64EncodeJSON(config, 'urlSafe');
+diff --git a/packages/core/src/utils/indexer-egress.ts b/packages/core/src/utils/indexer-egress.ts
+index 8b60311..e994141 100644
+--- a/packages/core/src/utils/indexer-egress.ts
++++ b/packages/core/src/utils/indexer-egress.ts
+@@ -197,7 +197,6 @@ function configuredInternalHosts(): Set<string> {
+     appConfig.bootstrap.internalUrl,
+     nab.replayEndpoint,
+     nab.replayDownloadUrl,
+-    nab.zyclopsHealthProxyEndpoint,
+   ]) {
+     const host = hostOf(raw);
+     if (host) hosts.add(host);
+diff --git a/packages/docs/content/docs/configuration/environment-variables.mdx b/packages/docs/content/docs/configuration/environment-variables.mdx
+index 1df2191..c3534b1 100644
+--- a/packages/docs/content/docs/configuration/environment-variables.mdx
++++ b/packages/docs/content/docs/configuration/environment-variables.mdx
+@@ -1014,7 +1014,6 @@ neither the environment variable nor a stored value is present.
+ | `BUILTIN_NAB_MAX_PAGES`              | NAB › Max Pages                     | number   | `5`                             | Maximum pages to fetch when paginating Newznab/Torznab results.                                                                                                                                                                                                                             |
+ | `BUILTIN_NAB_MAX_RESULTS`            | NAB › Max Results                   | number   | `1000`                          | Most results taken from a single Newznab/Torznab response. The requested `limit` is capped to this, and parsing stops here even when an indexer ignores `limit` and returns everything it has. Raising it costs CPU and cache space on indexers that return thousands of results per query. |
+ | `BUILTIN_NAB_MAX_RESPONSE_BYTES`     | NAB › Max Response Bytes            | size     | `10000000`                      | Largest Newznab/Torznab response body downloaded. Past this the download is cut off and only the whole results received so far are used, rather than failing the search. Accepts plain bytes or `10MB`-style strings.                                                                       |
+-| `ZYCLOPS_HEALTH_PROXY_ENDPOINT`      | NAB › Zyclops Health Proxy Endpoint | string   | `https://zyclops.elfhosted.com` | Base URL of the Zyclops health proxy used by the Newznab preset.                                                                                                                                                                                                                            |
+ 
+ #### Zilean
+ 
+diff --git a/packages/docs/content/docs/guides/usenet.mdx b/packages/docs/content/docs/guides/usenet.mdx
+index 7319879..908f9d1 100644
+--- a/packages/docs/content/docs/guides/usenet.mdx
++++ b/packages/docs/content/docs/guides/usenet.mdx
+@@ -531,12 +531,10 @@ AIOStreams keeps grabbed `.nzb` files in a two-tier cache (in-memory plus on-dis
+ - **NZBHydra2** proxies grabs by default, so search and grab both come from Hydra. Note that Hydra force-disables proxying for certain indexers at those indexers' request, so this is not guaranteed for every indexer.
+ - **Prowlarr** only redirects NZB grabs — the downloading service hits the indexer directly, so the IP mismatch remains.
+ 
+-### ElfHosted & Zyclops
++### ElfHosted
+ 
+ When running an ElfHosted AIOStreams instance, your search IP and grab IP are always the same, routed through a built-in NZBHydra/SABnzbd proxy on your instance, so usage patterns are identical to traditional Usenet access. ElfHosted also offers managed [NZBHydra2](https://store.elfhosted.com/product/nzbhydra/) and [Prowlarr](https://store.elfhosted.com/product/prowlarr/) instances ($1 trial) for augmenting an existing setup.
+ 
+-The public [Zyclops NewzNab Healthcheck Proxy](https://zyclops.elfhosted.com/) (_an ElfHosted project_) is another way to keep your search and grab IPs aligned, and Zyclops health checks are built into the AIOStreams Newznab addon. Review the highlighted implications regarding credential/NZB sharing and your indexer's TOS before enabling it.
+-
+ ### Outbound Request Controls
+ 
+ The dashboard has two settings (**Settings → HTTP**) that shape every outbound request your instance makes. Whether a given configuration complies with your indexer's or provider's terms is between you and them.
