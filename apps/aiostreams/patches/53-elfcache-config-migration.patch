@@ -1,5 +1,5 @@
 diff --git a/packages/core/src/utils/config.ts b/packages/core/src/utils/config.ts
-index 084d47d..b1b269a 100644
+index 084d47d..a1a62a6 100644
 --- a/packages/core/src/utils/config.ts
 +++ b/packages/core/src/utils/config.ts
 @@ -34,6 +34,10 @@ import {
@@ -13,16 +13,37 @@ index 084d47d..b1b269a 100644
  import { parseSyncedUrl } from './sync/index.js';
  import { ZodError } from 'zod';
  import {
-@@ -909,7 +913,7 @@ export function applyMigrations(config: any): UserData {
+@@ -573,6 +577,20 @@ function removeInvalidPresetReferences(config: UserData) {
+   return config;
+ }
+ 
++// Built-in presets being phased out. Each one is retired, and dropped from
++// configs, once it is no longer available on this instance.
++const PHASED_OUT_PRESET_TYPES = ['elfcache'];
++
++function retiredPresetTypes(): string[] {
++  return PHASED_OUT_PRESET_TYPES.filter((type) => {
++    try {
++      return Boolean(PresetManager.fromId(type).METADATA.DISABLED);
++    } catch {
++      return true;
++    }
++  });
++}
++
+ export function applyMigrations(config: any): UserData {
+   if (
+     config &&
+@@ -909,7 +927,7 @@ export function applyMigrations(config: any): UserData {
      delete config.formatter.definition;
    }
  
 -  return config;
-+  return removeRetiredPresets(config);
++  return removeRetiredPresets(config, retiredPresetTypes());
  }
  
  async function validateRegexes(config: UserData, skipErrors: boolean = false) {
-@@ -1726,5 +1730,5 @@ export function mergeConfigs(parent: UserData, child: UserData): UserData {
+@@ -1726,5 +1744,5 @@ export function mergeConfigs(parent: UserData, child: UserData): UserData {
    } else if (result.jellyfin?.personas) {
      result.jellyfin = { ...result.jellyfin, personas: undefined };
    }
@@ -31,10 +52,10 @@ index 084d47d..b1b269a 100644
  }
 diff --git a/packages/core/src/utils/retired-presets.test.ts b/packages/core/src/utils/retired-presets.test.ts
 new file mode 100644
-index 0000000..1009bc9
+index 0000000..7abc4c5
 --- /dev/null
 +++ b/packages/core/src/utils/retired-presets.test.ts
-@@ -0,0 +1,166 @@
+@@ -0,0 +1,196 @@
 +import { before, describe, it, mock } from 'node:test';
 +import assert from 'node:assert/strict';
 +
@@ -195,36 +216,67 @@ index 0000000..1009bc9
 +    assert.deepEqual(userData.proxy.proxiedAddons, ['c1']);
 +  });
 +
-+  it('no longer offers the retired preset', () => {
-+    const offered = PresetManager.getPresetList().map((p: any) => p.ID);
-+    assert.ok(!offered.includes('elfcache'));
-+    assert.ok(offered.includes('newznab'));
++  it('is unavailable here, which is what retires it', () => {
++    // The test environment configures no ElfCache endpoint.
++    assert.ok(PresetManager.fromId('elfcache').METADATA.DISABLED);
++  });
++
++  it('keeps ElfCache while this instance still offers it', async () => {
++    const env = process.env as Record<string, string | undefined>;
++    const saved = {
++      url: env.BUILTIN_ELFCACHE_URL,
++      hashReport: env.BUILTIN_HASH_REPORT_ENABLED,
++    };
++    env.BUILTIN_ELFCACHE_URL = 'http://elfcache.example';
++    env.BUILTIN_HASH_REPORT_ENABLED = 'true';
++    try {
++      await settingsStore.initialise();
++      assert.equal(PresetManager.fromId('elfcache').METADATA.DISABLED, undefined);
++      const c: any = applyMigrations(mk());
++      assert.deepEqual(
++        c.presets.map((p: any) => p.instanceId),
++        ['ec1', 'c1', 'ec2']
++      );
++      assert.deepEqual(c.proxy.proxiedAddons, ['ec1', 'c1']);
++      assert.equal(c.serviceWrap.enabled, true);
++      assert.equal(c.groups.groupings.length, 3);
++    } finally {
++      for (const [key, value] of [
++        ['BUILTIN_ELFCACHE_URL', saved.url],
++        ['BUILTIN_HASH_REPORT_ENABLED', saved.hashReport],
++      ] as const) {
++        if (value === undefined) delete env[key];
++        else env[key] = value;
++      }
++      await settingsStore.initialise();
++    }
 +  });
 +});
 diff --git a/packages/core/src/utils/retired-presets.ts b/packages/core/src/utils/retired-presets.ts
 new file mode 100644
-index 0000000..c97c468
+index 0000000..0b72f8d
 --- /dev/null
 +++ b/packages/core/src/utils/retired-presets.ts
-@@ -0,0 +1,93 @@
-+// Preset types no longer offered. Instances of them are dropped from a config,
-+// along with every reference to those instances, so it still loads and saves.
-+const RETIRED_PRESET_TYPES = ['elfcache'];
-+
-+export function removeRetiredPresets(config: any): any {
+@@ -0,0 +1,94 @@
++/**
++ * Drops instances of the given preset types from a config, along with every
++ * reference to those instances, so it still loads and saves.
++ */
++export function removeRetiredPresets(config: any, retiredTypes: string[]): any {
++  if (retiredTypes.length === 0) return config;
 +  if (!config || !Array.isArray(config.presets)) {
 +    return config;
 +  }
 +  const removed = new Set<string>(
 +    config.presets
-+      .filter((preset: any) => RETIRED_PRESET_TYPES.includes(preset?.type))
++      .filter((preset: any) => retiredTypes.includes(preset?.type))
 +      .map((preset: any) => preset.instanceId)
 +  );
 +  if (removed.size === 0) {
 +    return config;
 +  }
 +  config.presets = config.presets.filter(
-+    (preset: any) => !RETIRED_PRESET_TYPES.includes(preset?.type)
++    (preset: any) => !retiredTypes.includes(preset?.type)
 +  );
 +  return pruneReferences(config, (id) => removed.has(id));
 +}
@@ -323,95 +375,3 @@ index 2aae45e..44be3a1 100644
    pinned.activeVariants = applied;
    return { userData: pinned, applied, notes };
  }
-diff --git a/packages/frontend/src/context/userData.tsx b/packages/frontend/src/context/userData.tsx
-index 09955dd..e0cc2e7 100644
---- a/packages/frontend/src/context/userData.tsx
-+++ b/packages/frontend/src/context/userData.tsx
-@@ -24,6 +24,78 @@ import {
-   type Draft,
- } from '@/lib/drafts';
- 
-+// Preset types no longer offered. Instances of them are dropped from a config,
-+// along with every reference to those instances, so it still loads and saves.
-+const RETIRED_PRESET_TYPES = ['elfcache'];
-+
-+function removeRetiredPresets(config: any): any {
-+  if (!config || !Array.isArray(config.presets)) {
-+    return config;
-+  }
-+  const removed = new Set<string>(
-+    config.presets
-+      .filter((preset: any) => RETIRED_PRESET_TYPES.includes(preset?.type))
-+      .map((preset: any) => preset.instanceId)
-+  );
-+  if (removed.size === 0) {
-+    return config;
-+  }
-+  config.presets = config.presets.filter(
-+    (preset: any) => !RETIRED_PRESET_TYPES.includes(preset?.type)
-+  );
-+  const keep = (ids: unknown) =>
-+    Array.isArray(ids) ? ids.filter((id) => !removed.has(id)) : ids;
-+  const prune = (parent: any, key: string) => {
-+    if (parent && Array.isArray(parent[key])) {
-+      parent[key] = keep(parent[key]);
-+    }
-+  };
-+  // In these settings an empty addon list means "every addon". When removal
-+  // empties a list that named only retired addons, turn the setting off
-+  // instead, so it does not widen to addons it never applied to.
-+  const pruneScoped = (parent: any, key: string) => {
-+    if (!parent || !Array.isArray(parent[key]) || parent[key].length === 0) {
-+      return;
-+    }
-+    parent[key] = keep(parent[key]);
-+    if (parent[key].length === 0) {
-+      parent.enabled = false;
-+    }
-+  };
-+  pruneScoped(config.proxy, 'proxiedAddons');
-+  pruneScoped(config.serviceWrap, 'presets');
-+  for (const key of [
-+    'digitalReleaseFilter',
-+    'yearMatching',
-+    'titleMatching',
-+    'seasonEpisodeMatching',
-+    'episodeTitleMatching',
-+  ]) {
-+    pruneScoped(config[key], 'addons');
-+  }
-+  prune(config.deduplicator, 'excludeAddons');
-+  prune(config, 'excludeCachedFromAddons');
-+  prune(config, 'excludeUncachedFromAddons');
-+  // A group needs at least one addon, so a group left empty is dropped.
-+  if (Array.isArray(config.groups?.groupings)) {
-+    config.groups.groupings = config.groups.groupings
-+      .map((group: any) =>
-+        group && Array.isArray(group.addons)
-+          ? { ...group, addons: keep(group.addons) }
-+          : group
-+      )
-+      .filter(
-+        (group: any, i: number) =>
-+          !(
-+            Array.isArray(group?.addons) &&
-+            group.addons.length === 0 &&
-+            config.groups.groupings[i].addons.length > 0
-+          )
-+      );
-+  }
-+  return config;
-+}
-+
- export function applyMigrations(config: any): UserData {
-   if (
-     config &&
-@@ -336,7 +408,7 @@ export function applyMigrations(config: any): UserData {
-     delete config.formatter.definition;
-   }
- 
--  return config;
-+  return removeRetiredPresets(config);
- }
- 
- export function removeInvalidPresetReferences(config: UserData) {
