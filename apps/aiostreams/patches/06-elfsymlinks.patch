@@ -1,6 +1,6 @@
 diff --git a/packages/core/src/builtins/elfsymlinks/addon.ts b/packages/core/src/builtins/elfsymlinks/addon.ts
 new file mode 100644
-index 0000000..0389ae7
+index 00000000..0389ae76
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/addon.ts
 @@ -0,0 +1,326 @@
@@ -332,7 +332,7 @@ index 0000000..0389ae7
 +};
 diff --git a/packages/core/src/builtins/elfsymlinks/enrich.ts b/packages/core/src/builtins/elfsymlinks/enrich.ts
 new file mode 100644
-index 0000000..83e54ae
+index 00000000..83e54ae4
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/enrich.ts
 @@ -0,0 +1,114 @@
@@ -452,7 +452,7 @@ index 0000000..83e54ae
 +};
 diff --git a/packages/core/src/builtins/elfsymlinks/index.ts b/packages/core/src/builtins/elfsymlinks/index.ts
 new file mode 100644
-index 0000000..4eff60c
+index 00000000..4eff60c9
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/index.ts
 @@ -0,0 +1,4 @@
@@ -462,7 +462,7 @@ index 0000000..4eff60c
 +export * from './enrich.js';
 diff --git a/packages/core/src/builtins/elfsymlinks/scanner.ts b/packages/core/src/builtins/elfsymlinks/scanner.ts
 new file mode 100644
-index 0000000..642fc64
+index 00000000..642fc64d
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/scanner.ts
 @@ -0,0 +1,449 @@
@@ -917,7 +917,7 @@ index 0000000..642fc64
 +export const _internal = { safeReadDirSync };
 diff --git a/packages/core/src/builtins/elfsymlinks/signing.ts b/packages/core/src/builtins/elfsymlinks/signing.ts
 new file mode 100644
-index 0000000..a10add8
+index 00000000..a10add88
 --- /dev/null
 +++ b/packages/core/src/builtins/elfsymlinks/signing.ts
 @@ -0,0 +1,78 @@
@@ -1000,7 +1000,7 @@ index 0000000..a10add8
 +  }
 +};
 diff --git a/packages/core/src/builtins/index.ts b/packages/core/src/builtins/index.ts
-index b45c527..4e07e63 100644
+index b45c527d..4e07e63a 100644
 --- a/packages/core/src/builtins/index.ts
 +++ b/packages/core/src/builtins/index.ts
 @@ -2,6 +2,7 @@ export * from './base/nab/test.js';
@@ -1012,10 +1012,10 @@ index b45c527..4e07e63 100644
  export * from './prowlarr/index.js';
  export * from './knaben/index.js';
 diff --git a/packages/core/src/config/schema/builtins.ts b/packages/core/src/config/schema/builtins.ts
-index 717fce1..71055b3 100644
+index 6fd596a3..fa092e4e 100644
 --- a/packages/core/src/config/schema/builtins.ts
 +++ b/packages/core/src/config/schema/builtins.ts
-@@ -776,6 +776,47 @@ export const builtinsSchema = {
+@@ -796,6 +796,47 @@ export const builtinsSchema = {
        secret: false,
      },
    },
@@ -1064,7 +1064,7 @@ index 717fce1..71055b3 100644
      url: {
        schema: urlString,
 diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
-index aecfcf2..9309863 100644
+index aecfcf20..93098630 100644
 --- a/packages/core/src/index.ts
 +++ b/packages/core/src/index.ts
 @@ -56,6 +56,12 @@ export {
@@ -1081,7 +1081,7 @@ index aecfcf2..9309863 100644
    ProwlarrAddon,
    KnabenAddon,
 diff --git a/packages/core/src/metadata/tmdb.ts b/packages/core/src/metadata/tmdb.ts
-index cada1d5..40f7e67 100644
+index cada1d51..40f7e677 100644
 --- a/packages/core/src/metadata/tmdb.ts
 +++ b/packages/core/src/metadata/tmdb.ts
 @@ -51,6 +51,8 @@ const MovieDetailsSchema = z.object({
@@ -1168,7 +1168,7 @@ index cada1d5..40f7e67 100644
      // Cache the result
      TMDBMetadata.metadataCache.set(cacheKey, metadata, TITLE_CACHE_TTL);
 diff --git a/packages/core/src/metadata/utils.ts b/packages/core/src/metadata/utils.ts
-index f3566ec..d3f80c5 100644
+index f3566ec3..d3f80c5d 100644
 --- a/packages/core/src/metadata/utils.ts
 +++ b/packages/core/src/metadata/utils.ts
 @@ -100,6 +100,8 @@ export interface Metadata {
@@ -1182,7 +1182,7 @@ index f3566ec..d3f80c5 100644
    /** Candidate local air dates ('YYYY-MM-DD') for the requested episode. Usually length 1. */
 diff --git a/packages/core/src/presets/elfsymlinks.ts b/packages/core/src/presets/elfsymlinks.ts
 new file mode 100644
-index 0000000..ab7a2d5
+index 00000000..ab7a2d57
 --- /dev/null
 +++ b/packages/core/src/presets/elfsymlinks.ts
 @@ -0,0 +1,103 @@
@@ -1290,73 +1290,36 @@ index 0000000..ab7a2d5
 +  }
 +}
 diff --git a/packages/core/src/presets/presetManager.ts b/packages/core/src/presets/presetManager.ts
-index fdc10c5..b2af102 100644
+index 15e51115..06ad6e49 100644
 --- a/packages/core/src/presets/presetManager.ts
 +++ b/packages/core/src/presets/presetManager.ts
-@@ -61,6 +61,7 @@ import { TorBoxSearchPreset } from './torboxSearch.js';
- import { TorznabPreset } from './torznab.js';
+@@ -62,6 +62,7 @@ import { TorznabPreset } from './torznab.js';
  import { AStreamPreset } from './aStream.js';
  import { ZileanPreset } from './zilean.js';
+ import { ElfCachePreset } from './elfcache.js';
 +import { ElfSymlinksPreset } from './elfsymlinks.js';
  import { AnimeToshoPreset } from './animetosho.js';
  import { AnimeToshoNewPreset } from './animeToshoNew.js';
  import { NewznabPreset } from './newznab.js';
-@@ -91,6 +92,7 @@ import { Preset } from './index.js';
- 
+@@ -93,6 +94,7 @@ import { Preset } from './index.js';
  let PRESET_LIST: string[] = [
    'custom',
+   'elfcache',
 +  'elfsymlinks',
    'torznab',
    'newznab',
    'aiostreams',
-@@ -325,6 +327,8 @@ export class PresetManager {
-         return NewznabPreset;
-       case 'zilean':
+@@ -329,6 +331,8 @@ export class PresetManager {
          return ZileanPreset;
+       case 'elfcache':
+         return ElfCachePreset;
 +      case 'elfsymlinks':
 +        return ElfSymlinksPreset;
        case 'animetosho':
          return AnimeToshoPreset;
        case 'anime-tosho-new':
-diff --git a/packages/frontend/src/components/menu/save-install.tsx b/packages/frontend/src/components/menu/save-install.tsx
-index bc8517b..6236070 100644
---- a/packages/frontend/src/components/menu/save-install.tsx
-+++ b/packages/frontend/src/components/menu/save-install.tsx
-@@ -1,7 +1,11 @@
- import React from 'react';
- import { Button } from '@aiostreams/ui/button';
- import { TextInput } from '@aiostreams/ui/text-input';
--import { applyMigrations, useUserData } from '@/context/userData';
-+import {
-+  applyMigrations,
-+  removeInvalidPresetReferences,
-+  useUserData,
-+} from '@/context/userData';
- import {
-   createUserConfig,
-   deleteUserConfig,
-@@ -2084,9 +2088,18 @@ function Content() {
- 
-   const handleExport = () => {
-     try {
--      const exportData = filterCredentialsInExport
-+      let exportData = filterCredentialsInExport
-         ? filterCredentials(userData)
-         : structuredClone(userData);
-+      exportData.presets = exportData.presets?.filter(
-+        (preset) => preset.type !== 'elfsymlinks'
-+      );
-+      exportData = removeInvalidPresetReferences(exportData);
-+      if (exportData.groups?.groupings) {
-+        exportData.groups.groupings = exportData.groups.groupings.filter(
-+          (group) => (group.addons?.length ?? 0) > 0
-+        );
-+      }
-       const dataStr = JSON.stringify(exportData, null, 2);
-       const blob = new Blob([dataStr], { type: 'application/json' });
-       const url = URL.createObjectURL(blob);
 diff --git a/packages/server/src/app.ts b/packages/server/src/app.ts
-index d6ceda2..e2028ff 100644
+index d6ceda28..e2028ff3 100644
 --- a/packages/server/src/app.ts
 +++ b/packages/server/src/app.ts
 @@ -49,6 +49,7 @@ import {
@@ -1394,7 +1357,7 @@ index d6ceda2..e2028ff 100644
  app.use('/webdav', webdavRouter);
 diff --git a/packages/server/src/routes/builtins/elfsymlinks.ts b/packages/server/src/routes/builtins/elfsymlinks.ts
 new file mode 100644
-index 0000000..67631e0
+index 00000000..67631e0d
 --- /dev/null
 +++ b/packages/server/src/routes/builtins/elfsymlinks.ts
 @@ -0,0 +1,97 @@
@@ -1496,7 +1459,7 @@ index 0000000..67631e0
 +
 +export default router;
 diff --git a/packages/server/src/routes/builtins/index.ts b/packages/server/src/routes/builtins/index.ts
-index 8b51741..c784b94 100644
+index 8b51741b..c784b945 100644
 --- a/packages/server/src/routes/builtins/index.ts
 +++ b/packages/server/src/routes/builtins/index.ts
 @@ -1,6 +1,7 @@
@@ -1509,7 +1472,7 @@ index 8b51741..c784b94 100644
  export { default as knaben } from './knaben.js';
 diff --git a/packages/server/src/routes/elfsymlinksFile.ts b/packages/server/src/routes/elfsymlinksFile.ts
 new file mode 100644
-index 0000000..6769119
+index 00000000..67691199
 --- /dev/null
 +++ b/packages/server/src/routes/elfsymlinksFile.ts
 @@ -0,0 +1,204 @@
