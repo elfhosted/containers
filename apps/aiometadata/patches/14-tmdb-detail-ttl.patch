@@ -1,8 +1,8 @@
 diff --git a/addon/lib/getTmdb.ts b/addon/lib/getTmdb.ts
-index 9a31a6b..82dba58 100644
+index f79ef4b..198f661 100644
 --- a/addon/lib/getTmdb.ts
 +++ b/addon/lib/getTmdb.ts
-@@ -27,8 +27,17 @@ import {
+@@ -28,8 +28,17 @@ import {
  } from './tmdbCacheNormalizers.js';
  import { LRUCache } from 'lru-cache';
  import { UserConfig } from '../types/index';
@@ -20,7 +20,7 @@ index 9a31a6b..82dba58 100644
  const ACCOUNT_DETAILS_CACHE_MAX = 2000;
  const ACCOUNT_DETAILS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
  const COMMA_LIST_QUERY_PARAMS = new Set([
-@@ -485,7 +494,7 @@ export async function movieInfo(params: any, config: UserConfig) {
+@@ -491,7 +500,7 @@ export async function movieInfo(params: any, config: UserConfig) {
    const cacheKey = `tmdb:movie:detail:${id}${getTmdbQueryCacheSuffix(normalizedQueryParams)}`;
    return cacheWrapGlobal(cacheKey, () =>
      makeTmdbRequest(`/movie/${id}`, getApiKey(config), normalizedQueryParams, 'GET', null, config),
@@ -29,7 +29,7 @@ index 9a31a6b..82dba58 100644
    );
  }
  export async function tvInfo(params: any, config: UserConfig) {
-@@ -494,7 +503,7 @@ export async function tvInfo(params: any, config: UserConfig) {
+@@ -500,7 +509,7 @@ export async function tvInfo(params: any, config: UserConfig) {
    const cacheKey = `tmdb:tv:detail:${id}${getTmdbQueryCacheSuffix(normalizedQueryParams)}`;
    return cacheWrapGlobal(cacheKey, () =>
      makeTmdbRequest(`/tv/${id}`, getApiKey(config), normalizedQueryParams, 'GET', null, config),
@@ -38,7 +38,7 @@ index 9a31a6b..82dba58 100644
    );
  }
  
-@@ -683,7 +692,7 @@ export async function collectionInfo(params: any, config: UserConfig) {
+@@ -689,7 +698,7 @@ export async function collectionInfo(params: any, config: UserConfig) {
    const cacheKey = `tmdb:collection:detail:${id}${getTmdbQueryCacheSuffix(normalizedQueryParams)}`;
    return cacheWrapGlobal(cacheKey, () =>
      makeTmdbRequest(`/collection/${id}`, getApiKey(config), normalizedQueryParams, 'GET', null, config),

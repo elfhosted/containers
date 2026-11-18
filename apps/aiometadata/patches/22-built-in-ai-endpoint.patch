@@ -1,10 +1,10 @@
 diff --git a/addon/lib/getSearch.ts b/addon/lib/getSearch.ts
-index d82ffad..f488931 100644
+index 43f1b87..881877e 100644
 --- a/addon/lib/getSearch.ts
 +++ b/addon/lib/getSearch.ts
 @@ -1446,7 +1446,13 @@ async function matchAndEnrichFromTMDB(suggestion: { title: string; year: string
  
- async function performAiSearch(query: string, language: string, config: any): Promise<{ metas: any[]; error?: string }> {
+ async function performAiSearch(query: string, language: string, config: any): Promise<{ metas: any[]; error?: string; webSearchFailed?: string }> {
    const startTime = Date.now();
 -  const aiProvider = config.search?.ai_provider || 'gemini';
 +  let aiProvider = config.search?.ai_provider || 'gemini';
@@ -107,7 +107,7 @@ index 0172b6a..01e47fc 100644
 +export { generateContent, getAgentStats, closeAgent, isBuiltInAiCall };
 +module.exports = { generateContent, getAgentStats, closeAgent, isBuiltInAiCall };
 diff --git a/addon/utils/gemini-service.ts b/addon/utils/gemini-service.ts
-index 0b1c32d..3a27b83 100644
+index f1cb9ad..9a02a77 100644
 --- a/addon/utils/gemini-service.ts
 +++ b/addon/utils/gemini-service.ts
 @@ -1,7 +1,7 @@
@@ -122,17 +122,17 @@ index 0b1c32d..3a27b83 100644
 @@ -103,6 +103,8 @@ async function performGeminiSearch(apiKey: string, query: string, type: string,
  }
  
- async function geminiSearch(apiKey: string, query: string, type: string, selectedModel: string, useGrounding: boolean): Promise<Suggestion[]> {
+ async function geminiSearch(apiKey: string, query: string, type: string, selectedModel: string, useGrounding: boolean, webResults = ''): Promise<Suggestion[]> {
 +  // The built-in endpoint cannot search, so it gets the offline prompt.
 +  if (useGrounding && isBuiltInAiCall(apiKey)) useGrounding = false;
    const startTime = Date.now();
    const timeout = useGrounding ? 45000 : 30000;
  
 diff --git a/addon/utils/openrouter-client.ts b/addon/utils/openrouter-client.ts
-index aa007e1..a6115bb 100644
+index cf1e890..eededb3 100644
 --- a/addon/utils/openrouter-client.ts
 +++ b/addon/utils/openrouter-client.ts
-@@ -40,6 +40,15 @@ function createOpenRouterDispatcher() {
+@@ -39,6 +39,15 @@ function createOpenRouterDispatcher() {
  
  const openrouterDispatcher = createOpenRouterDispatcher();
  
@@ -148,7 +148,7 @@ index aa007e1..a6115bb 100644
  interface GenerateContentOptions {
    apiKey: string;
    model: string;
-@@ -57,6 +66,12 @@ interface GenerateContentOptions {
+@@ -56,6 +65,12 @@ interface GenerateContentOptions {
     * to turn it off, so it is capped rather than disabled.
     */
    reasoningEffort?: string;
@@ -161,39 +161,50 @@ index aa007e1..a6115bb 100644
  }
  
  interface GenerateContentResult {
-@@ -71,8 +86,8 @@ interface GenerateContentResult {
+@@ -70,9 +85,9 @@ interface GenerateContentResult {
    usage: { promptTokens?: number; completionTokens?: number; cost?: number } | null;
  }
  
 -async function generateContent({ apiKey, model, prompt, systemPrompt, timeout = 30000, maxTokens = 8192, reasoningEffort }: GenerateContentOptions): Promise<GenerateContentResult> {
--  const url = `${OPENROUTER_BASE_URL}/chat/completions`;
+-  const custom = isCustomAiEndpoint();
+-  const url = `${aiEndpointBase()}/chat/completions`;
 +async function generateContent({ apiKey, model, prompt, systemPrompt, timeout = 30000, maxTokens = 8192, reasoningEffort, baseUrl }: GenerateContentOptions): Promise<GenerateContentResult> {
-+  const url = `${(baseUrl || OPENROUTER_BASE_URL).replace(/\/+$/, '')}/chat/completions`;
++  const custom = !!baseUrl || isCustomAiEndpoint();
++  const url = `${(baseUrl || aiEndpointBase()).replace(/\/+$/, '')}/chat/completions`;
    const startTime = Date.now();
  
    const messages: Array<{ role: string; content: string }> = [];
-@@ -97,7 +112,7 @@ async function generateContent({ apiKey, model, prompt, systemPrompt, timeout =
+@@ -86,7 +101,7 @@ async function generateContent({ apiKey, model, prompt, systemPrompt, timeout =
+   };
+ 
+   // `reasoning` is OpenRouter's own field; other servers name it differently or refuse it.
+-  if (reasoningEffort && !custom) {
++  if (reasoningEffort && (!custom || baseUrl)) {
+     body.reasoning = { effort: reasoningEffort };
+   }
+ 
+@@ -98,7 +113,7 @@ async function generateContent({ apiKey, model, prompt, systemPrompt, timeout =
          'Authorization': `Bearer ${apiKey}`,
        },
-       body: JSON.stringify(body),
+       body: JSON.stringify(payload),
 -      dispatcher: openrouterDispatcher,
 +      dispatcher: baseUrl ? getDirectDispatcher() : openrouterDispatcher,
        headersTimeout: timeout,
        bodyTimeout: timeout,
      });
 diff --git a/addon/utils/recommendations/provider.ts b/addon/utils/recommendations/provider.ts
-index e1bdd94..7abd786 100644
+index 31cafd2..1abb449 100644
 --- a/addon/utils/recommendations/provider.ts
 +++ b/addon/utils/recommendations/provider.ts
-@@ -109,7 +109,10 @@ export function resolveProvider(config: any): ResolvedProvider | null {
-   else return null;
- 
-   const { resolveRecommendationModel, isPresetModel, withWebSearch }: any = require('../ai-model-resolver');
--  const webSearch = config?.recommendations?.web_search === true;
-+  // The built-in endpoint cannot search, so a web-search pass through it is off.
+@@ -116,7 +116,10 @@ export function resolveProvider(config: any): ResolvedProvider | null {
+   // An engine here works with any model; another OpenAI-compatible endpoint has no search of its own.
+   const chosenSearch = require('../webSearch').chosenWebSearch(config, config?.recommendations?.web_search_via);
+   const webSource = wantsWebSearch ? chosenSearch.source : null;
+-  const webSearch = chosenSearch.provider && wantsWebSearch && !(provider === 'openrouter' && isCustomAiEndpoint());
++  // The built-in endpoint cannot search itself; an engine here still can.
 +  const { isBuiltInAiCall }: any = require('../gemini-client');
 +  const builtInGateway = provider === 'gemini' && isBuiltInAiCall(geminiKey);
-+  const webSearch = config?.recommendations?.web_search === true && !builtInGateway;
++  const webSearch = chosenSearch.provider && wantsWebSearch && !(provider === 'openrouter' && isCustomAiEndpoint()) && !builtInGateway;
  
    // Gemini takes grounding as a request flag, OpenRouter as a model suffix, so
    // the suffix is settled here rather than at the call site.

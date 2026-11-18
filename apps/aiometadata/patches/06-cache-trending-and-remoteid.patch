@@ -1,8 +1,8 @@
 diff --git a/addon/lib/getTmdb.ts b/addon/lib/getTmdb.ts
-index 6f90a54..c0df143 100644
+index 026f9a4..ee3c88a 100644
 --- a/addon/lib/getTmdb.ts
 +++ b/addon/lib/getTmdb.ts
-@@ -1119,8 +1119,14 @@ export async function getTmdbSeriesLogo(tmdbId: string, config: UserConfig) {
+@@ -1125,8 +1125,14 @@ export async function getTmdbSeriesLogo(tmdbId: string, config: UserConfig) {
    }
  }
  

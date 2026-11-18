@@ -1,8 +1,8 @@
 diff --git a/addon/utils/mdbList.ts b/addon/utils/mdbList.ts
-index caab368..4bc0454 100644
+index bb2dc33..be88337 100644
 --- a/addon/utils/mdbList.ts
 +++ b/addon/utils/mdbList.ts
-@@ -751,6 +751,15 @@ function supportsMdblistScoreFilters(catalogConfig: any): boolean {
+@@ -766,6 +766,15 @@ function supportsMdblistScoreFilters(catalogConfig: any): boolean {
      && !id.startsWith('mdblist.recommended.');
  }
  
@@ -18,7 +18,7 @@ index caab368..4bc0454 100644
  async function fetchCursorBlock(opts: { baseUrl: string; apiKey: string; blockIndex: number; blockSize: number; sort?: string; order?: string; genre?: string; filterScoreMin?: number; filterScoreMax?: number; mediaTypeFilter?: string; ttl: number; ttlSegment: string }): Promise<{ rows: any[]; hasMore: boolean; nextCursor: string | null }> {
    const { baseUrl, blockIndex, blockSize } = opts;
    const cacheKey = `mdblist-api:cursor-block:${baseUrl}:${blockIndex}:${blockSize}:${opts.sort || ''}:${opts.order || ''}:${opts.genre || ''}:${opts.filterScoreMin ?? ''}:${opts.filterScoreMax ?? ''}:${opts.mediaTypeFilter || ''}${opts.ttlSegment}`;
-@@ -763,7 +772,7 @@ async function fetchCursorBlock(opts: { baseUrl: string; apiKey: string; blockIn
+@@ -778,7 +787,7 @@ async function fetchCursorBlock(opts: { baseUrl: string; apiKey: string; blockIn
        cursor = previous.nextCursor;
      }
  
@@ -27,7 +27,7 @@ index caab368..4bc0454 100644
      url.searchParams.set('apikey', opts.apiKey);
      url.searchParams.set('limit', String(blockSize));
      url.searchParams.set('unified', 'true');
-@@ -778,7 +787,7 @@ async function fetchCursorBlock(opts: { baseUrl: string; apiKey: string; blockIn
+@@ -793,7 +802,7 @@ async function fetchCursorBlock(opts: { baseUrl: string; apiKey: string; blockIn
  
      logger.debug(`MDBList cursor block request URL: ${sanitizeUrlForLogging(url.toString())}`);
      const response: any = await makeRateLimitedRequest(

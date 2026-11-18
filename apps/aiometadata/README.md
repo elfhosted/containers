@@ -24,7 +24,7 @@ are published here under the same terms as the files they modify.
 ## Reproducing the build
 
 ```sh
-docker build --build-arg VERSION=v4.0.0 -f apps/aiometadata/Dockerfile .
+docker build --build-arg VERSION=v4.1.0 -f apps/aiometadata/Dockerfile .
 ```
 
 The cloner stage runs each patch with `git apply` and `set -e`, so any patch that
@@ -48,7 +48,7 @@ upstream's behaviour in place.
 | `TMDB_API_BASE`, `TVDB_API_BASE`, `TVMAZE_API_BASE`, `TRAKT_API_BASE`, `MDBLIST_API_BASE`, `ANILIST_API_BASE`, `SIMKL_API_BASE`, `SIMKL_DATA_BASE`, `CINEMETA_API_BASE`, `CINEMETA_LIVE_API_BASE`, `KITSU_API_BASE`, `FANART_API_BASE`, `PUBLICMETADB_API_BASE`, `IMDB_SUGGESTION_BASE` | Base URL for that provider's API, for example to put a caching proxy in front of it. Each defaults to the provider's own address. `KITSU_API_BASE` is an origin only (no path). MDBList list URLs saved in configurations are sent through `MDBLIST_API_BASE` too. See `patches/11-metadata-base-urls.patch`, `26-mdblist-saved-list-base.patch` and `28-imdb-suggestion-base.patch`. |
 | `TRAKT_AUTH_BASE` | Host for Trakt's OAuth calls (token exchange, refresh, revocation, device flow). Defaults to `https://auth.trakt.tv`. OAuth calls never use `TRAKT_API_BASE`, and any Trakt request that carries a user's token goes to Trakt directly. See `19-trakt-device-flow.patch` and `20-trakt-authed-calls-direct.patch`. |
 | `TRAKT_AUTH_MODE` | Which Trakt connection flows the configure page offers: `oauth` (default), `device` (a code entered at trakt.tv, no redirect URI needed) or `both`. |
-| `BUILT_IN_AI_BASE_URL` | An OpenAI-compatible endpoint. When set together with `BUILT_IN_GEMINI_API_KEY`, AI calls made with the instance's built-in key go to this endpoint instead of Google, directly rather than through any configured proxy. A configuration's own Gemini or OpenRouter key is unaffected. The endpoint is not asked to search the web, and the configure page shows the model as chosen by the instance. Empty by default. See `22-built-in-ai-endpoint.patch` and `24-lock-model-on-built-in-ai.patch`. |
+| `BUILT_IN_AI_BASE_URL` | An OpenAI-compatible endpoint. When set together with `BUILT_IN_GEMINI_API_KEY`, AI calls made with the instance's built-in key go to this endpoint instead of Google, directly rather than through any configured proxy. A configuration's own Gemini or OpenRouter key is unaffected, and so is upstream's `OPENROUTER_BASE_URL`, which applies only to OpenRouter calls. The endpoint is never asked to search the web itself; a web search engine configured on the instance still works with it. The configure page shows the model as chosen by the instance. Empty by default. See `22-built-in-ai-endpoint.patch` and `24-lock-model-on-built-in-ai.patch`. |
 | `BUILT_IN_AI_MODEL` | Model name sent to `BUILT_IN_AI_BASE_URL`. When empty, the model the caller asked for is sent. |
 | `BUILT_IN_AI_API_KEY` | Bearer token sent to `BUILT_IN_AI_BASE_URL`. Empty by default. The built-in Gemini key is never sent there. |
 | `TMDB_REQUEST_TIMEOUT_MS`, `TMDB_MAX_RETRIES`, and `*_REQUEST_TIMEOUT_MS` / `*_MAX_RETRIES` for `ANILIST`, `ANILIST_TRACKER`, `IMDB`, `JIKAN` (timeout only), `TVDB` (retries only), `TVMAZE`, `LETTERBOXD`, `MDBLIST` and `TRAKT` | Per-request timeout and attempt count for that provider. **These default to 5000 ms and 2 attempts**, shorter than upstream's values, so a slow provider fails sooner. Set them to upstream's values to restore its behaviour. See `04-tmdb-request-timeouts.patch` and `05-provider-request-timeouts.patch`. |

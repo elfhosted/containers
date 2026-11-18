@@ -1,5 +1,5 @@
 diff --git a/addon/index.ts b/addon/index.ts
-index 6bc784e..97fb2a6 100644
+index 52f234b..c31599a 100644
 --- a/addon/index.ts
 +++ b/addon/index.ts
 @@ -35,6 +35,11 @@ const consola = require('consola');
@@ -14,7 +14,7 @@ index 6bc784e..97fb2a6 100644
  const configApi = require('./lib/configApi');
  const database = require('./lib/database');
  const { loadConfigFromDatabase, loadRouteConfig, loadSharedConfig } = require('./lib/configApi');
-@@ -1546,7 +1551,7 @@ addon.post("/api/trakt/proxy", async (req, res) => {
+@@ -1563,7 +1568,7 @@ addon.post("/api/trakt/proxy", async (req, res) => {
        return res.status(400).json({ error: "endpoint must be a non-empty string" });
      }
  
@@ -23,7 +23,7 @@ index 6bc784e..97fb2a6 100644
      const pathname = new URL(traktUrl).pathname;
  
      const authMode = resolveTraktProxyAuthMode(pathname);
-@@ -1621,7 +1626,7 @@ addon.get("/api/mdblist/user", async (req, res) => {
+@@ -1638,7 +1643,7 @@ addon.get("/api/mdblist/user", async (req, res) => {
      if (!apikey) {
        return res.status(400).json({ error: "apikey is required" });
      }
@@ -32,7 +32,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedMDBListRequest(url, apikey, 'MDBList Proxy - Get User Info');
      res.json(response.data);
    } catch (error) {
-@@ -1651,8 +1656,8 @@ addon.get("/api/mdblist/lists/user", async (req, res) => {
+@@ -1668,8 +1673,8 @@ addon.get("/api/mdblist/lists/user", async (req, res) => {
      }
      
      let url = username 
@@ -43,7 +43,7 @@ index 6bc784e..97fb2a6 100644
      
      if (sort) {
        url += `&sort=${sort}`;
-@@ -1689,7 +1694,7 @@ addon.get("/api/mdblist/lists/search", async (req, res) => {
+@@ -1706,7 +1711,7 @@ addon.get("/api/mdblist/lists/search", async (req, res) => {
  
      const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 40, 1), 100);
      const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
@@ -52,7 +52,7 @@ index 6bc784e..97fb2a6 100644
  
      const payload = await cacheWrapGlobal(
        mdblistCacheKey(['lists', 'search', query.toLowerCase(), String(limit), String(offset)], apikey),
-@@ -1721,7 +1726,7 @@ addon.get("/api/mdblist/lists/top", async (req, res) => {
+@@ -1738,7 +1743,7 @@ addon.get("/api/mdblist/lists/top", async (req, res) => {
        return res.status(400).json({ error: "apikey is required" });
      }
      
@@ -61,7 +61,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedMDBListRequest(url, apikey, 'MDBList Proxy - Get Top Lists');
      res.json(response.data);
    } catch (error) {
-@@ -1749,7 +1754,7 @@ addon.get("/api/mdblist/lists/:listId/items", async (req, res) => {
+@@ -1766,7 +1771,7 @@ addon.get("/api/mdblist/lists/:listId/items", async (req, res) => {
        params.set('limit', String(Math.min(parsedLimit, 50)));
      }
  
@@ -70,7 +70,7 @@ index 6bc784e..97fb2a6 100644
      const items = await cacheWrapGlobal(
        mdblistCacheKey(['list', String(listId), 'items', params.get('limit') || 'all'], apikey),
        async () => {
-@@ -1783,7 +1788,7 @@ addon.get("/api/mdblist/lists/:username/:listname", async (req, res) => {
+@@ -1800,7 +1805,7 @@ addon.get("/api/mdblist/lists/:username/:listname", async (req, res) => {
        return res.status(400).json({ error: "apikey is required" });
      }
      
@@ -79,7 +79,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedMDBListRequest(url, apikey, `MDBList Proxy - Get User List ${username}/${listname}`);
      res.json(response.data);
    } catch (error) {
-@@ -1803,7 +1808,7 @@ addon.get("/api/mdblist/lists/:listId", async (req, res) => {
+@@ -1820,7 +1825,7 @@ addon.get("/api/mdblist/lists/:listId", async (req, res) => {
        return res.status(400).json({ error: "apikey is required" });
      }
      
@@ -88,7 +88,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedMDBListRequest(url, apikey, `MDBList Proxy - Get List ${listId}`);
      res.json(response.data);
    } catch (error) {
-@@ -2179,7 +2184,7 @@ addon.get("/api/anilist/discover/reference", async (req, res) => {
+@@ -2196,7 +2201,7 @@ addon.get("/api/anilist/discover/reference", async (req, res) => {
          }
        `;
  
@@ -97,7 +97,7 @@ index 6bc784e..97fb2a6 100644
          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
          timeout: 15000
        });
-@@ -2864,7 +2869,7 @@ addon.get("/api/mdblist/external/lists/user", async (req, res) => {
+@@ -2881,7 +2886,7 @@ addon.get("/api/mdblist/external/lists/user", async (req, res) => {
        return res.status(400).json({ error: "apikey is required" });
      }
      
@@ -106,7 +106,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedMDBListRequest(url, apikey, 'MDBList Proxy - Get External User Lists');
      res.json(response.data);
    } catch (error) {
-@@ -2884,7 +2889,7 @@ addon.get("/api/mdblist/external/lists/:listId", async (req, res) => {
+@@ -2901,7 +2906,7 @@ addon.get("/api/mdblist/external/lists/:listId", async (req, res) => {
      if (!apikey) {
        return res.status(400).json({ error: "apikey is required" });
      }
@@ -115,7 +115,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedMDBListRequest(url, apikey, `MDBList Proxy - Get External List ${listId}`);
      res.json(response.data);
    } catch (error) {
-@@ -3303,7 +3308,7 @@ addon.get("/api/trakt/users/:username/stats", async (req, res) => {
+@@ -3322,7 +3327,7 @@ addon.get("/api/trakt/users/:username/stats", async (req, res) => {
      
  
      const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
@@ -124,7 +124,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get User Stats (${username})`);
      res.json(response.data);
    } catch (error) {
-@@ -3422,7 +3427,7 @@ addon.get("/api/trakt/users/:username/lists", async (req, res) => {
+@@ -3441,7 +3446,7 @@ addon.get("/api/trakt/users/:username/lists", async (req, res) => {
      
  
      const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
@@ -133,7 +133,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get User Lists (${username})`);
      res.json(response.data);
    } catch (error) {
-@@ -3443,7 +3448,7 @@ addon.get("/api/trakt/users/:username/lists/:slug", async (req, res) => {
+@@ -3462,7 +3467,7 @@ addon.get("/api/trakt/users/:username/lists/:slug", async (req, res) => {
      
  
      const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
@@ -142,7 +142,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get List Details (${username}/${slug})`);
      res.json(response.data);
    } catch (error) {
-@@ -3465,7 +3470,7 @@ addon.get("/api/trakt/lists/trending/:type", async (req, res) => {
+@@ -3484,7 +3489,7 @@ addon.get("/api/trakt/lists/trending/:type", async (req, res) => {
      
  
      const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
@@ -151,7 +151,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get Trending Lists (${type})`);
      res.json(response.data);
    } catch (error) {
-@@ -3487,7 +3492,7 @@ addon.get("/api/trakt/lists/popular/:type", async (req, res) => {
+@@ -3506,7 +3511,7 @@ addon.get("/api/trakt/lists/popular/:type", async (req, res) => {
      
  
      const { makeRateLimitedTraktRequest } = require('./utils/traktUtils');
@@ -160,7 +160,7 @@ index 6bc784e..97fb2a6 100644
      const response = await makeRateLimitedTraktRequest(url, `Trakt Proxy - Get Popular Lists (${type})`);
      res.json(response.data);
    } catch (error) {
-@@ -6112,7 +6117,7 @@ addon.post("/stremio/:userUUID/rating", async function (req, res) {
+@@ -6148,7 +6153,7 @@ addon.post("/stremio/:userUUID/rating", async function (req, res) {
          if (!accessToken) {
            results.trakt.error = "Trakt token not found or expired";
          } else {
@@ -169,7 +169,7 @@ index 6bc784e..97fb2a6 100644
            const traktType = type.toLowerCase() === 'series' ? 'shows' : 'movies';
            const tmdbId = allIds.tmdbId;
            const imdbId = allIds.imdbId;
-@@ -6259,7 +6264,7 @@ addon.post("/stremio/:userUUID/rating", async function (req, res) {
+@@ -6295,7 +6300,7 @@ addon.post("/stremio/:userUUID/rating", async function (req, res) {
            if (tvdbId) ids.tvdb = parseInt(tvdbId);
            
            // MDBList sync/ratings endpoint: POST /sync/ratings?apikey=...
@@ -205,10 +205,10 @@ index 16c3144..709bcd7 100644
  const ANILIST_TOKEN_URL = 'https://anilist.co/api/v2/oauth/token';
  
 diff --git a/addon/lib/configApi.js b/addon/lib/configApi.js
-index fc78b7a..7b705a7 100644
+index 8559eb6..7af803f 100644
 --- a/addon/lib/configApi.js
 +++ b/addon/lib/configApi.js
-@@ -1484,13 +1484,13 @@ class ConfigApi {
+@@ -1486,13 +1486,13 @@ class ConfigApi {
        },
  
        tmdb: async (key) => {
@@ -238,10 +238,10 @@ index 69a3d7b..bc3c90a 100644
      const queryParams = new URLSearchParams();
      Object.keys(parameters).forEach(key => {
 diff --git a/addon/lib/getTmdb.ts b/addon/lib/getTmdb.ts
-index c0df143..9a31a6b 100644
+index ee3c88a..f79ef4b 100644
 --- a/addon/lib/getTmdb.ts
 +++ b/addon/lib/getTmdb.ts
-@@ -28,7 +28,7 @@ import {
+@@ -29,7 +29,7 @@ import {
  import { LRUCache } from 'lru-cache';
  import { UserConfig } from '../types/index';
  
@@ -251,7 +251,7 @@ index c0df143..9a31a6b 100644
  const ACCOUNT_DETAILS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
  const COMMA_LIST_QUERY_PARAMS = new Set([
 diff --git a/addon/lib/id-mapper.js b/addon/lib/id-mapper.js
-index d998c7f..cc6e91a 100644
+index 57c710f..fa6e775 100644
 --- a/addon/lib/id-mapper.js
 +++ b/addon/lib/id-mapper.js
 @@ -12,6 +12,8 @@ const { resolveOneToOneSeasonEpisodeFallback } = require('./oneToOneSeasonEpisod
@@ -387,7 +387,7 @@ index 059d6b9..9358681 100644
        logger.warn(`MDBList ${verb} failed: ${error?.message || error}`);
      }
 diff --git a/addon/lib/jellyfin/ratings.ts b/addon/lib/jellyfin/ratings.ts
-index d1b6e6c..07ead6a 100644
+index 3d1c880..2430c41 100644
 --- a/addon/lib/jellyfin/ratings.ts
 +++ b/addon/lib/jellyfin/ratings.ts
 @@ -4,6 +4,9 @@ import consola from 'consola';
@@ -436,7 +436,7 @@ index d1b6e6c..07ead6a 100644
      if (Array.isArray(errors) && errors.length) logger.warn(`MDBList ${clearing ? 'unrate' : 'rate'} not applied: ${JSON.stringify(errors).slice(0, 300)}`);
      return;
 diff --git a/addon/lib/jellyfin/resume.ts b/addon/lib/jellyfin/resume.ts
-index 55d3118..bdaa6a2 100644
+index 5e3229d..efae22b 100644
 --- a/addon/lib/jellyfin/resume.ts
 +++ b/addon/lib/jellyfin/resume.ts
 @@ -7,6 +7,8 @@ import { envInt } from '../../utils/envNumber';
@@ -448,7 +448,7 @@ index 55d3118..bdaa6a2 100644
  const logger = consola.withTag('Jellyfin');
  
  const idMapper: any = require('../id-mapper');
-@@ -169,7 +171,7 @@ export async function videoIdFor(
+@@ -178,7 +180,7 @@ export async function videoIdFor(
  
  async function mdblistRows(apiKey: string, config: any): Promise<ResumeRow[]> {
    const { makeRateLimitedMDBListRequest } = require('../../utils/mdbList');
@@ -490,7 +490,7 @@ index 88fdb6a..3e9b824 100644
        // Past the journal's thirty days only a full read is right.
        if (body?.requires_full_sync) return mdblistFull(key, apiKey, activities);
 diff --git a/addon/lib/jellyfin/watched.ts b/addon/lib/jellyfin/watched.ts
-index ca44875..5c14545 100644
+index 4a07742..fabea5e 100644
 --- a/addon/lib/jellyfin/watched.ts
 +++ b/addon/lib/jellyfin/watched.ts
 @@ -9,6 +9,8 @@ import { credentialFor, sourceFor } from './trackerSource';
@@ -502,7 +502,7 @@ index ca44875..5c14545 100644
  const logger = consola.withTag('Jellyfin');
  
  /** Shows this server saw finished, newest first; the shelf moves on from the named episode. */
-@@ -604,7 +606,7 @@ export async function fetchMdblistDropped(apiKey: string): Promise<{ shows: any[
+@@ -605,7 +607,7 @@ export async function fetchMdblistDropped(apiKey: string): Promise<{ shows: any[
    const shows: any[] = [];
    try {
      shows.push(...await readToEnd('MDBList dropped', async (page: number) => {
@@ -511,7 +511,7 @@ index ca44875..5c14545 100644
        const items = Array.isArray(response?.data?.shows) ? response.data.shows : [];
        return { items, more: items.length >= pageSize };
      }));
-@@ -624,7 +626,7 @@ export async function fetchMdblistWatched(apiKey: string, mediatype: 'episode' |
+@@ -625,7 +627,7 @@ export async function fetchMdblistWatched(apiKey: string, mediatype: 'episode' |
  
    return readToEnd(`MDBList watched ${mediatype}`, async (page: number) => {
      const url =
@@ -634,7 +634,7 @@ index ac5da95..0671f1a 100644
          client_id: this.clientId,
          client_secret: this.clientSecret,
 diff --git a/addon/lib/trackers/mdblist.ts b/addon/lib/trackers/mdblist.ts
-index fdf5fcc..1e266db 100644
+index 2cb911d..7a06e2a 100644
 --- a/addon/lib/trackers/mdblist.ts
 +++ b/addon/lib/trackers/mdblist.ts
 @@ -7,6 +7,8 @@ import { sharesId, targetsFor, type CopyItem, type TmdbWatch, type WatchOutcome
@@ -673,7 +673,7 @@ index fdf5fcc..1e266db 100644
    const api = require('../../utils/mdbList');
    const all = await api.historyPlays(mediaType === 'movie' ? 'movie' : 'show', tmdbId, apiKey);
    if (!all) return;
-@@ -100,9 +102,9 @@ async function redate({ config, ids, mediaType, season, episode, change, within
+@@ -105,9 +107,9 @@ async function redate({ config, ids, mediaType, season, episode, change, within
    const { lastTrackerCall, noteTrackerCall } = require('../../utils/trackerCalls');
    if (!old) {
      if (!placed && Date.now() - change.from < 15 * 60 * 1000) {
@@ -685,7 +685,7 @@ index fdf5fcc..1e266db 100644
      }
      return;
    }
-@@ -114,7 +116,7 @@ async function redate({ config, ids, mediaType, season, episode, change, within
+@@ -119,7 +121,7 @@ async function redate({ config, ids, mediaType, season, episode, change, within
    if (await api.addToHistory(ids, apiKey, season, episode, undefined, new Date(change.to).toISOString())) return;
    const failed = lastTrackerCall();
    await api.addToHistory(ids, apiKey, season, episode, undefined, old.watched_at);
@@ -694,7 +694,7 @@ index fdf5fcc..1e266db 100644
  }
  
  export const mdblist: Tracker = {
-@@ -177,7 +179,7 @@ export const mdblist: Tracker = {
+@@ -182,7 +184,7 @@ export const mdblist: Tracker = {
      return out;
    },
    takesEpisodeIds: true,
@@ -835,7 +835,7 @@ index 8395705..b3d9bb9 100644
        opts.clientKey = personalKey;
      }
 diff --git a/addon/utils/mdbList.ts b/addon/utils/mdbList.ts
-index 9707cd2..abf549e 100644
+index 1ec57c6..6ec2fba 100644
 --- a/addon/utils/mdbList.ts
 +++ b/addon/utils/mdbList.ts
 @@ -18,6 +18,8 @@ const { Agent, ProxyAgent } = require('undici');
@@ -847,7 +847,7 @@ index 9707cd2..abf549e 100644
  /**
   * Sanitize URL by removing API key for safe logging
   * @param {string} url - URL that may contain an API key
-@@ -201,7 +203,7 @@ async function makeRateLimitedRequest<T>(
+@@ -216,7 +218,7 @@ async function makeRateLimitedRequest<T>(
      quotaError.code = 'MDBLIST_QUOTA_EXHAUSTED';
      quotaError.response = { status: 429 };
      logger.warn(`[MDBList] Quota exhausted, skipping request - ${context}`);
@@ -856,7 +856,7 @@ index 9707cd2..abf549e 100644
      throw quotaError;
    }
  
-@@ -352,8 +354,8 @@ function listBlockSize(pageSize: number): number {
+@@ -367,8 +369,8 @@ function listBlockSize(pageSize: number): number {
  function buildListItemsUrl(opts: { listId: string; apiKey: string; limit: number; offset: number; sort?: string; order?: string; genre?: string; unified?: boolean; filterScoreMin?: number; filterScoreMax?: number; mediaTypeFilter?: string }): string {
    const { listId, apiKey, limit, offset } = opts;
    const base = listId === 'watchlist'
@@ -867,7 +867,7 @@ index 9707cd2..abf549e 100644
    let url = `${base}?limit=${limit}&offset=${offset}&apikey=${apiKey}&append_to_response=genre,poster&unified=${opts.unified !== false}`;
  
    if (opts.sort && opts.sort.trim() !== '') url += `&sort=${opts.sort}`;
-@@ -571,7 +573,7 @@ async function getRatingsFromMDBList(apiKey: string): Promise<any[]> {
+@@ -586,7 +588,7 @@ async function getRatingsFromMDBList(apiKey: string): Promise<any[]> {
    let cursor: string | null = null;
  
    for (let page = 0; page < maxPages; page++) {
@@ -876,7 +876,7 @@ index 9707cd2..abf549e 100644
      if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
  
      const response: any = await makeRateLimitedRequest(
-@@ -606,7 +608,7 @@ async function getMediaRatingFromMDBList(mediaProvider: string, mediaType: strin
+@@ -621,7 +623,7 @@ async function getMediaRatingFromMDBList(mediaProvider: string, mediaType: strin
      return [];
    }
  
@@ -885,7 +885,7 @@ index 9707cd2..abf549e 100644
    const context = `MDBList getMediaRatingFromMDBList (mediaProvider: ${mediaProvider}, mediaType: ${mediaType}, id: ${id})`;
  
    try {
-@@ -655,7 +657,7 @@ async function fetchMDBListBatchMediaInfo(mediaProvider: string, mediaType: stri
+@@ -670,7 +672,7 @@ async function fetchMDBListBatchMediaInfo(mediaProvider: string, mediaType: stri
      logger.debug(`Processing batch ${batchNumber}/${totalBatches} with ${batchIds.length} items`);
  
      try {
@@ -894,7 +894,7 @@ index 9707cd2..abf549e 100644
        
        const requestBody = {
          ids: batchIds,
-@@ -901,7 +903,7 @@ async function fetchMDBListGenres(apiKey: string, isAnime: boolean = false): Pro
+@@ -916,7 +918,7 @@ async function fetchMDBListGenres(apiKey: string, isAnime: boolean = false): Pro
  
      const genresData: Array<{title: string, slug: string}> = await cacheWrapMDBListGenres(cacheKey, async () => {
        const animeParam = isAnime ? 1 : 0;
@@ -903,7 +903,7 @@ index 9707cd2..abf549e 100644
  
        return await makeRateLimitedRequest(async () => {
          logger.debug(`Fetching MDBList genres from API (anime=${animeParam})`);
-@@ -943,7 +945,7 @@ async function fetchMDBListGenres(apiKey: string, isAnime: boolean = false): Pro
+@@ -958,7 +960,7 @@ async function fetchMDBListGenres(apiKey: string, isAnime: boolean = false): Pro
  }
  
  async function fetchMdbListSearchItems(query: string, type: string, apiKey: string): Promise<any[]> {
@@ -912,7 +912,7 @@ index 9707cd2..abf549e 100644
  
    const res: Response = await makeRateLimitedRequest(async () => {
      return await fetch(url, { headers: { Accept: "application/json" } });
-@@ -1076,7 +1078,7 @@ async function fetchTvdbMap(tmdbId: number, apiKey: string): Promise<{ episodes:
+@@ -1091,7 +1093,7 @@ async function fetchTvdbMap(tmdbId: number, apiKey: string): Promise<{ episodes:
    return cacheWrapGlobal(`mdblist:tvdb-map:${tmdbId}`, async () => {
      try {
        const response: any = await makeRateLimitedRequest(
@@ -921,7 +921,7 @@ index 9707cd2..abf549e 100644
          apiKey,
          `MDBList tvdb-map ${tmdbId}`
        );
-@@ -1160,7 +1162,7 @@ async function testMdblistKey(
+@@ -1175,7 +1177,7 @@ async function testMdblistKey(
      throw emptyKeyError;
    }
  
@@ -930,7 +930,7 @@ index 9707cd2..abf549e 100644
    const response = await makeRateLimitedRequest(
      () => httpGet(url, { dispatcher: mdblistDispatcher, timeout: 5000 }),
      apiKey,
-@@ -1208,7 +1210,7 @@ async function fetchMDBListUpNext(
+@@ -1223,7 +1225,7 @@ async function fetchMDBListUpNext(
      // Ensure page is a number and calculate offset
      const pageNum = typeof page === 'number' ? page : parseInt(String(page), 10) || 1;
      const offset = (pageNum * pageSize) - pageSize;
@@ -939,7 +939,7 @@ index 9707cd2..abf549e 100644
      if (hideUnreleased !== undefined) {
        url += `&hide_unreleased=${hideUnreleased}`;
      }
-@@ -1250,7 +1252,7 @@ async function fetchMDBListUpcoming(apiKey: string, days: number, limit: number
+@@ -1265,7 +1267,7 @@ async function fetchMDBListUpcoming(apiKey: string, days: number, limit: number
    const items: any[] = [];
    try {
      for (let page = 0; page < maxPages; page += 1) {
@@ -948,7 +948,7 @@ index 9707cd2..abf549e 100644
        const response: any = await makeRateLimitedRequest(
          () => httpGet(url, { dispatcher: mdblistDispatcher }),
          apiKey,
-@@ -1443,7 +1445,7 @@ async function historySync(
+@@ -1458,7 +1460,7 @@ async function historySync(
  
    try {
      const response: any = await makeRateLimitedRequest(
@@ -957,7 +957,7 @@ index 9707cd2..abf549e 100644
          headers: { 'Content-Type': 'application/json' },
          timeout: 10000,
          dispatcher: mdblistDispatcher,
-@@ -1455,7 +1457,7 @@ async function historySync(
+@@ -1470,7 +1472,7 @@ async function historySync(
      const missed = response?.data?.not_found;
      const missing = ['movies', 'shows', 'episodes'].reduce((n, key) => n + (Array.isArray(missed?.[key]) ? missed[key].length : 0), 0);
      if (missing > 0) {
@@ -966,7 +966,7 @@ index 9707cd2..abf549e 100644
        logger.warn(`[MDBList] /sync/${path} did not find the title`, { ids: idInput, season, episode, not_found: missed });
        return false;
      }
-@@ -1469,7 +1471,7 @@ async function historySync(
+@@ -1484,7 +1486,7 @@ async function historySync(
  
  async function addHistoryBatch(writes: HistoryWrite[], apiKey: string): Promise<{ notFound: number; missed: any }> {
    const response: any = await makeRateLimitedRequest(
@@ -975,7 +975,7 @@ index 9707cd2..abf549e 100644
        headers: { 'Content-Type': 'application/json' },
        timeout: 60000,
        dispatcher: mdblistDispatcher,
-@@ -1502,7 +1504,7 @@ export interface MdblistPlay {
+@@ -1517,7 +1519,7 @@ export interface MdblistPlay {
  async function historyPlays(kind: 'movie' | 'show', tmdbId: number, apiKey: string): Promise<MdblistPlay[] | null> {
    try {
      const response: any = await makeRateLimitedRequest(
@@ -984,7 +984,7 @@ index 9707cd2..abf549e 100644
        apiKey,
        `MDBList /sync/history/${kind}/tmdb/${tmdbId}`
      );
-@@ -1516,7 +1518,7 @@ async function historyPlays(kind: 'movie' | 'show', tmdbId: number, apiKey: stri
+@@ -1531,7 +1533,7 @@ async function historyPlays(kind: 'movie' | 'show', tmdbId: number, apiKey: stri
  async function removePlays(playIds: number[], apiKey: string): Promise<boolean> {
    try {
      await makeRateLimitedRequest(
@@ -993,7 +993,7 @@ index 9707cd2..abf549e 100644
          headers: { 'Content-Type': 'application/json' },
          timeout: 10000,
          dispatcher: mdblistDispatcher,
-@@ -1567,7 +1569,7 @@ async function clearScrobbleSession(
+@@ -1582,7 +1584,7 @@ async function clearScrobbleSession(
    // and logs it, and the usual answer here is 404. A title marked watched by
    // hand was never paused, so it holds no session, and that is not a failure.
    try {
@@ -1002,7 +1002,7 @@ index 9707cd2..abf549e 100644
        headers: { 'Content-Type': 'application/json' },
        timeout: 10000,
        dispatcher: mdblistDispatcher,
-@@ -1599,7 +1601,7 @@ function scrobblePath(action: string): string {
+@@ -1614,7 +1616,7 @@ function scrobblePath(action: string): string {
  }
  
  function scrobbleUrl(action: string, apiKey: string): string {
@@ -1011,7 +1011,7 @@ index 9707cd2..abf549e 100644
  }
  
  async function checkinMovie(
-@@ -1746,7 +1748,7 @@ async function fetchMDBListCatalog(
+@@ -1761,7 +1763,7 @@ async function fetchMDBListCatalog(
          }
        }
  
@@ -1020,7 +1020,7 @@ index 9707cd2..abf549e 100644
        url.searchParams.set('apikey', apiKey);
        url.searchParams.set('limit', String(Math.min(pageSize, 100)));
        if (cursor) url.searchParams.set('cursor', cursor);
-@@ -1803,7 +1805,7 @@ async function fetchMdblistLastActivities(apiKey: string, fresh = false, attempt
+@@ -1818,7 +1820,7 @@ async function fetchMdblistLastActivities(apiKey: string, fresh = false, attempt
    return cacheWrapGlobal(
      `mdblist_last_activities:${keyHash}`,
      async () => {
@@ -1030,7 +1030,7 @@ index 9707cd2..abf549e 100644
      },
      envInt('MDBLIST_ACTIVITIES_TTL', 300, 30),
 diff --git a/addon/utils/simklUtils.ts b/addon/utils/simklUtils.ts
-index 2fba979..bdc67a7 100644
+index 2fd303b..97797ea 100644
 --- a/addon/utils/simklUtils.ts
 +++ b/addon/utils/simklUtils.ts
 @@ -20,7 +20,7 @@ const logger = consola.withTag('Simkl');
@@ -1054,7 +1054,7 @@ index 2fba979..bdc67a7 100644
  const SIMKL_APP_NAME = 'aiometadata';
  
  function withAppParams(url: string): string {
-@@ -2322,7 +2323,7 @@ async function fetchSimklCalendar(
+@@ -2335,7 +2336,7 @@ async function fetchSimklCalendar(
      return await cacheWrapGlobal(
        cacheKey,
        async () => {
@@ -1063,7 +1063,7 @@ index 2fba979..bdc67a7 100644
          // Use a simple GET request for the CDN file
          const response: any = await makeRateLimitedRequest(
            () => httpGet(url, { dispatcher: simklDispatcher }),
-@@ -2350,7 +2351,7 @@ async function fetchSimklCalendarMonth(
+@@ -2363,7 +2364,7 @@ async function fetchSimklCalendarMonth(
      return await cacheWrapGlobal(
        `simkl-calendar:${type}:${year}-${month}`,
        async () => {

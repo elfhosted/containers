@@ -1,8 +1,8 @@
 diff --git a/addon/index.ts b/addon/index.ts
-index b8ce322..5f6e75a 100644
+index f990b97..a693ebd 100644
 --- a/addon/index.ts
 +++ b/addon/index.ts
-@@ -443,7 +443,7 @@ function startMovieLensSyncSchedule() {
+@@ -447,7 +447,7 @@ function startMovieLensSyncSchedule() {
      const intervalMs = MOVIELENS_SYNC_INTERVAL_HOURS * 60 * 60 * 1000;
      consola.info(`[MovieLens] Scheduling rating re-sync every ${MOVIELENS_SYNC_INTERVAL_HOURS}h`);
      setInterval(() => {
@@ -11,51 +11,16 @@ index b8ce322..5f6e75a 100644
          consola.warn('[MovieLens] Scheduled re-sync failed:', error.message);
        });
      }, intervalMs);
-diff --git a/addon/lib/databaseCore.ts b/addon/lib/databaseCore.ts
-index 19acc03..376f733 100644
---- a/addon/lib/databaseCore.ts
-+++ b/addon/lib/databaseCore.ts
-@@ -2386,6 +2386,30 @@ export class DatabaseCore {
-     }
-   }
- 
-+  /**
-+   * Configurations with a MovieLens account linked. The filter runs in the
-+   * database, so a sync pass reads a handful of rows rather than every
-+   * configuration on the instance.
-+   */
-+  async getMovieLensConfigs(): Promise<Array<{ uuid: string; config: any }>> {
-+    // CASE keeps a malformed row from failing the whole query: only rows that
-+    // mention the key, and (on SQLite) hold valid JSON, are ever parsed.
-+    const query = this.type === 'sqlite'
-+      ? `SELECT user_uuid, config_data FROM user_configs
-+          WHERE CASE WHEN json_valid(config_data)
-+            THEN COALESCE(json_extract(config_data, '$.apiKeys.movieLensCredId'), '') != ''
-+            ELSE 0 END`
-+      : `SELECT user_uuid, config_data FROM user_configs
-+          WHERE CASE WHEN config_data::text LIKE '%"movieLensCredId"%'
-+            THEN COALESCE(config_data::jsonb->'apiKeys'->>'movieLensCredId', '') <> ''
-+            ELSE false END`;
-+    const rows = await this.allQuery(query);
-+    return rows.map(row => ({
-+      uuid: row.user_uuid,
-+      config: typeof row.config_data === 'string' ? JSON.parse(row.config_data) : row.config_data
-+    }));
-+  }
-+
-   async getUsersByOAuthTokenIds(tokenField: string, tokenIds: string[]): Promise<any[]> {
-     if (!tokenIds.length) return [];
-     try {
 diff --git a/addon/lib/movielensSync.ts b/addon/lib/movielensSync.ts
-index f99aef0..284ddfe 100644
+index 450ce3c..e48a6df 100644
 --- a/addon/lib/movielensSync.ts
 +++ b/addon/lib/movielensSync.ts
-@@ -169,14 +169,68 @@ async function bootstrapMovieLensAccount(config: any): Promise<any> {
+@@ -169,8 +169,64 @@ async function bootstrapMovieLensAccount(config: any): Promise<any> {
    return syncMovieLensAccount(config, { full: true });
  }
  
 -async function syncAllMovieLensAccounts(): Promise<{ processed: number; synced: number }> {
--  const uuids: string[] = await database.getAllUserUUIDs();
+-  const uuids: string[] = await database.configsHoldingField('movieLensCredId');
 +/**
 + * Each process schedules the re-sync. The first to tick claims the pass; the
 + * claim lapses shortly before the next pass is due.
@@ -107,20 +72,13 @@ index f99aef0..284ddfe 100644
 +  if (claim === false) {
 +    return { processed: 0, synced: 0, skipped: true };
 +  }
-+  let accounts: Array<{ uuid: string; config: any }>;
++  let uuids: string[];
 +  try {
-+    accounts = await database.getMovieLensConfigs();
++    uuids = await database.configsHoldingField('movieLensCredId');
 +  } catch (e: any) {
 +    if (claim) await releaseSyncPass(claim);
 +    throw e;
 +  }
    let processed = 0;
    let synced = 0;
--  for (const uuid of uuids) {
-+  for (const { uuid, config } of accounts) {
-     try {
--      const raw = await database.getUserConfig(uuid);
--      const config = raw?.config_data ? JSON.parse(raw.config_data) : raw;
-       if (!config?.apiKeys?.movieLensCredId) continue;
-       processed++;
-       const res = await syncMovieLensAccount(config, { full: false });
+   for (const uuid of uuids) {

@@ -1,5 +1,5 @@
 diff --git a/addon/utils/mdbList.ts b/addon/utils/mdbList.ts
-index abf549e..caab368 100644
+index 6ec2fba..bb2dc33 100644
 --- a/addon/utils/mdbList.ts
 +++ b/addon/utils/mdbList.ts
 @@ -20,6 +20,14 @@ const logger = consola.withTag('MDBList');
@@ -17,7 +17,7 @@ index abf549e..caab368 100644
  /**
   * Sanitize URL by removing API key for safe logging
   * @param {string} url - URL that may contain an API key
-@@ -392,7 +400,7 @@ async function fetchListBlock(opts: { listId: string; apiKey: string; keyScope:
+@@ -407,7 +415,7 @@ async function fetchListBlock(opts: { listId: string; apiKey: string; keyScope:
      logger.debug(`MDBList block request URL: ${sanitizeUrlForLogging(url)}`);
  
      const response: any = await makeRateLimitedRequest(
@@ -26,7 +26,7 @@ index abf549e..caab368 100644
        opts.apiKey,
        `MDBList fetchListBlock (listId: ${listId}, offset: ${blockOffset}, blockSize: ${blockSize})`
      );
-@@ -462,7 +470,7 @@ async function fetchMDBListItems(listId: string, apiKey: string, language: strin
+@@ -477,7 +485,7 @@ async function fetchMDBListItems(listId: string, apiKey: string, language: strin
          logger.debug(`MDBList request URL: ${sanitizeUrlForLogging(url)}`);
  
          const response: any = await makeRateLimitedRequest(
@@ -35,7 +35,7 @@ index abf549e..caab368 100644
            apiKey,
            `MDBList fetchMDBListItems (listId: ${listId}, page: ${page}, pageSize: ${pageSize}, sort: ${sort}, order: ${order}, genre: ${genre})`
          );
-@@ -1763,7 +1771,7 @@ async function fetchMDBListCatalog(
+@@ -1778,7 +1786,7 @@ async function fetchMDBListCatalog(
        logger.debug(`[MDBList Catalog] Request URL: ${sanitizeUrlForLogging(url.toString())}`);
  
        const response: any = await makeRateLimitedRequest(

@@ -1,5 +1,5 @@
 diff --git a/addon/index.ts b/addon/index.ts
-index 5f6e75a..748949f 100644
+index a693ebd..296a0eb 100644
 --- a/addon/index.ts
 +++ b/addon/index.ts
 @@ -11,6 +11,33 @@ const addon = express();
