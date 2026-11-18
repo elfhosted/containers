@@ -1,8 +1,8 @@
 diff --git a/addon/index.ts b/addon/index.ts
-index a28c074..81bd926 100644
+index 92c1b71..f8b6b84 100644
 --- a/addon/index.ts
 +++ b/addon/index.ts
-@@ -646,8 +646,9 @@ const respond = function (req, res, data, opts?) {
+@@ -650,8 +650,9 @@ const respond = function (req, res, data, opts?) {
        rpdb: getSetting('RPDB_API_KEY'),
        mdblist: getSetting('MDBLIST_API_KEY'),
        gemini: getSetting('GEMINI_API_KEY'),
@@ -46,10 +46,10 @@ index 418c815..7e71406 100644
            hint="They enter the code at simkl.com/pin, on any device."
            onStart={pin.start}
 diff --git a/configure/src/components/sections/DiscoverBuilderDialog.tsx b/configure/src/components/sections/DiscoverBuilderDialog.tsx
-index 52fe374..81bae80 100644
+index 21d450c..39066be 100644
 --- a/configure/src/components/sections/DiscoverBuilderDialog.tsx
 +++ b/configure/src/components/sections/DiscoverBuilderDialog.tsx
-@@ -883,16 +883,17 @@ export function DiscoverBuilderDialog({ isOpen, onClose, editingCatalog, customi
+@@ -1000,16 +1000,17 @@ export function DiscoverBuilderDialog({ isOpen, onClose, editingCatalog, customi
    const mdblistApiKey = config.apiKeys?.mdblist?.trim() || '';
    // Discover queries are not account-scoped, so the instance key covers them.
    const hasMdblistApiKey = mdblistApiKey.length > 0 || hasBuiltInMdblist;
@@ -71,7 +71,7 @@ index 52fe374..81bae80 100644
  
    const buildDiscoverRequestQuery = (source: DiscoverSource, params: Record<string, string>): string => {
      const searchParams = new URLSearchParams(params);
-@@ -1085,7 +1086,8 @@ export function DiscoverBuilderDialog({ isOpen, onClose, editingCatalog, customi
+@@ -1205,7 +1206,8 @@ export function DiscoverBuilderDialog({ isOpen, onClose, editingCatalog, customi
    const SOURCE_API_KEYS: Record<string, string> = {
      tmdb: tmdbApiKey,
      tvdb: tvdbApiKey,
@@ -274,10 +274,10 @@ index 3ec4de0..df5c844 100644
                    </Button>
                  </div>
 diff --git a/docs/ENVIRONMENT_VARIABLES.md b/docs/ENVIRONMENT_VARIABLES.md
-index 0f39b47..0d8a0ab 100644
+index 09ceeba..2ba9c9e 100644
 --- a/docs/ENVIRONMENT_VARIABLES.md
 +++ b/docs/ENVIRONMENT_VARIABLES.md
-@@ -167,12 +167,15 @@ to every visitor, so which one you reach for depends on who uses the instance.
+@@ -178,12 +178,15 @@ to every visitor, so which one you reach for depends on who uses the instance.
  > shared instance, leave them blank, use the `BUILT_IN_*` keys above, and let each
  > user bring their own.
  >

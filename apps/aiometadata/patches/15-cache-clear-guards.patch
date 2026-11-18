@@ -1,8 +1,8 @@
 diff --git a/addon/index.ts b/addon/index.ts
-index 97fb2a6..7353325 100644
+index c31599a..28ff8fd 100644
 --- a/addon/index.ts
 +++ b/addon/index.ts
-@@ -4711,6 +4711,19 @@ addon.post("/api/cache/health/log", requireDashboardAdmin, (req, res) => {
+@@ -4736,6 +4736,19 @@ addon.post("/api/cache/health/log", requireDashboardAdmin, (req, res) => {
  });
  
  // Clear specific cache key
@@ -22,7 +22,7 @@ index 97fb2a6..7353325 100644
  addon.delete("/api/cache/clear/:key", requireDashboardAdmin, async (req, res) => {
    
    const { key } = req.params;
-@@ -4718,6 +4731,11 @@ addon.delete("/api/cache/clear/:key", requireDashboardAdmin, async (req, res) =>
+@@ -4743,6 +4756,11 @@ addon.delete("/api/cache/clear/:key", requireDashboardAdmin, async (req, res) =>
    
    try {
      if (pattern === 'true') {
@@ -34,7 +34,7 @@ index 97fb2a6..7353325 100644
        // Clear all keys matching pattern (safe SCAN-based deletion)
        const deleted = await deleteKeysByPattern(key);
        if (deleted > 0) {
-@@ -7915,7 +7933,8 @@ addon.post("/api/dashboard/cache/clear", requireDashboardAdmin, (req, res) => {
+@@ -7960,7 +7978,8 @@ addon.post("/api/dashboard/cache/clear", requireDashboardAdmin, (req, res) => {
      
      const dashboardApi = getDashboardAPI();
      dashboardApi.clearCache(type)
@@ -45,7 +45,7 @@ index 97fb2a6..7353325 100644
          consola.error('[Dashboard API] Error:', error);
          res.status(500).json({ error: 'Failed to clear cache' });
 diff --git a/addon/lib/dashboardApi.js b/addon/lib/dashboardApi.js
-index 730a331..c31f993 100644
+index f3a66df..00c18ba 100644
 --- a/addon/lib/dashboardApi.js
 +++ b/addon/lib/dashboardApi.js
 @@ -62,6 +62,22 @@ const PRESERVED_CACHE_KEYS = [

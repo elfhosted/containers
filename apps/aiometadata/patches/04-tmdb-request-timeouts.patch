@@ -1,8 +1,8 @@
 diff --git a/addon/lib/getTmdb.ts b/addon/lib/getTmdb.ts
-index f8d1dce..6f90a54 100644
+index 6be7c38..026f9a4 100644
 --- a/addon/lib/getTmdb.ts
 +++ b/addon/lib/getTmdb.ts
-@@ -189,7 +189,9 @@ async function makeTmdbRequest(endpoint: string, apiKey: string, params: Record<
+@@ -190,7 +190,9 @@ async function makeTmdbRequest(endpoint: string, apiKey: string, params: Record<
    const url = `${TMDB_API_URL}${endpoint}?${queryParams.toString()}`;
  
    let attempt = 0;
@@ -13,7 +13,7 @@ index f8d1dce..6f90a54 100644
    let lastError: any;
  
    while(attempt < maxRetries) {
-@@ -202,7 +204,7 @@ async function makeTmdbRequest(endpoint: string, apiKey: string, params: Record<
+@@ -203,7 +205,7 @@ async function makeTmdbRequest(endpoint: string, apiKey: string, params: Record<
          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
          dispatcher: dispatcher,
          body: body ? JSON.stringify(body) : undefined,

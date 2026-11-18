@@ -1,26 +1,26 @@
 diff --git a/addon/index.ts b/addon/index.ts
-index 81bd926..b8ce322 100644
+index f8b6b84..f990b97 100644
 --- a/addon/index.ts
 +++ b/addon/index.ts
-@@ -661,6 +661,8 @@ const respond = function (req, res, data, opts?) {
-       hasBuiltInTmdb: !!getSetting('BUILT_IN_TMDB_API_KEY'),
-       hasBuiltInMdblist: !!getSetting('BUILT_IN_MDBLIST_API_KEY'),
+@@ -667,6 +667,8 @@ const respond = function (req, res, data, opts?) {
        hasBuiltInGemini: !!getSetting('BUILT_IN_GEMINI_API_KEY'),
+       aiCustomEndpoint: require('./utils/ai-endpoint').isCustomAiEndpoint(),
+       webSearch: require('./utils/webSearch').webSearchInfo(),
 +      // True when built-in AI calls go to the operator's endpoint, which chooses the model.
 +      hasBuiltInAiGateway: !!getSetting('BUILT_IN_GEMINI_API_KEY') && !!(process.env.BUILT_IN_AI_BASE_URL || '').trim(),
        catalogTTL: parseInt(getSetting('CATALOG_TTL') || String(24 * 60 * 60), 10),
        maxCatalogs: parseInt(getSetting('MAX_CATALOGS') || '', 10) || null,
        collectionImportCatalogCap: parseInt(getSetting('COLLECTION_IMPORT_CATALOG_CAP') || '', 10) || 400,
 diff --git a/configure/src/components/AICatalogDialog.tsx b/configure/src/components/AICatalogDialog.tsx
-index 4c39ec6..0d709d0 100644
+index 73e624e..df2c22c 100644
 --- a/configure/src/components/AICatalogDialog.tsx
 +++ b/configure/src/components/AICatalogDialog.tsx
 @@ -79,7 +79,7 @@ const EXAMPLE_PROMPTS: Record<AICatalogGenerationMode, string[]> = {
  type DialogState = 'idle' | 'generating' | 'resolving' | 'success' | 'error';
  
  export function AICatalogDialog({ isOpen, onClose, embedded, onCatalogsCreated }: AICatalogDialogProps) {
--  const { config, setConfig, auth, aiCatalogMaxPerRequest, jikanEnabled } = useConfig();
-+  const { config, setConfig, auth, aiCatalogMaxPerRequest, jikanEnabled, hasBuiltInAiGateway } = useConfig();
+-  const { config, setConfig, auth, aiCatalogMaxPerRequest, jikanEnabled, aiCustomEndpoint } = useConfig();
++  const { config, setConfig, auth, aiCatalogMaxPerRequest, jikanEnabled, hasBuiltInAiGateway, aiCustomEndpoint } = useConfig();
    const [query, setQuery] = useState('');
    const [state, setState] = useState<DialogState>('idle');
    const [error, setError] = useState<string | null>(null);
@@ -60,31 +60,40 @@ index 4c39ec6..0d709d0 100644
                )}
                <Button
 diff --git a/configure/src/components/sections/RecommendationsIntegration.tsx b/configure/src/components/sections/RecommendationsIntegration.tsx
-index f8d9d6f..71eb253 100644
+index 6f9950d..9c07776 100644
 --- a/configure/src/components/sections/RecommendationsIntegration.tsx
 +++ b/configure/src/components/sections/RecommendationsIntegration.tsx
-@@ -103,7 +103,7 @@ function Avatar({ viewer, index }: { viewer: Viewer; index: number }) {
+@@ -107,7 +107,7 @@ function Avatar({ viewer, index }: { viewer: Viewer; index: number }) {
  }
  
  export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
--  const { config, setConfig, auth, hasBuiltInGemini } = useConfig();
-+  const { config, setConfig, auth, hasBuiltInGemini, hasBuiltInAiGateway } = useConfig();
+-  const { config, setConfig, auth, hasBuiltInGemini, aiCustomEndpoint } = useConfig();
++  const { config, setConfig, auth, hasBuiltInGemini, hasBuiltInAiGateway, aiCustomEndpoint } = useConfig();
    const { models: openRouterModels, loading: openRouterModelsLoading } =
-     useOpenRouterModels(config.apiKeys?.openrouter);
+     useOpenRouterModels(config.apiKeys?.openrouter, aiCustomEndpoint);
  
-@@ -142,7 +142,10 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
+@@ -146,7 +146,10 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
    const hasGemini = !!config.apiKeys?.gemini;
    const hasOpenRouter = !!config.apiKeys?.openrouter;
    const geminiAvailable = hasGemini || (status?.instanceGemini ?? hasBuiltInGemini);
 -  const hasModel = hasGemini || hasOpenRouter;
 +  // The server falls back to the instance's key, so that counts as a model too.
 +  const hasModel = hasGemini || hasOpenRouter || geminiAvailable;
-+  // The built-in endpoint chooses the model and cannot search.
++  // The built-in endpoint chooses the model.
 +  const includedAiChoosesModel = hasBuiltInAiGateway && !hasGemini && !hasOpenRouter;
    const ready = hasHistory && hasModel;
  
    // Held here rather than written straight through, so the configuration is not
-@@ -523,6 +526,22 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
+@@ -325,6 +328,8 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
+   const presetModel = usingOpenRouter && isPresetModel(currentModel || resolveCatalogModel(config, 'openrouter', !!aiCustomEndpoint));
+   // Another OpenAI-compatible endpoint has neither OpenRouter's search nor its thinking control.
+   const customEndpoint = usingOpenRouter && !!aiCustomEndpoint;
++  // The built-in endpoint, like another OpenAI-compatible endpoint, searches only through an engine here.
++  const engineOnly = customEndpoint || includedAiChoosesModel;
+   const thinkingValue = draft.reasoning_effort || (presetModel ? 'preset' : thinking);
+ 
+   const possessive = isMain ? 'your' : `${viewer.name}'s`;
+@@ -531,6 +536,22 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
                        </div>
                      )}
  
@@ -107,39 +116,45 @@ index f8d9d6f..71eb253 100644
                      <div className="space-y-2">
                        <Label htmlFor="recommendation-model" className="text-sm font-medium">
                          {usingOpenRouter ? 'OpenRouter model' : 'Gemini model'}
-@@ -564,7 +583,14 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
+@@ -572,8 +593,9 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
                          </button>
                        )}
                      </div>
 +                    )}
  
-+                    {includedAiChoosesModel ? (
-+                      <Callout variant="info" className="text-xs">
-+                        The built-in AI works without web search, so nothing released after the model's
-+                        training cut-off can be recommended. Add your own Gemini or OpenRouter key to turn it on.
-+                      </Callout>
-+                    ) : (
-                     <SettingRow
+-                    {customEndpoint && web.offered(webVia) && (
++                    {engineOnly && web.offered(webVia) && (
+                       <EngineOnlySearch
+                         id="recommendation-web-search"
+                         label="Web search"
+@@ -583,7 +605,7 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
+                       />
+                     )}
+ 
+-                    {!customEndpoint && <SettingRow
++                    {!engineOnly && <SettingRow
                        htmlFor="recommendation-web-search"
                        label="Web search"
-@@ -589,6 +615,7 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
-                         </Callout>
+                       description={presetModel
+@@ -610,7 +632,7 @@ export function RecommendationsIntegration({ isOpen, onClose }: { isOpen: boolea
                        ) : undefined}
-                     />
-+                    )}
+                     />}
  
-                     {usingOpenRouter && (
-                       <SettingRow
+-                    {!customEndpoint && webSearch && !presetModel && web.offered(webVia) && (
++                    {!engineOnly && webSearch && !presetModel && web.offered(webVia) && (
+                       <WebSearchEngineSelect
+                         id="recommendation-web-search-engine"
+                         own={usingOpenRouter ? 'OpenRouter' : 'Google'}
 diff --git a/configure/src/components/sections/SearchSettings.tsx b/configure/src/components/sections/SearchSettings.tsx
-index 91bd20d..d9ff43c 100644
+index 7f3f835..5370f14 100644
 --- a/configure/src/components/sections/SearchSettings.tsx
 +++ b/configure/src/components/sections/SearchSettings.tsx
-@@ -167,11 +167,13 @@ function SortableEngineRow(props: EngineRowProps) {
+@@ -169,11 +169,13 @@ function SortableEngineRow(props: EngineRowProps) {
  }
  
  export function SearchSettings() {
--  const { config, setConfig, hasBuiltInTvdb, hasBuiltInGemini, traktSearchEnabled, simklSearchEnabled, lumiereEnabled, jikanEnabled } = useConfig();
-+  const { config, setConfig, hasBuiltInTvdb, hasBuiltInGemini, hasBuiltInAiGateway, traktSearchEnabled, simklSearchEnabled, lumiereEnabled, jikanEnabled } = useConfig();
+-  const { config, setConfig, hasBuiltInTvdb, hasBuiltInGemini, aiCustomEndpoint, traktSearchEnabled, simklSearchEnabled, lumiereEnabled, jikanEnabled } = useConfig();
++  const { config, setConfig, hasBuiltInTvdb, hasBuiltInGemini, hasBuiltInAiGateway, aiCustomEndpoint, traktSearchEnabled, simklSearchEnabled, lumiereEnabled, jikanEnabled } = useConfig();
    const [editingProvider, setEditingProvider] = useState<string | null>(null);
    const [editName, setEditName] = useState('');
    const [editType, setEditType] = useState('');
@@ -148,8 +163,8 @@ index 91bd20d..d9ff43c 100644
 +  const includedAiChoosesModel = hasBuiltInAiGateway && !config.apiKeys?.gemini && !config.apiKeys?.openrouter;
    const hasOpenRouterKey = !!config.apiKeys?.openrouter;
    const hasAnyAiKey = hasGeminiKey || hasOpenRouterKey;
-   const { models: openRouterModels, loading: openRouterModelsLoading } = useOpenRouterModels(config.apiKeys?.openrouter);
-@@ -636,7 +638,9 @@ export function SearchSettings() {
+   const { models: openRouterModels, loading: openRouterModelsLoading } = useOpenRouterModels(config.apiKeys?.openrouter, aiCustomEndpoint);
+@@ -640,7 +642,9 @@ export function SearchSettings() {
                      htmlFor="ai-model"
                      label="Model"
                      description={
@@ -157,10 +172,10 @@ index 91bd20d..d9ff43c 100644
 +                      includedAiChoosesModel
 +                        ? 'Chosen by this instance. Add your own Gemini or OpenRouter key above to pick a model yourself.'
 +                        : (config.search.ai_provider || 'gemini') === 'openrouter'
-                         ? isPresetModel(config.search.ai_model)
-                           ? 'Any OpenRouter model ID or @preset/name'
-                           : `Any OpenRouter model ID or @preset/name, ${config.search.ai_openrouter_web_search !== false ? 'with Web Search' : 'without Web Search'}`
-@@ -646,7 +650,16 @@ export function SearchSettings() {
+                         ? aiCustomEndpoint
+                           ? "Any model name this instance's AI endpoint serves"
+                           : isPresetModel(config.search.ai_model)
+@@ -652,7 +656,16 @@ export function SearchSettings() {
                            })()
                      }
                      control={
@@ -179,39 +194,39 @@ index 91bd20d..d9ff43c 100644
                            <Input
                              id="ai-model"
 diff --git a/configure/src/contexts/ConfigContext.tsx b/configure/src/contexts/ConfigContext.tsx
-index 3e3c51a..16e8c02 100644
+index 35b9f86..a14986d 100644
 --- a/configure/src/contexts/ConfigContext.tsx
 +++ b/configure/src/contexts/ConfigContext.tsx
-@@ -36,6 +36,7 @@ interface ConfigContextType {
-   hasBuiltInTmdb: boolean;
-   hasBuiltInMdblist: boolean;
-   hasBuiltInGemini: boolean;
+@@ -41,6 +41,7 @@ interface ConfigContextType {
+   aiCustomEndpoint: boolean | null;
+   /** The web search engines, and the one this instance offers every user without a key of their own. */
+   webSearch: { engines: WebSearchEngineInfo[]; instance: string | null };
 +  hasBuiltInAiGateway: boolean;
    traktSearchEnabled: boolean;
    simklSearchEnabled: boolean;
    lumiereEnabled: boolean;
-@@ -426,6 +427,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
-   const [hasBuiltInTmdb, setHasBuiltInTmdb] = useState(false);
-   const [hasBuiltInMdblist, setHasBuiltInMdblist] = useState(false);
+@@ -433,6 +434,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
    const [hasBuiltInGemini, setHasBuiltInGemini] = useState(false);
+   const [aiCustomEndpoint, setAiCustomEndpoint] = useState<boolean | null>(null);
+   const [webSearch, setWebSearch] = useState<{ engines: WebSearchEngineInfo[]; instance: string | null }>({ engines: [], instance: null });
 +  const [hasBuiltInAiGateway, setHasBuiltInAiGateway] = useState(false);
    const [anilistRequiresAuth, setAnilistRequiresAuth] = useState(true);
    const [traktSearchEnabled, setTraktSearchEnabled] = useState(true);
    const [simklSearchEnabled, setSimklSearchEnabled] = useState(true);
-@@ -488,6 +490,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
-         setHasBuiltInTmdb(!!envApiKeys.hasBuiltInTmdb);
-         setHasBuiltInMdblist(!!envApiKeys.hasBuiltInMdblist);
+@@ -497,6 +499,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
          setHasBuiltInGemini(!!envApiKeys.hasBuiltInGemini);
+         setAiCustomEndpoint(!!envApiKeys.aiCustomEndpoint);
+         setWebSearch({ engines: Array.isArray(envApiKeys.webSearch?.engines) ? envApiKeys.webSearch.engines : [], instance: envApiKeys.webSearch?.instance ?? null });
 +        setHasBuiltInAiGateway(!!envApiKeys.hasBuiltInAiGateway);
          setAnilistRequiresAuth(envApiKeys.anilistRequiresAuth ?? true);
          setTraktSearchEnabled(envApiKeys.traktSearchEnabled ?? true);
          setSimklSearchEnabled(envApiKeys.simklSearchEnabled ?? true);
-@@ -571,7 +574,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
+@@ -580,7 +583,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
    };
  
    return (
--    <ConfigContext.Provider value={{ config, setConfig, addonVersion, resetConfig, auth, setAuth, hasBuiltInTvdb, hasBuiltInTmdb, hasBuiltInMdblist, hasBuiltInGemini, catalogTTL, maxCatalogs, collectionImportCatalogCap, maxEpisodeOrders, refreshInstanceLimits, isLoading, sessionId, setSessionId, anilistRequiresAuth, traktSearchEnabled, simklSearchEnabled, lumiereEnabled, jikanEnabled, aiCatalogMaxPerRequest, manifestFingerprint, manifestChangedSinceInstall, markManifestInstalled }}>
-+    <ConfigContext.Provider value={{ config, setConfig, addonVersion, resetConfig, auth, setAuth, hasBuiltInTvdb, hasBuiltInTmdb, hasBuiltInMdblist, hasBuiltInGemini, hasBuiltInAiGateway, catalogTTL, maxCatalogs, collectionImportCatalogCap, maxEpisodeOrders, refreshInstanceLimits, isLoading, sessionId, setSessionId, anilistRequiresAuth, traktSearchEnabled, simklSearchEnabled, lumiereEnabled, jikanEnabled, aiCatalogMaxPerRequest, manifestFingerprint, manifestChangedSinceInstall, markManifestInstalled }}>
+-    <ConfigContext.Provider value={{ config, setConfig, addonVersion, resetConfig, auth, setAuth, hasBuiltInTvdb, hasBuiltInTmdb, hasBuiltInMdblist, hasBuiltInGemini, aiCustomEndpoint, webSearch, catalogTTL, maxCatalogs, collectionImportCatalogCap, maxEpisodeOrders, refreshInstanceLimits, isLoading, sessionId, setSessionId, anilistRequiresAuth, traktSearchEnabled, simklSearchEnabled, lumiereEnabled, jikanEnabled, aiCatalogMaxPerRequest, manifestFingerprint, manifestChangedSinceInstall, markManifestInstalled }}>
++    <ConfigContext.Provider value={{ config, setConfig, addonVersion, resetConfig, auth, setAuth, hasBuiltInTvdb, hasBuiltInTmdb, hasBuiltInMdblist, hasBuiltInGemini, hasBuiltInAiGateway, aiCustomEndpoint, webSearch, catalogTTL, maxCatalogs, collectionImportCatalogCap, maxEpisodeOrders, refreshInstanceLimits, isLoading, sessionId, setSessionId, anilistRequiresAuth, traktSearchEnabled, simklSearchEnabled, lumiereEnabled, jikanEnabled, aiCatalogMaxPerRequest, manifestFingerprint, manifestChangedSinceInstall, markManifestInstalled }}>
        {children}
      </ConfigContext.Provider>
    );

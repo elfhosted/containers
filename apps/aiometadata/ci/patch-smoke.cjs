@@ -199,6 +199,7 @@ expectAll('21', 'index.js', [
 // grounded prompt or web-search pass is sent there.
 expectAll('22', 'utils/gemini-client.js', ['BUILT_IN_AI_BASE_URL', 'BUILT_IN_AI_MODEL', 'isBuiltInAiCall']);
 expect('22', 'utils/openrouter-client.js', 'getDirectDispatcher', 'endpoint calls must bypass any configured proxy');
+expect('22', 'utils/openrouter-client.js', /baseUrl\s*\|\|\s*\(0, ai_endpoint_1\.aiEndpointBase\)\(\)/, 'an explicit endpoint must take precedence over OPENROUTER_BASE_URL');
 expect('22', 'utils/gemini-service.js', 'isBuiltInAiCall(apiKey)');
 expect('22', 'utils/recommendations/provider.js', 'builtInGateway');
 expect('22', 'lib/getSearch.js', 'isBuiltInAiCall(process.env.BUILT_IN_GEMINI_API_KEY');
@@ -242,9 +243,8 @@ expect('28', 'utils/imdbSuggestions.js', 'IMDB_SUGGESTION_BASE');
 // 29: calls through a configured base URL are recorded as the tracker's.
 expectAll('29', 'utils/trackerCalls.js', ['PROXIED_TRACKER_BASES', 'SIMKL_API_BASE', 'MDBLIST_API_BASE']);
 
-// 30: one MovieLens re-sync pass per interval, over linked configurations only.
-expectAll('30', 'lib/movielensSync.js', ['movielens-sync:run-claim', 'getMovieLensConfigs']);
-expect('30', 'lib/databaseCore.js', 'getMovieLensConfigs');
+// 30: one MovieLens re-sync pass per interval across replicas.
+expectAll('30', 'lib/movielensSync.js', ['movielens-sync:run-claim', 'claimSyncPass', 'releaseSyncPass']);
 
 // 31: proxy trust and the client address header are read from the environment.
 expectAll('31', 'index.js', ['process.env.TRUST_PROXY', 'process.env.CLIENT_IP_HEADER', "'trust proxy fn'"]);

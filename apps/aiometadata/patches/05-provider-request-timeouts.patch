@@ -249,7 +249,7 @@ index ef2932c..702a4f7 100644
  const RATE_LIMIT_FALLBACK_DELAY = 10000; // 10 seconds fallback if Retry-After header is missing
  const RETRY_AFTER_BUFFER = 1000; // Add 1 second buffer to Retry-After value
 diff --git a/addon/utils/letterboxdUtils.ts b/addon/utils/letterboxdUtils.ts
-index 5393af2..cc16e11 100644
+index 9e30735..1b4cec6 100644
 --- a/addon/utils/letterboxdUtils.ts
 +++ b/addon/utils/letterboxdUtils.ts
 @@ -11,6 +11,14 @@ const buildInfo = require('../lib/buildInfo');
@@ -288,7 +288,7 @@ index 5393af2..cc16e11 100644
  };
 -
 diff --git a/addon/utils/mdbList.ts b/addon/utils/mdbList.ts
-index f65130e..9707cd2 100644
+index fa939e6..1ec57c6 100644
 --- a/addon/utils/mdbList.ts
 +++ b/addon/utils/mdbList.ts
 @@ -29,6 +29,14 @@ function sanitizeUrlForLogging(url: string): string {
@@ -328,7 +328,7 @@ index f65130e..9707cd2 100644
    baseDelay: 1000,
    maxDelay: 30000,
    maxRetryAfter: 120000,
-@@ -1891,4 +1899,3 @@ export {
+@@ -1906,4 +1914,3 @@ export {
    clearScrobbleSession as clearPlayback,
    fetchMDBListCatalog
  };

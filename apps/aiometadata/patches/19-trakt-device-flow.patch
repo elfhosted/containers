@@ -14,12 +14,12 @@ index 4fd920d..dae106f 100644
  
  ## Disable trakt as a search option (recommended on public instances)
 diff --git a/addon/index.ts b/addon/index.ts
-index 7353325..a28c074 100644
+index 28ff8fd..92c1b71 100644
 --- a/addon/index.ts
 +++ b/addon/index.ts
 @@ -59,7 +59,7 @@ const { resolveDynamicTmdbDiscoverParams } = require('./lib/tmdbDiscoverDateToke
  const { applyCatalogKeyArgs, applyCatalogKeyStamps, hiddenCatalogGenre } = require('./lib/catalogKeyArgs');
- const { blurImage, convertBannerToBackground } = require('./utils/imageProcessor');
+ const { blurImage, convertBannerToBackground, normaliseBannerOptions } = require('./utils/imageProcessor');
  const { getAiTriggerKeyword, applyAiTrigger } = require('./utils/aiSearchTrigger');
 -const { TraktClient } = require('./lib/trakt');
 +const { TraktClient, TRAKT_DEVICE_REDIRECT } = require('./lib/trakt');
@@ -58,7 +58,7 @@ index 7353325..a28c074 100644
      '/api/auth/simkl/authorize',
      '/api/auth/simkl/callback',
      '/api/auth/simkl/pin',
-@@ -630,6 +648,7 @@ const respond = function (req, res, data, opts?) {
+@@ -634,6 +652,7 @@ const respond = function (req, res, data, opts?) {
        gemini: getSetting('GEMINI_API_KEY'),
        trakt: getSetting('TRAKT_CLIENT_ID'),
        simkl: getSetting('SIMKL_CLIENT_ID') || getSetting('SIMKL_V2_CLIENT_ID'),
@@ -66,7 +66,7 @@ index 7353325..a28c074 100644
        simklV2: Boolean(getSetting('SIMKL_V2_CLIENT_ID')),
        simklAuthMode: simklAuth.simklAuthMode(),
        simklListMinTTL: parseInt(getSetting('SIMKL_LIST_MIN_TTL'), 10) || 300,
-@@ -721,6 +740,65 @@ addon.get("/api/auth/trakt/authorize", async (req, res) => {
+@@ -738,6 +757,65 @@ addon.get("/api/auth/trakt/authorize", async (req, res) => {
    }
  });
  
@@ -132,7 +132,7 @@ index 7353325..a28c074 100644
  // Coalesce duplicate exchanges handled by this process only.
  const pendingTraktExchanges = new Map();
  
-@@ -883,35 +961,9 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
+@@ -900,35 +978,9 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
  
  
      const user = await traktClient.getMe(tokens.access_token);
@@ -170,7 +170,7 @@ index 7353325..a28c074 100644
        return res.status(500).send(renderOAuthPage({
          provider: 'trakt',
          status: 'error',
-@@ -921,22 +973,6 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
+@@ -938,22 +990,6 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
        }));
      }
  
@@ -193,7 +193,7 @@ index 7353325..a28c074 100644
      res.send(renderOAuthPage({
        provider: 'trakt',
        status: 'success',
-@@ -958,7 +994,6 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
+@@ -975,7 +1011,6 @@ addon.get("/api/auth/trakt/callback", async (req, res) => {
    }
  });
  
@@ -201,7 +201,7 @@ index 7353325..a28c074 100644
  const configCache = require('./lib/configCache');
  
  // Generic OAuth token info endpoint
-@@ -1152,6 +1187,11 @@ const {
+@@ -1169,6 +1204,11 @@ const {
    pollTooSoon,
    widenPollGap,
    deviceAuthRateLimit,
@@ -213,7 +213,7 @@ index 7353325..a28c074 100644
  } = require('./lib/deviceAuth');
  
  const SIMKL_PIN_NOT_ENABLED = 'Simkl PIN authentication is not enabled on this instance.';
-@@ -1165,7 +1205,7 @@ function simklCodeFlowClient() {
+@@ -1182,7 +1222,7 @@ function simklCodeFlowClient() {
    return v1ClientId ? { v2: false, clientId: v1ClientId } : null;
  }
  
@@ -222,7 +222,7 @@ index 7353325..a28c074 100644
    if (!simklAuth.simklCodeFlowOffered()) {
      return res.status(404).json({ error: SIMKL_PIN_NOT_ENABLED });
    }
-@@ -1264,6 +1304,194 @@ addon.post("/api/auth/simkl/pin/cancel", async (req, res) => {
+@@ -1281,6 +1321,194 @@ addon.post("/api/auth/simkl/pin/cancel", async (req, res) => {
    }
  });
  
@@ -611,10 +611,10 @@ index ef9f43e..22a5ee7 100644
 +  });
 +}
 diff --git a/addon/lib/settingsRegistry.ts b/addon/lib/settingsRegistry.ts
-index fa1b2ea..d47ef14 100644
+index d803aee..f313100 100644
 --- a/addon/lib/settingsRegistry.ts
 +++ b/addon/lib/settingsRegistry.ts
-@@ -264,6 +264,16 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
+@@ -336,6 +336,16 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
      default: 300,
      min: 30,
    },
@@ -998,10 +998,10 @@ index 9775f9f..02ed549 100644
            // A 404 without a status: the code flow is not offered here any more.
            setCode(null);
 diff --git a/docs/ENVIRONMENT_VARIABLES.md b/docs/ENVIRONMENT_VARIABLES.md
-index 190dc93..0f39b47 100644
+index 4a6cff2..09ceeba 100644
 --- a/docs/ENVIRONMENT_VARIABLES.md
 +++ b/docs/ENVIRONMENT_VARIABLES.md
-@@ -216,6 +216,12 @@ to every visitor, so which one you reach for depends on who uses the instance.
+@@ -227,6 +227,12 @@ to every visitor, so which one you reach for depends on who uses the instance.
  - **Description**: Redirect URI for Trakt OAuth. Must match the value set in your Trakt app settings.
  - **Example**: `TRAKT_REDIRECT_URI=https://your-domain.com/api/auth/trakt/callback`
  
