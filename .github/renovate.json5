@@ -51,6 +51,45 @@
       "ignoreTests": true
     },
     {
+      // A Node major is a runtime change the app's upstream has to support
+      // first (#1050 jumped four apps to Node 26 ahead of their upstreams).
+      // Move Node majors by hand, when upstream does.
+      "description": "No Node major bumps: follow each app's upstream",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node", "public.ecr.aws/docker/library/node"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      // aiostreams mirrors upstream's Dockerfile, which pins an exact Node
+      // release (node:24.18.1-slim at v2.38.1). Keep it equal to upstream's
+      // pin rather than chasing newer Node patches.
+      "description": "aiostreams: Node follows upstream's Dockerfile pin",
+      "matchFileNames": ["apps/aiostreams/**"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "enabled": false
+    },
+    {
+      // Floppy's pyproject sets [tool.uv] required-version = "==0.12.3", so any
+      // other uv fails `uv sync --locked`. Bump with upstream's pin.
+      "description": "floppy: uv follows upstream's required-version",
+      "matchFileNames": ["apps/floppy/**"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/astral-sh/uv"],
+      "enabled": false
+    },
+    {
+      // yamtrack builds FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-alpine${ALPINE_VERSION},
+      // so ALPINE_VERSION can only move once uv publishes that tag (#849
+      // failed: python3.12-alpine3.24 does not exist).
+      "description": "yamtrack: Alpine follows the uv image tags",
+      "matchFileNames": ["apps/yamtrack/**"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["alpine", "public.ecr.aws/docker/library/alpine"],
+      "enabled": false
+    },
+    {
       "matchDatasources": ["docker"],
       "commitMessagePrefix": "📣 "
     }
