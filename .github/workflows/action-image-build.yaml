@@ -106,7 +106,7 @@ jobs:
     steps:
       # Always this public repo. Called from containers-private, a bare
       # checkout would fetch the caller instead; there, build from main.
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           repository: elfhosted/containers
           ref: ${{ github.repository != 'elfhosted/containers' && 'main' || '' }}
@@ -115,7 +115,7 @@ jobs:
       # Called from containers-private, its own token can read that repo, so
       # GH_TOKEN_CONTAINERS_PRIVATE is only needed when called from here.
       - name: Checkout private repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           repository: elfhosted/containers-private
           path: containers-private
