@@ -1,0 +1,70 @@
+diff --git a/server/providers/src/limiter.rs b/server/providers/src/limiter.rs
+index ac9cd732..928ca8e7 100644
+--- a/server/providers/src/limiter.rs
++++ b/server/providers/src/limiter.rs
+@@ -319,6 +319,16 @@ pub struct RateLimiter {
+     calls: Arc<CallTally>,
+ }
+ 
++/// AUDIODB_RATE_LIMIT_RPS (a positive number) replaces the `audiodb` row's
++/// rate. Unset, blank or not a positive number keeps upstream's rate.
++fn elfhosted_rate(source: &str) -> Option<f64> {
++    if source != "audiodb" {
++        return None;
++    }
++    let rate: f64 = std::env::var("AUDIODB_RATE_LIMIT_RPS").ok()?.trim().parse().ok()?;
++    (rate.is_finite() && rate > 0.0).then_some(rate)
++}
++
+ impl RateLimiter {
+     /// Build a full bucket of one shape.
+     #[must_use]
+@@ -332,7 +342,7 @@ impl RateLimiter {
+     #[must_use]
+     pub fn from_row(row: &RateRow) -> Self {
+         let per_second = match row.per_second {
+-            Rate::Fixed(per_second) => per_second,
++            Rate::Fixed(per_second) => elfhosted_rate(row.source).unwrap_or(per_second),
+             Rate::Setting => 0.0,
+         };
+         Self::shaped(RatePolicy::new(per_second, row.burst), row.max_in_flight)
+diff --git a/server/src/bootstrap/outbound.rs b/server/src/bootstrap/outbound.rs
+index abb54ea5..67a3039a 100644
+--- a/server/src/bootstrap/outbound.rs
++++ b/server/src/bootstrap/outbound.rs
+@@ -122,13 +122,22 @@ pub struct Outbound {
+     pub ffmpeg: Option<PathBuf>,
+ }
+ 
++/// An environment variable replaces a provider's API root. Unset or blank
++/// keeps upstream's root.
++fn elfhosted_base(var: &str, default: &str) -> String {
++    match std::env::var(var) {
++        Ok(value) if !value.trim().is_empty() => value.trim().trim_end_matches('/').to_owned(),
++        _ => default.to_owned(),
++    }
++}
++
+ impl Outbound {
+     /// The real services.
+     pub fn live() -> Self {
+         Self {
+-            listenbrainz: listenbrainz::DEFAULT_BASE_URL.to_owned(),
++            listenbrainz: elfhosted_base("LISTENBRAINZ_API_BASE", listenbrainz::DEFAULT_BASE_URL),
+             lastfm: lastfm::DEFAULT_BASE_URL.to_owned(),
+-            audiodb: audiodb::DEFAULT_BASE_URL.to_owned(),
++            audiodb: elfhosted_base("AUDIODB_API_BASE", audiodb::DEFAULT_BASE_URL),
+             wikidata: wikidata::WIKIDATA_BASE.to_owned(),
+             wikipedia: wikidata::WIKIPEDIA_PATTERN.to_owned(),
+             commons: wikidata::COMMONS_BASE.to_owned(),
+@@ -151,8 +160,8 @@ impl Outbound {
+             ticketmaster: ticketmaster::TICKETMASTER_API_URL.to_owned(),
+             skiddle: skiddle::SKIDDLE_API_URL.to_owned(),
+             geocoding: geocoding::GEOCODING_API_URL.to_owned(),
+-            musicbrainz: musicbrainz::MB_API_BASE.to_owned(),
+-            brainzmash: musicbrainz::BRAINZMASH_API_BASE.to_owned(),
++            musicbrainz: elfhosted_base("MUSICBRAINZ_OFFICIAL_API_BASE", musicbrainz::MB_API_BASE),
++            brainzmash: elfhosted_base("MUSICBRAINZ_API_BASE", musicbrainz::BRAINZMASH_API_BASE),
+             identify_providers: Port::live(),
+             contribution_providers: Port::live(),
+             ffmpeg: droppedneedle_media::stream::transcode::ffmpeg_on_path(),
