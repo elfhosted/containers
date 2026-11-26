@@ -1,6 +1,7 @@
 # Get upstream code - we use node in this case
-# we need node in this case for the metadata script
-FROM node:22-alpine as cloner
+# we need node in this case for the metadata script. Same Node line as
+# upstream's base stage (package.json engines: node >=24).
+FROM node:24.18.1-alpine AS cloner
 ARG VERSION
 
 RUN apk update && apk upgrade && \
@@ -152,7 +153,8 @@ RUN curl -fsSL -o ffmpeg.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER
   && make -j"$(nproc)" ffprobe \
   && strip ffprobe
 
-FROM gcr.io/distroless/nodejs24-debian12 AS production
+# Matches upstream's runtime base.
+FROM gcr.io/distroless/nodejs24-debian13 AS production
 
 LABEL org.opencontainers.image.title="AIOStreams"
 LABEL org.opencontainers.image.source="https://github.com/Viren070/AIOStreams"
@@ -174,7 +176,8 @@ COPY --from=runtime /runtime /app
 
 COPY --from=cloner /source /upstream-source
 
-CMD ["/nodejs/bin/node", "/app/scripts/healthcheck.js"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD ["/nodejs/bin/node", "/app/scripts/healthcheck.js"]
 EXPOSE ${PORT:-3000}
 
 # These are defaults required to goss-test, and are expected to be overridden by the user.
